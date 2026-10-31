@@ -1,5 +1,5 @@
 //! Anonymous usage data: one small report per install per UTC day, so we
-//! know how Herdr is used. Never what's in a terminal, never from the core,
+//! know how Zaki is used. Never what's in a terminal, never from the core,
 //! never free text: every field is a number, a bucket, a yes/no or a name
 //! from a list the app ships (anything else is `other`).
 //!
@@ -11,9 +11,9 @@
 //!
 //! On unless settings.json says `"telemetry": false` (that also deletes the
 //! id and anything not sent yet). `DO_NOT_TRACK`, `HERDR_TELEMETRY=0` and CI
-//! turn it off for one run. Only release builds (`HERDR_APP_RELEASE`) send,
-//! or a build pointed at a test server with `HERDR_TELEMETRY_URL`: a build
-//! from source and the sandbox collect and show, but never send.
+//! turn it off for one run. Zaki has no telemetry server: only a build
+//! pointed at one with `HERDR_TELEMETRY_URL` sends. Every other build
+//! collects and shows, but never sends.
 
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -25,7 +25,6 @@ use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant, SystemTime};
 
 pub const VERSION: u32 = 1;
-const ENDPOINT: &str = "https://telemetry.herdr.dev/v1/report";
 /// Frozen reports older than this are dropped unsent.
 const KEEP_DAYS: i64 = 7;
 const TICK: Duration = Duration::from_secs(30);
@@ -99,10 +98,7 @@ fn read_env_off() -> Option<&'static str> {
 
 /// Where reports go, if this build sends at all.
 fn endpoint() -> Option<String> {
-    match std::env::var("HERDR_TELEMETRY_URL").ok().filter(|u| !u.is_empty()) {
-        Some(url) => Some(url),
-        None => option_env!("HERDR_APP_RELEASE").map(|_| ENDPOINT.to_owned()),
-    }
+    std::env::var("HERDR_TELEMETRY_URL").ok().filter(|u| !u.is_empty())
 }
 
 pub fn collecting() -> bool {
@@ -621,7 +617,7 @@ impl Worker {
             "setting": SETTING.load(Ordering::Relaxed),
             "off_because": env_off(),
             "sends": endpoint().is_some(),
-            "endpoint": endpoint().unwrap_or_else(|| ENDPOINT.to_owned()),
+            "endpoint": endpoint(),
             "draft": self.install.as_ref().filter(|_| on).map(|i| self.day.report(i)),
             "queued": queued,
             "last_sent": last,

@@ -3692,39 +3692,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2304e00983f87ffb38b55b444b5e3b60a884b5d30c0fca7d82fe33449bbe55ea"
 
 [[package]]
-name = "herdr-app"
-version = "0.1.10"
-dependencies = [
- "anyhow",
- "async-channel",
- "base64",
- "fancy-regex 0.19.2",
- "ghostty-sys",
- "gpui-base",
- "gpui-pre",
- "gpui-pre-linux",
- "gpui-pre-macos",
- "gpui-pre-platform",
- "gpui-pre-windows",
- "gpui-shell",
- "image",
- "libc",
- "notify",
- "png 0.17.16",
- "raw-window-handle",
- "serde",
- "serde_json",
- "sha2 0.10.9",
- "smallvec",
- "tracing",
- "tracing-subscriber",
- "ttf-parser",
- "uds_windows",
- "windows-sys 0.61.2",
- "winresource",
-]
-
-[[package]]
 name = "hermit-abi"
 version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -10099,6 +10066,39 @@ dependencies = [
  "quote",
  "syn 2.0.119",
  "synstructure",
+]
+
+[[package]]
+name = "zaki"
+version = "0.2.0"
+dependencies = [
+ "anyhow",
+ "async-channel",
+ "base64",
+ "fancy-regex 0.19.2",
+ "ghostty-sys",
+ "gpui-base",
+ "gpui-pre",
+ "gpui-pre-linux",
+ "gpui-pre-macos",
+ "gpui-pre-platform",
+ "gpui-pre-windows",
+ "gpui-shell",
+ "image",
+ "libc",
+ "notify",
+ "png 0.17.16",
+ "raw-window-handle",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "smallvec",
+ "tracing",
+ "tracing-subscriber",
+ "ttf-parser",
+ "uds_windows",
+ "windows-sys 0.61.2",
+ "winresource",
 ]
 
 [[package]]

@@ -1,5 +1,5 @@
 //! Every command the app runs, defined once. Keys, menus, mods and
-//! `herdr-app do` all run these; key checks, `herdr-app commands` and the docs come
+//! `zaki do` all run these; key checks, `zaki commands` and the docs come
 //! from this list. Mods' own commands are `<mod>.<command>`.
 
 use serde_json::{Value, json};
@@ -44,7 +44,7 @@ pub const COMMANDS: &[Command] = &[
     cmd("terminal.open", &[opt("argv"), opt("folder"), opt("place"), opt("name")], "Start a terminal: as a new tab (place \"tab\", default), or \"right\"/\"down\" of the focused pane."),
     cmd("terminal.keep", &[req("terminal"), opt("place")], "Give a running terminal without a pane (a sub-agent) a pane: a new tab, or \"right\"/\"down\"."),
     cmd("terminal.park", &[req("terminal")], "Take a terminal's pane away and disable core keep; it keeps running (a sub-agent shows under its parent again)."),
-    cmd("terminal.right_click", &[req("to"), opt("terminal")], "Where right-clicks in a terminal (default: the focused one) go when its program takes the mouse: \"program\" or \"menu\" (Herdr's, the default). Shift+right-click is always the menu."),
+    cmd("terminal.right_click", &[req("to"), opt("terminal")], "Where right-clicks in a terminal (default: the focused one) go when its program takes the mouse: \"program\" or \"menu\" (Zaki's, the default). Shift+right-click is always the menu."),
     cmd("terminal.kill", &[req("terminal")], "End a terminal and its sub-agents."),
     // What you see.
     cmd("space.select", &[opt("index"), opt("id")], "Show a space (by position or id)."),
@@ -86,14 +86,14 @@ pub const COMMANDS: &[Command] = &[
     cmd("app.feedback", &[opt("message"), opt("from")], "Draft feedback for the person to review and send (from: person or agent)."),
     cmd("app.palette", &[], "Open the command palette: every command by name, with its key."),
     cmd("app.settings", &[opt("section")], "Open the settings (section: look, alerts, updates)."),
-    cmd("app.check_updates", &[], "Look for a newer Herdr and herdr-core now."),
+    cmd("app.check_updates", &[], "Look for a newer Zaki and herdr-core now."),
     cmd("app.update_core", &[], "Update herdr-core to its latest release of this generation; terminals keep running."),
     cmd("app.reset", &[], "The escape hatch: set the shown layout and keys aside, back to the default screen."),
     cmd("app.theme", &[req("name")], "Use a theme (a preset or themes/<name>.json)."),
     cmd("app.zoom_in", &[], "Make everything bigger."),
     cmd("app.zoom_out", &[], "Make everything smaller."),
     cmd("app.zoom_reset", &[], "Back to normal size."),
-    cmd("app.update", &[], "Restart into the update Herdr downloaded (your terminals keep running)."),
+    cmd("app.update", &[], "Restart into the update Zaki downloaded (your terminals keep running)."),
     cmd("app.quit", &[], "Quit (macOS)."),
     cmd("app.hide", &[], "Hide the app (macOS)."),
     cmd("app.hide_others", &[], "Hide other apps (macOS)."),
@@ -145,7 +145,7 @@ pub fn missing(c: &Command, args: &Value) -> Option<&'static str> {
     })
 }
 
-/// The list as data, for `herdr-app commands` and mods.
+/// The list as data, for `zaki commands` and mods.
 pub fn listing() -> Value {
     Value::Array(
         COMMANDS
@@ -200,7 +200,7 @@ mod tests {
         let move_ = find("space.move").unwrap();
         assert_eq!(missing(move_, &json!({ "id": " ", "index": 1 })), Some("id"));
         assert_eq!(missing(move_, &json!({ "id": "sp1", "index": 1 })), None);
-        // Names are optional: none is Herdr's automatic one.
+        // Names are optional: none is Zaki's automatic one.
         assert_eq!(missing(find("space.new").unwrap(), &json!({})), None);
     }
 }

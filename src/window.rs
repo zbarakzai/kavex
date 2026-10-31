@@ -131,7 +131,7 @@ fn launch_failure(record: &Value, output: &str) -> Option<String> {
     Some(if tail.is_empty() { format!("Exit code {code}") } else { format!("Exit code {code}\n{tail}") })
 }
 
-/// The shipped layouts (defaults/layouts): `main` is Herdr's window (spaces
+/// The shipped layouts (defaults/layouts): `main` is Zaki's window (spaces
 /// sidebar, tab bar).
 const LAYOUTS: &[(&str, &str)] = &[
     ("main", include_str!("../defaults/layouts/main.json")),
@@ -150,7 +150,7 @@ fn shipped_layout(name: &str) -> &'static str {
     LAYOUTS.iter().find(|(n, _)| *n == name).unwrap_or(&LAYOUTS[0]).1
 }
 
-/// A layout as shipped (main for names Herdr doesn't ship).
+/// A layout as shipped (main for names Zaki doesn't ship).
 fn default_layout(name: &str) -> Node {
     serde_json::from_str(shipped_layout(name)).expect("defaults/layouts are valid")
 }
@@ -404,7 +404,7 @@ pub struct AppWindow {
     cwds: HashMap<String, String>,
     /// When each terminal's repo and branch were last read, and what it was doing.
     folders_checked: HashMap<String, FolderCheck>,
-    /// When Herdr started each terminal: a listing already in flight can't know them yet.
+    /// When Zaki started each terminal: a listing already in flight can't know them yet.
     born: RefCell<HashMap<String, Instant>>,
     /// Connection epoch: ignore replies from an old connection.
     core_generation: u64,
@@ -549,13 +549,13 @@ impl AppWindow {
         install_layouts();
         let name = mods::shared("layout").and_then(|v| v.as_str().map(str::to_owned)).filter(|n| layout_path(n).exists());
         // A layout whose mods are gone (Zen, T4, ADE after the update took
-        // theirs) starts on Herdr's instead of a wall of "did not load".
+        // theirs) starts on Zaki's instead of a wall of "did not load".
         let gone = name.as_deref().map(missing_mods).unwrap_or_default();
         w.load_layout(if gone.is_empty() { name.as_deref().unwrap_or("main") } else { "main" });
         w.apply_look(window, cx);
         w.show_layout_notes(window, cx);
         if let (Some(n), false) = (&name, gone.is_empty()) {
-            let note = json!({ "title": format!("{n} needs mods that aren't here"), "body": format!("Showing Herdr instead. Missing: {}. Your {n} layout file is still there.", gone.join(", ")), "level": "info", "timeout": 12000 });
+            let note = json!({ "title": format!("{n} needs mods that aren't here"), "body": format!("Showing Zaki instead. Missing: {}. Your {n} layout file is still there.", gone.join(", ")), "level": "info", "timeout": 12000 });
             w.open_overlay(mods::new_overlay_id(), json!({ "kind": "toast", "notification": note }), window, cx);
         }
 
@@ -1065,7 +1065,7 @@ impl AppWindow {
     /// What installing layouts kept of the person's own, as toasts.
     fn show_layout_notes(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         for clone in mods::take_sync_notes() {
-            let n = json!({ "title": format!("Your edits are in {clone}"), "body": "Herdr's own layouts and mods can't be changed: clone one to make it yours.", "level": "info", "timeout": 12000 });
+            let n = json!({ "title": format!("Your edits are in {clone}"), "body": "Zaki's own layouts and mods can't be changed: clone one to make it yours.", "level": "info", "timeout": 12000 });
             self.open_overlay(mods::new_overlay_id(), json!({ "kind": "toast", "notification": n }), window, cx);
         }
     }
@@ -1491,7 +1491,7 @@ impl AppWindow {
     fn load(&self, inst: Instance, window: &mut Window, cx: &mut Context<Self>) -> Copy {
         let mut copy = Copy { inst, id: 0, root: None, _watch: None, error: None };
         let (Some(runtime), Some(folder)) = (&self.runtime, self.folders.get(&copy.inst.name)) else {
-            copy.error = Some(format!("no mod folder ~/.config/herdr-app/mods/{}", copy.inst.name));
+            copy.error = Some(format!("no mod folder ~/.config/zaki/mods/{}", copy.inst.name));
             return copy;
         };
         copy.id = mods::prepare_load(&copy.inst);
@@ -1607,8 +1607,8 @@ impl AppWindow {
 
     /// Tells the core where each terminal lives, in words: the `where` label,
     /// `<space> / <tab>`, which hc shows in its picker and `ls`.
-    /// Sub-agents get their parent's. The ids (`herdr.space`,
-    /// `herdr.tab`) are what the app groups by; only this follows renames
+    /// Sub-agents get their parent's. The ids (`zaki.space`,
+    /// `zaki.tab`) are what the app groups by; only this follows renames
     /// and moves. Written only when it changes.
     fn write_where(&mut self, cx: &mut Context<Self>) {
         let m = &self.model;
@@ -1830,7 +1830,7 @@ impl AppWindow {
     /// What a terminal view takes from the core's facts: its folder, where right-clicks go.
     fn tell_term(&self, view: &Entity<TerminalView>, addr: &str, cx: &mut Context<Self>) {
         let cwd = self.cwds.get(addr).map(std::path::PathBuf::from);
-        let to_program = self.live.get(addr).and_then(|r| r.pointer("/labels/herdr.right-click")).and_then(Value::as_str) == Some("program");
+        let to_program = self.live.get(addr).and_then(|r| r.pointer("/labels/zaki.right-click")).and_then(Value::as_str) == Some("program");
         view.update(cx, |v, _| {
             v.cwd = cwd;
             v.right_click_to_program = to_program;
@@ -1886,7 +1886,7 @@ impl AppWindow {
             }
             changed |= self.model.set_word(addr, word, app, looking);
         }
-        // Changes already made before Herdr started aren't news.
+        // Changes already made before Zaki started aren't news.
         if self.listed_once {
             for (addr, alert, looking) in alerts {
                 self.alert(&addr, alert, looking, window, cx);
@@ -1907,7 +1907,7 @@ impl AppWindow {
         }
     }
 
-    /// Tells the person an agent needs them or finished: Herdr's sounds, and a
+    /// Tells the person an agent needs them or finished: Zaki's sounds, and a
     /// toast (drawn by the `toast` mod; click it to go there) unless they're
     /// looking at that agent.
     fn alert(&mut self, addr: &str, alert: model::Alert, looking: bool, window: &mut Window, cx: &mut Context<Self>) {
@@ -1949,7 +1949,7 @@ impl AppWindow {
 
     /// Keeps the model true to core, on every listing: drops panes whose terminal
     /// is gone (ended while hidden, or while the app was closed) and places
-    /// terminals labeled `herdr.space` that aren't shown (started by an
+    /// terminals labeled `zaki.space` that aren't shown (started by an
     /// agent, a script, or before a restart). Returns whether anything changed.
     fn reconcile(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
         // No fresh shells while quitting: the next start brings them back.
@@ -1968,8 +1968,8 @@ impl AppWindow {
                 let machine = a.split_once('/').map(|(m, _)| m);
                 if !self.documents.get(machine.unwrap_or("")).is_some_and(|s| s.available) { return None; }
                 let labels = r.get("labels")?;
-                let space = labels.get("herdr.space")?.as_str().filter(|s| !s.is_empty())?;
-                let tab = labels.get("herdr.tab").and_then(Value::as_str).filter(|s| !s.is_empty());
+                let space = labels.get("zaki.space")?.as_str().filter(|s| !s.is_empty())?;
+                let tab = labels.get("zaki.tab").and_then(Value::as_str).filter(|s| !s.is_empty());
                 Some((a.clone(), crate::mirror::qualify(space, machine), tab.map(|t| crate::mirror::qualify(t, machine))))
             }).collect::<Vec<_>>();
         orphans.sort();
@@ -2010,12 +2010,12 @@ impl AppWindow {
 
     /// Puts a live terminal where its labels say, without changing what's
     /// shown. A space or tab the app doesn't know is made under the label's
-    /// id, unnamed (called Herdr's way).
+    /// id, unnamed (called Zaki's way).
     fn adopt(&mut self, addr: &str, space: &str, ctx: Option<&str>) {
         let machine = addr.split_once('/').map(|(m, _)| m.to_owned());
         let pane = self.model.fresh_id_on("p", machine.as_deref());
         let ctx_id = ctx.map(str::to_owned).unwrap_or_else(|| self.model.fresh_id_on("tb", machine.as_deref()));
-        // Found by its labels: no names, so they're called Herdr's way.
+        // Found by its labels: no names, so they're called Zaki's way.
         let new_ctx = Tab::new(&ctx_id, "", &pane, addr);
         if self.model.space(space).is_none() {
             // Its live folder may not be read yet: the core's record has it.
@@ -2171,7 +2171,7 @@ impl AppWindow {
     // ---- creating terminals ------------------------------------------------
 
     /// The folder new terminals in `space` start in: where its shown tab's focused
-    /// pane is now (Herdr's "follow"), else the folder the space was made in.
+    /// pane is now (Zaki's "follow"), else the folder the space was made in.
     fn folder_for(&self, space: &str) -> String {
         let p = self.model.space(space);
         let here = p.and_then(|p| p.active_tab()).and_then(|c| c.focused_pane()).and_then(|f| self.model.address_of(&f)).and_then(|a| self.cwds.get(&a).cloned());
@@ -2184,7 +2184,7 @@ impl AppWindow {
             Some(slot) if slot.available => Ok(()),
             Some(slot) => Err(slot.error.clone().unwrap_or_else(|| "This machine's layout is unavailable. Try again when it reconnects.".into())),
             None => Err(match machine {
-                Some(m) => format!("Herdr has no machine called {m}. See hc machine ls; machines added with --temp stay out of Herdr."),
+                Some(m) => format!("Zaki has no machine called {m}. See hc machine ls; machines added with --temp stay out of Zaki."),
                 None => "This machine's layout is unavailable. Try again when it reconnects.".into(),
             }),
         }
@@ -2201,7 +2201,7 @@ impl AppWindow {
         let argv = argv.unwrap_or_default();
         let cwd = Some(cwd).filter(|c| !c.is_empty());
         self.require_document(on)?;
-        let labels = json!({ "herdr.space": crate::mirror::local(space, on), "herdr.tab": crate::mirror::local(ctx, on) });
+        let labels = json!({ "zaki.space": crate::mirror::local(space, on), "zaki.tab": crate::mirror::local(ctx, on) });
         let addr = match self.core.run(argv.clone(), cwd.clone(), labels.clone(), on) {
             // An agent on a machine without `sh` (Windows): in its PowerShell instead.
             Err(e) if on.is_some() && argv.first().map(String::as_str) == Some("sh") && format!("{e:#}").contains("not found") => {
@@ -2399,9 +2399,9 @@ impl AppWindow {
         let machine = address.split_once('/').map(|(m, _)| m);
         let (keep, labels) = match &change {
             TerminalChange::Keep { space, tab, .. } => (true, json!({
-                "herdr.space":crate::mirror::local(space, machine), "herdr.tab":crate::mirror::local(tab, machine),
+                "zaki.space":crate::mirror::local(space, machine), "zaki.tab":crate::mirror::local(tab, machine),
             })),
-            TerminalChange::Park => (false, json!({"herdr.space":"","herdr.tab":""})),
+            TerminalChange::Park => (false, json!({"zaki.space":"","zaki.tab":""})),
         };
         let (tx, rx) = std::sync::mpsc::channel();
         self.changing_terminals.insert(address.clone());
@@ -2475,7 +2475,7 @@ impl AppWindow {
             let parent = doomed[i].clone();
             for (addr, rec) in &self.live {
                 let child = rec.get("parent").and_then(Value::as_str) == Some(parent.as_str());
-                let kept = rec.get("labels").and_then(|l| l.get("herdr.space")).and_then(Value::as_str).is_some_and(|w| !w.is_empty());
+                let kept = rec.get("labels").and_then(|l| l.get("zaki.space")).and_then(Value::as_str).is_some_and(|w| !w.is_empty());
                 if child && !kept && !doomed.contains(addr) {
                     doomed.push(addr.clone());
                 }
@@ -2579,7 +2579,7 @@ impl AppWindow {
                 return json!({ "ok": true });
             }
             tracing::warn!("unknown command {name:?}");
-            return json!({ "error": format!("unknown command {name:?}: see `herdr-app commands`; a mod's are <mod>.<command> and need the mod loaded") });
+            return json!({ "error": format!("unknown command {name:?}: see `zaki commands`; a mod's are <mod>.<command> and need the mod loaded") });
         };
         if let Err(error) = crate::commands::validate_args(command, &args) {
             return json!({ "error": error });
@@ -2867,7 +2867,7 @@ impl AppWindow {
                 let Some(t) = t.filter(|t| self.live.contains_key(t)) else { return self.fail("no such running terminal") };
                 // Off the UI thread: a terminal on a slow machine answers late.
                 let core = self.core.clone();
-                let params = json!({ "terminal": t, "labels": { "herdr.right-click": to } });
+                let params = json!({ "terminal": t, "labels": { "zaki.right-click": to } });
                 cx.background_executor()
                     .spawn(async move {
                         if let Err(e) = core.call("terminal.label", params) {
@@ -2974,7 +2974,7 @@ impl AppWindow {
                     Err(e) => return self.fail(format!("layout: {e}")),
                 };
                 if layout_sync::without_clicks(&self.chrome, &n) != self.chrome {
-                    return self.fail("Only supported click/look fields can change on Herdr's own layouts: clone one for other changes");
+                    return self.fail("Only supported click/look fields can change on Zaki's own layouts: clone one for other changes");
                 }
                 let mut state = layout_sync::State::between(&self.file_chrome, &n);
                 if n.look.theme == self.chrome.look.theme {
@@ -3024,7 +3024,7 @@ impl AppWindow {
             "layout.reset" => {
                 let name = Self::owned(a, "name").unwrap_or_else(|| self.layout_name.clone());
                 let Some((_, text)) = LAYOUTS.iter().find(|(n, _)| *n == name) else {
-                    return self.fail(format!("{name:?} isn't a layout Herdr ships"));
+                    return self.fail(format!("{name:?} isn't a layout Zaki ships"));
                 };
                 // Theirs is kept under a name nothing else has (never over an older one).
                 if layout_path(&name).exists() {
@@ -3424,7 +3424,7 @@ impl AppWindow {
         if cmd.get("commands").is_some() {
             return crate::commands::listing();
         }
-        // Herdr was launched again: this window comes to the front instead.
+        // Zaki was launched again: this window comes to the front instead.
         if cmd.get("raise").is_some() {
             cx.activate(true);
             window.activate_window();
@@ -3461,7 +3461,7 @@ impl AppWindow {
         json!({ "error": "expected { do }, { ls }, { commands } or { status }" })
     }
 
-    /// Spaces, their tabs and terminals, for `herdr-app ls`. Sub-agents are listed
+    /// Spaces, their tabs and terminals, for `zaki ls`. Sub-agents are listed
     /// under the terminal that started them.
     fn world(&self) -> Value {
         let m = &self.model;
@@ -3848,7 +3848,7 @@ impl AppWindow {
                 .text_xs()
                 .text_color(c("blocked"))
                 .overflow_y_scroll()
-                .child(format!("{} did not load:\n\n{}\n\nFix the files; Herdr retries on save.", inst.name, error.as_deref().unwrap_or("?")))
+                .child(format!("{} did not load:\n\n{}\n\nFix the files; Zaki retries on save.", inst.name, error.as_deref().unwrap_or("?")))
                 .into_any_element(),
             None => div().into_any_element(),
         }
@@ -4057,14 +4057,14 @@ impl AppWindow {
 const UPDATE_PILL_HEIGHT: f32 = 34.0;
 
 impl AppWindow {
-    /// "Herdr 0.2.0 is ready · Restart": the frame's, so no layout or mod can hide it.
+    /// "Zaki 0.2.0 is ready · Restart": the frame's, so no layout or mod can hide it.
     /// What's waiting, in words: the pill shows it until clicked or dismissed.
     fn update_label() -> Option<String> {
         let core = crate::update::core();
         let core = core.ready.filter(|_| !core.updating);
         match (crate::update::ready(), core) {
-            (Some(a), Some(c)) => Some(format!("Herdr {a} and herdr-core {c} are ready")),
-            (Some(a), None) => Some(format!("Herdr {a} is ready")),
+            (Some(a), Some(c)) => Some(format!("Zaki {a} and herdr-core {c} are ready")),
+            (Some(a), None) => Some(format!("Zaki {a} is ready")),
             (None, Some(c)) => Some(format!("herdr-core {c} is ready")),
             (None, None) => None,
         }
@@ -4198,7 +4198,7 @@ struct FolderCheck {
     repo: bool,
 }
 
-/// Changes made outside Herdr (a commit in another app): looked for this often,
+/// Changes made outside Zaki (a commit in another app): looked for this often,
 /// in repos, while the window is in front.
 const FOLDER_FALLBACK: Duration = Duration::from_secs(60);
 
@@ -4374,8 +4374,8 @@ fn running_argv(rec: &serde_json::Map<String, Value>) -> Option<&Value> {
 /// it still runs. A listing taken just before it ended still shows it running,
 /// and labels outlive the program: putting it back would show a dead pane.
 fn adoptable(record: &Value, space: &str, tab: Option<&str>, machine: Option<&str>) -> bool {
-    let label = record.pointer("/labels/herdr.space").and_then(Value::as_str);
-    let labeled_tab = record.pointer("/labels/herdr.tab").and_then(Value::as_str).filter(|s| !s.is_empty());
+    let label = record.pointer("/labels/zaki.space").and_then(Value::as_str);
+    let labeled_tab = record.pointer("/labels/zaki.tab").and_then(Value::as_str).filter(|s| !s.is_empty());
     record["state"] == "live"
         && label == Some(crate::mirror::local(space, machine))
         && labeled_tab == tab.map(|t| crate::mirror::local(t, machine))
@@ -4471,7 +4471,7 @@ impl Render for AppWindow {
             .id("herdr")
             .track_focus(&self.focus)
             // `layout:<name>` key sections apply while that layout shows.
-            .key_context(format!("Herdr layout = {}", self.layout_name).as_str())
+            .key_context(format!("Zaki layout = {}", self.layout_name).as_str())
             .size_full()
             .relative()
             .bg(c("background"))
@@ -4754,7 +4754,7 @@ mod tests {
 
     #[test]
     fn a_finished_terminal_is_not_put_back_in_its_tab() {
-        let record = |state: &str| serde_json::json!({ "state": state, "labels": { "herdr.space": "sp1", "herdr.tab": "tb1" } });
+        let record = |state: &str| serde_json::json!({ "state": state, "labels": { "zaki.space": "sp1", "zaki.tab": "tb1" } });
         assert!(super::adoptable(&record("live"), "sp1", Some("tb1"), None));
         assert!(!super::adoptable(&record("finished"), "sp1", Some("tb1"), None));
         assert!(!super::adoptable(&record("live"), "sp2", Some("tb1"), None));

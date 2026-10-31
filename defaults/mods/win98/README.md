@@ -1,6 +1,6 @@
-# Herdr 98
+# Zaki 98
 
-A Windows 98 layout for Herdr: `layouts/win98.json` + `themes/win98.json` +
+A Windows 98 layout for Zaki: `layouts/win98.json` + `themes/win98.json` +
 this mod. One mod, many roles (`main.js`): taskbar, desktop, window (pane
 title bars), menu (Start menu too), dialog, mines, sol, clippy. `kit.js`
 draws the Win98 bits (bevels, buttons, title bars) in whole device pixels at

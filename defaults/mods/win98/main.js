@@ -1,4 +1,4 @@
-// Herdr 98: the whole Windows 98 layout is this one mod, in roles.
+// Zaki 98: the whole Windows 98 layout is this one mod, in roles.
 // The layout and overlays give each copy props { role }:
 //   taskbar  the Start button, tabs as windows, the tray and clock
 //   desktop  icons on the teal desktop: spaces as folders, games, bin

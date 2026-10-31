@@ -1,5 +1,5 @@
-//! The app's own updates. An installed app (Linux: `~/.local/share/herdr-app`,
-//! macOS: `Herdr.app`) checks `releases.herdr.dev/app/latest.json` a little
+//! The app's own updates. An installed app (Linux: `~/.local/share/zaki`,
+//! macOS: `Zaki.app`) checks `app/latest.json` on Zaki's release server a little
 //! after it opens and every hour, downloads a newer build for this
 //! machine, checks its sha256 and unpacks it next to itself (`<install>.new`).
 //! The frame then shows "Restart"; the swap happens on restart or the next
@@ -7,10 +7,12 @@
 //! after a swap runs `hc update` for the core.
 //!
 //! A build from source never updates: only `scripts/package` (the release
-//! builds) sets `HERDR_APP_RELEASE`. `scripts/install-macos` makes a
-//! Herdr.app too, so the install's shape alone can't tell.
+//! builds) sets `HERDR_APP_RELEASE`, with the server in `RELEASES_URL`.
+//! `scripts/install-macos` makes a Zaki.app too, so the install's shape alone
+//! can't tell.
 //!
-//! The core is checked on the same clock (`core/latest.json`): a newer core
+//! The core is checked on the same clock, on Herdr's server, which publishes
+//! it (`core/latest.json`): a newer core
 //! of the same generation is offered (also applied after an app update), unless
 //! a package manager owns it. Within a generation a newer core only adds.
 
@@ -35,23 +37,23 @@ fn find_root() -> Option<PathBuf> {
     let exe = std::env::current_exe().ok()?.canonicalize().ok()?;
     let dir = exe.parent()?;
     if cfg!(target_os = "macos") {
-        // Herdr.app/Contents/MacOS/Herdr
+        // Zaki.app/Contents/MacOS/Zaki
         let bundle = dir.parent()?.parent()?;
         (bundle.extension()? == "app").then(|| bundle.to_path_buf())
     } else {
         // The release folder holds the binary and its icon; cargo's target/ doesn't.
-        dir.join("herdr-app.svg").is_file().then(|| dir.to_path_buf())
+        dir.join("zaki.svg").is_file().then(|| dir.to_path_buf())
     }
 }
 
 /// The folder or bundle name inside a release tarball.
-const PACKED: &str = if cfg!(target_os = "macos") { "Herdr.app" } else { "herdr-app" };
+const PACKED: &str = if cfg!(target_os = "macos") { "Zaki.app" } else { "zaki" };
 
 fn beside(root: &Path, suffix: &str) -> PathBuf {
     let mut name = root.file_name().unwrap_or_default().to_os_string();
     name.push(suffix);
     // macOS: Spotlight skips a folder ending in `.noindex`, so a staged
-    // `Herdr.app.new` never shows up in search under that name.
+    // `Zaki.app.new` never shows up in search under that name.
     if cfg!(target_os = "macos") {
         name.push(".noindex");
     }
@@ -71,6 +73,10 @@ fn target() -> String {
 
 fn releases() -> String {
     std::env::var("HERDR_RELEASES_URL").unwrap_or_else(|_| "https://releases.herdr.dev".into())
+}
+
+fn app_releases() -> String {
+    std::env::var("HERDR_RELEASES_URL").unwrap_or_else(|_| option_env!("RELEASES_URL").unwrap_or_default().into())
 }
 
 /// The version downloaded and waiting for a restart.
@@ -259,7 +265,7 @@ pub fn update_core() {
 /// Downloads the latest release if it's newer. Ok(Some): a version is ready.
 fn check(root: &Path) -> Result<Option<String>, String> {
     let path = "app/latest.json";
-    let text = curl_text(&format!("{}/{path}", releases()))?;
+    let text = curl_text(&format!("{}/{path}", app_releases()))?;
     let manifest: serde_json::Value = serde_json::from_str(&text).map_err(|e| format!("{path}: {e}"))?;
     let version = manifest["version"].as_str().ok_or(format!("{path}: no version"))?;
     if !newer(version, env!("CARGO_PKG_VERSION")) {
@@ -267,7 +273,7 @@ fn check(root: &Path) -> Result<Option<String>, String> {
     }
     // Notes are optional: a missing feed must never hold up the update.
     if !crate::update_notes::has(version)
-        && let Ok(text) = curl_text(&format!("{}/app/{version}/changelog.md", releases()))
+        && let Ok(text) = curl_text(&format!("{}/app/{version}/changelog.md", app_releases()))
     {
         crate::update_notes::cache(&text);
     }
@@ -279,7 +285,7 @@ fn check(root: &Path) -> Result<Option<String>, String> {
     let (Some(url), Some(sha)) = (entry["url"].as_str(), entry["sha256"].as_str()) else {
         return Ok(None);
     };
-    tracing::info!("downloading Herdr {version}");
+    tracing::info!("downloading Zaki {version}");
     let work = beside(root, ".download");
     let _ = std::fs::remove_dir_all(&work);
     std::fs::create_dir_all(&work).map_err(|e| format!("{}: {e}", work.display()))?;
@@ -374,20 +380,20 @@ fn run(cmd: &mut Command) -> Result<(), String> {
 
 fn exe_in(app: &Path) -> PathBuf {
     if cfg!(target_os = "macos") {
-        app.join("Contents/MacOS/Herdr")
+        app.join("Contents/MacOS/Zaki")
     } else {
-        app.join(format!("herdr-app{}", std::env::consts::EXE_SUFFIX))
+        app.join(format!("zaki{}", std::env::consts::EXE_SUFFIX))
     }
 }
 
-/// What `herdr-app --version` says in this folder or bundle (`0.2.0`).
+/// What `zaki --version` says in this folder or bundle (`0.2.0`).
 fn version_of(app: &Path) -> Option<String> {
     let out = crate::spawn::command(exe_in(app)).arg("--version").stdin(Stdio::null()).stderr(Stdio::null()).output().ok()?;
     let text = String::from_utf8_lossy(&out.stdout);
     if !out.status.success() {
         return None;
     }
-    text.trim().strip_prefix("herdr-app ").map(str::to_owned)
+    text.trim().strip_prefix("zaki ").map(str::to_owned)
 }
 
 /// `a` is a later version than `b` (semver; `0.2.0-rc.1` comes before `0.2.0`).
@@ -522,9 +528,9 @@ fn relaunch_expected(expected: Option<&str>) -> bool {
     let Some(root) = root() else { return false };
     // LaunchServices need not preserve the startup guard or an isolated home.
     let open = if cfg!(target_os = "macos") {
-        if expected.is_some() { "exec \"$1/Contents/MacOS/Herdr\"" } else { "open \"$1\"" }
+        if expected.is_some() { "exec \"$1/Contents/MacOS/Zaki\"" } else { "open \"$1\"" }
     } else {
-        "exec \"$1/herdr-app\""
+        "exec \"$1/zaki\""
     };
     let script = format!("while kill -0 \"$0\" 2>/dev/null; do sleep 0.1; done; {open}");
     let spawned = {
@@ -617,7 +623,7 @@ mod tests {
         let receipt = beside(&root, ".new.json");
         let exe = exe_in(&staged);
         std::fs::create_dir_all(exe.parent().unwrap()).unwrap();
-        std::fs::write(&exe, "#!/bin/sh\necho herdr-app 0.1.8\n").unwrap();
+        std::fs::write(&exe, "#!/bin/sh\necho zaki 0.1.8\n").unwrap();
         std::fs::set_permissions(&exe, std::fs::Permissions::from_mode(0o755)).unwrap();
         assert_eq!(staged_version(&root), None);
         assert!(staged.is_dir()); // Legacy stages are left for the checker.
@@ -684,7 +690,7 @@ mod tests {
         assert_eq!(release_signature(signature.status.success(), &String::from_utf8_lossy(&signature.stderr)), Ok(true));
         run(Command::new("/usr/bin/codesign").args(["--verify", "--deep", "--strict"]).arg(&app)).unwrap();
         run(Command::new("tar").arg("-xzf").arg(signed.join("app.tar.gz")).arg("-C").arg(&reference)).unwrap();
-        for file in ["Contents/Info.plist", "Contents/MacOS/Herdr", "Contents/_CodeSignature/CodeResources"] {
+        for file in ["Contents/Info.plist", "Contents/MacOS/Zaki", "Contents/_CodeSignature/CodeResources"] {
             assert_eq!(std::fs::read(app.join(file)).unwrap(), std::fs::read(reference.join(PACKED).join(file)).unwrap(), "{file} was modified");
         }
         for kind in ["adhoc", "unsigned"] {

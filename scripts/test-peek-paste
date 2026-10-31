@@ -3,7 +3,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 export HERDR_APP_SANDBOX="peek-paste-test-$$"
-root="/var/tmp/herdr-app-$HERDR_APP_SANDBOX"
+root="/var/tmp/zaki-$HERDR_APP_SANDBOX"
 sandbox() { scripts/sandbox "$@"; }
 trap 'sandbox down' EXIT
 sandbox up
@@ -67,11 +67,11 @@ sandbox key C Control_L Shift_L
 [[ $(xsel --clipboard --output) == READY ]]
 sandbox do terminal.right_click '{"to":"program"}'
 for _ in {1..100}; do
-  if [[ $(sandbox hc get "$child" | jq -r '.labels["herdr.right-click"]') == program ]]; then break; fi
+  if [[ $(sandbox hc get "$child" | jq -r '.labels["zaki.right-click"]') == program ]]; then break; fi
   sleep 0.1
 done
-[[ $(sandbox hc get "$child" | jq -r '.labels["herdr.right-click"]') == program ]]
-[[ $(sandbox hc get "$parent" | jq -r '.labels["herdr.right-click"]') == null ]]
+[[ $(sandbox hc get "$child" | jq -r '.labels["zaki.right-click"]') == program ]]
+[[ $(sandbox hc get "$parent" | jq -r '.labels["zaki.right-click"]') == null ]]
 if sandbox hc read "$parent" --lines 30 | grep -Eq 'SENTINEL|PASTE:|CTRL_V'; then
   echo 'input leaked into the parent terminal' >&2
   exit 1

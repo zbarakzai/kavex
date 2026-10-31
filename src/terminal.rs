@@ -502,7 +502,7 @@ impl TerminalView {
 
     fn key_down(&mut self, ev: &KeyDownEvent, _w: &mut Window, cx: &mut Context<Self>) {
         let k = &ev.keystroke;
-        // Typing clears a selection, as in Herdr.
+        // Typing clears a selection, as in Zaki.
         if !k.key.starts_with("shift") && !k.key.starts_with("control") && !k.key.starts_with("alt") {
             self.grid.borrow_mut().vt.clear_selection();
         }
@@ -552,13 +552,13 @@ impl TerminalView {
         cx.notify();
     }
 
-    /// The program tracks the mouse and Shift isn't held (Shift keeps the mouse Herdr's).
+    /// The program tracks the mouse and Shift isn't held (Shift keeps the mouse Zaki's).
     fn takes_mouse(&self, mods: Modifiers) -> bool {
         self.grid.borrow().vt.mouse_tracking() && !mods.shift
     }
 
     /// Sends a mouse event to a program that tracks the mouse. Returns whether it did
-    /// (shift keeps the mouse for Herdr: selecting, the menu).
+    /// (shift keeps the mouse for Zaki: selecting, the menu).
     fn mouse(&mut self, action: GhosttyMouseAction, button: Option<MouseButton>, pos: Point<Pixels>, mods: Modifiers) -> bool {
         let mut g = self.grid.borrow_mut();
         if !track_mouse_button(&mut g.buttons_down, action, button) {
@@ -661,7 +661,7 @@ impl TerminalView {
         g.vt.select(step, col, row, x, y, cw, height);
         drop(g);
         if matches!(step, Select::Release) {
-            // Copy on select, as in Herdr.
+            // Copy on select, as in Zaki.
             self.copy(cx);
         }
         cx.notify();
@@ -675,7 +675,7 @@ fn selection_scroll_lines(y: f32, cell_height: f32, rows: u16) -> isize {
 }
 
 /// A title as it's shown: an agent's spinner in front of it (`\u{2733} Fix the
-/// tests`, braille dots) is no part of it. Herdr draws its own, and a title
+/// tests`, braille dots) is no part of it. Zaki draws its own, and a title
 /// that spins would redraw every mod that shows titles, 10 times a second.
 pub(crate) fn shown_title(title: &str) -> &str {
     // Frames agents spin, not status icons (\u{2713} build stays): braille dots,
@@ -1352,7 +1352,7 @@ impl Render for TerminalView {
                     this.start_selection(ev.position, cx);
                 }
             }))
-            // Right-click is Herdr's menu, even when the program tracks the mouse
+            // Right-click is Zaki's menu, even when the program tracks the mouse
             // (agent TUIs do, and then a pane had no menu at all), unless the pane
             // sends right-clicks to its program.
             .on_mouse_down(MouseButton::Right, cx.listener(|this, ev: &MouseDownEvent, _, cx| {
@@ -1750,7 +1750,7 @@ mod tests {
         let _guard = OPTION_AS_ALT_TEST_LOCK.lock().unwrap();
         #[cfg(target_os = "macos")]
         gpui_macos::set_option_as_alt(Some(false));
-        // Herdr keeps native Option text on macOS (libghostty's default
+        // Zaki keeps native Option text on macOS (libghostty's default
         // option-as-alt=false); other platforms prefix an unconsumed Alt.
         const ALT_B: &[u8] = if cfg!(target_os = "macos") { b"b" } else { b"\x1bb" };
         const KITTY_ALT_B: &[u8] = if cfg!(target_os = "macos") { b"b" } else { b"\x1b[98;3u" };

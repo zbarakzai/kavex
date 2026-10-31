@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """How much CPU the app uses, and how often it draws, in fixed scenarios.
 
-    scripts/bench.py [--bin target/release/herdr-app] [--seconds 20] [--sample]
+    scripts/bench.py [--bin target/release/zaki] [--seconds 20] [--sample]
 
 Runs the app on its own temporary home and core session, so nothing of yours
 is touched; prints the artifact folder and keeps it after cleanup. Requires hc
@@ -317,7 +317,7 @@ def measure(name, app, seconds, sample):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--bin", default=os.path.join(HERE, "..", "target", "release", "herdr-app.exe" if sys.platform == "win32" else "herdr-app"))
+    ap.add_argument("--bin", default=os.path.join(HERE, "..", "target", "release", "zaki.exe" if sys.platform == "win32" else "zaki"))
     ap.add_argument("--seconds", type=int, default=20)
     ap.add_argument("--sample", action="store_true")
     ap.add_argument("--zoom", type=float, default=1.0)
@@ -331,7 +331,7 @@ def main():
     ONLY = a.only
     bin = os.path.abspath(a.bin)
 
-    ROOT = tempfile.mkdtemp(prefix="herdr-app-bench-", dir=None if sys.platform == "win32" else "/var/tmp")
+    ROOT = tempfile.mkdtemp(prefix="zaki-bench-", dir=None if sys.platform == "win32" else "/var/tmp")
     SESSION = "hb" + os.path.basename(ROOT)[-6:]
     print(f"bench: {ROOT}", flush=True)
     with open(f"{ROOT}/run.json", "w") as f:

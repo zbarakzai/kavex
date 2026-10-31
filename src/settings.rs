@@ -14,7 +14,7 @@ use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::Mutex;
 
-/// A terminal palette, as herdr-app shipped them.
+/// A terminal palette, as zaki shipped them.
 #[derive(Clone)]
 struct Palette {
     background: u32,
@@ -370,7 +370,7 @@ pub struct Person {
     /// How big the whole app is drawn (1 = as designed). The zoom keys change it.
     pub zoom: f32,
     pub sounds: Sounds,
-    /// The herdr-core to use, when it isn't where Herdr looks (core_bin.rs).
+    /// The herdr-core to use, when it isn't where Zaki looks (core_bin.rs).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub core: Option<String>,
     /// Fonts for layouts that don't set their own.
@@ -487,7 +487,7 @@ pub struct Settings {
 
 /// Attention sounds: when an agent needs you, and when one finished while you
 /// weren't looking. `done` / `blocked`: an MP3 file instead of the bundled one
-/// (absolute, or relative to ~/.config/herdr-app).
+/// (absolute, or relative to ~/.config/zaki).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Sounds {
@@ -542,7 +542,7 @@ impl Settings {
             None => (DEFAULT_LIGHT.to_owned(), DEFAULT_DARK.to_owned()),
         };
         Settings {
-            // The layout's own, else the person's, else Herdr's.
+            // The layout's own, else the person's, else Zaki's.
             font_family: look.font.clone().or(person.font.clone()).unwrap_or(d.font_family),
             font_size: look.font_size.or(person.font_size).unwrap_or(d.font_size),
             ui_font_family: look.ui_font.clone().or(person.ui_font.clone()).unwrap_or(d.ui_font_family),
@@ -754,7 +754,7 @@ pub fn note_fonts(names: Vec<String>) {
 }
 
 /// Font files the home brings: `fonts/` and each mod's `fonts/` (a layout's
-/// look travels with its mod, as Herdr 98's does). Loads the ones not loaded
+/// look travels with its mod, as Zaki 98's does). Loads the ones not loaded
 /// yet; true when any was.
 pub fn load_home_fonts(cx: &mut gpui::App) -> bool {
     static LOADED: Mutex<Vec<PathBuf>> = Mutex::new(Vec::new());
@@ -801,7 +801,7 @@ pub fn terminal_font() -> String {
     }
 }
 
-/// Fonts Herdr ships, so the defaults look the same everywhere.
+/// Fonts Zaki ships, so the defaults look the same everywhere.
 pub const BUNDLED_FONTS: &[&[u8]] = &[
     include_bytes!("../assets/fonts/GeistMono-Variable.ttf"),
     include_bytes!("../assets/fonts/GeistMono-Italic-Variable.ttf"),

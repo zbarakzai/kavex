@@ -1,5 +1,5 @@
-//! Mods: folders of JavaScript under ~/.config/herdr-app/mods that agents write and
-//! Herdr runs live (gpui-shell), plus the `herdr` module they import.
+//! Mods: folders of JavaScript under ~/.config/zaki/mods that agents write and
+//! Zaki runs live (gpui-shell), plus the `herdr` module they import.
 
 use crate::layout::Node;
 use gpui::App;
@@ -45,10 +45,10 @@ pub fn note_fonts(cx: &gpui::App) {
 }
 
 /// The app's home: `$HERDR_APP_HOME` (tests, experiments), else
-/// `$XDG_CONFIG_HOME/herdr-app`, else `~/.config/herdr-app`, on every OS.
+/// `$XDG_CONFIG_HOME/zaki`, else `~/.config/zaki`, on every OS.
 pub fn app_dir() -> PathBuf {
     let env = |k: &str| std::env::var_os(k).filter(|v| !v.is_empty()).map(PathBuf::from);
-    env("HERDR_APP_HOME").unwrap_or_else(|| env("XDG_CONFIG_HOME").unwrap_or_else(|| home().join(".config")).join("herdr-app"))
+    env("HERDR_APP_HOME").unwrap_or_else(|| env("XDG_CONFIG_HOME").unwrap_or_else(|| home().join(".config")).join("zaki"))
 }
 
 pub fn mods_dir() -> PathBuf {
@@ -309,7 +309,7 @@ fn as_shipped(dir: &Path, files: &Files) -> bool {
 
 /// File path (inside the mod) to content fingerprint.
 type Files = std::collections::BTreeMap<String, String>;
-/// Default mods Herdr installed, with the files as installed.
+/// Default mods Zaki installed, with the files as installed.
 type Installed = std::collections::BTreeMap<String, Files>;
 
 /// FNV-1a: stable across builds, unlike std's hasher.
@@ -318,7 +318,7 @@ fn fingerprint(bytes: &[u8]) -> String {
     format!("{h:016x}")
 }
 
-/// Whether every file Herdr installed is still there as installed.
+/// Whether every file Zaki installed is still there as installed.
 fn untouched(dir: &Path, files: &Files) -> bool {
     files.iter().all(|(path, want)| std::fs::read(dir.join(path)).is_ok_and(|b| fingerprint(&b) == *want))
 }
@@ -386,7 +386,7 @@ pub enum Request {
     OpenOverlay { id: String, spec: Value },
     CloseOverlay { id: String },
     Refresh,
-    /// From `herdr-app do` / `herdr-app status` (control.rs); answer on `reply`.
+    /// From `zaki do` / `zaki status` (control.rs); answer on `reply`.
     Control { cmd: Value, reply: std::sync::mpsc::Sender<Value> },
 }
 
@@ -1024,7 +1024,7 @@ fn module(inst: Instance, copy: u64) -> HostModule {
         })
         .async_function("nextCommand", move |_| {
             let rx = commands.clone();
-            Ok(async move { rx.recv().await.map(HostValue::Str).map_err(|_| HostError::new("herdr-app is shutting down")) })
+            Ok(async move { rx.recv().await.map(HostValue::Str).map_err(|_| HostError::new("zaki is shutting down")) })
         })
 }
 
@@ -1070,7 +1070,7 @@ fn capabilities() -> Capabilities {
         .clipboard_write(true)
 }
 
-/// What mods may touch, and the `herdr` module they import. Also used by `herdr-app check`.
+/// What mods may touch, and the `herdr` module they import. Also used by `zaki check`.
 pub fn install_policy() -> async_channel::Receiver<Request> {
     gpui_shell::policy::update_default(|p| {
         p.with_capabilities(capabilities())
@@ -1204,7 +1204,7 @@ mod tests {
 
     #[test]
     fn an_added_file_makes_a_shipped_mod_edited() {
-        let dir = std::env::temp_dir().join(format!("herdr-app-shipped-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("zaki-shipped-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(dir.join("icons")).unwrap();
         std::fs::write(dir.join("main.js"), "a").unwrap();
@@ -1322,7 +1322,7 @@ mod tests {
 
     #[test]
     fn default_mods_restore_shipped_and_move_edits_to_clones() {
-        let root = std::env::temp_dir().join(format!("herdr-app-sync-{}", std::process::id()));
+        let root = std::env::temp_dir().join(format!("zaki-sync-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);
         let (mods, record) = (root.join("mods"), root.join("installed.json"));
         let read = |p: &str| std::fs::read_to_string(mods.join(p)).unwrap_or_default();
