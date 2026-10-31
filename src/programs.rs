@@ -173,7 +173,7 @@ pub fn of(app: Option<&str>, argv: &[String]) -> Value {
     TABLE.with(|t| resolve(&t.borrow(), app, argv))
 }
 
-/// An agent's 7501 `app` as a name Herdr ships (`claude` for `claude-code`),
+/// An agent's 7501 `app` as a name Zaki ships (`claude` for `claude-code`),
 /// else `other` (`unknown` when it gave none): never the person's own words.
 pub fn agent_name(app: Option<&str>) -> String {
     static NAMES: std::sync::OnceLock<BTreeMap<String, String>> = std::sync::OnceLock::new();

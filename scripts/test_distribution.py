@@ -60,7 +60,7 @@ done
 exit 97''')
                 result = self.run_script("distribution/install.sh", "Darwin", "x86_64")
                 self.assertEqual(result.returncode, 1)
-                self.assertIn("Installing Herdr test for macos-aarch64", result.stdout)
+                self.assertIn("Installing Zaki test for macos-aarch64", result.stdout)
                 self.assertIn("download is damaged", result.stderr)
                 self.assertNotIn("Intel Macs", result.stderr)
 
@@ -68,8 +68,8 @@ exit 97''')
         """The URL install.sh downloads the app from, for a manifest giving `url`."""
         home = Path(self.work.name) / "home"
         data = home / ".local/share"
-        shutil.rmtree(data / "herdr-app", ignore_errors=True)
-        (data / "herdr-app" if installed else data).mkdir(parents=True, exist_ok=True)
+        shutil.rmtree(data / "zaki", ignore_errors=True)
+        (data / "zaki" if installed else data).mkdir(parents=True, exist_ok=True)
         log = Path(self.work.name) / "urls"
         log.unlink(missing_ok=True)
         manifest = Path(self.work.name) / "latest.json"
@@ -91,13 +91,13 @@ exit 22''')
 
     def test_installer_marks_plain_release_downloads_for_the_counter(self):
         r = "https://releases.example"
-        tarball = f"{r}/app/1.0.0/herdr-app-linux-x86_64.tar.gz"
+        tarball = f"{r}/app/1.0.0/zaki-linux-x86_64.tar.gz"
         self.assertEqual(self.download_url(tarball), f"{tarball}?src=install")
         self.assertEqual(self.download_url(tarball, installed=True), f"{tarball}?src=reinstall")
         # A mirror's query (a signed URL) or fragment, or another host: exactly as given.
         for url in (f"{tarball}?sig=a%2Fb&exp=1", f"{tarball}?src=update", f"{tarball}#x",
-                    "https://mirror.example/app/1.0.0/herdr-app-linux-x86_64.tar.gz",
-                    "https://releases.example.evil/app/1.0.0/herdr-app-linux-x86_64.tar.gz"):
+                    "https://mirror.example/app/1.0.0/zaki-linux-x86_64.tar.gz",
+                    "https://releases.example.evil/app/1.0.0/zaki-linux-x86_64.tar.gz"):
             with self.subTest(url=url):
                 self.assertEqual(self.download_url(url), url)
         # A test server elsewhere marks its own URLs.
@@ -108,13 +108,13 @@ exit 22''')
         home = self.bin / "home"
         (home / ".local/bin").mkdir(parents=True)
         (home / ".local/bin/herdr-core").touch()
-        source = self.bin / "source/Herdr.app/Contents"
+        source = self.bin / "source/Zaki.app/Contents"
         source.mkdir(parents=True)
         plist = b"signed release plist must stay unchanged"
         (source / "Info.plist").write_bytes(plist)
         archive = self.bin / "release.tar.gz"
         with tarfile.open(archive, "w:gz") as tar:
-            tar.add(source.parent, arcname="Herdr.app")
+            tar.add(source.parent, arcname="Zaki.app")
         sha = hashlib.sha256(archive.read_bytes()).hexdigest()
         manifest = self.bin / "manifest.json"
         manifest.write_text('{"version":"1.0.0","targets":{"macos-aarch64":{"url":"release","sha256":"%s"}}}' % sha)
@@ -124,7 +124,7 @@ for a; do
   prev=$a
 done
 case $url in */latest.json) cp "{manifest}" "$out" ;; release) cp "{archive}" "$out" ;; *) exit 97 ;; esac''')
-        installed = home / "Applications/Herdr.app/Contents/Info.plist"
+        installed = home / "Applications/Zaki.app/Contents/Info.plist"
         installed.parent.mkdir(parents=True)
         installed.write_bytes(b"previous installed app")
         fixture = self.bin / "signature.txt"
@@ -217,7 +217,7 @@ printf 'dev PATH added' >> "$3"''')
         checkout = self.bin / "checkout"
         for path in [
             "Cargo.toml", "LICENSE", "THIRD-PARTY-NOTICES", "scripts/package",
-            "assets/icons/herdr-ui-icon-clean.svg", "assets/icons/Herdr.icns",
+            "assets/icons/zaki-ui-icon-clean.svg", "assets/icons/Zaki.icns",
         ]:
             destination = checkout / path
             destination.parent.mkdir(parents=True, exist_ok=True)
@@ -227,18 +227,18 @@ printf 'dev PATH added' >> "$3"''')
         sign.chmod(0o755)
         release = checkout / "target/release"
         release.mkdir(parents=True)
-        for name in ("herdr-app", "herdr-app.exe"):
+        for name in ("zaki", "zaki.exe"):
             (release / name).write_bytes(b"test binary")
         self.stub("cargo", "exit 0")
         for os_name, arch, target, prefix in (
-            ("Linux", "x86_64", "linux-x86_64", "herdr-app"),
-            ("Darwin", "arm64", "macos-aarch64", "Herdr.app/Contents/Resources"),
-            ("MINGW64_NT", "x86_64", "windows-x86_64", "herdr-app"),
+            ("Linux", "x86_64", "linux-x86_64", "zaki"),
+            ("Darwin", "arm64", "macos-aarch64", "Zaki.app/Contents/Resources"),
+            ("MINGW64_NT", "x86_64", "windows-x86_64", "zaki"),
         ):
             with self.subTest(target=target):
                 result = self.run_script(checkout / "scripts/package", os_name, arch)
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-                with tarfile.open(checkout / f"dist/herdr-app-{target}.tar.gz") as archive:
+                with tarfile.open(checkout / f"dist/zaki-{target}.tar.gz") as archive:
                     for name in ("LICENSE", "THIRD-PARTY-NOTICES"):
                         self.assertEqual(
                             archive.extractfile(f"{prefix}/{name}").read(),

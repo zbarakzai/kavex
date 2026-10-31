@@ -22,10 +22,10 @@ pub fn install_cli_link() {
     if let Err(e) = std::thread::Builder::new().name("cli-link".into()).spawn(|| {
         let result = std::env::current_exe().and_then(|exe| cli_link::ensure(&crate::mods::home(), &exe));
         if let Err(e) = result {
-            tracing::warn!("cannot install herdr-app CLI link: {e}");
+            tracing::warn!("cannot install zaki CLI link: {e}");
         }
     }) {
-        tracing::warn!("cannot start herdr-app CLI setup: {e}");
+        tracing::warn!("cannot start zaki CLI setup: {e}");
     }
 }
 
@@ -87,7 +87,7 @@ pub fn find(configured: Option<&str>) -> Option<PathBuf> {
     if let Some(found) = pick(configured.map(|c| vec![expand(c, &home)]).unwrap_or_default()) {
         return Some(found);
     }
-    // Tests: HERDR_CORE_DIRS replaces every place Herdr would look.
+    // Tests: HERDR_CORE_DIRS replaces every place Zaki would look.
     if let Some(dirs) = std::env::var_os("HERDR_CORE_DIRS") {
         return pick(std::env::split_paths(&dirs).flat_map(|d| names(&d)).collect());
     }

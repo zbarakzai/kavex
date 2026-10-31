@@ -1,9 +1,9 @@
-# Installs the Herdr app on Windows, and herdr-core if there's none yet:
+# Installs the Zaki app on Windows, and herdr-core if there's none yet:
 #
-#   powershell -c "irm https://releases.herdr.dev/app/install.ps1 | iex"
+#   powershell -c "irm __RELEASES_URL__/app/install.ps1 | iex"
 #
-# The app into %LOCALAPPDATA%\Programs\herdr-app (added to your PATH for
-# `herdr-app`), Herdr in the Start menu. The core, with its own installer,
+# The app into %LOCALAPPDATA%\Programs\zaki (added to your PATH for
+# `zaki`), Zaki in the Start menu. The core, with its own installer,
 # only if none is there yet; the app keeps it current after that. Running it
 # again updates the app (an open one keeps running until it quits). No admin
 # needed. HERDR_RELEASES_URL points elsewhere (tests).
@@ -14,10 +14,12 @@ $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
 # throw, not exit: under `irm | iex`, exit would close the person's window.
-function Fail($why) { throw "herdr: $why" }
+function Fail($why) { throw "zaki: $why" }
 
-$releases = if ($env:HERDR_RELEASES_URL) { $env:HERDR_RELEASES_URL.TrimEnd("/") } else { "https://releases.herdr.dev" }
-$dir = Join-Path $env:LOCALAPPDATA "Programs\herdr-app"
+# Publishing fills in Zaki's server. The core stays on Herdr's, which publishes it.
+$releases = if ($env:HERDR_RELEASES_URL) { $env:HERDR_RELEASES_URL.TrimEnd("/") } else { "__RELEASES_URL__" }
+$coreReleases = if ($env:HERDR_RELEASES_URL) { $releases } else { "https://releases.herdr.dev" }
+$dir = Join-Path $env:LOCALAPPDATA "Programs\zaki"
 $arch = if ($env:PROCESSOR_ARCHITEW6432) { $env:PROCESSOR_ARCHITEW6432 } else { $env:PROCESSOR_ARCHITECTURE }
 if ($arch -ne "AMD64") { Fail "no build for $arch Windows yet (x64 only)" }
 $target = "windows-x86_64"
@@ -44,7 +46,7 @@ try {
     $plain = $t.url.StartsWith("$releases/", [StringComparison]::Ordinal) -and $t.url.IndexOfAny([char[]]"?#") -lt 0
     $download = if ($plain) { "$($t.url)?src=$src" } else { $t.url }
 
-    Write-Host "Installing Herdr $($m.version) for $target..."
+    Write-Host "Installing Zaki $($m.version) for $target..."
     curl.exe -fsSL $download -o "$tmp\app.tar.gz"
     if ($LASTEXITCODE) { Fail "download failed: $($t.url)" }
     # .NET, not Get-FileHash: that one fails when PowerShell 7 starts 5.1.
@@ -52,18 +54,18 @@ try {
     try { $got = -join ([Security.Cryptography.SHA256]::Create().ComputeHash($stream) | ForEach-Object { $_.ToString("x2") }) } finally { $stream.Close() }
     if ($got -ne $t.sha256) { Fail "the download is damaged (checksum mismatch); try again" }
     & $tar -xzf "$tmp\app.tar.gz" -C $tmp
-    if ($LASTEXITCODE -or -not (Test-Path "$tmp\herdr-app\herdr-app.exe")) { Fail "the download holds no complete app" }
+    if ($LASTEXITCODE -or -not (Test-Path "$tmp\zaki\zaki.exe")) { Fail "the download holds no complete app" }
 
     # A running app's folder can be renamed, not deleted: the old one goes
     # now if it can, else on the next install.
     New-Item -ItemType Directory -Force (Split-Path $dir) | Out-Null
     Remove-Item -Recurse -Force "$dir.old" -ErrorAction SilentlyContinue
     if (Test-Path $dir) { Rename-Item $dir "$dir.old" }
-    Move-Item "$tmp\herdr-app" $dir
+    Move-Item "$tmp\zaki" $dir
     Remove-Item -Recurse -Force "$dir.old" -ErrorAction SilentlyContinue
 
-    $exe = Join-Path $dir "herdr-app.exe"
-    $menu = Join-Path ([Environment]::GetFolderPath("Programs")) "Herdr.lnk"
+    $exe = Join-Path $dir "zaki.exe"
+    $menu = Join-Path ([Environment]::GetFolderPath("Programs")) "Zaki.lnk"
     $link = (New-Object -ComObject WScript.Shell).CreateShortcut($menu)
     $link.TargetPath = $exe
     $link.WorkingDirectory = $env:USERPROFILE
@@ -89,14 +91,14 @@ try {
     $core = Join-Path $env:LOCALAPPDATA "Programs\herdr-core\herdr-core.exe"
     if (-not (Test-Path $core) -and -not (Get-Command herdr-core -ErrorAction SilentlyContinue)) {
         try {
-            $env:HERDR_RELEASES_URL = $releases
-            Invoke-RestMethod "$releases/core/install.ps1" | Invoke-Expression
+            $env:HERDR_RELEASES_URL = $coreReleases
+            Invoke-RestMethod "$coreReleases/core/install.ps1" | Invoke-Expression
         } catch {
-            Write-Host "herdr-core didn't install; Herdr will offer it when it opens."
+            Write-Host "herdr-core didn't install; Zaki will offer it when it opens."
         }
     }
 
-    Write-Host "Herdr is installed. Open it from the Start menu, or run: herdr-app"
+    Write-Host "Zaki is installed. Open it from the Start menu, or run: zaki"
 } finally {
     Remove-Item -Recurse -Force $tmp -ErrorAction SilentlyContinue
 }

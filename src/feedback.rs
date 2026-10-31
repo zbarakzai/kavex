@@ -6,11 +6,8 @@ use std::path::PathBuf;
 pub const MAX_IMAGES: usize = 3;
 const MAX_IMAGE_BYTES: usize = 5 * 1024 * 1024;
 
-const ENDPOINT: &str = "https://telemetry.herdr.dev/v1/feedback";
-
 fn endpoint() -> Option<String> {
     std::env::var("HERDR_FEEDBACK_URL").ok().filter(|u| !u.is_empty())
-        .or_else(|| option_env!("HERDR_APP_RELEASE").map(|_| ENDPOINT.to_owned()))
 }
 
 pub fn draft(message: &str, email: &str, images: usize, from: &str, layout: &str) -> Value {
@@ -46,7 +43,7 @@ pub fn attach(bytes: &[u8]) -> Result<String, String> {
     let (bytes, ext) = match sniff(bytes) {
         Some(ext) => (bytes.to_vec(), ext),
         None => {
-            let img = image::load_from_memory(bytes).map_err(|_| "That isn't an image Herdr can read.".to_owned())?;
+            let img = image::load_from_memory(bytes).map_err(|_| "That isn't an image Zaki can read.".to_owned())?;
             let mut png = std::io::Cursor::new(Vec::new());
             img.write_to(&mut png, image::ImageFormat::Png).map_err(|_| "Couldn't convert that image.".to_owned())?;
             (png.into_inner(), "png")
@@ -116,7 +113,7 @@ pub async fn send(body: Value, shots: Vec<String>) -> Result<(), String> {
         return Err("Up to 3 screenshots.".into());
     }
     let files = shots.iter().map(|s| shot_file(s)).collect::<Result<Vec<_>, _>>()?;
-    let url = endpoint().ok_or("This build was made from source and doesn't send feedback. Use a release build.")?;
+    let url = endpoint().ok_or("Zaki can't send feedback yet.")?;
     let (tx, rx) = async_channel::bounded(1);
     std::thread::spawn(move || {
         let result = post(&url, &body.to_string(), &files);

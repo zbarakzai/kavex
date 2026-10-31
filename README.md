@@ -1,34 +1,32 @@
-# Herdr
+# Zaki
 
-Herdr is a desktop app for terminals and coding agents. Keep work in spaces, see which agents need you, and leave terminals running when you close the window.
+Zaki is a desktop app for terminals and coding agents. Keep work in spaces, see which agents need you, and leave terminals running when you close the window.
+
+Zaki is a fork of [Herdr](https://github.com/herdrdev/herdr-app), under the same [Apache-2.0 license](LICENSE).
 
 ## Install
 
-### Linux and macOS
+Zaki installs from a private release link. Ask whoever gave you Zaki for it, and use it in place of `<link>`.
+
+On Linux (x86-64) and macOS (Apple Silicon):
 
 ```sh
-curl -fsSL https://releases.herdr.dev/app/install.sh | sh
+curl -fsSL <link>/app/install.sh | sh
 ```
 
-Linux needs a desktop session and a working Vulkan driver. macOS builds are available for Apple Silicon; Intel Mac users can [build from source](#build-from-source). Linux builds are x86-64 and ARM64.
-
-The installer adds Herdr to your apps and puts the command in `~/.local/bin`.
-Add that folder to your PATH if the installer asks.
-On macOS the app lives in `~/Applications/Herdr.app`.
-For drag-and-drop installation on Apple Silicon, download [Herdr.dmg](https://releases.herdr.dev/app/Herdr.dmg) and drag Herdr to Applications.
-
-### Windows
-
-Run in PowerShell on x64 Windows with curl and tar installed (Windows 10 1803 or newer):
+On x64 Windows, in PowerShell:
 
 ```powershell
-irm https://releases.herdr.dev/app/install.ps1 | iex
+irm <link>/app/install.ps1 | iex
 ```
 
-Herdr appears in the Start menu. The installer adds `%LOCALAPPDATA%\Programs\herdr-app` to your user PATH. Open a new terminal to pick it up.
+The installer adds Zaki to your apps and puts the command in `~/.local/bin` (on Windows, `%LOCALAPPDATA%\Programs\zaki` on your PATH).
+On macOS the app lives in `~/Applications/Zaki.app`.
+Run the command again at any time to reinstall the latest version.
 
-Both installers download and run code. Read the [shell installer](distribution/install.sh) or [PowerShell installer](distribution/install.ps1) first if you prefer.
-They also install [herdr-core](https://github.com/herdrdev/herdr-core) if it is missing.
+Linux needs a desktop session and a working Vulkan driver.
+
+Zaki runs on [herdr-core](https://github.com/herdrdev/herdr-core), the same core Herdr uses.
 The app can help install or update a core it cannot use.
 
 ## Find your work
@@ -66,10 +64,10 @@ Remote work keeps running when your local window closes or your laptop sleeps, a
 ## Make it yours
 
 Open the command palette to find an action by name, or open Settings to change fonts, colors, sounds and other preferences.
-The built-in layouts include Herdr, Terminals and Herdr 98.
+The built-in layouts include Zaki, Terminals and Zaki 98.
 A **layout** arranges the window. **Mods** are small JavaScript programs that draw its panels, menus and dialogs.
 
-Duplicate a shipped layout or mod before changing its structure or code. Your copies stay yours; Herdr updates the shipped ones on start.
+Duplicate a shipped layout or mod before changing its structure or code. Your copies stay yours; Zaki updates the shipped ones on start.
 Save a personal layout, mod or key file and the window reloads it.
 A broken edit keeps the last good version and reports the error.
 
@@ -80,25 +78,25 @@ Ctrl+Shift+P shows every command and its key (Cmd+Shift+P on macOS). Change any 
 ## Updates and privacy
 
 Installed releases check for updates in the background and download a new app beside the running one. It takes over when you quit and reopen, or choose the update action. Your terminals keep running in the core.
-Settings → Updates shows what is available. What's New opens after an update; you can open it again from the command palette.
-Builds from source do not update themselves.
+Settings → Updates shows what is available. Builds from source do not update themselves.
 
-Usage telemetry is on by default in releases. Turn it off in Settings → Privacy.
+Zaki sends no usage data or feedback.
+
 Mods are trusted code, not sandboxed extensions. Read [security and privacy](docs/security.md) before installing someone else's mod.
 
 ## For agents
 
 ```sh
-herdr-app --skill
+zaki --skill
 ```
 
 This prints the agent guide for driving the window. The herdr-core skill points agents here.
 Use herdr-core for running and coordinating programs; use the app to change what you see.
 
 ```sh
-herdr-app ls
-herdr-app status
-herdr-app commands
+zaki ls
+zaki status
+zaki commands
 ```
 
 The first two inspect the open window. The command list also works without one.
@@ -110,10 +108,11 @@ For bugs, mod API requests and code contributions, see [Contributing](CONTRIBUTI
 
 Clone this repo with its submodules. Use Rust 1.95.0 and Zig 0.16.0, the versions used in [CI](.github/workflows/ci.yml).
 Linux needs the development packages listed in that workflow.
+macOS needs Xcode, not only the Command Line Tools: `sudo xcode-select -s /Applications/Xcode.app/Contents/Developer` selects it.
 
 ```sh
-git clone --recurse-submodules https://github.com/herdrdev/herdr-app.git
-cd herdr-app
+git clone --recurse-submodules https://github.com/zbarakzai/zaki.git
+cd zaki
 just build
 just test
 just install
@@ -122,7 +121,9 @@ just install
 Install [just](https://github.com/casey/just) to use these recipes.
 The platform installer builds a release and adds the app to your desktop.
 On Linux it links to this checkout, so keep the checkout in place.
-Quit and reopen Herdr to use the new build.
+Quit and reopen Zaki to use the new build.
+
+`just install` replaces an installed Zaki. To try a build beside it instead, run `just dev` (macOS and Linux): it opens a separate window with its own settings, spaces and terminals.
 
 Documentation checks also need [Bun](https://bun.sh): `just docs-check` checks generated pages and CLI examples; `just docs-generate` refreshes the reference pages.
 

@@ -2,14 +2,14 @@
 
 # Commands
 
-Inspect the window with `herdr-app ls` and `herdr-app status`.
-`herdr-app commands` lists the app actions below, even without an open window.
+Inspect the window with `zaki ls` and `zaki status`.
+`zaki commands` lists the app actions below, even without an open window.
 
-Run an action in the open window with `herdr-app do`:
+Run an action in the open window with `zaki do`:
 
 ```sh
-herdr-app do pane.split --direction right
-herdr-app do pane.split '{"direction":"right"}'
+zaki do pane.split --direction right
+zaki do pane.split '{"direction":"right"}'
 ```
 
 Arguments can be named flags or one JSON object. Required arguments are marked below.
@@ -148,7 +148,7 @@ Take a terminal's pane away and disable core keep; it keeps running (a sub-agent
 
 ## `terminal.right_click`
 
-Where right-clicks in a terminal (default: the focused one) go when its program takes the mouse: "program" or "menu" (Herdr's, the default). Shift+right-click is always the menu.
+Where right-clicks in a terminal (default: the focused one) go when its program takes the mouse: "program" or "menu" (Zaki's, the default). Shift+right-click is always the menu.
 
 | Argument | Required |
 |---|---|
@@ -453,7 +453,7 @@ Open the settings (section: look, alerts, updates).
 
 ## `app.check_updates`
 
-Look for a newer Herdr and herdr-core now.
+Look for a newer Zaki and herdr-core now.
 
 No arguments.
 
@@ -497,7 +497,7 @@ No arguments.
 
 ## `app.update`
 
-Restart into the update Herdr downloaded (your terminals keep running).
+Restart into the update Zaki downloaded (your terminals keep running).
 
 No arguments.
 
@@ -543,4 +543,4 @@ Maximize the window, or back.
 
 No arguments.
 
-[Back to Herdr](../README.md)
+[Back to Zaki](../README.md)

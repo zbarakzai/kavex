@@ -1,9 +1,9 @@
-Herdr third-party notices
+Zaki third-party notices
 =========================
 Regenerate with just notices. See licenses/README.md.
 
 Input-SHA256: 6a3b4177337bfb82680d2992e24b5f948c0c4ce524bafa5b1c8cf8090f45adba Cargo.lock
-Input-SHA256: 7b5c770b621f5b2a0f52313a1ac017983ea8f262b08da164a33b00ae1e662ab3 Cargo.toml
+Input-SHA256: 19062392f2d5252d729428a6fe586f628fcb0ac15ada6af9831ac25908f14d33 Cargo.toml
 Input-SHA256: c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4 LICENSE
 Input-SHA256: e58cb0de2dde300bcda769ca993fde2737f42c0274082f038621ab22975a49e2 about.toml
 Input-SHA256: 84a7a98c82140fb12c37fe42b93805baa16024cb3e5acc599b7ffe612c55d847 assets/fonts/LICENSE-SymbolsNerdFont.txt
@@ -36,7 +36,7 @@ Input-SHA256: de219cece932aad5a817bf763393d8d149d378a15d2ad5320e3331eac07626dd l
 Input-SHA256: 1eda5a3b026870c737b22e8bcd4954338612c790db688242e003f41a4fa95175 licenses/uucode-LICENSE_unicode.txt
 Input-SHA256: 312e901e142be2477b4ca859e9311f9e3f80d33372991759b7921c1893605f33 licenses/uucode.txt
 Input-SHA256: d78ac01638fd241bde2eb2952e75c40e5f5fc8dce026971b547265d3845e8333 scripts/notices.hbs
-Input-SHA256: b72254346b6bb1b9bf4debda3628dd4850e6a63f633629efc3ffc3e6ba9ca90b scripts/notices.ts
+Input-SHA256: 5ba549912847ac63afbfc84f78f9bc30aeedc8ccd6d7b9915fe487c9cbfe7952 scripts/notices.ts
 Input-SHA256: 386211873e5b7a02f663ae4d7adf96285999f91608f8f9f31fecfd0f4095e6f1 vendor/ghostty/LICENSE
 Input-SHA256: b878e4fc36f9c2b6c9ad82e5ceba58c91905fde89f0ac3d3cb7ab413ea029e39 vendor/ghostty/build.zig.zon
 Input-SHA256: 57103e0424e9ca660756bb2cd0475ca3057e61e7f2d4038aba2a90eae890b932 vendor/ghostty/pkg/highway/build.zig.zon
@@ -2752,7 +2752,7 @@ Apache License 2.0 (Apache-2.0)
 
 ----------------------------------------------------------------------
 Apache License 2.0 (Apache-2.0)
-  herdr-app 0.1.7
+  zaki 0.1.7
 
                                  Apache License
                            Version 2.0, January 2004
@@ -2958,7 +2958,7 @@ Apache License 2.0 (Apache-2.0)
 
 ----------------------------------------------------------------------
 Apache License 2.0 (Apache-2.0)
-  herdr-app 0.1.7
+  zaki 0.1.7
   codespan-reporting 0.13.1 — https://github.com/brendanzab/codespan
   crypto-primes 0.7.2 — https://github.com/entropyxyz/crypto-primes
   self_cell 1.3.0 — https://github.com/Voultapher/self_cell
@@ -12014,12 +12014,12 @@ limitations under the License.
 
 ----------------------------------------------------------------------
 Apache License 2.0 (Apache-2.0)
-  herdr-app 0.1.7
-  herdr-app 0.1.7
-  herdr-app 0.1.7
-  herdr-app 0.1.7
-  herdr-app 0.1.7
-  herdr-app 0.1.7
+  zaki 0.1.7
+  zaki 0.1.7
+  zaki 0.1.7
+  zaki 0.1.7
+  zaki 0.1.7
+  zaki 0.1.7
   gpui-pre 0.3.8 — https://github.com/zed-industries/zed
   gpui-pre-apple 0.3.8 — https://github.com/zed-industries/zed
   gpui-pre-linux 0.3.8 — https://github.com/zed-industries/zed
@@ -12269,8 +12269,8 @@ Apache License
 
 ----------------------------------------------------------------------
 Apache License 2.0 (Apache-2.0)
-  herdr-app 0.1.7
-  herdr-app 0.1.7
+  zaki 0.1.7
+  zaki 0.1.7
   gpui-base 0.7.1 — https://github.com/longbridge/gpui-kit
 
 Copyright 2024 - 2026 Longbridge <https://longbridge.com>
@@ -20628,7 +20628,7 @@ SOFTWARE.
 
 
 ----------------------------------------------------------------------
-Pixelated MS Sans Serif fonts (Herdr 98)
+Pixelated MS Sans Serif fonts (Zaki 98)
 https://github.com/jdan/98.css; unchanged font conversion.
 
 --- defaults/mods/win98/fonts/LICENSE-MSSansSerif.txt ---
@@ -21007,7 +21007,7 @@ Creative Commons Notice
 
 
 ----------------------------------------------------------------------
-PxPlus IBM VGA font (Herdr 98)
+PxPlus IBM VGA font (Zaki 98)
 https://int10h.org/oldschool-pc-fonts/
 
 --- defaults/mods/win98/fonts/LICENSE-PxPlus.txt ---
@@ -21441,8 +21441,8 @@ Creative Commons may be contacted at creativecommons.org.
 
 
 ----------------------------------------------------------------------
-Herdr logo artwork
-Ram path adapted from https://github.com/herdrdev/herdr/blob/HEAD/assets/logo.svg (Apache-2.0). Herdr 98 artwork is drawn by defaults/mods/win98/art/generate.ts, under the app's Apache-2.0 license.
+Zaki logo artwork
+Ram path adapted from https://github.com/herdrdev/herdr/blob/HEAD/assets/logo.svg (Apache-2.0). Zaki 98 artwork is drawn by defaults/mods/win98/art/generate.ts, under the app's Apache-2.0 license.
 
 --- LICENSE ---
 Apache License

@@ -1,4 +1,4 @@
-//! Herdr's view of a core terminal: libghostty-vt fed with the relayed bytes,
+//! Zaki's view of a core terminal: libghostty-vt fed with the relayed bytes,
 //! read back as frames to draw, and asked to encode keys and mouse input.
 
 use ghostty_sys::*;
@@ -287,7 +287,7 @@ fn kitty_virtual_placement_geometry(
 
 fn kitty_placeholder_diacritic_index(codepoint: u32) -> Option<u32> {
     let map = KITTY_PLACEHOLDER_DIACRITICS.get_or_init(|| {
-        // Reuse Ghostty's vendored table so Herdr decodes the same placeholder
+        // Reuse Ghostty's vendored table so Zaki decodes the same placeholder
         // row/column diacritics that libghostty accepts.
         let source =
             include_str!("../vendor/ghostty/src/terminal/kitty/graphics_unicode.zig");

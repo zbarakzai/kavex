@@ -1,6 +1,6 @@
 // A Win98 popup menu: props { items, parents, start }. Hover opens
 // submenus to the right; a choice closes the whole chain and acts.
-// The Start menu (start: true) has big rows and the Herdr98 banner.
+// The Start menu (start: true) has big rows and the Zaki98 banner.
 
 import { div, svg, image } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";

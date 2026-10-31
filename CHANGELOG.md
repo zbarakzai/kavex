@@ -1,4 +1,11 @@
-# Herdr changelog
+# Zaki changelog
+
+## [0.2.0] - 2026-10-31
+
+### New
+- Herdr is now Zaki: a new name, a new logo, and its own settings in `~/.config/zaki`.
+- Zaki installs and updates from its own private link, on macOS, Linux and Windows.
+- Zaki sends no usage data or feedback.
 
 ## [0.1.10] - 2026-10-30
 
