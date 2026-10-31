@@ -60,6 +60,9 @@
     "ctrl-8": "space.select:8",
     "ctrl-9": "space.select:9"
   },
+  "layout:main": {
+    "cmd-shift-b": "layout.toggle:panel"
+  },
   "terminal": {
     "cmd-c": "terminal.copy",
     "cmd-v": "terminal.paste",

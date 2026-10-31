@@ -8,6 +8,7 @@ use crate::hc::Core;
 mod floats;
 mod movable;
 mod pane_drag;
+mod slide;
 mod titlebar;
 
 use crate::layout::{Axis, Background as Paint, Content, Fit, HeaderContent, Kind, Line, Node, PaneFrame, Size as Span};
@@ -365,6 +366,8 @@ pub struct AppWindow {
     /// A window (`kind: "window"` overlay) being pressed or dragged.
     win_drag: Option<movable::WinDrag>,
     float_anims: HashMap<String, floats::FloatAnim>,
+    /// Fixed-size nodes opening or closing, by id.
+    slides: HashMap<String, slide::Slide>,
     float_reveal: HashMap<String, floats::Reveal>,
     float_hover: HashSet<String>,
     /// Bumped on every hover change, so a delayed leave knows it's still current.
@@ -464,6 +467,7 @@ impl AppWindow {
             pane_grip_rows: RefCell::default(),
             win_drag: None,
             float_anims: HashMap::new(),
+            slides: HashMap::new(),
             float_reveal: HashMap::new(),
             float_hover: HashSet::new(),
             float_leave: HashMap::new(),
@@ -947,6 +951,7 @@ impl AppWindow {
         self.float_drag = None;
         self.pane_drag = None;
         self.float_anims.clear();
+        self.slides.clear();
         self.float_reveal.clear();
         self.float_hover.clear();
         let other = next != self.layout_name;
@@ -3006,11 +3011,16 @@ impl AppWindow {
             "layout.toggle" | "layout.show" | "layout.hide" => {
                 let id = Self::arg(a, "id").unwrap_or_default();
                 let Some(n) = self.chrome.find_mut(id) else { return self.fail(format!("no node {id:?} in the shown layout")) };
+                let was = n.hidden;
                 n.hidden = match name {
                     "layout.toggle" => !n.hidden,
                     "layout.show" => false,
                     _ => true,
                 };
+                let hidden = n.hidden;
+                if hidden != was && matches!(n.size, Some(Span::Px { .. })) && !cx.reduce_motion() {
+                    self.start_slide(id, !hidden);
+                }
             }
             "layout.resize" => {
                 let id = Self::arg(a, "id").unwrap_or_default();
@@ -3690,8 +3700,9 @@ impl AppWindow {
             Kind::Row { children } | Kind::Column { children } => {
                 let axis = n.axis().unwrap();
                 el = if axis == Axis::Row { el.flex_row() } else { el.flex_col() };
-                let shown: Vec<&Node> = children.iter().filter(|c| !c.hidden).collect();
+                let shown: Vec<&Node> = children.iter().filter(|c| !c.hidden || self.slides.contains_key(&c.id)).collect();
                 let gap = n.gap.or(frame.and_then(|f| f.gap)).unwrap_or(0.0);
+                let seam = (gap + n.divider.as_ref().map_or(0.0, |d| d.width)) * settings::zoom();
                 // Weights are shares of what the fixed-size siblings leave, so they always fill it.
                 let total: f32 = shown
                     .iter()
@@ -3709,7 +3720,11 @@ impl AppWindow {
                     // No clipping here: a child's shadow may fall outside it (the child clips itself).
                     let mut slot = div().relative().flex().min_w_0().min_h_0();
                     slot = sized(slot, child, axis, total);
-                    el = el.child(slot.child(self.render_node(child, focused, frame, cx)));
+                    let content = self.render_node(child, focused, frame, cx);
+                    el = el.child(match self.slides.get(&child.id) {
+                        Some(motion) => slide::slid(slot, child, axis, motion.now(), seam, i == 0 && shown.len() > 1, content),
+                        None => slot.child(content),
+                    });
                 }
                 el
             }
@@ -4456,6 +4471,7 @@ impl Render for AppWindow {
             self.publish(cx);
         }
         self.tick_floats(window);
+        self.tick_slides(window);
         self.apply_titlebar(window);
         if mods::publish_window(self.window_json(window)) {
             self.refresh_mods(cx);
