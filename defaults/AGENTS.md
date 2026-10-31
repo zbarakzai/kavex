@@ -851,6 +851,9 @@ in init, `.track_focus(this.h).on_key_down((e, cx) => …)`, `this.h.focus()`.
 `.on_drop((event, cx) => …)` on a plain layout element receives external files as
 `event.paths` (absolute paths). The feedback form accepts dropped images with
 the same limits, previews and removal as picked images.
+`.drag_paths(path, …)` on a plain layout element drags those absolute paths:
+a terminal types them in, as it does for files from outside, and `.on_drop`
+receives them. Files and folders on this machine in the Files panel drag this way.
 `.on_hover((hovered, cx) => …)` reports pointer entry and exit on buttons
 and other interactive controls too.
 `.when(cond, (el) => …)`, `.children([...])`. Controls from `gpui-base`

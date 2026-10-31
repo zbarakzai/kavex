@@ -1456,6 +1456,13 @@ const ELEMENT_METHODS: &str = r#"    /**
     /** Files dropped from outside the app, as absolute paths. Use on a plain layout element. */
     on_drop<Self extends Element>(this: Self, handler: (event: { paths: string[] }, cx: Context) => void): Self;
     /**
+     * Dragging this element carries these absolute paths, the way a file
+     * dragged in from outside the app does: a terminal types them in and
+     * `on_drop` receives them. A press that doesn't move is still a click. Use
+     * on a plain layout element.
+     */
+    drag_paths<Self extends Element>(this: Self, ...paths: string[]): Self;
+    /**
      * GPUI `InteractiveElement::on_scroll_wheel`: wheel and trackpad scrolling
      * over this element.
      *
@@ -3984,6 +3991,7 @@ mod tests {
         "on_mouse_up",
         "on_mouse_down_out",
         "on_drop",
+        "drag_paths",
         "on_scroll_wheel",
         "on_action",
         "key_context",
@@ -4028,6 +4036,7 @@ mod tests {
         "viewport_from_layout",
         "size_range",
         "on_resize",
+        "on_size_change",
         "set_position",
         "pressed",
         "start",

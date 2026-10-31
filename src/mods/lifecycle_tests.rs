@@ -106,6 +106,87 @@ export default class extends View {
 }
 
 #[gpui::test]
+fn a_mod_element_drags_its_paths_and_a_press_stays_a_click(cx: &mut TestAppContext) {
+    use gpui::{Modifiers, MouseButton, point, px};
+    cx.update(gpui_shell::init);
+    let fixture = Fixture::new(r#"
+import { View, div } from "gpui-kit";
+import { note } from "fixture";
+export default class extends View {
+  render() {
+    return div().size_full()
+      .child(div().id("row").h(40).w_full().drag_paths("/var/tmp/a file.md").on_click(() => note("click")))
+      .child(div().h(40).w_full().drag_paths("/var/tmp/b.md"))
+      .child(div().h(40).w_full().on_drop((event, cx) => { note(event.paths); cx.stop_propagation(); }));
+  }
+}"#);
+    let notes = Rc::new(RefCell::new(Vec::new()));
+    let calls = notes.clone();
+    gpui_shell::policy::set_default(Policy::new().with_host_module(
+        HostModule::new("fixture").function("note", move |a| {
+            calls.borrow_mut().push(from_host(a.value(0)?));
+            Ok(HostValue::Null)
+        })
+    ).unwrap());
+    let runtime = ShellRuntime::new_isolated().unwrap();
+    let window = cx.add_window(|window, cx| Mounted(runtime.try_load(&fixture.0, window, cx).unwrap()));
+    let mut visual = VisualTestContext::from_window(*window.deref(), cx);
+    visual.update(|window, cx| window.draw(cx).clear(cx));
+    visual.run_until_parked();
+    let (row, bare, target) = (point(px(20.), px(20.)), point(px(20.), px(60.)), point(px(20.), px(100.)));
+
+    visual.simulate_click(row, Modifiers::none());
+    visual.update(|window, cx| window.draw(cx).clear(cx));
+    assert_eq!(*notes.borrow(), vec![json!("click")]);
+
+    visual.simulate_mouse_down(row, MouseButton::Left, Modifiers::none());
+    visual.simulate_mouse_move(target, MouseButton::Left, Modifiers::none());
+    visual.update(|window, cx| window.draw(cx).clear(cx));
+    visual.simulate_mouse_up(target, MouseButton::Left, Modifiers::none());
+    visual.run_until_parked();
+    assert_eq!(*notes.borrow(), vec![json!("click"), json!(["/var/tmp/a file.md"])]);
+
+    visual.update(|window, cx| window.draw(cx).clear(cx));
+    visual.simulate_mouse_down(bare, MouseButton::Left, Modifiers::none());
+    visual.simulate_mouse_move(target, MouseButton::Left, Modifiers::none());
+    visual.update(|window, cx| window.draw(cx).clear(cx));
+    visual.simulate_mouse_up(target, MouseButton::Left, Modifiers::none());
+    visual.run_until_parked();
+    assert_eq!(notes.borrow().last(), Some(&json!(["/var/tmp/b.md"])), "a row with only drag_paths, no id and no click, must still drag");
+}
+
+#[gpui::test]
+fn drag_paths_refuses_nothing_to_drag_and_anything_but_strings(cx: &mut TestAppContext) {
+    cx.update(gpui_shell::init);
+    let fixture = Fixture::new(r#"
+import { View, div } from "gpui-kit";
+import { note } from "fixture";
+export default class extends View {
+  render() {
+    for (const paths of [[], ["/var/tmp/a.md", 1]]) {
+      try { div().drag_paths(...paths); note("accepted"); } catch (e) { note(e.message); }
+    }
+    return div();
+  }
+}"#);
+    let notes = Rc::new(RefCell::new(Vec::new()));
+    let calls = notes.clone();
+    gpui_shell::policy::set_default(Policy::new().with_host_module(
+        HostModule::new("fixture").function("note", move |a| {
+            calls.borrow_mut().push(from_host(a.value(0)?));
+            Ok(HostValue::Null)
+        })
+    ).unwrap());
+    let runtime = ShellRuntime::new_isolated().unwrap();
+    let window = cx.add_window(|window, cx| Mounted(runtime.try_load(&fixture.0, window, cx).unwrap()));
+    let mut visual = VisualTestContext::from_window(*window.deref(), cx);
+    visual.update(|window, cx| window.draw(cx).clear(cx));
+    visual.run_until_parked();
+    let refused = json!("drag_paths(...paths) expects one or more paths as strings");
+    assert_eq!(*notes.borrow(), vec![refused.clone(), refused]);
+}
+
+#[gpui::test]
 fn mod_run_rejects_unknown_arguments_before_queueing_a_command(cx: &mut TestAppContext) {
     cx.update(gpui_shell::init);
     let fixture = Fixture::new(r#"

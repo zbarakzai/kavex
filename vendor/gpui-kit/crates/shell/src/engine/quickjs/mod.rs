@@ -7167,6 +7167,7 @@ impl ShellRuntime {
                 "on_mouse_up",
                 "on_mouse_down_out",
                 "on_drop",
+                "drag_paths",
                 "on_scroll_wheel",
                 "on_action",
                 "key_context",
@@ -8230,6 +8231,7 @@ impl ShellRuntime {
             | "with_item_to_measure_index"
             | "content_focus_handle"
             | "key_context"
+            | "drag_paths"
             | "aria_level"
             | "keep_mounted"
             | "tab_index"
@@ -8286,6 +8288,7 @@ impl ShellRuntime {
                     "with_item_to_measure_index" => "with_item_to_measure_index",
                     "content_focus_handle" => "content_focus_handle",
                     "key_context" => "key_context",
+                    "drag_paths" => "drag_paths",
                     "aria_level" => "aria_level",
                     "keep_mounted" => "keep_mounted",
                     "tab_index" => "tab_index",
@@ -8338,6 +8341,14 @@ impl ShellRuntime {
                         ctx,
                         "id(name) expects a string; it is the element's stable identity, so it \
                          must not change between renders",
+                    ));
+                }
+                if name == "drag_paths"
+                    && (bridged.is_empty() || bridged.iter().any(|path| path.as_str().is_err()))
+                {
+                    return Err(Exception::throw_type(
+                        ctx,
+                        "drag_paths(...paths) expects one or more paths as strings",
                     ));
                 }
                 // Dropping a non-string here would leave an element that

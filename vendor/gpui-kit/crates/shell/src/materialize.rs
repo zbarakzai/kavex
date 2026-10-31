@@ -377,6 +377,8 @@ struct Behavior {
     /// script had no way to.
     on_mouse_down_out: Option<CallbackId>,
     on_drop: Option<CallbackId>,
+    /// The paths dragging this element carries.
+    drag_paths: Option<gpui::ExternalPaths>,
     /// Wheel and trackpad scrolling over this element.
     on_scroll_wheel: Option<CallbackId>,
     /// Handlers for named actions, one entry per action listened for.
@@ -598,6 +600,7 @@ impl Behavior {
             || self.on_hover.is_some()
             || self.on_key_down.is_some()
             || self.on_drop.is_some()
+            || self.drag_paths.is_some()
             || self.on_key_up.is_some()
             || self.on_modifiers_changed.is_some()
             || !self.on_mouse_down.is_empty()
@@ -1784,7 +1787,7 @@ fn with_input_handlers<E>(element: E, behavior: &Behavior, runtime: &Rc<ShellRun
 where
     E: StatefulInteractiveElement + ParentElement,
 {
-    let mut element = element;
+    let mut element = components::drag_paths::with_drag_paths(element, behavior);
     if let Some(callback) = behavior.on_drop {
         let runtime = Rc::downgrade(runtime);
         element = element.on_drop(move |paths: &gpui::ExternalPaths, window, cx| {
@@ -2018,6 +2021,7 @@ fn warn_unhonoured_input(component: &Component, behavior: &Behavior) {
         ("on_key_down", behavior.on_key_down.is_some()),
         ("on_key_up", behavior.on_key_up.is_some()),
         ("on_drop", behavior.on_drop.is_some()),
+        ("drag_paths", behavior.drag_paths.is_some()),
         (
             "on_modifiers_changed",
             behavior.on_modifiers_changed.is_some(),
@@ -3395,6 +3399,10 @@ fn apply_behavior(behavior: &mut Behavior, name: &str, args: &[Bridged]) {
                 .map(|level| level.max(1.0) as usize);
         }
         "keep_mounted" => behavior.keep_mounted = flag.unwrap_or(true),
+        "drag_paths" => {
+            let paths = args.iter().filter_map(|value| value.as_str().ok());
+            behavior.drag_paths = Some(gpui::ExternalPaths(paths.map(Into::into).collect()));
+        }
         "key_context" => {
             behavior.key_context = args
                 .first()
