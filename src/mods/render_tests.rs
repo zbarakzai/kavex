@@ -573,6 +573,9 @@ fn local_state_and_overlay_initial_descriptions(cx: &mut TestAppContext) {
         ("mods/menu", json!({"tab":"pane","target":{"pane":"p1","terminal":"t1"}})),
         ("mods/menu", json!({"tab":"tab","target":{"id":"tab1","space":"s1"}})),
         ("mods/menu", json!({"tab":"space","target":{"id":"s1"}})),
+        ("mods/tab-menu", json!({"tabs":["tab1"],"space":"s1","machine":null,"color":"ansi4","cwd":"/fixture/project"})),
+        ("mods/tab-menu", json!({"tabs":["tab1"],"space":"s1","make":true})),
+        ("mods/tab-drag", json!({})),
         ("mods/prompt", json!({"machines":true})),
         (
             "mods/confirm",
@@ -647,7 +650,7 @@ fn shipped_layouts_and_keys() {
         layouts.insert(path.file_stem().unwrap().to_str().unwrap().to_owned());
     }
     assert_eq!(layouts, crate::window::shipped_layouts().into_iter().map(str::to_owned).collect());
-    let mod_commands = ["ribbon.next"];
+    let mod_commands = ["ribbon.next", "tabs.group", "tabs.fold"];
     for text in [
         include_str!("../../defaults/keys.json"),
         include_str!("../../defaults/keys.macos.json"),

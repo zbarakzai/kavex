@@ -30,6 +30,8 @@
     "cmd-alt-shift-right": "pane.swap:right",
     "cmd-alt-shift-up": "pane.swap:up",
     "cmd-alt-shift-down": "pane.swap:down",
+    "cmd-g": "tabs.group",
+    "cmd-shift-g": "tabs.fold",
     "f2": "tab.rename",
     "shift-f2": "space.rename",
     "cmd-/": "app.help",
@@ -57,6 +59,9 @@
     "ctrl-7": "space.select:7",
     "ctrl-8": "space.select:8",
     "ctrl-9": "space.select:9"
+  },
+  "layout:main": {
+    "cmd-shift-b": "layout.toggle:panel"
   },
   "terminal": {
     "cmd-c": "terminal.copy",

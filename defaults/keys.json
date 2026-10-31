@@ -56,8 +56,13 @@
     "ctrl-shift-x": "pane.close",
     "ctrl-shift-z": "pane.zoom",
     "ctrl-shift-l": "layout.switch",
+    "ctrl-shift-g": "tabs.group",
+    "alt-shift-g": "tabs.fold",
     "f2": "tab.rename",
     "shift-f2": "space.rename"
+  },
+  "layout:main": {
+    "ctrl-shift-j": "layout.toggle:panel"
   },
   "terminal": {
     "ctrl-backspace": "send:\u0017",

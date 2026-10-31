@@ -7,7 +7,7 @@
 
 import { View, div, svg } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input } from "gpui-base";
-import { commands, layouts, keys, run, theme, props, closeOverlay, openOverlay, shared, window as win } from "herdr";
+import { commands, layout, layouts, keys, run, theme, props, closeOverlay, openOverlay, shared, window as win } from "herdr";
 
 // The list keeps one height while you move: rows and group titles have fixed
 // heights, and the window shows as many as fit in LIST_H.
@@ -27,6 +27,10 @@ const NAMED = [
   ["tab.close", {}, "Tab", "Close tab", "tab kill"],
   ["tab.next", {}, "Tab", "Next tab", "tab"],
   ["tab.prev", {}, "Tab", "Previous tab", "tab"],
+  ["tabs.group", {}, "Tab", "Group tabs", "tab group organize name"],
+  ["tabs.fold", {}, "Tab", "Fold or unfold group", "tab group collapse expand"],
+  ["tabs.ungroup", {}, "Tab", "Ungroup tabs", "tab group"],
+  ["tabs.color", {}, "Tab", "Next tab color", "tab group paint"],
   ["pane.split", { direction: "right" }, "Pane", "Split right", "vertical"],
   ["pane.split", { direction: "down" }, "Pane", "Split down", "horizontal"],
   ["pane.close", {}, "Pane", "Close pane", "kill"],
@@ -80,7 +84,9 @@ function titleOf(name) {
 function entries() {
   const known = new Set(commands().map((c) => c.name));
   const mac = win()?.platform === "macos";
-  const list = NAMED.filter(([n]) => known.has(n))
+  // The tab bar's own commands, where a layout shows it.
+  const bar = JSON.stringify(layout()).includes('"mod":"tabs"');
+  const list = NAMED.filter(([n]) => known.has(n) || (bar && n.startsWith("tabs.")))
     .filter(([n]) => !(mac && n.startsWith("window.")))
     .map(([name, args, group, title, words]) => ({ name, args, group, title, words }));
   for (const l of layouts()) {

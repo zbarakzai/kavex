@@ -36,6 +36,8 @@ A **space** holds work on one machine, usually in one repo. Each space has **tab
 An unnamed space follows its first terminal's folder. Name a space or tab when you want a label that stays.
 New tabs start in the focused terminal's folder.
 
+Right-click a tab to give it a color, or to group it with others. Click a group's label to fold it down to a row of lights, one per tab: a tab whose agent needs you steps out of the fold by itself.
+
 The agents sidebar brings agents from your spaces into one list, including workers started by another agent.
 Agents that report status show as:
 

@@ -1,5 +1,18 @@
 # Zaki changelog
 
+## [0.3.0] - 2026-10-31
+
+### New
+- **Group and color tabs.** Right-click a tab to group or color it. A folded group shows each tab as a small light, and the tab bar makes room as you drag.
+- **A new Changes panel.** See unstaged or staged work, a commit, a branch or the last agent turn, beside a file tree you can filter.
+- **Stage, revert and commit from the diff.** Act on a hunk, a file or the whole diff without leaving the panel.
+- **Comment on a diff.** Hover a line to add a comment, then send your comments to an agent in the space.
+- **Panels slide open and shut.** On a new install `cmd-shift-b` (`ctrl-shift-j`) shows or hides them. An existing `keys.json` needs `layout.toggle:panel` added under `layout:main`.
+
+### Fixed
+- Folders in the Files panel open faster on Windows.
+- A folder you reopen in the Files panel shows its files at once.
+
 ## [0.2.0] - 2026-10-31
 
 ### New
