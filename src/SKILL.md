@@ -34,6 +34,10 @@ zaki do pane.split --direction right --pane p12
 zaki do agent.focus --terminal t7
 ```
 
+Tab groups and colors belong to the person. `zaki do tabs.group`, `tabs.fold`,
+`tabs.ungroup` and `tabs.color` act on the shown tab, in layouts with the tab
+bar: use them only when asked. Folded tabs show `settled` in `ls`.
+
 For a remote space:
 
 ```sh

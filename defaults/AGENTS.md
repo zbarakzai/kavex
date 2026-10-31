@@ -119,9 +119,28 @@ the highlighted line shows where it will land.
   has one or more; closing the last one closes the space (it stays in
   `recent`).
 - A tab can be **settled** (`tab.settle`): put away on this screen, still running;
-  `settled` on each tab. The shipped layouts don't use it (they list every
-  tab); a mod that does can hide or fold settled tabs. Showing one, or an
-  agent in it needing the user, brings it back.
+  `settled` on each tab. Zaki's tab bar settles the tabs of a folded group; the
+  other shipped layouts list every tab, and a mod can hide or fold settled tabs.
+  Showing one, or an agent in it needing the user, brings it back.
+- Tabs can be **grouped and colored** on this screen, in the `tabs` bar (the main
+  layout's). It's shared state, not the model, so any mod can read or edit it and
+  the bar makes the tabs follow: `shared("tab.groups")` is `{ id: { name, color,
+  folded, tabs: [tab ids] } }`, `shared("tab.colors")` is `{ tab id: color }`
+  (`"none"`: no color, even in a colored folder), `shared("tab.folders")` is
+  `[{ machine, folder, color }]` (every tab in that folder). Colors are `ansi1`..`ansi6`,
+  the space avatars' hues, or `#rrggbb`. A tab wears its own color, else its
+  group's, else its deepest folder's. A group's tabs stay side by side (strays are
+  moved with `tab.move`). A folded group's tabs are settled, so `tab.next`,
+  `tab.prev` and `tab.select {index}` skip them, and a light shows each one; the
+  shown tab and any blocked or done tab stay out of the fold until you leave them.
+  A person right-clicks a tab or a group's label (the `tab-menu` mod), clicks a
+  label to fold, drags a tab in or out of a group and a label to move the group,
+  and Cmd-clicks (Ctrl-clicks) or Shift-clicks to pick several tabs. The bar makes
+  room as a tab is carried; pulled far from the bar, it goes back (`tab-drag`, a
+  clear layer over the window, carries the pointer meanwhile). A mouse wheel over
+  the bar steps through tabs and stops at the ends; a trackpad scrolls it. For keys:
+  `tabs.group` (the picked tabs, or the shown one; asks for a name), `tabs.fold`,
+  `tabs.ungroup`, `tabs.color`. They act on the shown tab and need the bar.
 - A **pane** is a terminal on screen, or a **mod** beside them (a markdown
   viewer, a board, a git panel): `pane.split {direction, mod, props}`. A
   mod pane splits, zooms, closes and gets a header like any pane, keeps
@@ -740,7 +759,7 @@ has 120 programs (agents, editors, runtimes, tools, databases, infra);
   `image("mods/<name>/logo.svg")` (full color), `svg("mods/<name>/icon.svg")`
   (tinted with the text color).
 - The defaults are mods too, read them as examples: `spaces`, `agents`,
-  `tabs` (the tab bar), `menu`, `prompt`, `confirm`, `help`, `toast`,
+  `tabs` (the tab bar), `tab-menu`, `tab-drag`, `menu`, `prompt`, `confirm`, `help`, `toast`,
   Terminals' `picker`, `peek`, and `pane` (an
   example pane header, not used by the default layouts), and `worktree`
   (git worktrees as spaces: the space menu's and the + menu's New worktree,

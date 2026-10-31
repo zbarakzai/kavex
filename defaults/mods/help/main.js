@@ -7,7 +7,7 @@ import { keys, props, closeOverlay, theme } from "herdr";
 
 const GROUPS = [
   ["spaces", /^space\./],
-  ["tabs", /^tab\./],
+  ["tabs", /^tabs?\./],
   ["panes", /^pane\./],
   ["agents", /^agent\./],
   ["terminal", /^terminal\.|^send:/],
