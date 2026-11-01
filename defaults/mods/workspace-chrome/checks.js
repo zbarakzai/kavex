@@ -62,6 +62,7 @@ function claudeLimits(text, now) {
     const m = /^Current (session|week \((.+?)\)): (\d+)% used(?:\W+resets (.+))?$/.exec(line.trim());
     if (!m) continue;
     const scope = m[2], limit = { used: Number(m[3]), resetsAt: m[4] ? resetTime(m[4], now) : null };
+    if (m[4] && limit.resetsAt === null) continue;
     if (m[1] === "session") session.push({ label: "5 hours", ...limit });
     else if (scope === "all models") week.push({ label: "This week", ...limit });
     else other.push({ label: scope.replace(/ only$/, ""), ...limit });

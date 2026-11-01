@@ -561,6 +561,23 @@ test("unreadable lines are left out, and the ones that read stay", async () => {
   expect(limits(popover.draw()).map((limit) => words(limit)[0])).toEqual(["Sonnet"]);
 });
 
+test("a line whose reset text can't be read gives no limit, and the ones that read stay", async () => {
+  claude("Current week (all models): 12% used · resets when it feels like it", SONNET);
+  const { popover } = await opened();
+  expect(limits(popover.draw()).map((limit) => words(limit)[0])).toEqual(["Sonnet"]);
+});
+
+test("every line's reset text unreadable is a failed check, keeping the last numbers", async () => {
+  claude(WEEK);
+  const { popover } = await opened();
+  setSystemTime(NOW + 12 * 60_000);
+  claude("Current week (all models): 40% used · resets Someday at noon");
+  refresh(popover);
+  await settle();
+  expect(words(limits(popover.draw())[0])).toContain("12%");
+  expect(words(popover.draw())).toContain("Last checked 12m ago");
+});
+
 test("Claude's reset text: date and time, time only, the turn of the year, and none at all", async () => {
   setSystemTime(Date.UTC(2026, 11, 31, 20, 0));
   claude(
