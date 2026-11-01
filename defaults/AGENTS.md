@@ -264,6 +264,35 @@ be undone. Cmd-click (Ctrl-click) a line opens it in Cursor, VS Code or Zed,
 else the system's app. Commit takes what's staged, or everything if nothing is, by its
 button, Enter or `cmd-enter` (`ctrl-enter`).
 
+The gauge in the sidebar footer opens Usage limits (the `usage` popup mod): each Claude Code, Codex
+and OpenCode Go subscription, with its tier and each limit's percent used and time to reset, weekly
+first. A limit past its reset reads 0%. At 90% used its percent turns orange and the gauge gets a dot.
+
+- **Numbers:** each agent's own commands on its machine, in that machine's shell PATH: `claude auth
+  status`, `claude -p /usage` (no hooks, plugins, MCP or saved session), and `codex app-server`'s
+  `account/read` and `account/rateLimits/read` (read-only). No tokens spent, no login read, no request
+  sent. From programs.json's `run` they take only a path to the agent's own program, never flags;
+  a program of another name means the plain agent.
+- **Rows:** none for an agent signed out, on an API key or not installed. One account on several
+  machines is one row, with the newest numbers. A removed machine's rows go at the next check.
+- **Checks:** on opening (a result under a minute old is reused), on the refresh button, and 5 seconds
+  after the footer starts and every 15 minutes, so only in a layout with that footer: not Terminals
+  or Zaki 98. `workspace-chrome.check-usage` and `workspace-chrome.refresh-usage` run one.
+- **Failure:** a failed check or an unreachable machine keeps the last numbers with their age, or
+  reads "Could not check" with none.
+- **Saved:** `shared("usage")` holds the numbers and an account fingerprint, never an email, login,
+  key or anything made from a key.
+- **Off:** the Usage limits row in Settings > Look, under Workspace. `shared("usage.enabled")` is
+  `false` (anything else is on): the gauge goes, no check runs, one still running saves nothing, and
+  `shared("usage")` and `shared("usage.opencode")` are cleared. Back on, it checks within a minute.
+- **OpenCode** has no such command, so it's the one thing Usage sends itself, on this computer only.
+  A card in the popover asks first, and no key is read until it's answered. Allow sets
+  `shared("usage.opencode")` to `true` and checks at once; Not now sets it to `false` and stops
+  asking. Only the person's press answers: no command does, so never set it for them. Turning Usage
+  off and on asks again. Keys come only from OpenCode's `auth.json` and its database's `credential`
+  table and go only to `opencode.ai`, as a Bearer header; one written as a variable or a command is
+  never sent. A 401 or 403 means no Go plan: no row and no error.
+
 **Zaki's own layouts and mods are read-only.** They are replaced whole
 on every start. Use settings.json for look (fonts, sizes, theme, colors,
 sounds), where the layout leaves them unset. Zaki (main) has no look of
@@ -849,7 +878,7 @@ has 120 programs (agents, editors, runtimes, tools, databases, infra);
   Icon paths from before that folder still work for this release only, and so does the
   `workspace-status` mod, for layouts cloned before the status bar went.
 - The defaults are mods too, read them as examples: `spaces`, `agents`,
-  `tabs` (the tab bar), `tab-menu`, `file-menu`, `tab-drag`, `menu`, `prompt`, `confirm`, `help`, `toast`,
+  `tabs` (the tab bar), `tab-menu`, `file-menu`, `tab-drag`, `menu`, `prompt`, `confirm`, `help`, `toast`, `usage`,
   `start` (the main layout's screen with no space open: the ram draws itself once, then a light runs its outlines, with a wake of code behind the pointer),
   Terminals' `picker`, `peek`, and `pane` (an
   example pane header, not used by the default layouts), and `worktree`

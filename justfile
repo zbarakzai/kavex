@@ -47,6 +47,7 @@ test:
     bun test scripts/file-menu.test.ts
     bun test scripts/reader.test.ts
     bun test scripts/start.test.ts
+    bun test scripts/usage.test.ts
     cargo test --locked
 
 docs-generate: build

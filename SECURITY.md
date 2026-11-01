@@ -7,3 +7,5 @@ Include the Zaki version, OS, what you found, steps to reproduce it, and the imp
 Only the latest release is supported.
 
 For how Zaki handles trusted mods, updates and telemetry, see [security and privacy](docs/security.md).
+
+Usage limits runs Claude Code's and Codex's own commands and reads their answers, so their logins stay with them. The one thing it sends itself is your OpenCode key, to `opencode.ai` only, and only after you press Allow. [Usage limits](docs/security.md#usage-limits) lists what it reads, runs and sends.

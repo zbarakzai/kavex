@@ -129,10 +129,16 @@ fn module(values: BTreeMap<String, Value>, calls: Rc<RefCell<Calls>>) -> HostMod
         let calls = calls.clone();
         module = module.function(name, move |a| {
             if name == "run" {
-                let command = a.string(0)?;
-                let command = crate::commands::find(command).unwrap_or_else(|| panic!("unknown shipped mod command {command}"));
-                let args = a.get(1).map(from_host).unwrap_or(Value::Null);
-                crate::commands::validate_args(command, &args).unwrap();
+                let name = a.string(0)?;
+                if let Some(command) = crate::commands::find(name) {
+                    let args = a.get(1).map(from_host).unwrap_or(Value::Null);
+                    crate::commands::validate_args(command, &args).unwrap();
+                } else {
+                    // A mod's own commands reach it through `nextCommand`, so the app's table doesn't list them.
+                    let owner = name.split_once('.').map(|(owner, _)| owner).unwrap_or_default();
+                    let shipped = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("defaults/mods").join(owner);
+                    assert!(!owner.is_empty() && shipped.is_dir(), "unknown shipped mod command {name}");
+                }
             }
             calls
                 .borrow_mut()
@@ -429,7 +435,8 @@ fn machine_picker_keeps_long_lists_scrollable(cx: &mut TestAppContext) {
     assert!(scroll.contains("overflow_y_scroll") && !scroll.contains("overflow_y_scrollbar"), "{tree}");
     assert!(scroll.contains(".min_h[Number(0.0)]"), "{tree}");
     assert!(tree.contains("ma-row-host-29"), "{tree}");
-    assert_eq!(tree.matches(".flex_none").count(), 60, "rows must not shrink into the viewport: {tree}");
+    let rows = tree.lines().filter(|line| line.contains("ma-row-") && line.contains(".flex_none")).count();
+    assert_eq!(rows, 30, "rows must not shrink into the viewport: {tree}");
 }
 
 #[gpui::test]
