@@ -9,10 +9,21 @@ import { exec, home, readTextFile, window, writeTextFile } from "herdr";
 export const BLOCK = 1048576;
 export const NO_FILE = 3;
 
+// Where `hc` may be, after PATH, for what runs outside Zaki: `~` is the home it runs under. Follows
+// `usual_dirs` in core_bin.rs, which has to stay in step.
+export const HC_PLACES = ["~/.local/bin/hc", "/opt/homebrew/bin/hc", "/usr/local/bin/hc", "~/.local/share/mise/shims/hc", "~/.nix-profile/bin/hc", "/run/current-system/sw/bin/hc", "~/.cargo/bin/hc"];
+
+// Whether `every` ms have passed since this last said yes for `key`.
+export function due(times, key, every) {
+  if (Date.now() - (times.get(key) ?? -every) < every) return false;
+  times.set(key, Date.now());
+  return true;
+}
+
 // A session is read in windows that fit exec's 8 MiB with a long line on top, each its own script
 // step. An added machine's output comes back as base64 inside that same 8 MiB.
-const HERE = 7;
-const AWAY = 4;
+const WINDOW_HERE = 7;
+const WINDOW_ADDED = 4;
 
 // `dd` because BSD `head -c` takes five times as long. A window reads on to the end of its last
 // line, or a line longer than the one block windows overlap by would never be seen whole. `known`,
@@ -130,7 +141,7 @@ function windows(on) {
     if (code !== 0) throw new Error("PowerShell failed.");
     return stdout;
   };
-  const walked = new Map();
+  const walked = new Map(), lastWalk = new Map();
   return {
     absent: async (path) => (await powershell(on, ABSENT_WINDOWS, path)).code === NO_FILE,
     // Through `cmd`, which finds an npm `claude.cmd` as well as a `claude.exe`, and which is why
@@ -150,11 +161,8 @@ function windows(on) {
     inside: async (folder) => sizesFrom(await output(SIZES_INSIDE, folder)),
     find: async (folder, names) => (await output(ALL_SESSIONS, folder)).split("\n").filter((path) => names.some((name) => path.endsWith(name))),
     async processes(pid) {
-      const kept = walked.get(pid);
-      if (Date.now() - (kept?.at ?? -WALKED) < WALKED) return kept.pids;
-      const pids = underneath(pid, await output(PROCESSES).catch(() => ""));
-      walked.set(pid, { at: Date.now(), pids });
-      return pids;
+      if (due(lastWalk, pid, WALKED)) walked.set(pid, underneath(pid, await output(PROCESSES).catch(() => "")));
+      return walked.get(pid);
     },
   };
 }
@@ -193,17 +201,28 @@ async function homeAway(on) {
   return { windows: code === 0, home: code === 0 ? stdout.trim() : "" };
 }
 
+// What an agent's setup works with. `keep` leaves a file that already says this alone.
+const setupFiles = (home, read, write) => ({
+  home,
+  read,
+  write,
+  async keep(path, text) {
+    const now = await read(path);
+    if (now !== text) await write(path, text, now);
+  },
+});
+
 // Null is this computer. Rejects while a machine can't be asked, for the next pass to retry.
 export async function machineOn(on) {
   if (!on) {
     const seen = window();
     if (!seen) throw new Error("No window yet.");
     const read = (path) => readTextFile(path);
-    return { ...(seen.platform === "windows" ? windows(null) : unix(null)), on, window: HERE, home: home(), read, files: { home: home(), read, write: writeTextFile } };
+    return { ...(seen.platform === "windows" ? windows(null) : unix(null)), on, window: WINDOW_HERE, home: home(), read, files: setupFiles(home(), read, writeTextFile) };
   }
   const { windows: isWindows, home: there } = await homeAway(on);
   if (!there) throw new Error("No home there.");
   const kind = isWindows ? windows(on) : unix(on);
   const read = readToChange(on, kind.absent);
-  return { ...kind, on, window: AWAY, home: there, read: (path) => readTextFile(path, { on }), files: { home: there, read, write: writeOn(on, read) } };
+  return { ...kind, on, window: WINDOW_ADDED, home: there, read: (path) => readTextFile(path, { on }), files: setupFiles(there, read, writeOn(on, read)) };
 }

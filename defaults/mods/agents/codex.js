@@ -1,5 +1,6 @@
 // Codex's session: the hook that says which one a terminal holds, and the numbers in its lines.
 
+import { HC_PLACES } from "./machine.js";
 import { PRICES, priced } from "./prices.js";
 
 const SESSION_FILE = /^(.+[\\/]sessions)[\\/]\d{4}[\\/]\d{2}[\\/]\d{2}[\\/]rollout-[^\\/]*?([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\.jsonl$/;
@@ -40,7 +41,7 @@ IFS= read -r hook
 case "$hook" in *'"transcript_path":"'*) ;; *) exit 0 ;; esac
 file=\${hook#*\\"transcript_path\\":\\"}
 file=\${file%%\\"*}
-for hc in hc "$HOME/.local/bin/hc" /opt/homebrew/bin/hc /usr/local/bin/hc "$HOME/.local/share/mise/shims/hc" "$HOME/.nix-profile/bin/hc" /run/current-system/sw/bin/hc "$HOME/.cargo/bin/hc"; do
+for hc in hc ${HC_PLACES.map((place) => `"${place.replace("~", "$HOME")}"`).join(" ")}; do
   if command -v "$hc" >/dev/null 2>&1; then
     "$hc" label "$HC_TERMINAL_ID" "zaki.session=$file" >/dev/null 2>&1
     exit 0
@@ -94,12 +95,6 @@ function withHook(text, ours) {
   return `${JSON.stringify({ ...file, hooks }, null, 2)}\n`;
 }
 
-// Leaves a file that already says this alone.
-async function keep({ read, write }, path, text) {
-  const now = await read(path);
-  if (now !== text) await write(path, text, now);
-}
-
 // Older Codex names a helper only in the reply to its spawn. Only a reply that is that JSON counts:
 // a tool's output can quote the same words anywhere.
 const SPAWN_REPLY = /"\{\\"agent_id\\":\\"([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\\"/g;
@@ -115,9 +110,9 @@ export const codex = {
   // `files` reads and writes on the machine being set up. Script first, so the hook never points
   // at nothing. This is all of Codex's that Zaki touches: approving the hook is the person's.
   async install(files) {
-    const { home, read, write } = files;
-    await keep(files, `${home}/.zaki/codex-session.sh`, SCRIPT);
-    await keep(files, `${home}/.zaki/codex-session.ps1`, WINDOWS_SCRIPT);
+    const { home, read, write, keep } = files;
+    await keep(`${home}/.zaki/codex-session.sh`, SCRIPT);
+    await keep(`${home}/.zaki/codex-session.ps1`, WINDOWS_SCRIPT);
     const path = `${home}/.codex/hooks.json`;
     const text = await read(path);
     const edited = withHook(text, hook(home));
@@ -133,7 +128,7 @@ export const codex = {
   waiting: { state: "waiting", say: "Run `/hooks` in Codex, trust Zaki's hook, then restart this Codex." },
 
   // Nothing on disk ties a Codex process to a session, so its hook labels the terminal.
-  locate(_term, label) {
+  locate({ label }) {
     const [, folder, id] = label?.match(SESSION_FILE) ?? [];
     return id ? { id, folder, file: label } : null;
   },

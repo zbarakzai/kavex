@@ -24,7 +24,7 @@ export const claude = {
   filter: '"type":"assistant"',
 
   // Claude keeps a record per process, so agents in one folder never mix.
-  async locate(term, _label, _total, machine) {
+  async locate({ term, machine }) {
     const pid = term.foreground?.pid;
     if (!pid) return null;
     for (const { pid: candidate, started } of await machine.processes(pid)) {
@@ -56,7 +56,7 @@ export const claude = {
     if (line.type !== "assistant" || !usage || message.model === "<synthetic>") return;
     const input = usage.input_tokens ?? 0, output = usage.output_tokens ?? 0;
     const read = usage.cache_read_input_tokens ?? 0, write = usage.cache_creation_input_tokens ?? 0;
-    if (!helper && !line.isSidechain) facts.newest = { model: message.model, asked: line.requestedModel ?? message.model, used: input + read + write };
+    if (!helper && !line.isSidechain) facts.newest = { model: message.model, asks: line.requestedModel ?? message.model, used: input + read + write };
     const kept = facts.messages.get(message.id);
     if (kept?.output >= output) return;
     const write1h = usage.cache_creation?.ephemeral_1h_input_tokens ?? 0;
@@ -70,7 +70,7 @@ export const claude = {
     facts.tokens.cached += read + write;
   },
 
-  numbers: (facts) => facts.newest && { model: modelName(facts.newest.model), asked: facts.newest.asked, used: facts.newest.used, tokens: { ...facts.tokens }, cost: facts.unpriced ? undefined : facts.cost },
+  numbers: (facts) => facts.newest && { model: modelName(facts.newest.model), asks: facts.newest.asks, context: { used: facts.newest.used }, tokens: { ...facts.tokens }, cost: facts.unpriced ? undefined : facts.cost },
 
   // Claude's files don't say how big a model's context is, but `/context` does, at no tokens.
   async total(model, machine) {

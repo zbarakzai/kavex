@@ -10,7 +10,7 @@
 import { agents, hc, machines, setShared, shared, terminals, watchFolder } from "herdr";
 import { claude } from "./claude.js";
 import { codex } from "./codex.js";
-import { BLOCK, NO_FILE, machineOn } from "./machine.js";
+import { BLOCK, NO_FILE, due, machineOn } from "./machine.js";
 import { pi } from "./pi.js";
 
 const AGENTS = { claude, codex, pi };
@@ -21,7 +21,7 @@ const NONE = { state: "none" };
 const EMPTY = { state: "empty", say: "No usage yet" };
 const WORKED = ["working", "done"];
 const EVERY = 2000;
-const AWAY = 30000;
+const EVERY_ADDED = 30000;
 const TOTALS = "agents.totals";
 const SETUP = "agents.setup";
 const KEPT = 86400000;
@@ -65,51 +65,48 @@ export class Sessions {
   // a slow machine holds up nothing but itself. One that's offline is left alone, so its rows keep
   // what they had.
   tick(cx) {
-    this.pass(null, cx);
+    this.startPass(null, cx);
     const all = terminals();
-    const due = all.filter((t) => t.address.includes("/") && (this.follows(t, all) || (!this.only && leftBehind(t).length)));
-    for (const on of new Set(due.map((t) => machineOf(t.address)))) {
-      if (offline(on) || Date.now() - (this.last.get(on) ?? -AWAY) < AWAY) continue;
-      this.last.set(on, Date.now());
-      this.pass(on, cx);
+    const wanted = all.filter((t) => machineOf(t.address) && (this.follows(t, all) || (!this.only && leftBehind(t).length)));
+    for (const on of new Set(wanted.map((t) => machineOf(t.address)))) {
+      if (!offline(on) && due(this.last, on, EVERY_ADDED)) this.startPass(on, cx);
     }
   }
 
   follows(t, all) {
     if (t.state !== "live" || !hasSession(t)) return false;
     if (this.only) return t.address === this.only;
-    return !t.address.includes("/") || hasRow(t, all);
+    return !machineOf(t.address) || hasRow(t, all);
   }
 
   shown(address) {
     const found = this.live.get(address)?.result ?? NONE;
-    if (found.state !== "ready" || found.context) return found;
-    const { asked, used, ...rest } = found;
-    const total = shared(TOTALS)?.[onMachine(machineOf(address), asked)]?.total;
+    const { used, percent } = found.context ?? {};
+    if (used === undefined || used === null || percent !== undefined) return found;
+    const total = found.asks ? shared(TOTALS)?.[onMachine(machineOf(address), found.asks)]?.total : found.context.total;
     // More used than the total means the total is wrong: no percent rather than a wrong one.
-    const context = total >= used ? { used, total, percent: Math.round((used / total) * 100) } : { used };
-    return { ...rest, context };
+    return { ...found, context: total >= used ? { used, total, percent: Math.round((used / total) * 100) } : { used } };
   }
 
   // A pass that's still reading is left alone. `reading` holds a time because a stopped script
   // can't clear a flag, and it names the one pass per machine that may touch a session: one the
   // machine slept through wakes to find itself replaced, and leaves its old lines unread.
-  pass(on, cx) {
+  startPass(on, cx) {
     if (Date.now() - (this.reading.get(on)?.at ?? 0) < 60000) return;
-    const run = { on, at: Date.now() };
-    this.reading.set(on, run);
+    const pass = { on, at: Date.now() };
+    this.reading.set(on, pass);
     cx.spawn(async (cx) => {
       const all = terminals();
       const here = all.filter((t) => machineOf(t.address) === on);
       const listed = here.filter((t) => this.follows(t, all));
       for (const a of this.live.keys()) if (machineOf(a) === on && !listed.some((t) => t.address === a)) this.live.delete(a);
       if (!this.only) await this.tidy(here);
-      run.machine = listed.length ? await this.machine(on).catch(() => null) : null;
-      for (const term of run.machine ? listed : []) {
-        if (!this.only) this.setUp(run.machine, term.program.key, AGENTS[term.program.key], cx);
-        if (this.reading.get(on) === run && !(on && offline(on))) await this.follow(term, run, cx);
+      pass.machine = listed.length ? await this.machine(on).catch(() => null) : null;
+      for (const term of pass.machine ? listed : []) {
+        if (!this.only) this.setUp(pass.machine, term.program.key, AGENTS[term.program.key], cx);
+        if (this.current(pass) && !(on && offline(on))) await this.follow(term, pass, cx);
       }
-      if (this.reading.get(on) === run) this.reading.delete(on);
+      if (this.current(pass)) this.reading.delete(on);
     });
   }
 
@@ -133,11 +130,8 @@ export class Sessions {
   // An agent's own files, once per `agent.setup` per machine. One that couldn't be done waits
   // before the next try.
   setUp(machine, key, agent, cx) {
-    const now = Date.now();
     const name = onMachine(machine.on, key);
-    if (agent.setup === undefined || shared(SETUP)?.[name] === agent.setup) return;
-    if (now - (this.tried.get(name) ?? -RETRY) < RETRY) return;
-    this.tried.set(name, now);
+    if (agent.setup === undefined || shared(SETUP)?.[name] === agent.setup || !due(this.tried, name, RETRY)) return;
     cx.spawn(async () => {
       const done = await agent.install(machine.files).catch(() => false);
       if (done) setShared(SETUP, { ...shared(SETUP), [name]: agent.setup });
@@ -146,12 +140,12 @@ export class Sessions {
 
   // A session stays due until a read gets to its end, so a failed read leaves the last result
   // standing for the next pass to try again, and a change during a read isn't lost.
-  async follow(term, run, cx) {
+  async follow(term, pass, cx) {
     const agent = AGENTS[term.program.key];
     let session = this.live.get(term.address);
     try {
-      const found = await agent.locate(term, term.labels?.[LABEL], term.labels?.[TOTAL], run.machine);
-      if (this.reading.get(run.on) !== run) return;
+      const found = await agent.locate({ term, label: term.labels?.[LABEL], total: term.labels?.[TOTAL], machine: pass.machine });
+      if (!this.current(pass)) return;
       if (found && found.id !== session?.id) {
         session = { ...found, facts: agent.facts(), files: new Map(), torn: new Set(), changes: 1, done: 0 };
         this.live.set(term.address, session);
@@ -163,11 +157,11 @@ export class Sessions {
       if (!session || (session.done === session.changes && this.folders.has(session.folder))) return;
       const { changes } = session;
       const had = JSON.stringify(session.result);
-      const result = await this.read(session, agent, run);
+      const result = await this.read(session, agent, pass);
       if (result) session.done = changes;
       session.result = result ?? session.result ?? EMPTY;
-      if (!run.on) this.watch(session, cx);
-      if (session.result.state === "ready" && !this.only && agent.total) this.ask(agent, session.result.asked, run.machine, cx);
+      if (!pass.on) this.watch(session, cx);
+      if (session.result.state === "ready" && !this.only && agent.total) this.ask(agent, session.result.asks, pass.machine, cx);
       if (JSON.stringify(session.result) !== had) cx.notify();
     } catch {}
   }
@@ -184,24 +178,28 @@ export class Sessions {
     if (had?.result !== result) cx.notify();
   }
 
+  current(pass) {
+    return this.reading.get(pass.on) === pass;
+  }
+
   // A pass that has been replaced stops here, before it touches anything.
-  still(run) {
-    if (this.reading.get(run.on) !== run) throw new Error("replaced");
+  stopIfReplaced(pass) {
+    if (!this.current(pass)) throw new Error("replaced");
   }
 
   // What a session comes to, or null while it has no file. Helpers add to its facts, and only
   // those that have grown are read; one found rewritten starts the whole session over, and a
   // helper can name more of them.
-  async read(session, agent, run) {
+  async read(session, agent, pass) {
     for (;;) {
-      if (!(await this.take(session, session.file, agent, run))) return null;
+      if (!(await this.take(session, session.file, agent, pass))) return null;
       const { facts } = session;
       for (let again = Boolean(agent.helpers); again && session.facts === facts; ) {
-        const helpers = await agent.helpers(session, run.machine);
-        this.still(run);
+        const helpers = await agent.helpers(session, pass.machine);
+        this.stopIfReplaced(pass);
         again = helpers.some(({ file }) => !session.files.has(file));
         for (const { file, size } of helpers) {
-          if (session.files.get(file)?.size !== size) await this.take(session, file, agent, run, true);
+          if (session.files.get(file)?.size !== size) await this.take(session, file, agent, pass, true);
         }
       }
       if (session.facts === facts) break;
@@ -218,13 +216,13 @@ export class Sessions {
   // `torn` holds kept lines that wouldn't parse until the whole line turns up: their usage is
   // missing, which an agent can't tell from none. A window's first line is the exception, as it
   // starts inside a line the window before read whole.
-  async take(session, file, agent, run, helper = false) {
-    const { machine } = run;
+  async take(session, file, agent, pass, helper = false) {
+    const { machine } = pass;
     for (;;) {
       const kept = session.files.get(file);
       const block = kept?.block ?? 0;
       const { code, stdout } = await machine.lines(file, block, machine.window, agent.filter, machine.on && kept?.done ? kept.size : "");
-      this.still(run);
+      this.stopIfReplaced(pass);
       if (code === NO_FILE) return false;
       const lines = stdout.split("\n");
       const size = Number(lines[0]);
@@ -273,11 +271,9 @@ export class Sessions {
 
   // Once per model per machine and kept for a day; a check that failed waits before the next try.
   ask(agent, model, machine, cx) {
-    const now = Date.now();
     const key = onMachine(machine.on, model);
     const kept = shared(TOTALS)?.[key];
-    if ((kept && now - kept.at < KEPT) || now - (this.asked.get(key) ?? -RETRY) < RETRY) return;
-    this.asked.set(key, now);
+    if ((kept && Date.now() - kept.at < KEPT) || !due(this.asked, key, RETRY)) return;
     cx.spawn(async () => {
       const total = await agent.total(model, machine).catch(() => null);
       if (total) setShared(TOTALS, { ...shared(TOTALS), [key]: { total, at: Date.now() } });

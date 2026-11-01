@@ -1,6 +1,10 @@
 // Pi's session: the extension that says which one a terminal holds, and the numbers in its lines.
 // Pi stores a cost with every usage, so it needs no price list.
 
+import { HC_PLACES } from "./machine.js";
+
+const place = (path) => (path.startsWith("~/") ? `join(home, ${JSON.stringify(path.slice(2))})` : JSON.stringify(path));
+
 // Runs inside Pi, which loads every file in its extensions folder by itself, with nothing for the
 // person to approve. Pi started by a tool in this terminal (`pi -p`) isn't this terminal's agent.
 // It prints nothing, and a failure is only a row with no numbers: never in Pi's way.
@@ -13,13 +17,7 @@ import { join } from "node:path";
 const home = homedir();
 const places = [
   "hc",
-  join(home, ".local/bin/hc"),
-  "/opt/homebrew/bin/hc",
-  "/usr/local/bin/hc",
-  join(home, ".local/share/mise/shims/hc"),
-  join(home, ".nix-profile/bin/hc"),
-  "/run/current-system/sw/bin/hc",
-  join(home, ".cargo/bin/hc"),
+  ${HC_PLACES.map(place).join(",\n  ")},
   join(process.env.LOCALAPPDATA ?? home, "Programs/herdr-core/hc.exe"),
 ];
 
@@ -64,22 +62,14 @@ function count(facts, usage) {
   else facts.unpriced = true;
 }
 
-// Right after a compaction nothing says how big the context is, until Pi's next answer.
-function context(used, total) {
-  if (used === null) return { used, total };
-  return total >= used ? { used, total, percent: Math.round((used / total) * 100) } : { used };
-}
-
 export const pi = {
   // Goes up when what `install` puts on a machine changes.
   setup: 1,
 
   // `files` reads and writes on the machine being set up. A file of its own in Pi's folder, so
   // nothing of the person's is touched.
-  async install({ home, read, write }) {
-    const path = `${home}/.pi/agent/extensions/zaki-session.ts`;
-    const now = await read(path);
-    if (now !== EXTENSION) await write(path, EXTENSION, now);
+  async install({ home, keep }) {
+    await keep(`${home}/.pi/agent/extensions/zaki-session.ts`, EXTENSION);
     return true;
   },
 
@@ -93,7 +83,7 @@ export const pi = {
   waiting: { state: "waiting", say: "Run `/reload` in Pi to load Zaki's extension." },
 
   // Any folder can hold a session, with `--session-dir`, so all a path has to be is one.
-  locate(_term, label, total) {
+  locate({ label, total }) {
     const [, folder, id] = label?.match(SESSION_FILE) ?? [];
     return id ? { id, folder, file: label, total: Number(total) > 0 ? Number(total) : undefined } : null;
   },
@@ -115,5 +105,5 @@ export const pi = {
     facts.used = contextOf(message) || facts.used;
   },
 
-  numbers: (facts, { total, torn }) => (facts.counted || torn.size > 0) && { model: facts.model ?? "Pi", context: context(torn.size ? null : facts.used, total), tokens: { ...facts.tokens }, cost: facts.unpriced || torn.size ? undefined : facts.cost },
+  numbers: (facts, { total, torn }) => (facts.counted || torn.size > 0) && { model: facts.model ?? "Pi", context: { used: torn.size ? null : facts.used, total }, tokens: { ...facts.tokens }, cost: facts.unpriced || torn.size ? undefined : facts.cost },
 };
