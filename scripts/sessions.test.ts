@@ -71,6 +71,7 @@ mock.module("herdr", () => ({
     const r = Bun.spawnSync([cmd, ...args]);
     const stdout = r.stdout.toString();
     state.outputs.push(stdout.length);
+    if (state.asleep) await state.asleep;
     return { code: r.exitCode, stdout: stdout.slice(0, EXEC_OUTPUT), stderr: r.stderr.toString() };
   },
 }));
@@ -648,6 +649,68 @@ test("a 100 MB session is read whole, however its lines fall, and after that onl
   expect(state.outputs[0]).toBeLessThan(200000);
   rmSync(fileOf("one"));
 }, 30000);
+
+test("a read the machine slept through can't put old numbers back over a newer read", async () => {
+  const start = Date.now();
+  const { draw } = await one([said({ id: "m1", read: 100000 })]);
+  let wake = () => {};
+  state.asleep = new Promise<void>((resolve) => { wake = resolve; });
+  writes("one", [said({ id: "m2", read: 200000 })]);
+  state.watchers.shift()([fileOf("one")]);
+  await Bun.sleep(5);
+  for (const [ms, f] of state.timers) if (ms === 2000) f(cx);
+  await Bun.sleep(30);
+
+  state.asleep = null;
+  writes("one", [said({ id: "m3", read: 300000 })]);
+  state.watchers.shift()([fileOf("one")]);
+  setSystemTime(new Date(start + 15 * 60000));
+  await Bun.sleep(5);
+  for (const [ms, f] of state.timers) if (ms === 2000) f(cx);
+  await Bun.sleep(30);
+  wake();
+  await settle();
+  setSystemTime();
+  expect(rowPercents(draw, "t1")).toEqual(["30%"]);
+});
+
+test("a read left unfinished by sleep is finished by the next pass", async () => {
+  const start = Date.now();
+  const { draw } = await one([said({ id: "m1", read: 100000 })]);
+  state.asleep = new Promise<void>(() => {});
+  writes("one", [said({ id: "m2", read: 200000 })]);
+  state.watchers.shift()([fileOf("one")]);
+  await Bun.sleep(5);
+  for (const [ms, f] of state.timers) if (ms === 2000) f(cx);
+  await Bun.sleep(30);
+
+  state.asleep = null;
+  state.running = state.parked;
+  setSystemTime(new Date(start + 15 * 60000));
+  await ticks();
+  setSystemTime();
+  expect(rowPercents(draw, "t1")).toEqual(["20%"]);
+});
+
+test("a change that lands during a read isn't lost", async () => {
+  const { draw } = await one([said({ id: "m1", read: 100000 })]);
+  let wake = () => {};
+  state.asleep = new Promise<void>((resolve) => { wake = resolve; });
+  writes("one", [said({ id: "m2", read: 200000 })]);
+  state.watchers.shift()([fileOf("one")]);
+  await Bun.sleep(5);
+  for (const [ms, f] of state.timers) if (ms === 2000) f(cx);
+  await Bun.sleep(30);
+
+  writes("one", [said({ id: "m3", read: 300000 })]);
+  state.watchers.shift()([fileOf("one")]);
+  await Bun.sleep(5);
+  state.asleep = null;
+  wake();
+  await settle();
+  await ticks();
+  expect(rowPercents(draw, "t1")).toEqual(["30%"]);
+});
 
 test("a session of nothing but messages, far past what exec can carry in one go, still adds up", async () => {
   const lines: string[] = [];

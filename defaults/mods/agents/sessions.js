@@ -49,48 +49,52 @@ export class Sessions {
     return { ...rest, context };
   }
 
-  // A pass that's still reading is left alone; `reading` is a time because a stopped script
-  // can't clear a flag.
+  // A pass that's still reading is left alone. `reading` is a time because a stopped script
+  // can't clear a flag, and it names the one pass that may touch a session: one the machine
+  // slept through wakes to find itself replaced, and leaves its old lines unread.
   pass(cx) {
     if (Date.now() - (this.reading ?? 0) < 60000) return;
-    this.reading = Date.now();
+    const run = (this.reading = Date.now());
     cx.spawn(async (cx) => {
       const listed = terminals().filter((t) => t.state === "live" && hasSession(t) && (!this.only || t.address === this.only));
       for (const a of this.live.keys()) if (!listed.some((t) => t.address === a)) this.live.delete(a);
-      for (const term of listed) await this.follow(term, cx);
-      this.reading = 0;
+      for (const term of listed) {
+        if (this.reading === run) await this.follow(term, run, cx);
+      }
+      if (this.reading === run) this.reading = 0;
     });
   }
 
-  async follow(term, cx) {
+  // A session stays due until a read gets to its end, so a failed read leaves the last result
+  // standing for the next pass to try again, and a change during a read isn't lost.
+  async follow(term, run, cx) {
     const agent = AGENTS[term.program.key];
     let session = this.live.get(term.address);
     try {
       const found = await agent.locate(term);
+      if (this.reading !== run) return;
       if (found && found.id !== session?.id) {
-        session = { ...found, facts: agent.facts(), block: 0, dirty: true };
+        session = { ...found, facts: agent.facts(), block: 0, changes: 1, done: 0 };
         this.live.set(term.address, session);
       }
-      if (!session || (!session.dirty && this.folders.has(session.folder))) return;
-      session.dirty = false;
+      if (!session || (session.done === session.changes && this.folders.has(session.folder))) return;
+      const { changes } = session;
       const had = JSON.stringify(session.result);
-      session.result = await this.read(session, agent);
+      const result = await this.read(session, agent, run);
+      if (result) session.done = changes;
+      session.result = result ?? session.result ?? { state: "empty" };
       this.watch(session, cx);
       if (session.result.state === "ready" && !this.only) this.ask(agent, session.result.asked, cx);
       if (JSON.stringify(session.result) !== had) cx.notify();
-    } catch {
-      // The last result stands, and the next pass tries again.
-      if (session) session.dirty = true;
-    }
+    } catch {}
   }
 
-  async read(session, agent) {
+  // What a session comes to, or null while it has no file.
+  async read(session, agent, run) {
     for (;;) {
       const { code, stdout } = await exec("sh", ["-c", NEW_LINES, "sh", session.file, String(session.block), agent.filter]);
-      if (code === 3) {
-        session.dirty = true;
-        return session.result ?? { state: "empty" };
-      }
+      if (this.reading !== run) throw new Error("replaced");
+      if (code === 3) return null;
       const lines = stdout.split("\n");
       const size = Number(lines[0]);
       if (!lines[0] || !Number.isFinite(size)) throw new Error("no size");
@@ -113,8 +117,8 @@ export class Sessions {
     return numbers ? { state: "ready", ...numbers } : { state: "empty" };
   }
 
-  // Changes under a session's folder mark it for the next pass, so nothing is read more than
-  // once per pass however fast it's written. A folder that can't be watched is read every pass.
+  // Changes under a session's folder make it due, so nothing is read more than once per pass
+  // however fast it's written. A folder that can't be watched is read every pass.
   watch(session, cx) {
     const { folder } = session;
     if (this.folders.has(folder)) return;
@@ -123,7 +127,7 @@ export class Sessions {
       try {
         for (;;) {
           const changed = await watchFolder(folder);
-          for (const s of this.live.values()) if (changed.some((path) => path.includes(s.id))) s.dirty = true;
+          for (const s of this.live.values()) if (changed.some((path) => path.includes(s.id))) s.changes++;
         }
       } catch {
         this.folders.delete(folder);
