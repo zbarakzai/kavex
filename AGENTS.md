@@ -104,3 +104,17 @@ that never shipped.
 
 Never stop, signal, or restart someone else's app or core. Use an isolated
 app home and core session for testing.
+
+## Agent skills
+
+### Issue tracker
+
+Issues and specs live as local Markdown under `.scratch/`. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The default five roles, kept as a `Status:` line in each issue file. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: `CONTEXT.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
