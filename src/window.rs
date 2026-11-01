@@ -1185,6 +1185,9 @@ impl AppWindow {
                 }
             }
         }
+        if self.model.active_tab().is_none() {
+            mods.extend(self.chrome.visible_blocks().into_iter().filter_map(empty_mod));
+        }
         for o in &self.overlays {
             if let Some(c) = self.copies.get(&o.slot) {
                 mods.push((o.slot.clone(), c.inst.clone()));
@@ -1208,6 +1211,7 @@ impl AppWindow {
             if let Some(Content::Mod { name, props }) = n.content() {
                 out.insert(n.id.clone(), inst(name, props));
             }
+            out.extend(empty_mod(n));
             if let Kind::Stack { header: Some(h), .. } = &n.kind
                 && let HeaderContent::Mod { name, props } = &h.content
             {
@@ -3803,6 +3807,7 @@ impl AppWindow {
             Content::Context { .. } => match self.model.active_tab() {
                 Some(c) => self.render_node(c.shown(), focused, self.pane_frame(), cx),
                 None if self.documents.get("").is_some_and(|s| s.layout() == "loading") => div().size_full().into_any_element(),
+                None if empty_mod(n).is_some() => self.render_slot(&format!("{}#empty", n.id), cx),
                 None => {
                     let key = crate::keys::listing().into_iter().find(|(_, _, a)| a == "space.new").map(|(_, k, _)| format!(" ({k})"));
                     div()
@@ -4316,6 +4321,13 @@ fn num_in(v: &Value, k: &str) -> f32 {
 
 /// A floating mod's slot and copy (it's told its float id). `visible` and
 /// `owned_mods` must build the same, or a kept copy is dropped.
+/// A tab block's mod for when there's no tab to show, if its layout names one.
+fn empty_mod(n: &Node) -> Option<(String, Instance)> {
+    let Some(Content::Context { empty: Some(empty), .. }) = n.content() else { return None };
+    let Content::Mod { name, props } = &**empty else { return None };
+    Some((format!("{}#empty", n.id), Instance { name: name.clone(), props: props.clone() }))
+}
+
 fn float_mod(id: &str, name: &str, props: &Value) -> (String, Instance) {
     let mut props = if props.is_object() { props.clone() } else { json!({}) };
     props["float"] = json!(id);

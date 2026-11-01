@@ -2646,6 +2646,7 @@ pub(in crate::materialize) fn resolve_ops(
                     Bridged::Number(to),
                     Bridged::Number(period),
                     Bridged::Str(easing),
+                    values @ ..,
                 ] = args.as_slice()
                     && let Some(property) = MotionProperty::parse(property)
                 {
@@ -2656,6 +2657,13 @@ pub(in crate::materialize) fn resolve_ops(
                         to: *to as f32,
                         period: period.max(100.0),
                         easing: easing.clone(),
+                        values: values
+                            .iter()
+                            .filter_map(|value| match value {
+                                Bridged::Number(value) => Some(*value as f32),
+                                _ => None,
+                            })
+                            .collect(),
                     });
                 }
             }
@@ -2759,6 +2767,17 @@ struct Loop {
     to: f32,
     period: f64,
     easing: String,
+    /// Stops of one period, in place of `from`, `to` and `easing` when not empty.
+    values: Vec<f32>,
+}
+
+/// Where a loop's stops are `phase` (0..1) through a period: evenly spaced, in
+/// straight lines, the last running back into the first so nothing jumps.
+fn loop_value(values: &[f32], phase: f64) -> f32 {
+    let at = phase as f32 * values.len() as f32;
+    let stop = (at as usize).min(values.len() - 1);
+    let next = values[(stop + 1) % values.len()];
+    values[stop] + (next - values[stop]) * (at - stop as f32)
 }
 
 /// One clock for every view, so spinners in different mods turn together.
@@ -2960,14 +2979,18 @@ fn apply_loops<'a>(behavior: &'a Behavior, refinement: &mut StyleRefinement, win
     });
     for l in &behavior.loops {
         let phase = (now % l.period) / l.period;
-        let x = if phase < 0.5 { phase * 2.0 } else { 2.0 - phase * 2.0 } as f32;
-        let eased = match l.easing.as_str() {
-            "linear" => x,
-            "ease-in" => ease_in_cubic(x),
-            "ease-out" => ease_out_cubic(x),
-            _ => ease_in_out_cubic(x),
+        let value = if l.values.is_empty() {
+            let x = if phase < 0.5 { phase * 2.0 } else { 2.0 - phase * 2.0 } as f32;
+            let eased = match l.easing.as_str() {
+                "linear" => x,
+                "ease-in" => ease_in_cubic(x),
+                "ease-out" => ease_out_cubic(x),
+                _ => ease_in_out_cubic(x),
+            };
+            l.from + (l.to - l.from) * eased
+        } else {
+            loop_value(&l.values, phase)
         };
-        let value = l.from + (l.to - l.from) * eased;
         match l.property {
             MotionProperty::Opacity => refinement.opacity = Some(value.clamp(0.0, 1.0)),
             MotionProperty::Width => refinement.size.width = Some(gpui::px(value).into()),
@@ -3779,6 +3802,17 @@ mod motion_identity_tests {
 
         apply_behavior(&mut behavior, "open", &[Bridged::Bool(false)]);
         assert_eq!(behavior.open, Some(false));
+    }
+
+    #[test]
+    fn a_loops_stops_run_in_straight_lines_and_close_the_circle() {
+        let values = [0.0, 1.0, 0.5, 0.25];
+        assert_eq!(loop_value(&values, 0.0), 0.0);
+        assert_eq!(loop_value(&values, 0.125), 0.5);
+        assert_eq!(loop_value(&values, 0.25), 1.0);
+        assert_eq!(loop_value(&values, 0.625), 0.375);
+        assert_eq!(loop_value(&values, 0.875), 0.125);
+        assert!(loop_value(&values, 0.999_999) < 0.001);
     }
 
     #[test]

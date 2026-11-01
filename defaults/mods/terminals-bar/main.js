@@ -3,6 +3,7 @@
 import { View, div, svg, image } from "gpui-kit";
 import { h_flex } from "gpui-base";
 import { spaces, panes, run, theme, home, openOverlay, window as win } from "herdr";
+import { loader } from "./loader.js";
 
 const C = {
   tray: "#1d1f22",
@@ -47,7 +48,10 @@ function tile(t, p) {
     .when(Boolean(g?.icon), (el) =>
       el.child(g.tint ? svg(g.icon).size(15).text_color(g.color ?? C.text) : image(g.icon).w(15).h(15)),
     )
-    .when(Boolean(dot), (el) =>
+    .when(p?.status === "working", (el) =>
+      el.child(div().absolute().top(-4).right(-6).p(1.5).rounded(4).bg(C.tray).child(loader(t.accent, 2))),
+    )
+    .when(Boolean(dot) && p?.status !== "working", (el) =>
       el.child(div().absolute().top(-4).right(-4).w(11).h(11).rounded_full().border_2().border_color(C.tray).bg(dot)),
     );
 }

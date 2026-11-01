@@ -284,7 +284,8 @@ A layout is a tree of nodes. Four types:
 
 - `block`: shows content. `"content"` is `{ "mod": "<folder>", "props": {...} }`,
   `{ "terminal": "t7" }`, `{ "tab": "active" }` (the shown tab's
-  terminals as it arranges them), or `{ "agent": "focused" }` (one agent's
+  terminals as it arranges them; with no space open, its `"empty": { "mod":
+  "<folder>" }` shows there, else a line of text), or `{ "agent": "focused" }` (one agent's
   terminal, full size: the one chosen with `agent.focus` / `agent.next`, else
   the focused pane's agent, else the first agent).
 - `row` / `column`: children side by side / stacked.
@@ -827,6 +828,7 @@ has 120 programs (agents, editors, runtimes, tools, databases, infra);
   `workspace-status` mod, for layouts cloned before the status bar went.
 - The defaults are mods too, read them as examples: `spaces`, `agents`,
   `tabs` (the tab bar), `tab-menu`, `file-menu`, `tab-drag`, `menu`, `prompt`, `confirm`, `help`, `toast`,
+  `start` (the main layout's screen with no space open: the ram draws itself once, then a light runs its outlines, with a wake of code behind the pointer),
   Terminals' `picker`, `peek`, and `pane` (an
   example pane header, not used by the default layouts), and `worktree`
   (git worktrees as spaces: the space menu's and the + menu's New worktree,
@@ -919,10 +921,13 @@ Rules:
   each string in turn as the element's text), `svg(arc).spin(900)` (turns
   an icon once every 900 ms: a ring spinner, e.g.
   `mods/workspace-chrome/icons/spinner.svg`), or `.loop("opacity", { from:
-  0.4, to: 1, period: 1200 })` (also width, height, left, top), and
-  `.transition(...)` for changes: they run without your script and stop
-  when not shown. Timers are for data (a clock, a fetch), and only as often
-  as what they show changes.
+  0.4, to: 1, period: 1200 })` (also width, height, left, top; `{ values:
+  [0.1, 1, 0.4], period: 2400 }` runs through stops instead, in straight
+  lines back to the first), and `.transition(...)` for changes: they run
+  without your script and stop when not shown. Timers are for data (a clock,
+  a fetch), and only as often as what they show changes. Zaki's own loading
+  look is `loader(color)` in `mods/agents/loader.js`, ten dots built from
+  `.loop`: copy the file into your mod to show the same.
 
 ### UI
 

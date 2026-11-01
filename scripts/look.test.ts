@@ -4,9 +4,10 @@ import { join } from "node:path";
 
 const element = () => new Proxy({}, { get: (_t, _k, self) => () => self });
 mock.module("gpui-kit", () => ({ div: element, image: element, svg: element }));
-mock.module("gpui-base", () => ({ h_flex: element }));
+mock.module("gpui-base", () => ({ h_flex: element, v_flex: element }));
 mock.module("herdr", () => ({ layout: () => null, run: () => {}, shared: () => null }));
 const { look, groupHue } = await import("../defaults/mods/spaces/look.js");
+const { DOTS } = await import("../defaults/mods/agents/loader.js");
 const { logoOf, tagOf } = await import("../defaults/mods/files/filetypes.js");
 
 const root = new URL("../defaults/", import.meta.url).pathname;
@@ -26,6 +27,28 @@ test("mods that share a file keep the same copy", () => {
   for (const [file, mods] of [["groups.js", ["tabs", "tabs-column", "tab-menu"]], ["filetypes.js", ["files", "changes"]], ["panel.js", ["files", "changes"]]] as const) {
     expect(new Set(mods.map((mod) => readFileSync(join(root, "mods", mod, file), "utf8"))).size, file).toBe(1);
   }
+});
+
+test("every copy of the loader is the same file, and nothing still spins", () => {
+  const mods = readdirSync(join(root, "mods")).map((mod) => join(root, "mods", mod));
+  const screens = [...mods, join(root, "frame/settings")];
+  const copies = screens.map((dir) => join(dir, "loader.js")).filter(existsSync);
+  expect(copies.length).toBe(10);
+  expect(new Set(copies.map((path) => readFileSync(path, "utf8"))).size).toBe(1);
+  for (const dir of screens) {
+    for (const file of readdirSync(dir).filter((name) => name.endsWith(".js"))) expect(readFileSync(join(dir, file), "utf8"), `${dir}/${file}`).not.toContain(".spin(");
+  }
+});
+
+test("the loader's bright dot steps around the edge, the rest stay readable, in the theme's color", () => {
+  expect(DOTS.map((row: number[][]) => row.length)).toEqual([1, 2, 3, 4]);
+  const dots = DOTS.flat() as number[][], middle = DOTS[2][1] as number[], edge = dots.filter((values) => values !== middle);
+  expect(edge.length).toBe(9);
+  expect(new Set(middle).size).toBe(1);
+  expect(dots.flat().every((value) => value >= 0.26 && value <= 1)).toBe(true);
+  for (const values of edge) expect(Math.max(...values)).toBe(1);
+  for (let stop = 0; stop < middle.length; stop += 1) expect(edge.filter((values) => values[stop] === 1).length).toBe(1);
+  expect(readFileSync(join(root, "mods/agents/loader.js"), "utf8")).not.toMatch(/#[0-9a-f]{3,8}\b/i);
 });
 
 test("the zaki theme's values come through untouched", () => {

@@ -137,6 +137,18 @@ test("a row's status never changes its background, only the badge shows it", () 
   expect(all(row).some((e) => e.kids.some((k) => mine(k) && text(mine(k)!) === "N"))).toBe(true);
 });
 
+test("a working tab shows the loader in the theme's accent, played natively, beside its badge", () => {
+  state.tabs = [tab("a", { active: true }), tab("w", { status: "working" })];
+  const root = column().draw(), dots = all(byId(root, "column-w")!).filter((e) => has(e, "loop"));
+  expect(dots.length).toBe(10);
+  for (const dot of dots) {
+    expect(arg(dot, "bg")).toBe(colors.accent);
+    expect(dot.calls.find(([k]) => k === "loop")![1][1].values.length).toBe(9);
+  }
+  expect(all(byId(root, "column-w")!).some((e) => e.kids.some((k) => mine(k) && text(mine(k)!) === "W"))).toBe(true);
+  expect(all(byId(root, "column-a")!).some((e) => has(e, "loop"))).toBe(false);
+});
+
 test("backgrounds ease over 120ms", () => {
   const sheet = byId(column().draw(), "column-hover-b")!;
   expect(sheet.calls.find(([k]) => k === "transition")![1]).toEqual(["opacity", 120]);

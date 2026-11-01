@@ -6,6 +6,7 @@
 
 import { View, div, svg, image } from "gpui-kit";
 import { h_flex } from "gpui-base";
+import { loader } from "./loader.js";
 import { panes, props, run, theme, home } from "herdr";
 
 function icon(p, size, color) {
@@ -63,7 +64,7 @@ export default class Pane extends View {
       .when(Boolean(pic), (el) => el.child(pic))
       .child(div().flex_none().truncate().max_w(260).font_medium().text_color(t.foreground).child(name))
       .child(div().flex_1().truncate().text_color(t.dim).child(folder(p.cwd)))
-      .when(st === "working", el => el.child(svg("mods/workspace-chrome/icons/spinner.svg").size(16).flex_none().text_color(t.working).spin(900)))
+      .when(st === "working", el => el.child(loader(t.accent)))
       .when(st === "blocked", el => el.child(div().flex_none().px(6).h(18).flex().items_center().rounded(5).bg(t.blocked + "26").text_size(10.5).font_semibold().text_color(t.blocked).child("Needs you")))
       .when(st === "done", el => el.child(div().size(7).flex_none().rounded(4).bg(t.done)))
       .when(this.hovered, el => el

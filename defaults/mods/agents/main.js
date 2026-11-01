@@ -5,6 +5,7 @@ import { View, div, image, svg } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
 import { agents, terminals, focused, spaces, run, theme, shared, setShared, setAgentOrder, openOverlay, closeOverlay, props, window, layout } from "herdr";
 import { look, badge, duration, sectionLabel, tile, MONO } from "./look.js";
+import { loader } from "./loader.js";
 
 function find(node, id) {
   if (node?.id === id) return node;
@@ -176,7 +177,8 @@ export default class Agents extends View {
 
   status(t, a, compact = false) {
     const k = look(t);
-    if (compact) return div().size(6).mx(1).flex_none().rounded(3).bg((k.status[a.status] ?? k.status.idle).dot);
+    if (compact) return a.status === "working" ? loader(t.accent, 2) : div().size(6).mx(1).flex_none().rounded(3).bg((k.status[a.status] ?? k.status.idle).dot);
+    if (a.status === "working") return h_flex().flex_none().gap(6).items_center().child(loader(t.accent)).child(badge(k, a.status));
     return badge(k, a.status);
   }
 

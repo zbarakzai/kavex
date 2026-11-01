@@ -4,6 +4,7 @@ import { View, div, svg, image } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input } from "gpui-base";
 import { hc, run, theme, themes, fonts, updates, telemetry, settings, layouts, shared, setShared, appHome, readTextFile, writeTextFile, playSound, props, closeOverlay } from "herdr";
 import { look, sectionLabel, MONO } from "./look.js";
+import { loader } from "./loader.js";
 
 const I = (name) => `mods/workspace-chrome/icons/${name}.svg`;
 
@@ -642,7 +643,7 @@ export default class Settings extends View {
     const color = ["connected", "online"].includes(m.state) ? t.added : ["connecting", "reconnecting"].includes(m.state) ? t.working : t.failed;
     const result = this.machineResults[m.name];
     const controls = h_flex().gap(6).items_center();
-    if (busy) controls.child(svg(I("spinner")).size(16).text_color(t.working).spin(900)).child(div().text_size(12).text_color(t.muted).child(busy === "update" ? "Updating…" : busy === "rename" ? "Renaming…" : "Removing…"));
+    if (busy) controls.child(loader(t.accent)).child(div().text_size(12).text_color(t.muted).child(busy === "update" ? "Updating…" : busy === "rename" ? "Renaming…" : "Removing…"));
     else {
       if (this.olderCore(m.version, localVersion)) controls.child(this.button(t, `st-m-update-${m.name}`, "Update", (_e, cx) => this.machineAction(m.name, "update", cx)));
       for (const [action, label] of [["rename", "Rename"], ["rm", "Remove"]]) {
@@ -687,7 +688,7 @@ export default class Settings extends View {
           h_flex().w_full().min_h(52).py(9).items_center().child(this.machineLine(t, t.added, "This computer", `connected · ${version ? `hc ${version}` : "hc version unknown"}`)),
           ...(this.machineList ?? []).map((m) => this.machineRow(t, m, version))),
         this.note(t, "Your computers, reached over ssh. Their terminals keep running when you disconnect."),
-        this.machineList === null && !this.machineError ? h_flex().px(2).pt(10).gap(8).items_center().child(svg(I("spinner")).size(16).text_color(t.working).spin(900)).child(div().text_size(12).text_color(t.label).child("Reading machines…")) : null,
+        this.machineList === null && !this.machineError ? h_flex().px(2).pt(10).gap(8).items_center().child(loader(t.accent)).child(div().text_size(12).text_color(t.label).child("Reading machines…")) : null,
         this.machineList?.length === 0 ? line(t.label, "No other machines yet.") : null,
         this.machineError ? line(t.failed, this.machineError) : null,
         this.machineNotice ? line(t.added, this.machineNotice) : null,

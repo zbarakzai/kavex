@@ -1889,7 +1889,8 @@ const ELEMENT_METHODS: &str = r#"    /**
     frames<Self extends Element>(this: Self, list: string[], ms: number): Self;
     /**
      * Swings a property between `from` and `to` and back every `period` ms,
-     * forever (a pulse). Runs natively at about 30 fps, only while drawn.
+     * forever (a pulse), or through `values`. Runs natively at about 30 fps,
+     * only while drawn.
      */
     loop<Self extends Element>(this: Self, property: import("gpui-shell").MotionProperty, policy: import("gpui-shell").LoopPolicy): Self;
     /**
@@ -2050,14 +2051,19 @@ const SHELL_TYPES: &str = r#"  /** A path coordinate in pixels or as a percentag
     delay?: number;
     easing?: MotionEasing;
   }
-  export interface LoopPolicy {
+  export type LoopPolicy = {
     from: number;
     to: number;
     /** Milliseconds for there and back; default 1000, at least 100. */
     period?: number;
     /** Default ease-in-out. */
     easing?: MotionEasing;
-  }
+  } | {
+    /** Two or more stops, evenly spaced over one period, in straight lines; the last runs back into the first. */
+    values: number[];
+    /** Milliseconds for all of them; default 1000, at least 100. */
+    period?: number;
+  };
   export interface SpringPolicy {
     /** Approximate response period in milliseconds. */
     response?: number;

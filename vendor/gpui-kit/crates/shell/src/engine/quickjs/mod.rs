@@ -5867,8 +5867,13 @@ globalThis.__gpui = (() => {
       );
     }
     const policy = options ?? {};
-    if (typeof policy.from !== "number" || typeof policy.to !== "number") {
-      throw new TypeError("loop(property, policy) needs numbers for from and to");
+    const values = policy.values ?? [];
+    if (policy.values !== undefined) {
+      if (!Array.isArray(values) || values.length < 2 || !values.every(Number.isFinite)) {
+        throw new TypeError("loop values must be at least two numbers");
+      }
+    } else if (typeof policy.from !== "number" || typeof policy.to !== "number") {
+      throw new TypeError("loop(property, policy) needs numbers for from and to, or values");
     }
     const period = finiteDuration(policy.period ?? 1000, "loop period");
     if (period < 100) throw new RangeError("loop period must be at least 100 milliseconds");
@@ -5878,7 +5883,7 @@ globalThis.__gpui = (() => {
         "loop easing must be linear, ease-in, ease-out or ease-in-out; got " + JSON.stringify(easing),
       );
     }
-    __apply(this.__id, "loop", [property, policy.from, policy.to, period, easing]);
+    __apply(this.__id, "loop", [property, policy.from ?? 0, policy.to ?? 0, period, easing, ...values]);
     return this;
   };
 
