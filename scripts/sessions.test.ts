@@ -98,6 +98,9 @@ function powershell(script: string, [a, b, c, d, e]: string[]) {
     writeFileSync(path, `${a}\r\n`);
     return printed("");
   }
+  if (script.includes("[IO.File]::OpenRead(")) {
+    try { readFileSync(onDisk(a)); return printed(""); } catch (e: any) { return { code: e.code === "ENOENT" ? 3 : 4, stdout: "", stderr: "" }; }
+  }
   if (!script.includes("[IO.File]::Open(")) throw new Error(`no such script here: ${script}`);
   if (!existsSync(onDisk(a))) return { code: 3, stdout: "", stderr: "" };
   const all = readFileSync(onDisk(a));
@@ -118,13 +121,14 @@ function windowsExec(cmd: string, args: string[], on: string | null) {
 }
 
 // Stands in for `hc` in everything `exec` runs, so no test can reach a real one. It does what the
-// real `hc file write --on` does (makes folders, takes stdin as the file), inside the scratch only.
+// real `hc file write --on` does (makes folders, takes stdin as the file, swaps it in, so a file it
+// can't read is replaced all the same), inside the scratch only.
 const fakeBin = mkdtempSync(join(tmpdir(), "zaki-hc-"));
 afterAll(() => rmSync(fakeBin, { recursive: true, force: true }));
 writeFileSync(join(fakeBin, "hc"), `#!/bin/sh
 [ "$1 $2 $3" = "file write --on" ] || exit 9
 case "$5" in "${home}"/*) ;; *) exit 9 ;; esac
-mkdir -p "$(dirname "$5")" && cat > "$5"
+mkdir -p "$(dirname "$5")" && cat > "$5.new" && mv -f "$5.new" "$5"
 `);
 chmodSync(join(fakeBin, "hc"), 0o755);
 
@@ -154,7 +158,11 @@ mock.module("herdr", () => ({
     state.onRead?.(path);
     if (state.brokenFiles) throw new Error("no such thing");
     if (on) await reachable(on);
-    try { return readFileSync(onDisk(path), "utf8"); } catch { return null; }
+    // `cat` failing for any reason reads as no file on another machine. Here only a missing file does.
+    try { return readFileSync(onDisk(path), "utf8"); } catch (e: any) {
+      if (on || e.code === "ENOENT") return null;
+      throw e;
+    }
   },
   // Refuses a changed file as the real one does, and anything outside the scratch home.
   writeTextFile: async (shown: string, text: string, expected: string | null) => {
@@ -2816,6 +2824,122 @@ test("a hook file on an added machine that can't be understood is left alone, an
   expect(state.shared["agents.setup"]).toBeUndefined();
 });
 
+// Root reads everything, so a file that can't be read can't be made that way there.
+const asRoot = process.getuid?.() === 0;
+const wroteTo = (path: string) => state.execs.filter((args: string[]) => args.join(" ").includes("hc file write") && args.at(-1) === path);
+const lockedHookFile = (at: string) => {
+  mkdirSync(join(at, ".codex"), { recursive: true });
+  writeFileSync(thereHooks(at), '{"hooks":{"SessionStart":[{"hooks":[{"type":"command","command":"mine"}]}]}}');
+  chmodSync(thereHooks(at), 0o000);
+};
+const unlocked = (path: string) => (chmodSync(path, 0o644), readFileSync(path, "utf8"));
+
+test.skipIf(asRoot)("a hook file on an added machine that can't be read is left untouched, and the row stays at a dash", async () => {
+  const at = addMachine();
+  lockedHookFile(at);
+  const { draw } = await codexThere({ status: "working" });
+  expect(unlocked(thereHooks(at))).toContain('"mine"');
+  expect(wroteTo(thereHooks(at))).toEqual([]);
+  expect(shows(draw, "vps/t1")).toContain("–");
+  expect(state.shared["agents.setup"]).toBeUndefined();
+});
+
+test.skipIf(asRoot)("a folder on an added machine that can't be entered doesn't make its hook file look missing", async () => {
+  const at = addMachine();
+  mkdirSync(join(at, ".codex"), { recursive: true });
+  writeFileSync(thereHooks(at), '{"mine":true}');
+  chmodSync(join(at, ".codex"), 0o000);
+  await codexThere();
+  chmodSync(join(at, ".codex"), 0o755);
+  expect(readFileSync(thereHooks(at), "utf8")).toBe('{"mine":true}');
+  expect(wroteTo(thereHooks(at))).toEqual([]);
+  expect(state.shared["agents.setup"]).toBeUndefined();
+});
+
+test("a hook path on an added machine that's a folder is left alone", async () => {
+  const at = addMachine();
+  mkdirSync(thereHooks(at), { recursive: true });
+  await codexThere();
+  expect(wroteTo(thereHooks(at))).toEqual([]);
+  expect(readdirSync(thereHooks(at))).toEqual([]);
+  expect(state.shared["agents.setup"]).toBeUndefined();
+});
+
+test("a hook file on an added machine that isn't UTF-8 is left alone, as it can't come back the same", async () => {
+  const at = addMachine();
+  const bytes = Buffer.concat([Buffer.from('{"note":"'), Buffer.from([0xff, 0xfe]), Buffer.from('"}')]);
+  mkdirSync(join(at, ".codex"), { recursive: true });
+  writeFileSync(thereHooks(at), bytes);
+  await codexThere();
+  expect(readFileSync(thereHooks(at)).equals(bytes)).toBe(true);
+  expect(wroteTo(thereHooks(at))).toEqual([]);
+});
+
+test.skipIf(asRoot)("a hook file on a Windows machine that can't be read is left untouched, and a missing one is still added", async () => {
+  const at = addMachine("win", { windows: true });
+  lockedHookFile(at);
+  state.win = { home: "C:\\Users\\me", root: at, processes: [] };
+  state.platform = "windows";
+  const term = aCodex("win/t1");
+  state.terminals = [term];
+  state.agents = [listed(term)];
+  await open();
+  await ticks();
+  await settle();
+  expect(unlocked(thereHooks(at))).toContain('"mine"');
+  expect(state.fed.filter(([, path]: string[]) => path.endsWith("hooks.json"))).toEqual([]);
+  expect(state.shared["agents.setup"]).toBeUndefined();
+
+  rmSync(thereHooks(at));
+  await later(600000);
+  await settle();
+  expect(state.fed.filter(([, path]: string[]) => path.endsWith("hooks.json"))).toHaveLength(1);
+  expect(state.shared["agents.setup"]).toEqual({ "win/codex": 1 });
+  setSystemTime();
+});
+
+test.skipIf(asRoot)("a hook file that can't be read on this computer is left untouched", async () => {
+  mkdirSync(dirname(hooksPath()), { recursive: true });
+  writeFileSync(hooksPath(), '{"mine":true}');
+  chmodSync(hooksPath(), 0o000);
+  await seesCodex();
+  expect(unlocked(hooksPath())).toBe('{"mine":true}');
+  expect(state.written).not.toContain(hooksPath());
+  expect(state.shared["agents.setup"]).toBeUndefined();
+});
+
+test.skipIf(asRoot)("Pi's extension on an added machine isn't replaced when it can't be read", async () => {
+  const at = addMachine();
+  const path = join(at, ".pi", "agent", "extensions", "zaki-session.ts");
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, "// the person's own");
+  chmodSync(path, 0o000);
+  const term = aPi("vps/t1");
+  state.terminals = [term];
+  state.agents = [listed(term)];
+  await open();
+  await ticks();
+  await settle();
+  expect(unlocked(path)).toBe("// the person's own");
+  expect(wroteTo(path)).toEqual([]);
+  expect(state.shared["agents.setup"]).toBeUndefined();
+});
+
+test.skipIf(asRoot)("a hook file on an added machine that goes unreadable just before the write is left as it is", async () => {
+  const at = addMachine();
+  let seen = 0;
+  state.onRead = (path: string) => {
+    if (!path.endsWith("hooks.json") || ++seen !== 2) return;
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, "{}\n");
+    chmodSync(path, 0o000);
+  };
+  await codexThere();
+  expect(unlocked(thereHooks(at))).toBe("{}\n");
+  expect(wroteTo(thereHooks(at))).toEqual([]);
+  expect(state.shared["agents.setup"]).toBeUndefined();
+});
+
 test("a hook file changed on an added machine just before the write is left as it is", async () => {
   const at = addMachine();
   let seen = 0;
@@ -3272,7 +3396,7 @@ test("from Windows, a Linux machine is still read with sh, and files reach it th
   await settle();
   expect(state.fed.map(([on]: string[]) => on)).toEqual(["vps", "vps", "vps"]);
   expect(JSON.parse(readFileSync(thereHooks(at), "utf8")).hooks.SessionStart).toHaveLength(1);
-  expect(state.execOn.filter((_: unknown, i: number) => state.execs[i][0] === "sh")).toEqual(["vps"]);
+  expect([...new Set(state.execOn.filter((_: unknown, i: number) => state.execs[i][0] === "sh"))]).toEqual(["vps"]);
   expect(existsSync(join(root, ".codex"))).toBe(false);
 });
 

@@ -27,8 +27,16 @@ const sizesFrom = (stdout) => stdout.split("\n").flatMap((line) => {
   return file ? [{ file, size: Number(size) }] : [];
 });
 
+const NO_FILE = 3;
+
+// Only the system's own words mean a file isn't there: a folder that can't be entered hides a file
+// from `test -e` just as a missing one would.
+const ABSENT = `LC_ALL=C cat -- "$1" 2>&1 >/dev/null | grep -q 'No such file or directory$' && exit ${NO_FILE}`;
+const ABSENT_WINDOWS = `try { [IO.File]::OpenRead($a).Dispose() } catch { $why = $_.Exception.GetBaseException(); if ($why -is [IO.FileNotFoundException] -or $why -is [IO.DirectoryNotFoundException]) { exit ${NO_FILE} } throw }`;
+
 function unix(on) {
   return {
+    absent: async (path) => (await exec("sh", ["-c", ABSENT, "sh", path], { on })).code === NO_FILE,
     run: (program, args) => exec(program, args, { on }),
     lines: (file, block, count, filter, known = "") => exec("sh", ["-c", NEW_LINES, "sh", file, String(block), filter, String(known), String(count)], { on }),
     sizes: async (files) => sizesFrom((await exec("sh", ["-c", 'wc -c "$@" 2>/dev/null', "sh", ...files], { on })).stdout),
@@ -108,6 +116,7 @@ function windows(on) {
   };
   const walked = new Map();
   return {
+    absent: async (path) => (await powershell(on, ABSENT_WINDOWS, path)).code === NO_FILE,
     // Through `cmd`, which finds an npm `claude.cmd` as well as a `claude.exe`, and which is why
     // nothing it could take for one of its own gets through.
     async run(program, args) {
@@ -141,12 +150,21 @@ const feed = (on, path, text) => (window()?.platform === "windows"
   ? powershell(null, "$OutputEncoding = New-Object Text.UTF8Encoding $false; $a | & hc file write --on $b $c; exit $LASTEXITCODE", text, on, path)
   : exec("sh", ["-c", 'printf %s "$1" | hc file write --on "$2" "$3"', "sh", text, on, path]));
 
+// A person's file on an added machine, to change. `readTextFile` says null there for any failed
+// `cat` and decodes what it can't with U+FFFD: that text must never be taken for the file, or for
+// no file, and written back.
+const readToChange = (on, absent) => async (path) => {
+  const text = await readTextFile(path, { on });
+  if (text === null ? !(await absent(path)) : text.includes("�")) throw new Error("Couldn't read the file.");
+  return text;
+};
+
 // `hc file write` isn't compare-and-swap, so `expected` is checked just before it.
-async function writeOn(on, path, text, expected) {
-  if ((await readTextFile(path, { on })) !== expected) throw new Error("The file changed while saving.");
+const writeOn = (on, read) => async (path, text, expected) => {
+  if ((await read(path)) !== expected) throw new Error("The file changed while saving.");
   const { code } = await feed(on, path, text);
   if (code !== 0) throw new Error("Couldn't write the file.");
-}
+};
 
 // Git for Windows has an `sh`, but its `uname` says so, and its paths aren't the ones agents write.
 async function homeAway(on) {
@@ -164,9 +182,12 @@ export async function machineOn(on) {
   if (!on) {
     const seen = window();
     if (!seen) throw new Error("No window yet.");
-    return { ...(seen.platform === "windows" ? windows(null) : unix(null)), on, window: HERE, home: home(), read: (path) => readTextFile(path), write: writeTextFile };
+    const read = (path) => readTextFile(path);
+    return { ...(seen.platform === "windows" ? windows(null) : unix(null)), on, window: HERE, home: home(), read, files: { home: home(), read, write: writeTextFile } };
   }
   const { windows: isWindows, home: there } = await homeAway(on);
   if (!there) throw new Error("No home there.");
-  return { ...(isWindows ? windows(on) : unix(on)), on, window: AWAY, home: there, read: (path) => readTextFile(path, { on }), write: (...file) => writeOn(on, ...file) };
+  const kind = isWindows ? windows(on) : unix(on);
+  const read = readToChange(on, kind.absent);
+  return { ...kind, on, window: AWAY, home: there, read: (path) => readTextFile(path, { on }), files: { home: there, read, write: writeOn(on, read) } };
 }

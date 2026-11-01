@@ -139,7 +139,7 @@ export class Sessions {
     if (now - (this.tried.get(name) ?? -RETRY) < RETRY) return;
     this.tried.set(name, now);
     cx.spawn(async () => {
-      const done = await agent.install(machine).catch(() => false);
+      const done = await agent.install(machine.files).catch(() => false);
       if (done) setShared(SETUP, { ...shared(SETUP), [name]: agent.setup });
     });
   }
