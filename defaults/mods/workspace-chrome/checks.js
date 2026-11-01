@@ -3,8 +3,8 @@
 // (docs/adr/0001-usage-through-agents-own-commands.md). OpenCode has no such command: only with the
 // person's consent, its key goes to opencode.ai and nowhere else.
 //
-// The footer checks on a timer and the popup when it opens, so each mod that needs this keeps a
-// copy, as mods can't import each other's files; scripts/look.test.ts keeps them equal.
+// The footer runs the checks and the popover shows them, so each keeps a copy, as mods can't import
+// each other's files; scripts/look.test.ts keeps them equal.
 
 import { createHash } from "crypto";
 import { exec, home, knownAgents, machines, readTextFile, setShared, shared, window } from "herdr";
@@ -26,7 +26,7 @@ const fingerprint = (...parts) => createHash("sha256").update(parts.join("|")).d
 
 // Claude writes its reset time for people, in the zone it was run in: "Nov 6 at 7:59pm (UTC)", or
 // only the time when that's today. The check asks for UTC so the answer doesn't depend on the machine.
-export function resetTime(text, now) {
+function resetTime(text, now) {
   const m = /^(?:([A-Z][a-z]{2}) (\d{1,2}) at )?(\d{1,2})(?::(\d{2}))?(am|pm)(?: \((.+)\))?$/.exec(text.trim());
   if (!m) return null;
   const hour = (Number(m[3]) % 12) + (m[5] === "pm" ? 12 : 0), minute = Number(m[4] ?? 0), utc = m[6] === "UTC";
@@ -44,7 +44,7 @@ export function resetTime(text, now) {
 
 // "/usage" prints lines for people, so anything else in its answer is left alone. No line read
 // means the wording changed: the caller keeps the last numbers rather than showing none.
-export function claudeLimits(text, now) {
+function claudeLimits(text, now) {
   const week = [], other = [], session = [];
   for (const line of text.split("\n")) {
     const m = /^Current (session|week \((.+?)\)): (\d+)% used(?:\W+resets (.+))?$/.exec(line.trim());
@@ -65,7 +65,7 @@ const spanName = (minutes) => {
 
 // Answers to account/read and account/rateLimits/read. Every bucket counts: a model can have its
 // own allowance beside the general one.
-export function codexReport(output) {
+function codexReport(output) {
   const answers = {};
   for (const line of output.split("\n")) {
     try {
@@ -90,7 +90,7 @@ export function codexReport(output) {
 }
 
 // Go's answer nests the windows under "usage"; another deployment spells them "<window>Usage".
-export function goLimits(answer) {
+function goLimits(answer) {
   const usage = answer?.usage ?? answer ?? {};
   return GO_WINDOWS.flatMap(([name, label]) => {
     const window = usage[name] ?? answer?.[`${name}Usage`];
@@ -217,10 +217,12 @@ async function checkMachine(on, last, now) {
   return Object.fromEntries(found.filter(Boolean));
 }
 
+export const checking = (usage, now) => Boolean(usage.startedAt) && now - usage.startedAt < BUSY;
+
 export async function checkUsage({ force = false } = {}) {
   const last = shared("usage") ?? {}, now = Date.now();
   if (shared("usage.enabled") === false) return;
-  if (last.startedAt && now - last.startedAt < BUSY) return;
+  if (checking(last, now)) return;
   if (!force && last.checkedAt && now - last.checkedAt < REUSE) return;
   setShared("usage", { ...last, startedAt: now });
   const names = [...new Set([null, ...machines().map((machine) => machine.name)])];

@@ -24,7 +24,7 @@ test("every mod's look.js is the same file", () => {
 });
 
 test("mods that share a file keep the same copy", () => {
-  for (const [file, mods] of [["groups.js", ["tabs", "tabs-column", "tab-menu"]], ["filetypes.js", ["files", "changes"]], ["panel.js", ["files", "changes"]]] as const) {
+  for (const [file, mods] of [["groups.js", ["tabs", "tabs-column", "tab-menu"]], ["filetypes.js", ["files", "changes"]], ["panel.js", ["files", "changes"]], ["checks.js", ["usage", "workspace-chrome"]]] as const) {
     expect(new Set(mods.map((mod) => readFileSync(join(root, "mods", mod, file), "utf8"))).size, file).toBe(1);
   }
 });
@@ -74,7 +74,7 @@ test("the Tabs column's focus key sits beside the panel key, on a key nothing el
 });
 
 test("no framed overlay paints its own background over the rounded frame", () => {
-  const screens = ["mods/picker", "mods/machine-add", "mods/tab-menu", "mods/file-menu", "mods/new-menu", "mods/confirm", "mods/menu", "mods/worktree", "mods/agents", "mods/help", "mods/toast", "mods/prompt", "frame/palette", "frame/settings", "frame/whatsnew", "frame/feedback"];
+  const screens = ["mods/picker", "mods/machine-add", "mods/tab-menu", "mods/file-menu", "mods/new-menu", "mods/confirm", "mods/menu", "mods/worktree", "mods/agents", "mods/help", "mods/toast", "mods/prompt", "mods/usage", "frame/palette", "frame/settings", "frame/whatsnew", "frame/feedback"];
   for (const screen of screens) expect(readFileSync(join(root, screen, "main.js"), "utf8"), screen).not.toContain(".bg(t.popover)");
 });
 

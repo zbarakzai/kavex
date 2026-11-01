@@ -264,6 +264,18 @@ be undone. Cmd-click (Ctrl-click) a line opens it in Cursor, VS Code or Zed,
 else the system's app. Commit takes what's staged, or everything if nothing is, by its
 button, Enter or `cmd-enter` (`ctrl-enter`).
 
+The gauge in the sidebar footer, beside Add machine and Settings, opens Usage limits (the `usage`
+popup mod): the Claude Code subscription on this computer, with its tier and each limit's percent
+used, bar and time to reset: weekly first, then a model's own, then the 5-hour limit when Claude
+reports it. A limit past its reset time reads 0% before the next check. Numbers come from Claude's
+own commands (`claude auth status`, `claude -p /usage`) in the person's shell PATH, with no hooks,
+plugins, MCP or saved session, and spend no tokens; the mod reads no login and sends no request.
+Signed out, on an API key or not installed, Claude gets no row. Opening checks, reusing a result
+under a minute old, and the refresh button checks at once: `workspace-chrome.check-usage` and
+`workspace-chrome.refresh-usage`, run by the footer so that closing the popover doesn't cut a check
+off. A failed check keeps the last numbers with their age, or reads "Could not check" with none.
+`shared("usage")` holds the numbers and a short fingerprint of the account, never an email or login.
+
 **Zaki's own layouts and mods are read-only.** They are replaced whole
 on every start. Use settings.json for look (fonts, sizes, theme, colors,
 sounds), where the layout leaves them unset. Zaki (main) has no look of
@@ -849,7 +861,7 @@ has 120 programs (agents, editors, runtimes, tools, databases, infra);
   Icon paths from before that folder still work for this release only, and so does the
   `workspace-status` mod, for layouts cloned before the status bar went.
 - The defaults are mods too, read them as examples: `spaces`, `agents`,
-  `tabs` (the tab bar), `tab-menu`, `file-menu`, `tab-drag`, `menu`, `prompt`, `confirm`, `help`, `toast`,
+  `tabs` (the tab bar), `tab-menu`, `file-menu`, `tab-drag`, `menu`, `prompt`, `confirm`, `help`, `toast`, `usage`,
   `start` (the main layout's screen with no space open: the ram draws itself once, then a light runs its outlines, with a wake of code behind the pointer),
   Terminals' `picker`, `peek`, and `pane` (an
   example pane header, not used by the default layouts), and `worktree`
