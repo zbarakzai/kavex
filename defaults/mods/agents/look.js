@@ -2,9 +2,8 @@
 // the others stand in with their nearest colors. Each mod that draws the design keeps a
 // copy, as mods can't import each other's files; scripts/look.test.ts keeps them equal.
 
-import { div, svg } from "gpui-kit";
+import { div, image, svg } from "gpui-kit";
 import { h_flex } from "gpui-base";
-import { layout, run, shared } from "herdr";
 
 export const MONO = "Geist Mono";
 
@@ -27,6 +26,7 @@ export function look(t) {
   const added = t.added ?? t.ansi2, removed = t.removed ?? t.ansi1;
   return {
     ...t,
+    clear: soft(t.surface, "00"),
     panel: t.panel ?? t.canvas,
     panel_border: t.panel_border ?? t.border,
     card: t.card ?? t.background,
@@ -99,69 +99,19 @@ export function badge(k, status) {
   return h_flex().h(17).px(6).flex_none().items_center().rounded(5).bg(s.bg).text_color(s.fg).font_medium().child(spaced(s.label, 9, 0.08));
 }
 
-const TAGS = {
-  md: "MD", mdx: "MD", js: "JS", mjs: "JS", cjs: "JS", jsx: "JS", ts: "TS", mts: "TS", cts: "TS", tsx: "TS",
-  json: "{ }", jsonc: "{ }", toml: "{ }", yaml: "{ }", yml: "{ }", lock: "{ }", ini: "{ }", env: "{ }",
-  sh: ">_", bash: ">_", zsh: ">_", fish: ">_", ps1: ">_", html: "<>", svelte: "<>", vue: "<>",
-};
-const SCRIPTS = new Set(["justfile", "makefile", "dockerfile"]);
-
-// A file's two-letter type, as the tree and a diff's header show it.
-export function tagOf(path) {
-  const leaf = path.split("/").pop().toLowerCase(), dot = leaf.lastIndexOf(".");
-  if (SCRIPTS.has(leaf)) return ">_";
-  if (dot <= 0) return "··";
-  const type = leaf.slice(dot + 1);
-  return TAGS[type] ?? type.slice(0, 2).toUpperCase();
+// How long ago, in a row's few letters.
+export function duration(ms) {
+  const m = Math.floor(ms / 60000);
+  if (m < 1) return "<1m";
+  if (m < 60) return `${m}m`;
+  const h = Math.floor(m / 60);
+  return h < 24 ? `${h}h` : `${Math.floor(h / 24)}d`;
 }
 
-// A file type's logo in `icons/`, drawn in the theme's color. Types without one keep their tag.
-const LOGOS = {
-  __proto__: null,
-  js: "javascript", mjs: "javascript", cjs: "javascript", ts: "tsc", mts: "tsc", cts: "tsc", jsx: "react", tsx: "react",
-  py: "python", pyi: "python", rs: "rust", go: "go", rb: "ruby", php: "php", java: "java", kt: "kotlin", kts: "kotlin",
-  swift: "swift", c: "c", h: "c", cpp: "cplusplus", cc: "cplusplus", hpp: "cplusplus", lua: "lua", dart: "dart", zig: "zig",
-  r: "r", pl: "perl", scala: "scala", ml: "ocaml", jl: "julia", nix: "nix", prisma: "prisma",
-  html: "html5", htm: "html5", css: "css", scss: "sass", sass: "sass", vue: "vuedotjs", svelte: "svelte", astro: "astro",
-  md: "markdown", mdx: "markdown", json: "json", jsonc: "json", yaml: "yaml", yml: "yaml", toml: "toml",
-  sh: "gnubash", bash: "gnubash", zsh: "gnubash", svg: "svg",
-};
-
-export function logoOf(path) {
-  const leaf = path.split("/").pop().toLowerCase(), dot = leaf.lastIndexOf(".");
-  return leaf === "dockerfile" ? "docker" : dot > 0 ? LOGOS[leaf.slice(dot + 1)] ?? null : null;
-}
-
-export function typeTag(path, color) {
-  const logo = logoOf(path);
-  return logo ? h_flex().w(18).flex_none().items_center().child(svg(`icons/${logo}.svg`).size(14).text_color(color))
-    : div().w(18).flex_none().font_family(MONO).text_size(9).font_semibold().text_color(color).child(tagOf(path));
-}
-
-const find = (node, id) => (node?.id === id ? node : (node?.children ?? []).reduce((hit, child) => hit ?? find(child, id), null));
-
-const PANELS = [["changes", "Changes", "mods/workspace-chrome/icons/changes.svg"], ["files", "Files", "mods/workspace-chrome/icons/folder.svg"]];
-const PANEL_WIDE = 680, PANEL_FULL = 900;
-
-// The side panel's header, the same in each of its mods: its tabs and the expand button.
-export function panelHeader(k, active) {
-  const root = layout(), panel = find(root, "panel"), docked = Boolean(find(panel, active));
-  const enabled = shared("workspace.panels") ?? PANELS.map(([id]) => id);
-  const full = (panel?.size?.px ?? 0) >= PANEL_FULL - 40;
-  const stop = (_e, cx) => cx.stop_propagation();
-  const chip = ([id, label, icon]) => h_flex().id(`panel-${id}`).h(34).min_w(118).pl(11).pr(6).gap(7).flex_none().items_center().rounded(11).bg(k.selected).border_1().border_color(k.pill_ring)
-    .text_size(13.5).text_color(k.foreground)
-    .child(svg(icon).size(16).flex_none())
-    .child(div().flex_1().child(label))
-    .when(docked, (el) => el.child(h_flex().id(`panel-close-${id}`).size(20).flex_none().items_center().justify_center().rounded(6).text_color(k.label).hover((s) => s.bg(k.hover_strong).text_color(k.foreground))
-      .on_mouse_down("left", stop).on_click(() => run("layout.hide", { id: "panel" })).child(svg("mods/workspace-chrome/icons/close.svg").size(16))));
-  const other = ([id, label, icon]) => h_flex().id(`panel-${id}`).h(34).pl(11).pr(12).gap(7).flex_none().items_center().rounded(11).text_size(13.5).text_color(k.muted).hover((s) => s.bg(k.hover))
-    .on_click(() => run("layout.select", { stack: "panel-body", child: id }))
-    .child(svg(icon).size(16).flex_none()).child(label);
-  return h_flex().h(46).flex_none().px(6).gap(6).items_center()
-    .child(h_flex().flex_1().min_w(0).gap(2).items_center()
-      .children(PANELS.filter(([id]) => id === active || (docked && enabled.includes(id))).map((p) => (p[0] === active ? chip(p) : other(p)))))
-    .when(docked, (el) => el.child(h_flex().id("panel-expand").size(30).flex_none().items_center().justify_center().rounded(8).text_color(k.muted).hover((s) => s.bg(k.hover_strong).text_color(k.foreground))
-      .on_click(() => run("layout.resize", { id: "panel", px: full ? PANEL_WIDE : PANEL_FULL }))
-      .child(svg(`mods/workspace-chrome/icons/panel-${full ? "shrink" : "expand"}.svg`).size(16))));
+// An agent's or program's icon on its tile.
+export function tile(program, size, k) {
+  const inner = size - 8;
+  const glyph = !program?.icon ? svg("mods/workspace-chrome/icons/terminal.svg").size(inner).text_color(k.tile_text)
+    : program.tint ? svg(program.icon).size(inner).text_color(program.color ?? k.foreground) : image(program.icon).size(inner);
+  return h_flex().size(size).flex_none().items_center().justify_center().rounded(6).bg(program?.tile ?? k.tile).child(glyph);
 }

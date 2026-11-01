@@ -24,7 +24,7 @@ const byId = (root: El, id: string) => all(root).find((e) => arg(e, "id") === id
 const words = (root: El) => all(root).flatMap((e) => e.kids.filter((k) => typeof k === "string"));
 const handler = (e: El, name: string) => e.calls.find(([k]) => k === name)?.[1].at(-1);
 
-let state: { shared: Record<string, any>; props: any; closed: string[]; ran: string[]; input: any };
+let state: { shared: Record<string, any>; props: any; closed: string[]; ran: string[]; moved: any[]; input: any };
 const file = JSON.parse(readFileSync(new URL("../defaults/themes/zaki.json", import.meta.url), "utf8"));
 const colors = { background: file.background, ...file.colors };
 const InputState = {
@@ -38,7 +38,7 @@ const icon = (path: string) => { const s = make(); s.el.calls.push(["path", [pat
 mock.module("gpui-kit", () => ({ View: class {}, div: make, svg: icon, image: make }));
 mock.module("gpui-base", () => ({ h_flex: make, v_flex: make, InputState, Input: { new: make } }));
 mock.module("herdr", () => ({
-  run: (name: string) => void state.ran.push(name),
+  run: (name: string, args: any) => { state.ran.push(name); if (name === "tab.move") state.moved.push(args); },
   props: () => state.props,
   closeOverlay: (id: string) => void state.closed.push(id),
   openOverlay: () => "overlay",
@@ -64,7 +64,7 @@ const ringOf = (root: El, id: string) => arg(byId(root, id)!, "border_color");
 
 const GROUP = { name: "auth", color: "blue", folded: false, tabs: ["b"] };
 beforeEach(() => {
-  state = { shared: { "tab.groups": { auth: GROUP } }, props: {}, closed: [], ran: [], input: null };
+  state = { shared: { "tab.groups": { auth: GROUP } }, props: {}, closed: [], ran: [], moved: [], input: null };
 });
 
 test("a color on a tab fills that tab and moves nothing", () => {
@@ -80,7 +80,7 @@ test("none takes the color off, and picked tabs change together", () => {
   state.shared["tab.colors"] = { a: "blue", b: "teal" };
   const { draw } = open({ tabs: ["a", "b"], space: "s" });
   expect(words(draw())).toContain("Tab colors");
-  expect(ringOf(draw(), "color-none")).toBe("#00000000");
+  expect(ringOf(draw(), "color-none")).toBe(`${colors.surface}00`);
   click(draw(), "color-none");
   expect(state.shared["tab.colors"]).toEqual({});
   expect(ringOf(draw(), "color-none")).toBe(colors.muted);
@@ -99,6 +99,21 @@ test("a new group changes nothing until it's created", () => {
   expect(state.closed).toEqual(["ov"]);
 });
 
+test("with tabs on the right a new group's section comes first among the groups", () => {
+  state.shared["tabs.placement"] = "right";
+  const { draw } = open({ tabs: ["c"], make: true, space: "s" });
+  click(rowNamed(draw(), "Create group"), "tm-0");
+  expect(state.moved).toEqual([{ id: "c", index: 2 }]);
+  expect(state.shared["tabs.hold"]).toBeGreaterThan(Date.now());
+});
+
+test("on the bar a new group moves no tab", () => {
+  const { draw } = open({ tabs: ["c"], make: true, space: "s" });
+  click(rowNamed(draw(), "Create group"), "tm-0");
+  expect(state.moved).toEqual([]);
+  expect(state.shared["tabs.hold"]).toBeUndefined();
+});
+
 test("closing a draft leaves everything as it was", () => {
   state.shared["tabs.picked"] = ["a", "c"];
   open({ tabs: ["a", "c"], make: true, space: "s", from: "column-group" }).view.close();
@@ -110,7 +125,7 @@ test("closing a draft leaves everything as it was", () => {
 test("Enter in the name creates the group too, and clears the picks", () => {
   state.shared["tabs.picked"] = ["a", "c"];
   const { draw } = open({ tabs: ["a", "c"], make: true, space: "s" });
-  expect(words(draw())).toContain("Group 2 tabs");
+  expect(words(draw())).toContain("Create group");
   state.input.fire("submit");
   expect(Object.values(state.shared["tab.groups"]).map((g: any) => g.tabs)).toEqual([["b"], ["a", "c"]]);
   expect(state.shared["tabs.picked"]).toEqual([]);

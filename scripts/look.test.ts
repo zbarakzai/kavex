@@ -3,10 +3,11 @@ import { readdirSync, readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 
 const element = () => new Proxy({}, { get: (_t, _k, self) => () => self });
-mock.module("gpui-kit", () => ({ div: element, svg: element }));
+mock.module("gpui-kit", () => ({ div: element, image: element, svg: element }));
 mock.module("gpui-base", () => ({ h_flex: element }));
 mock.module("herdr", () => ({ layout: () => null, run: () => {}, shared: () => null }));
-const { look, groupHue, logoOf, tagOf } = await import("../defaults/mods/spaces/look.js");
+const { look, groupHue } = await import("../defaults/mods/spaces/look.js");
+const { logoOf, tagOf } = await import("../defaults/mods/files/filetypes.js");
 
 const root = new URL("../defaults/", import.meta.url).pathname;
 const zaki = JSON.parse(readFileSync(join(root, "themes/zaki.json"), "utf8"));
@@ -21,8 +22,10 @@ test("every mod's look.js is the same file", () => {
   expect(new Set(copies).size).toBe(1);
 });
 
-test("the bar and the Tabs column keep the same groups.js", () => {
-  expect(readFileSync(join(root, "mods/tabs/groups.js"), "utf8")).toBe(readFileSync(join(root, "mods/tabs-column/groups.js"), "utf8"));
+test("mods that share a file keep the same copy", () => {
+  for (const [file, mods] of [["groups.js", ["tabs", "tabs-column", "tab-menu"]], ["filetypes.js", ["files", "changes"]], ["panel.js", ["files", "changes"]]] as const) {
+    expect(new Set(mods.map((mod) => readFileSync(join(root, "mods", mod, file), "utf8"))).size, file).toBe(1);
+  }
 });
 
 test("the zaki theme's values come through untouched", () => {
@@ -63,7 +66,7 @@ test("a group saved under an old color keeps the nearest of the three, never ora
 
 test("a file shows its logo, and each logo is shipped", () => {
   expect(["a/App.tsx", "main.js", "x.test.ts", "lib.rs", "Dockerfile", "icon.SVG", "LICENSE", "notes.txt", "a.constructor"].map(logoOf)).toEqual(["react", "javascript", "tsc", "rust", "docker", "svg", null, null, null]);
-  const source = readFileSync(join(root, "mods/spaces/look.js"), "utf8").match(/const LOGOS = \{([^}]*)\}/)[1];
+  const source = readFileSync(join(root, "mods/files/filetypes.js"), "utf8").match(/const LOGOS = \{([^}]*)\}/)[1];
   for (const [, logo] of source.matchAll(/: "([a-z0-9]+)"/g)) expect(existsSync(join(root, `icons/${logo}.svg`))).toBe(true);
 });
 

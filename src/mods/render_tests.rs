@@ -284,15 +284,15 @@ fn tabs_leave_room_for_macos_traffic_lights(cx: &mut TestAppContext) {
     for (platform, titlebar, fullscreen, width, lights, zoom, expected) in [
         ("macos", "none", false, 44, true, 1.0, 38),
         ("macos", "none", false, 44, true, 0.5, 120),
-        ("macos", "none", false, 44, true, 2.0, 10),
+        ("macos", "none", false, 44, true, 2.0, 6),
         ("macos", "none", false, 60, true, 1.0, 22),
-        ("macos", "none", false, 76, true, 1.0, 10),
-        ("macos", "none", false, 268, true, 1.0, 10),
-        ("macos", "none", true, 44, true, 1.0, 10),
-        ("macos", "system", false, 44, true, 1.0, 10),
-        ("macos", "none", false, 44, false, 1.0, 10),
-        ("linux", "none", false, 44, true, 1.0, 10),
-        ("windows", "none", false, 44, true, 1.0, 10),
+        ("macos", "none", false, 76, true, 1.0, 6),
+        ("macos", "none", false, 268, true, 1.0, 6),
+        ("macos", "none", true, 44, true, 1.0, 6),
+        ("macos", "system", false, 44, true, 1.0, 6),
+        ("macos", "none", false, 44, false, 1.0, 6),
+        ("linux", "none", false, 44, true, 1.0, 6),
+        ("windows", "none", false, 44, true, 1.0, 6),
     ] {
         let mut values = fixture(true, props(), updates("current", "current"));
         values.insert("window".into(), json!({"platform":platform,"titlebar":titlebar,"fullscreen":fullscreen,"buttons":false}));

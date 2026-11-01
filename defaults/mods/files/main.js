@@ -5,7 +5,9 @@ import { View, div, svg } from "gpui-kit";
 import { v_flex, h_flex, Editor, EditorState, InputState, Input } from "gpui-base";
 import { spaces, panes, focused, terminals, exec, readTextFile, watchFolder, theme, window, props, run, notify, openOverlay, nextCommand, shared } from "herdr";
 import * as fs from "fs/promises";
-import { look, panelHeader, typeTag, MONO } from "./look.js";
+import { look, MONO } from "./look.js";
+import { typeTag } from "./filetypes.js";
+import { panelHeader } from "./panel.js";
 import { baseName, parentOf, native, quoted, badName, create, move, trash, reveal, cd, WASTE } from "./ops.js";
 
 function location() {
@@ -177,7 +179,6 @@ export default class Files extends View {
     cx.notify();
   }
 
-  // The row whose menu is open: it stays marked with the pointer on the menu.
   menuOpen(path) {
     if (this.target?.path !== path) return false;
     const shut = shared("popup.closed");
@@ -240,7 +241,6 @@ export default class Files extends View {
     if (this.current(context)) this.refresh(cx);
   }
 
-  // A name typed into the tree: a new file's, or a new one for what's there.
   begin(edit, value, cx) {
     this.edit = edit; this.editError = null;
     if (edit.folder && !this.folders.has(edit.folder)) this.toggle(edit.folder, cx);
@@ -280,7 +280,6 @@ export default class Files extends View {
     });
   }
 
-  // Open folders follow a rename.
   moved(from, to) {
     const swap = p => (p === from ? to : p.startsWith(from + "/") ? to + p.slice(from.length) : p);
     this.folders = new Set([...this.folders].map(swap));
@@ -296,8 +295,6 @@ export default class Files extends View {
     if (this.editError) out.push(div().flex_none().pl(34 + depth * 14).pr(8).py(2).text_size(11).text_color(t.failed ?? t.blocked).child(this.editError));
   }
 
-  // The Changes tree without its counts: 28 px rows, a type tag, a folder holding only one
-  // folder on one line.
   rows(prefix, depth, out, t) {
     if (out.length >= TOTAL || depth > 40) return out;
     if (!prefix && this.edit?.folder === "") this.newFile(depth, out, t);

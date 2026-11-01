@@ -30,6 +30,7 @@ const NAMED = [
   ["tabs.group", {}, "Tab", "Group tabs", "tab group organize name"],
   ["tabs.fold", {}, "Tab", "Fold or unfold group", "tab group collapse expand"],
   ["tabs.ungroup", {}, "Tab", "Ungroup tabs", "tab group"],
+  ["tabs.color", {}, "Tab", "Next tab color", "tab group paint"],
   ["pane.split", { direction: "right" }, "Pane", "Split right", "vertical"],
   ["pane.split", { direction: "down" }, "Pane", "Split down", "horizontal"],
   ["pane.close", {}, "Pane", "Close pane", "kill"],

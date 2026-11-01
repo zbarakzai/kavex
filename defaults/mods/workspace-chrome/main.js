@@ -47,7 +47,6 @@ export default class WorkspaceChrome extends View {
     if (collapsed) return h_flex().size_full().pb(4).items_center().justify_center().child(settings);
     const list = agents().length, tail = ` · ${list} ${list === 1 ? "AGENT" : "AGENTS"}`;
     const machine = (spaces().find(s => s.active)?.machine ?? "This computer").toUpperCase();
-    // A long machine name gives way, so the count always shows.
     const room = LINE - tail.length, name = machine.length > room ? `${machine.slice(0, room - 1)}…` : machine;
     return h_flex().size_full().pl(4).pb(4).items_center()
       .child(h_flex().flex_1().min_w(0).gap(5).items_center().overflow_hidden()

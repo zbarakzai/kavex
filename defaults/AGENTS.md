@@ -133,7 +133,7 @@ the highlighted line shows where it will land.
   wins over its group's; `"none"` keeps a tab clear in a filled group. Setting either moves nothing. `shared("tab.folders")`, older per-folder colors, are kept but no
   longer drawn. A group's tabs stay side by side (strays are moved with `tab.move`); with tabs
   on the right the tabs' order is the one the column draws, so a tab leaving a group lands at
-  the end of the loose tabs. A folded group's tabs are settled, so `tab.next`,
+  the end of the loose tabs and a new group comes first among the groups. A folded group's tabs are settled, so `tab.next`,
   `tab.prev` and `tab.select {index}` skip them, and its name shows how many, with an
   orange dot if one needs you; the shown tab stays out of the fold until you leave it.
   `shared("tabs.placement")` is `"top"` (the default) or `"right"`: one value, set by
@@ -159,7 +159,7 @@ the highlighted line shows where it will land.
   `zaki.group=<name>` lands in that group, made if it's new, once; after that its tab
   is the person's to move. For keys:
   `tabs.group` (the picked tabs, or the shown one; asks for a name and a color), `tabs.fold`,
-  `tabs.ungroup`. They act on the shown tab and need the bar.
+  `tabs.ungroup`, `tabs.color` (the next color, then none). They act on the shown tab and need the bar.
 - A **pane** is a terminal on screen, or a **mod** beside them (a markdown
   viewer, a board, a git panel): `pane.split {direction, mod, props}`. A
   mod pane splits, zooms, closes and gets a header like any pane, keeps
@@ -452,25 +452,35 @@ side, rows can run edge to edge. It reads `placement()`:
 `vertical` (left/right edges), horizontally otherwise; on the right edge,
 mirror rows so their edge side is on the right.
 
-The default window:
+The default window, in short (`layouts/main.json` is the whole of it):
 
 ```json
-{ "id": "root", "type": "row", "divider": { "width": 1, "color": "border" },
+{ "id": "root", "type": "row", "background": "canvas", "padding": 6, "gap": 6,
   "children": [
-    { "id": "sidebar", "type": "column", "size": { "px": 240 }, "min": 40, "max": 480,
-      "divider": { "width": 1, "color": "border" },
+    { "id": "sidebar", "type": "column", "size": { "px": 230 }, "min": 44, "max": 480,
       "children": [
-        { "id": "spaces", "type": "block", "content": { "mod": "spaces" } },
-        { "id": "agents", "type": "block", "content": { "mod": "agents" } } ] },
-    { "id": "work", "type": "column",
+        { "id": "brand", "type": "block", "size": { "px": 44 }, "content": { "mod": "workspace-chrome" } },
+        { "id": "sidebar-lists", "type": "column", "children": [
+          { "id": "spaces", "type": "block", "content": { "mod": "spaces" } },
+          { "id": "agents", "type": "block", "content": { "mod": "agents" } } ] },
+        { "id": "sidebar-footer", "type": "block", "size": { "px": 40 },
+          "content": { "mod": "workspace-chrome", "props": { "footer": true } } } ] },
+    { "id": "work", "type": "column", "background": "surface", "radius": 14,
       "children": [
-        { "id": "tabs", "type": "block", "size": { "px": 30 }, "content": { "mod": "tabs" } },
-        { "id": "main", "type": "block", "content": { "tab": "active",
-          "pane": { "gap": 6, "radius": 6, "border": { "width": 1, "color": "border" },
-                    "focus": { "width": 1, "color": "accent" } } } } ] } ] }
+        { "id": "tabs", "type": "block", "size": { "px": 39 }, "content": { "mod": "tabs" } },
+        { "id": "main", "type": "block", "padding": 6, "content": { "tab": "active",
+          "pane": { "gap": 6, "radius": 10, "background": "background",
+                    "border": { "width": 1, "color": "border" },
+                    "focus": { "width": 1, "color": "accent" } } } } ] },
+    { "id": "panel", "type": "column", "hidden": true, "size": { "px": 680 }, "min": 330, "max": 900,
+      "children": [ { "id": "panel-body", "type": "stack", "active": "files", "children": [
+        { "id": "files", "type": "block", "content": { "mod": "files" } },
+        { "id": "changes", "type": "block", "content": { "mod": "changes" } } ] } ] },
+    { "id": "tabs-column", "type": "block", "hidden": true, "size": { "px": 330 }, "min": 330, "max": 480,
+      "content": { "mod": "tabs-column" } } ] }
 ```
 
-Sidebar on the right: swap the two children of `root`. No sidebar: set
+Sidebar on the right: move `sidebar` to the end of `root`'s children. No sidebar: set
 `"hidden": true` on `sidebar` (the user can toggle it: `ctrl-shift-b`).
 Narrower than 160px, the sidebar mods draw a compact rail; folding resizes
 `sidebar` to 44 (76 on macOS, room for the traffic lights). On macOS,
@@ -813,7 +823,8 @@ has 120 programs (agents, editors, runtimes, tools, databases, infra);
   three sizes, each a fixed step: 16 everywhere, 12 for the small arrows on pills and folders,
   and 20 only inside a big tile, like the welcome screen's. Their art leaves a margin, so a logo
   with none, from `icons/`, stays at 14 to look the same.
-  Icon paths from before that folder still work for this release only.
+  Icon paths from before that folder still work for this release only, and so does the
+  `workspace-status` mod, for layouts cloned before the status bar went.
 - The defaults are mods too, read them as examples: `spaces`, `agents`,
   `tabs` (the tab bar), `tab-menu`, `file-menu`, `tab-drag`, `menu`, `prompt`, `confirm`, `help`, `toast`,
   Terminals' `picker`, `peek`, and `pane` (an

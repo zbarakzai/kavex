@@ -10,8 +10,7 @@ import { View, div, svg } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input } from "gpui-base";
 import { run, props, closeOverlay, openOverlay, theme, keys, spaces, shared, setShared } from "herdr";
 import { look, groupHue, tabHue } from "./look.js";
-
-const COLORS = ["blue", "violet", "teal"];
+import { HUES, firstAmongGroups, leastUsed, moves } from "./groups.js";
 
 const groups = () => shared("tab.groups") ?? {};
 const edit = (id, change) => setShared("tab.groups", { ...groups(), [id]: { ...groups()[id], ...change } });
@@ -58,9 +57,7 @@ export default class TabMenu extends View {
   // nothing. Its name starts in the color least used, to stand apart, and its tabs stay clear
   // unless a color is picked.
   draft(cx) {
-    const { tabs } = props(), all = Object.values(groups());
-    const uses = (c) => all.filter((g) => g.color === c).length;
-    this.making = { tabs, color: COLORS.reduce((best, c) => (uses(c) < uses(best) ? c : best)), fill: false };
+    this.making = { tabs: props().tabs, color: leastUsed(HUES, groups()), fill: false };
     this.input = InputState.new({ value: "", placeholder: "Name this group" });
     this.input.on("submit", () => this.create());
     this.input.focus();
@@ -68,9 +65,13 @@ export default class TabMenu extends View {
   }
 
   create() {
-    const { tabs, color, fill } = this.making, id = `g${Date.now().toString(36)}`;
-    setShared("tab.groups", { ...without(tabs), [id]: { name: this.input.value().trim(), color, fill, folded: false, tabs } });
+    const { tabs, color, fill } = this.making, id = `g${Date.now().toString(36)}`, left = without(tabs);
+    const order = (spaces().find((s) => s.id === props().space)?.tabs ?? []).map((c) => c.id);
+    const steps = shared("tabs.placement") === "right" ? moves(order, firstAmongGroups(order, left, tabs)) : [];
+    if (steps.length) setShared("tabs.hold", Date.now() + 1000);
+    setShared("tab.groups", { ...left, [id]: { name: this.input.value().trim(), color, fill, folded: false, tabs } });
     setShared("tabs.picked", []);
+    for (const step of steps) run("tab.move", step);
     closeOverlay(props().overlay);
   }
 
@@ -118,10 +119,8 @@ export default class TabMenu extends View {
     ];
   }
 
-  // A draft's one row: the input's Enter does the same.
   draftRows() {
-    const { tabs } = this.making;
-    return [{ icon: "layers", label: tabs.length === 1 ? "Create group" : `Group ${tabs.length} tabs`, hint: "Enter", keep: true, act: () => this.create() }];
+    return [{ icon: "layers", label: "Create group", hint: "Enter", keep: true, act: () => this.create() }];
   }
 
   choose(row, cx) {
@@ -130,13 +129,12 @@ export default class TabMenu extends View {
     cx.notify();
   }
 
-  // `on`: the color shown as chosen, null for none.
   swatches(k, on, pick, label) {
     const swatch = (id, color, ring, mark) => h_flex().id(`color-${id}`).size(24).flex_none().items_center().justify_center().rounded(12).border(2).border_color(ring).hover((s) => s.bg(k.hover))
       .on_click((_e, cx) => { pick(color); cx.notify(); }).child(mark);
     return h_flex().h(34).pl(5).pr(8).gap(4).items_center()
-      .children(COLORS.map((c) => swatch(c, c, on === k.groups[c] ? k.groups[c].text : "#00000000", div().size(14).rounded(7).bg(k.groups[c].text))))
-      .child(swatch("none", null, on === null ? k.muted : "#00000000", div().relative().size(14).rounded(7).bg(k.background)
+      .children(HUES.map((c) => swatch(c, c, on === k.groups[c] ? k.groups[c].text : k.clear, div().size(14).rounded(7).bg(k.groups[c].text))))
+      .child(swatch("none", null, on === null ? k.muted : k.clear, div().relative().size(14).rounded(7).bg(k.background)
         // The icon's art has a margin: at this size its ring is the dot's edge.
         .child(svg("mods/workspace-chrome/icons/no-color.svg").absolute().left(-2).top(-2).size(18).text_color(on === null ? k.foreground : k.muted))))
       .child(div().flex_1())

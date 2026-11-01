@@ -193,7 +193,6 @@ export default class Spaces extends View {
     });
   }
 
-  // As tall as its rows, up to a point, so the agents list sits right under them.
   fit(rows) {
     const node = find(layout(), "spaces"), px = Math.min(TALLEST, Math.ceil(rows / settings().zoom) + HEADER);
     if (node && node.size?.px !== px) run("layout.resize", { id: "spaces", px });

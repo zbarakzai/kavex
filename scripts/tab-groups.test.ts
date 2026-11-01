@@ -1,6 +1,6 @@
 import { test, expect } from "bun:test";
 import { readFile } from "node:fs/promises";
-import { COLUMN, GAP, INNER, away, clicked, columnHome, columnOrder, columnRuns, columnSlots, columnStops, gathered, groupOf, home, labeled, landed, moves, nearest, nearestY, pruned, reopening, runs, sectionHeight, shownIn, slots, stepped } from "../defaults/mods/tabs/groups.js";
+import { COLUMN, GAP, HUES, INNER, away, clicked, columnHome, columnOrder, columnRuns, columnSlots, columnStops, failed, firstAmongGroups, gathered, groupOf, home, labeled, landed, leastUsed, moves, nearest, nearestY, nextColor, pruned, reopening, runs, sectionHeight, shownIn, shows, slots, stepped } from "../defaults/mods/tabs/groups.js";
 
 const blank = { groups: {}, colors: {}, folders: [] };
 const auth = { auth: { name: "auth", color: "ansi4", folded: false, tabs: ["b", "c"] } };
@@ -364,4 +364,30 @@ test("a press that closed its own button's popup doesn't open it again", () => {
   expect(reopening({ from: "x", at: 500 }, "x", 1000)).toBe(false);
   expect(reopening({ from: "y", at: 1000 }, "x", 1000)).toBe(false);
   expect(reopening(undefined, "x", 1000)).toBe(false);
+});
+
+test("the color key steps through the three, then clears", () => {
+  const steps = (filled: boolean) => [{}, { a: "blue" }, { a: "violet" }, { a: "teal" }, { a: "none" }].map((colors) => nextColor(colors, "a", filled));
+  expect(steps(false)).toEqual([{ a: "blue" }, { a: "violet" }, { a: "teal" }, {}, { a: "blue" }]);
+  expect(steps(true)[3]).toEqual({ a: "none" });
+  expect(nextColor({ a: "teal", b: "blue" }, "a", false)).toEqual({ b: "blue" });
+});
+
+test("a new group goes past the loose tabs, ahead of every other group", () => {
+  const others = { auth: { tabs: ["b", "c"] } };
+  expect(firstAmongGroups(["a", "b", "c", "d"], others, ["d"])).toEqual(["a", "d", "b", "c"]);
+  expect(firstAmongGroups(["a", "b"], {}, ["a"])).toEqual(["b", "a"]);
+});
+
+test("a new group's color is the one least used, the first of equals", () => {
+  expect(leastUsed(HUES, {})).toBe("blue");
+  expect(leastUsed(HUES, { x: { color: "blue" }, y: { color: "teal" } })).toBe("violet");
+});
+
+test("a tab's word and how it shows come from its panes", () => {
+  const ps = [{ tab: "a", terminal: "t1", cwd: "/x", program: { name: "Shell" } }, { tab: "a", terminal: "t2", program: { name: "Pi", agent: true } }];
+  expect(failed({ id: "a", status: "blocked" }, ps, new Map([["t2", "error"]]))).toBe("failed");
+  expect(failed({ id: "a", status: "blocked" }, ps, new Map())).toBe("blocked");
+  expect(shows({ id: "a", name: "tb1" }, ps)).toEqual({ program: ps[1].program, cwd: "/x", name: "Pi" });
+  expect(shows({ id: "b", name: "tb2" }, ps).name).toBe("Terminal");
 });

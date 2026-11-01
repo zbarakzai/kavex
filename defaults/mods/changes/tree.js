@@ -1,4 +1,3 @@
-// The changed files as a folder tree.
 
 const name = (a) => a.toLowerCase();
 const byName = (a, b) => (name(a) < name(b) ? -1 : name(a) > name(b) ? 1 : 0);

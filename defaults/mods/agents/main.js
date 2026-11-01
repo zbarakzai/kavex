@@ -4,7 +4,7 @@
 import { View, div, image, svg } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
 import { agents, terminals, focused, spaces, run, theme, shared, setShared, setAgentOrder, openOverlay, closeOverlay, props, window, layout } from "herdr";
-import { look, badge, sectionLabel, MONO } from "./look.js";
+import { look, badge, duration, sectionLabel, tile, MONO } from "./look.js";
 
 function find(node, id) {
   if (node?.id === id) return node;
@@ -42,21 +42,11 @@ const SORTS = [
 ];
 const sortOf = () => SORTS.find((s) => s.id === shared("agents.sort")) ?? SORTS[0];
 
-function duration(ms) {
-  const m = Math.floor(ms / 60000);
-  if (m < 1) return "<1m";
-  if (m < 60) return `${m}m`;
-  const h = Math.floor(m / 60);
-  return h < 24 ? `${h}h` : `${Math.floor(h / 24)}d`;
-}
-
 // The agent's icon from the app's program table: a one-color glyph or a picture.
 function icon(p, size, color) {
   if (!p?.icon) return svg("mods/workspace-chrome/icons/terminal.svg").size(size).flex_none().text_color(color);
   return p.tint ? svg(p.icon).size(size).flex_none().text_color(color) : image(p.icon).w(size).h(size).flex_none();
 }
-
-const tile = (p, size, k) => h_flex().size(size).flex_none().items_center().justify_center().rounded(6).bg(p?.tile ?? k.tile).child(icon(p, size - 8, p?.color ?? k.foreground));
 
 export default class Agents extends View {
   init(_props, cx) {
@@ -184,7 +174,6 @@ export default class Agents extends View {
       .child(this.status(t, { status: st }));
   }
 
-  // compact: the status's dot, where a row has no room for its badge.
   status(t, a, compact = false) {
     const k = look(t);
     if (compact) return div().size(6).mx(1).flex_none().rounded(3).bg((k.status[a.status] ?? k.status.idle).dot);
@@ -198,7 +187,7 @@ export default class Agents extends View {
     const sort = sortOf();
     let list = agents();
     this.listed = new Map(list.map((a) => [a.address, a.status]));
-    const all = terminals(), words = new Map(all.map((k) => [k.address, k.status])), k = look(t);
+    const all = terminals(), words = new Map(all.map((x) => [x.address, x.status])), k = look(t);
     const shown = focused()?.agent;
     const now = Date.now();
     this.track(list, now);
@@ -246,8 +235,6 @@ export default class Agents extends View {
         .when(!open, (el) => el.child(String(subs.length)));
     };
 
-    const inSpace = new Map(spaces().map((p) => [p.id, p.tabs.length]));
-    const several = (a) => (inSpace.get(a.space) ?? 1) > 1;
 
     const row = (a, i, subs = []) => {
       // An agent on another machine (`vps/t7`) says which.
@@ -309,7 +296,7 @@ export default class Agents extends View {
           })).child(tile(a.program, 22, k)))
         .child(h_flex().flex_1().min_w(0).gap(4).items_center()
           .child(div().min_w(0).truncate().child(a.space_name || a.program?.name || ""))
-          .when(several(a), el => el.child(div().flex_none().text_color(k.label).child(`\u00b7 ${a.tab_index}`))))
+          .child(div().flex_none().text_color(k.label).child(`\u00b7 ${a.tab_index}`)))
         .when(Boolean(machine), el => el.child(div().text_size(10).text_color(k.label).child(machine)))
         .when(subs.length > 0, el => el.child(fold(a, subs)))
         .when(this.hovered === a.address, el => el.child(pin))

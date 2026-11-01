@@ -28,7 +28,7 @@ const text = (e: El) => e.kids.filter((k) => typeof k === "string").join("");
 const handler = (e: El, name: string, button?: string) => e.calls.find(([k, a]) => k === name && (!button || a[0] === button))?.[1].at(-1);
 const rings = (e: El) => e.kids.map(mine).filter((k): k is El => Boolean(k) && has(k!, "border_color") && has(k!, "inset_0"));
 
-let state: { tabs: any[]; shared: Record<string, any>; ran: [string, any][]; focused: boolean; overlays: any[] };
+let state: { tabs: any[]; shared: Record<string, any>; ran: [string, any][]; focused: boolean; overlays: any[]; terminals?: any[] };
 const colors = JSON.parse(readFileSync(new URL("../defaults/themes/zaki.json", import.meta.url), "utf8")).colors;
 const flex = () => make();
 const icon = (path: string) => { const s = make(); s.el.calls.push(["path", [path]]); return s; };
@@ -37,7 +37,7 @@ mock.module("gpui-base", () => ({ h_flex: flex, v_flex: flex }));
 mock.module("herdr", () => ({
   spaces: () => [{ id: "s", active: true, machine: null, tabs: state.tabs }],
   panes: () => state.tabs.map((c) => ({ tab: c.id, pane: `p-${c.id}`, terminal: `t-${c.id}`, focused: true, program: { name: c.id } })),
-  terminals: () => [],
+  terminals: () => state.terminals ?? [],
   theme: () => colors,
   layout: () => null,
   run: (name: string, args: any) => void state.ran.push([name, args]),
@@ -154,6 +154,16 @@ test("a group's header: name in its color, hover, and the orange dot when one ne
   expect(dot(byId(root, "column-fold-shut")!)).toBeUndefined();
 });
 
+test("a failed tab doesn't light the dot: failed isn't needs you", () => {
+  state.terminals = [{ address: "t-d", status: "error" }];
+  expect(all(byId(column().draw(), "column-fold-blue")!).find((x) => arg(x, "size") === 7)).toBeUndefined();
+});
+
+test("a picked row's ring isn't orange: that color means you", () => {
+  state.shared["tabs.picked"] = ["b"];
+  expect(rings(byId(column().draw(), "column-b")!).map((e) => arg(e, "border_color"))).toEqual([colors.foreground]);
+});
+
 test("a fold turns the chevron and hides the tabs", () => {
   const root = column().draw();
   expect(arg(byId(root, "column-tuck-e")!, "h")).toBe(0);
@@ -249,6 +259,14 @@ test("rows slide apart where the drag is: one room open, the rest shut, on a spr
   aim(view, "a");
   const next = draw();
   expect([roomOf(view, next, "a"), roomOf(view, next, "d")]).toEqual([view.drag.room, 0]);
+});
+
+test("with no loose tabs a row can still leave its group: the rows make room, with the sections' gap", () => {
+  state.tabs = [tab("c", { active: true }), tab("d"), tab("e"), tab("f")];
+  const { view, draw } = lifted("column-d", 120);
+  expect(all(draw()).some((e) => arg(e, "mb") === -14)).toBe(true);
+  aim(view, "loose-end");
+  expect(roomOf(view, draw(), "loose-end")).toBe(view.drag.room + 12);
 });
 
 test("nothing draws a drop line", () => {
@@ -357,9 +375,16 @@ test("the group button drafts a new group and changes nothing", () => {
 });
 
 test("on a tab alone in a group, the group button opens that group", () => {
+  state.shared["tab.groups"] = { blue: { ...GROUPS.blue, tabs: ["c"] } };
   state.tabs = state.tabs.map((c) => ({ ...c, active: c.id === "c" }));
   openGroup(column().draw());
   expect(state.overlays[0].props).toEqual({ group: "blue", from: "column-group" });
+});
+
+test("on a tab with others in its group, the group button drafts a new group", () => {
+  state.tabs = state.tabs.map((c) => ({ ...c, active: c.id === "c" }));
+  openGroup(column().draw());
+  expect(state.overlays[0].props).toMatchObject({ tabs: ["c"], make: true, from: "column-group" });
 });
 
 test("a second press on the group button shuts its menu, and the other button still opens", () => {

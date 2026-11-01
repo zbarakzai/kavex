@@ -73,3 +73,6 @@ Agreed with Zakiullah on 2026-11-01. These override the sections above.
 - **Order:** the tabs' real order is the column's, so a tab leaving a group lands at the end of the loose tabs, and a new group's section comes first among the groups.
 - **Folding:** rows slide shut on the same spring as the rooms, and what's below follows.
 - **New tokens:** `#E2E2E2`, `#202020`, `#282828`, `#262626` and `#333333` are the theme's `row_name`, `row_pressed`, `row_active_hover`, `row_dragging` and `row_ring`.
+- **Chevron:** 12px, not 11. Interface icons come in fixed sizes, and 12 is the small arrows' (`scripts/look.test.ts`).
+- **Picks:** a picked row's ring and the `layers` button while tabs are picked use the foreground color. Orange means "you", never decoration.
+- **Same as the bar:** the column also has what the tab bar does: drag a group by its name, pick with Cmd/Ctrl or Shift, double-click to rename, step with a mouse wheel.

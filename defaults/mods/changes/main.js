@@ -7,7 +7,9 @@ import { spaces, panes, focused, agents, exec, hc, appHome, readTextFile, watchF
 import * as fs from "fs/promises";
 import { MOST_ROWS, buttonAt, fileRows, hunkPatch, lineCount, newFile, parseDiff, signature, splitRows, stackedRows, stepped, wrapSpans } from "./diff.js";
 import { languageOf, painter } from "./tokens.js";
-import { look, panelHeader, spaced, typeTag, MONO } from "./look.js";
+import { look, spaced, MONO } from "./look.js";
+import { typeTag } from "./filetypes.js";
+import { panelHeader } from "./panel.js";
 import { buildTree, filtered, inTreeOrder, jumpList, middle, treeRows } from "./tree.js";
 import { DIFF, READ, SNAPSHOT, chooseBase, parseCounts, parseLog, parseNumstat, parseRefs, planAction, reviewMessage, untrackedPaths } from "./git.js";
 
@@ -935,7 +937,6 @@ export default class Changes extends View {
       .when(del, (el) => el.child(div().text_color(t.removed).child(`${minus}${commas(file.del)}`)));
   }
 
-  // `1 / 59`: where this file stands among them.
   counter(file, t) {
     return div().flex_none().ml(8).font_family(MONO).text_size(10.5).text_color(t.label).child(`${this.files.indexOf(file) + 1} / ${this.files.length}`);
   }
@@ -1024,7 +1025,6 @@ export default class Changes extends View {
       .when(on, (el) => el.child(icon("check", 16).text_color(t.accent)));
   }
 
-  // Scope, branch and tools share one shape: a filled pill on the panel.
   pillBox(t) {
     return h_flex().items_center().rounded(999).bg(t.pill).border_1().border_color(t.pill_ring);
   }
@@ -1142,7 +1142,6 @@ export default class Changes extends View {
         : div().px(8).py(6).text_color(t.dim).child("No matching files"));
   }
 
-  // Everything the design keeps out of the pill: looking at the diff first, then acting on it.
   moreControl(t) {
     return this.tip("changes-more", "Changes options", this.popover("more", "top_right", this.toolButton("changes-more", "more", t), () => {
       const word = this.stageWord(), some = this.files.length > 0;
@@ -1212,7 +1211,6 @@ export default class Changes extends View {
       .when(Boolean(menuFile), (el) => el.child(div().absolute().left(this.rowMenu.x).top(this.rowMenu.y).child(this.popover("row", "top_right", div().size(1), () => this.fileMenu(menuFile, t)))));
   }
 
-  // Long lines scroll sideways with the wheel; this shows how far along they are.
   sideways(t) {
     const room = this.diffWidth() - GUTTER - MARKER, width = Math.max(40, room * room / (room + this.maxScroll));
     return div().absolute().bottom(2).left(GUTTER + (room - width) * (this.scrollX / this.maxScroll)).w(width).h(6).rounded(3).bg(t.pill_selected);
@@ -1244,7 +1242,6 @@ export default class Changes extends View {
       .child(control);
   }
 
-  // Outside the cards: what would be committed, the message, and the one orange button.
   commitBar(t) {
     const enabled = this.canCommit(), files = plural(this.files.length, "file").toUpperCase();
     const staged = this.staged ? `${this.staged} STAGED` : "NOTHING STAGED";

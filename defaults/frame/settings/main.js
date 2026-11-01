@@ -144,12 +144,10 @@ export default class Settings extends View {
     return div().px(2).pb(10).child(sectionLabel(t, text.toUpperCase()));
   }
 
-  // A heading and what it heads.
   group(t, title, ...body) {
     return v_flex().w_full().pb(22).child(this.heading(t, title)).children(body.filter(Boolean));
   }
 
-  // What belongs together sits on a card, as in the Changes panel; spacing keeps its rows apart.
   card(t, ...rows) {
     return v_flex().w_full().px(14).py(3).rounded(14).bg(t.card).border_1().border_color(t.card_border).children(rows.filter(Boolean));
   }
@@ -177,7 +175,6 @@ export default class Settings extends View {
       .child(div().flex_none().child(control));
   }
 
-  // A name, and its number in mono.
   named(t, name, version) {
     return h_flex().gap(7).items_center().child(name).child(div().font_family(MONO).text_size(11).text_color(t.label).child(version ?? ""));
   }
@@ -201,7 +198,6 @@ export default class Settings extends View {
       .child(label);
   }
 
-  // One choice of a few: a pill with the chosen one filled, as the tab bar's placement switch.
   segments(t, id, options, now, pick) {
     return h_flex()
       .flex_none()
@@ -274,7 +270,6 @@ export default class Settings extends View {
       .child(div().id(`${id}-knob`).absolute().top(2).left(on ? 18 : 2).size(16).rounded(8).bg(on ? t.surface : t.muted).transition("left", KNOB));
   }
 
-  // A layout or a theme to pick. The picked one looks like the shown tab: filled, ringed, an orange mark.
   choice(t, id, on, onClick, picture, label) {
     return v_flex()
       .id(id)
@@ -632,7 +627,6 @@ export default class Settings extends View {
     return false;
   }
 
-  // A dot for how it's doing, its name, and the facts in mono.
   machineLine(t, color, name, facts) {
     return h_flex().flex_1().min_w(0).gap(10).items_center()
       .child(div().size(6).flex_none().rounded(3).bg(color))
@@ -846,7 +840,6 @@ export default class Settings extends View {
 
   // ----------------------------------------------------------------------
 
-  // A line of the list on the left, as a row of the window's sidebar.
   navRow(t, id, icon, title, on, onClick, mark) {
     return h_flex()
       .id(id)
@@ -857,7 +850,7 @@ export default class Settings extends View {
       .items_center()
       .rounded(10)
       .border_1()
-      .border_color(on ? t.chip_active_ring : "#00000000")
+      .border_color(on ? t.chip_active_ring : t.clear)
       .cursor_pointer()
       .when(on, (el) => el.bg(t.row_selected_strong))
       .when(!on, (el) => el.hover((st) => st.bg(t.hover)))
@@ -893,7 +886,6 @@ export default class Settings extends View {
       )
       .child(div().flex_1())
       .child(this.navRow(t, "st-feedback", "messages", "Send feedback", false, () => { closeOverlay(props()?.overlay); run("app.feedback"); }));
-    // The window in small: its regions on the canvas, the page on a panel.
     return h_flex()
       .id("settings")
       .track_focus(this.handle)

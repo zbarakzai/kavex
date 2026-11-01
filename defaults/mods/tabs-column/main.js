@@ -1,16 +1,12 @@
-// The Tabs column: the shown space's tabs when they sit on the right. Loose tabs first, then
-// each group as a section under its name; spacing alone separates them. Groups and folds are
-// the ones the tab bar keeps in shared state ("tab.groups"), so the two placements show the
-// same thing. Drag a row to reorder it or move it in or out of a group, a group's name to move
-// the group; the rules are groups.js's, the same as the bar's, and only the direction differs.
+// The Tabs column: the shown space's tabs when they sit on the right. Groups and folds are the
+// ones the tab bar keeps in shared state, and the drag rules are groups.js's, as the bar's.
 
-import { View, div, image, svg } from "gpui-kit";
+import { View, div, svg } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
 import { spaces, panes, terminals, theme, run, openOverlay, closeOverlay, shared, setShared, settings, nextCommand, window } from "herdr";
-import { look, badge, groupHue, tabHue, MONO } from "./look.js";
-import { COLUMN, clicked, columnHome, columnRuns, columnSlots, columnStops, groupOf, landed, moves, nearestY, reopening, sectionHeight, shownIn, stepped } from "./groups.js";
+import { look, badge, duration, groupHue, tabHue, tile, MONO } from "./look.js";
+import { COLUMN, clicked, columnHome, columnRuns, columnSlots, columnStops, failed, groupOf, groupStop, landed, moves, nearestY, reopening, sectionHeight, shownIn, shows, slotKey, stepped, stoppedGroup } from "./groups.js";
 
-// How a carried row moves, as in the tab bar.
 const SLIDE = { response: 150, damping: 1 }; // room opening and shutting
 const HELD = { response: 0 }; // stuck to the pointer
 const SETTLE = { response: 170, damping: 0.82 }; // down into its place
@@ -22,14 +18,7 @@ const FAR = 90; // px off the column where a drag lets go of its target and head
 const EDGE = 16; // px from the list's ends that mean its first and last place
 const HEADER = 56, INSET = 8; // the column's header; the list's side padding
 
-const duration = (ms) => {
-  const m = Math.floor(ms / 60000);
-  if (m < 1) return "<1m";
-  if (m < 60) return `${m}m`;
-  const h = Math.floor(m / 60);
-  return h < 24 ? `${h}h` : `${Math.floor(h / 24)}d`;
-};
-
+const activeSpace = () => spaces().find((p) => p.active);
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
 // GPUI has no inset ring or outline: a border drawn over the row paints the same pixels.
@@ -69,9 +58,8 @@ export default class TabsColumn extends View {
     }
   }
 
-  // The keyboard comes here from the terminal, onto the shown tab.
   enter(cx) {
-    const list = spaces().find((p) => p.active)?.tabs ?? [], watching = Boolean(this.cursor);
+    const list = activeSpace()?.tabs ?? [], watching = Boolean(this.cursor);
     this.cursor = list.find((c) => c.active)?.id ?? columnStops(list, shared("tab.groups") ?? {})[0] ?? null;
     if (!this.cursor) return;
     this.keys.focus();
@@ -89,9 +77,8 @@ export default class TabsColumn extends View {
     });
   }
 
-  // The keyboard goes back to a terminal, of this tab or else the shown one.
   leave(tab) {
-    const ps = panes(), id = tab ?? spaces().find((p) => p.active)?.tabs.find((c) => c.active)?.id;
+    const ps = panes(), id = tab ?? activeSpace()?.tabs.find((c) => c.active)?.id;
     const pane = ps.find((p) => p.tab === id && p.focused) ?? ps.find((p) => p.tab === id);
     this.cursor = null;
     if (tab) run("tab.select", { id: tab });
@@ -100,7 +87,7 @@ export default class TabsColumn extends View {
 
   key(e, v, cx) {
     const stops = columnStops(v.list, v.groups), at = Math.max(0, stops.indexOf(this.cursor)), stop = stops[at];
-    const id = stop?.startsWith("group:") ? stop.slice("group:".length) : null, g = v.groups[id];
+    const id = stoppedGroup(stop), g = v.groups[id];
     const fold = (folded) => setShared("tab.groups", { ...v.groups, [id]: { ...g, folded } });
     if (e.key === "escape") this.leave();
     else if (e.key === "up") this.cursor = stops[Math.max(0, at - 1)];
@@ -138,7 +125,6 @@ export default class TabsColumn extends View {
     }
   }
 
-  // What's held, and how tall it is. Rows keep the height of the section they came from.
   held(moving, v) {
     if (moving.group) return { size: sectionHeight(v.groups[moving.group], v.list.filter((c) => v.groups[moving.group].tabs.includes(c.id))), gap: COLUMN.gap };
     const { sections } = columnRuns(v.list, v.groups), inSection = (id) => sections.some((c) => c.tabs.some((x) => x.id === id));
@@ -182,7 +168,7 @@ export default class TabsColumn extends View {
     if (!d || d.landing) return;
     closeOverlay(this.overlay);
     d.landing = true;
-    const order = spaces().find((p) => p.active)?.tabs.map((c) => c.id) ?? [], groups = shared("tab.groups") ?? {};
+    const order = activeSpace()?.tabs.map((c) => c.id) ?? [], groups = shared("tab.groups") ?? {};
     const result = d.slot === d.home ? null : landed(order, groups, d.moving, d.slot);
     cx.timer.after(SETTLE_MS, (cx) => {
       if (this.drag !== d) return;
@@ -198,7 +184,6 @@ export default class TabsColumn extends View {
     cx.notify();
   }
 
-  // Ends a press: a landing if it was picked up, else a click.
   up(cx, click) {
     const press = this.press;
     this.press = null;
@@ -226,27 +211,14 @@ export default class TabsColumn extends View {
 
   // In a drag, every place it could land is a room, shut but for the one it's over. A tab let
   // go on a fold goes in with the rest, so that room shuts as it fades.
-  room(key) {
+  room(key, extra = 0) {
     const d = this.drag, open = d.landing && d.slot.fold && d.slot !== d.home ? null : d.slot.key;
-    return div().id(`room-${d.n}-${key}`).flex_none().w_full().h(open === key ? d.room : 0).spring("height", SLIDE);
+    return div().id(`room-${d.n}-${key}`).flex_none().w_full().h(open === key ? d.room + extra : 0).spring("height", SLIDE);
   }
 
   roomed(el, before, after) {
     if (!this.drag) return el;
     return v_flex().flex_none().w_full().when(Boolean(before), (o) => o.child(this.room(before))).child(el).when(Boolean(after), (o) => o.child(this.room(after)));
-  }
-
-  shows(c, ps) {
-    const mine = ps.filter((p) => p.tab === c.id);
-    const program = mine.find((p) => p.program?.agent)?.program ?? mine[0]?.program;
-    return { program, cwd: mine.find((p) => p.cwd)?.cwd, name: /^tb\d+$/.test(c.name) ? program?.name ?? "Terminal" : c.name };
-  }
-
-  tile(program, size, k) {
-    const inner = size - 8;
-    const glyph = !program?.icon ? svg("mods/workspace-chrome/icons/terminal.svg").size(inner).text_color(k.tile_text)
-      : program.tint ? svg(program.icon).size(inner).text_color(program.color ?? k.foreground) : image(program.icon).size(inner);
-    return h_flex().size(size).flex_none().items_center().justify_center().rounded(6).bg(program?.tile ?? k.tile).child(glyph);
   }
 
   menu(p) {
@@ -260,24 +232,24 @@ export default class TabsColumn extends View {
     return at ? { x: at.x + at.width - width * z, y: at.y + at.height + 6 * z } : "pointer";
   }
 
-  // The header's group button: the shown tab's group if that's all it's on, else a new group.
+  // The header's group button: a tab already alone in a group opens that group, else a new one.
   group(tabs) {
-    const own = tabs.length === 1 ? groupOf(shared("tab.groups") ?? {}, tabs[0]) : null;
-    const asked = own ? { group: own } : { tabs, make: true, space: spaces().find((p) => p.active)?.id };
+    const groups = shared("tab.groups") ?? {}, own = tabs.length === 1 ? groupOf(groups, tabs[0]) : null;
+    const asked = groups[own]?.tabs.length === 1 ? { group: own } : { tabs, make: true, space: activeSpace()?.id };
     openOverlay({ mod: "tab-menu", kind: "popup", at: this.under(236), width: 236, height: 440, props: { ...asked, from: "column-group" } });
   }
 
   // `carried`: "row" when it's what's being dragged, "group" inside a dragged group.
   row(c, v, inGroup, carried) {
-    const { k, ps, words, space, picks } = v, { program, cwd, name } = this.shows(c, ps);
-    const status = ps.some((p) => p.tab === c.id && words.get(p.terminal) === "error") ? "failed" : c.status;
+    const { k, ps, words, space, picks } = v, { program, cwd, name } = shows(c, ps);
+    const status = failed(c, ps, words);
     const since = c.working_since ?? c.changed_at, picked = picks.length > 1 && picks.includes(c.id);
     const over = !this.drag && this.over === c.id, down = !this.drag && this.press?.anchor === c.id;
     const state = down && !c.active ? "pressed" : c.active ? (over ? "active_hover" : "active") : over ? "hover" : "default";
     // A color is a sheet under the others, which deepen it instead of covering it.
     const hue = tabHue(k, v.colors[c.id], v.groups[groupOf(v.groups, c.id)]);
     const shade = hue ? { pressed: hue.tint, hover: hue.tint, active: hue.row, lit: hue.ring } : { pressed: k.row_pressed, hover: k.hover, active: k.row_selected_strong, lit: k.row_active_hover };
-    const edge = carried === "row" ? k.row_ring : carried ? null : picked ? k.accent : state === "active_hover" ? hue?.ring ?? k.row_ring : state === "active" ? hue?.ring ?? k.chip_active_ring : null;
+    const edge = carried === "row" ? k.row_ring : carried ? null : picked ? k.foreground : state === "active_hover" ? hue?.ring ?? k.row_ring : state === "active" ? hue?.ring ?? k.chip_active_ring : null;
     return h_flex().id(`column-${c.id}`).relative().h(inGroup ? COLUMN.inRow : COLUMN.row).flex_none().pl(inGroup ? 27 : 10).pr(10).gap(9).items_center().rounded(10)
       .when(carried === "row", (el) => el.bg(k.row_dragging).shadow_2xl())
       .child(sheet(`column-paint-${c.id}`, hue?.row ?? k.hover, Boolean(hue)))
@@ -293,7 +265,7 @@ export default class TabsColumn extends View {
         .child(sheet(`column-hover-${c.id}`, shade.hover, state === "hover"))
         .child(sheet(`column-active-${c.id}`, shade.active, state === "active"))
         .child(sheet(`column-active-hover-${c.id}`, shade.lit, state === "active_hover")))
-      .child(this.tile(program, inGroup ? 20 : 22, k))
+      .child(tile(program, inGroup ? 20 : 22, k))
       .child(div().flex_1().min_w(0).truncate().text_size(13).font_weight(c.active ? 500 : 400).text_color(state === "default" && !carried ? k.row_name : k.foreground).child(name))
       .when(Boolean(since), (el) => el.child(div().flex_none().font_family(MONO).text_size(10).text_color(k.label).child(duration(v.now - since))))
       .when(Boolean(status), (el) => el.child(badge(k, status)))
@@ -301,13 +273,12 @@ export default class TabsColumn extends View {
       .when(this.cursor === c.id, (el) => el.child(ring(k.accent, 2, 10)));
   }
 
-  // A group's name: click to fold, drag to move the group.
   head(id, tabs, v) {
     const { k, groups } = v, g = groups[id], hue = groupHue(k, g.color);
-    const needs = tabs.some((c) => c.status === "blocked"), done = tabs.filter((c) => c.status === "done").length;
+    const needs = tabs.some((c) => failed(c, v.ps, v.words) === "blocked"), done = tabs.filter((c) => c.status === "done").length;
     return h_flex().id(`column-fold-${id}`).relative().h(COLUMN.head).flex_none().pl(8).pr(10).gap(8).items_center().rounded(9)
       .text_color(k.label).hover((s) => s.bg(k.selected).text_color(k.tile_text))
-      .on_mouse_down("left", (e, cx) => this.pressed(e, { group: id }, `before:${id}`, cx))
+      .on_mouse_down("left", (e, cx) => this.pressed(e, { group: id }, slotKey.before(id), cx))
       .on_mouse_up("left", (_e, cx) => this.up(cx, () => setShared("tab.groups", { ...groups, [id]: { ...g, folded: !g.folded } })))
       .on_mouse_down("right", () => this.menu({ group: id }))
       .child(svg(`mods/workspace-chrome/icons/chevron-${g.folded ? "right" : "down"}.svg`).size(12).flex_none())
@@ -316,7 +287,7 @@ export default class TabsColumn extends View {
       .child(div().flex_1())
       .when(needs, (el) => el.child(div().size(7).flex_none().rounded(999).bg(k.status.blocked.dot)))
       .child(div().flex_none().font_family(MONO).text_size(10.5).child(`${done}/${tabs.length}`))
-      .when(this.cursor === `group:${id}`, (el) => el.child(ring(k.accent, 2, 9)));
+      .when(this.cursor === groupStop(id), (el) => el.child(ring(k.accent, 2, 9)));
   }
 
   // A row under a group's name. It stays mounted when folded, at no height, so a fold slides shut
@@ -327,15 +298,14 @@ export default class TabsColumn extends View {
 
   section(id, tabs, v) {
     const { groups } = v, g = groups[id], d = this.drag;
-    const moving = d?.moving.tabs ?? [], kept = tabs.filter((c) => !moving.includes(c.id)), rows = shownIn(g, kept), inside = `in:${id}`;
-    const under = g.folded ? `fold:${id}` : rows.length ? null : inside;
+    const moving = d?.moving.tabs ?? [], kept = tabs.filter((c) => !moving.includes(c.id)), rows = shownIn(g, kept), inside = slotKey.inside(id);
+    const under = g.folded ? slotKey.fold(id) : rows.length ? null : inside;
     // The last row's gap isn't one: the sections' own gap follows.
     return v_flex().id(`column-group-${id}`).flex_none().mb(-COLUMN.rowGap)
       .child(this.roomed(div().flex_none().w_full().pb(COLUMN.rowGap).child(this.head(id, tabs, v)), null, under))
       .children(kept.map((c) => this.roomed(this.tucked(c, rows.includes(c), v), g.folded ? null : c.id, c === rows.at(-1) && !g.folded ? inside : null)));
   }
 
-  // What's being carried, lifted off the list. It heads for its place when let go.
   ghost(v) {
     const d = this.drag, { k } = v, top = this.rootY + HEADER, bottom = this.rootY + this.rootH;
     const y = d.landing ? d.slot.y + d.listY : Math.max(top, Math.min(d.y - d.grab, bottom - d.size));
@@ -353,14 +323,14 @@ export default class TabsColumn extends View {
   }
 
   render() {
-    const t = theme(), k = look(t), space = spaces().find((p) => p.active), list = space?.tabs ?? [];
+    const k = look(theme()), space = activeSpace(), list = space?.tabs ?? [];
     const groups = shared("tab.groups") ?? {}, order = list.map((c) => c.id), active = list.find((c) => c.active);
     if (this.drag?.next && same(order, this.drag.next)) this.drag = null;
     const d = this.drag, picks = list.filter((c) => c.active || (shared("tabs.picked") ?? []).includes(c.id)).map((c) => c.id);
     const v = { k, groups, colors: shared("tab.colors") ?? {}, space, list, picks, ps: panes(), words: new Map(terminals().map((x) => [x.address, x.status])), now: Date.now() };
     const { loose, sections } = columnRuns(list, groups), going = d?.moving.tabs ?? [];
     const stay = loose.filter((c) => !going.includes(c.id)), shown = sections.filter((c) => c.group !== d?.moving.group);
-    const tool = (id, icon, action, on = false) => h_flex().id(id).size(32).flex_none().items_center().justify_center().rounded(9).text_color(on ? k.accent : k.muted).hover((s) => s.bg(k.hover_strong).text_color(k.foreground)).on_mouse_down("left", (e) => { this.toolAt = e.bounds; this.toolDown = Date.now(); }).on_click(() => { if (!reopening(shared("popup.closed"), id, this.toolDown)) action(); }).child(svg(icon).size(16));
+    const tool = (id, icon, action, on = false) => h_flex().id(id).size(32).flex_none().items_center().justify_center().rounded(9).text_color(on ? k.foreground : k.muted).hover((s) => s.bg(k.hover_strong).text_color(k.foreground)).on_mouse_down("left", (e) => { this.toolAt = e.bounds; this.toolDown = Date.now(); }).on_click(() => { if (!reopening(shared("popup.closed"), id, this.toolDown)) action(); }).child(svg(icon).size(16));
     return v_flex().id("tabs-column").relative().size_full().min_h(0).rounded(14).overflow_hidden().bg(k.surface).text_color(k.foreground).text_size(13)
       .on_size_change((size) => { this.rootH = size.height / settings().zoom; })
       .on_mouse_move((e, cx) => this.moved(e, v, cx))
@@ -377,10 +347,12 @@ export default class TabsColumn extends View {
           .child(tool("column-group", "mods/workspace-chrome/icons/layers.svg", () => active && this.group(picks), picks.length > 1))
           .child(tool("column-new", "mods/workspace-chrome/icons/plus.svg", () => openOverlay({ mod: "new-menu", kind: "popup", at: this.under(250), width: 250, height: 512, props: { from: "column-new" } })))))
       .child(v_flex().id("column-list").flex_1().min_h(0).gap(COLUMN.gap).px(INSET).pb(12).overflow_y_scrollbar()
-        .when(stay.length > 0 || (Boolean(d?.moving.tabs) && loose.length > 0), (el) => el.child(v_flex().flex_none().gap(COLUMN.rowGap)
+        .when(stay.length > 0 || Boolean(d?.moving.tabs), (el) => el.child(v_flex().flex_none().gap(COLUMN.rowGap)
+          // With no loose tabs there's no section yet: nothing shifts until a row heads here.
+          .when(!loose.length, (o) => o.mb(-COLUMN.gap))
           .children(stay.map((c, i) => this.roomed(this.row(c, v, false), c.id, i === stay.length - 1 ? "loose-end" : null)))
-          .when(!stay.length && Boolean(d), (el) => el.child(this.room("loose-end")))))
-        .children(shown.map((c, i) => this.roomed(this.section(c.group, c.tabs, v), `before:${c.group}`, i === shown.length - 1 ? "end" : null))))
+          .when(!stay.length && Boolean(d), (el) => el.child(this.room("loose-end", loose.length ? 0 : COLUMN.gap - COLUMN.rowGap)))))
+        .children(shown.map((c, i) => this.roomed(this.section(c.group, c.tabs, v), slotKey.before(c.group), i === shown.length - 1 ? "end" : null))))
       .when(Boolean(d), (el) => el.child(this.ghost(v)));
   }
 }

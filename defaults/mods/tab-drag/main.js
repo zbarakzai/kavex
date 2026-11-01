@@ -18,7 +18,6 @@ export default class TabDrag extends View {
     });
   }
 
-  // The bar, or the column: whichever picked the tab up.
   to() {
     return props()?.to ?? "tabs";
   }
