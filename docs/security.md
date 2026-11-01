@@ -3,8 +3,8 @@
 ## Mods have your access
 
 A mod is trusted JavaScript running inside Zaki. It can run programs with your environment, fetch URLs and read files.
-The built-in file API limits writes to the app home, but a mod can run a program to write elsewhere. That is not a security boundary.
-Mods can also run programs on connected machines.
+`fs/promises` limits writes to the app home, but `writeTextFile` writes anywhere you can, and a mod can run a program to do the same. Neither is a security boundary.
+Mods can also run programs and write files on connected machines.
 
 There is no permission prompt for each program or network request. Read a mod before installing it, and treat it like a shell script you would run yourself.
 Layouts can load mods. Check those references too.
@@ -18,6 +18,14 @@ This folder holds your settings, keys, layouts, mods, generated agent guide and 
 It also holds mod data, shared state, window positions, this screen's focus and zoom, update notes and cached media, and telemetry while enabled.
 Mods may store sensitive data here. Zaki does not encrypt this folder.
 The [installed guide's file map](../defaults/AGENTS.md#the-files) explains the files.
+
+For [session context](#session-context-and-api-cost), Zaki also writes these outside the app home, on each machine where it sees the agent:
+
+- `~/.codex/hooks.json`: one hook added at the end of `SessionStart`. Your own hooks keep their place, and a file Zaki can't read or understand is left alone.
+- `~/.zaki/codex-session.sh` and `~/.zaki/codex-session.ps1`: the script that hook runs.
+- `~/.pi/agent/extensions/zaki-session.ts`: an extension of Zaki's own. Pi loads it with nothing to approve.
+
+They do nothing outside a Zaki terminal, and they stay behind if you remove Zaki or the app home.
 
 Spaces, tabs and splits are stored in each machine's core document, not in the app home.
 Terminals and their output belong to [herdr-core](https://github.com/herdrdev/herdr-core).
@@ -66,6 +74,24 @@ If `programs.json`'s `run` points to the agent's own program at another path, th
 - Each key is sent in turn to `https://opencode.ai/zen/go/v1/usage` as a Bearer header, until one gives Go's limits. That is the only address it goes to. Zaki's `fetch` refuses to carry that header through a redirect to anywhere else.
 
 **What it keeps.** In `shared.json` in the app home, not encrypted: each subscription's name, tier and limits, and the fingerprint for Claude Code and Codex. No key, login or email is saved, and nothing made from an OpenCode key.
+
+## Session context and API cost
+
+The `agents` mod shows how full each Claude Code, Codex and Pi session is, and what it would cost at API prices. It has no off switch.
+
+**What it runs.** On the machine the agent runs on:
+
+- Claude Code: `claude -p "/context"`, once per model and kept for a day, with no saved session, MCP servers or setting sources. It spends no tokens.
+- `sh` with `dd`, `wc`, `grep` and `find` to read session files. Windows uses PowerShell, which also lists running processes to find Claude Code's.
+- Codex's hook and Pi's extension run `hc label`, to tell Zaki which session file a terminal holds and, for Pi, its context's total.
+
+Zaki never approves its Codex hook. Codex runs it only after you trust it in `/hooks`.
+
+**What it reads.** Your agents' session files, which hold your conversations, and Claude Code's per-process record in `~/.claude/sessions`. A filter runs over each file, and only lines with usage, a model or a helper's name reach the mod. For Pi those lines hold the whole answer. To set up, it reads `~/.codex/hooks.json` and the files listed under [What stays on disk](#what-stays-on-disk). It doesn't read any agent's login, or Codex's `config.toml`.
+
+**What it sends.** Nothing. On an added machine the numbers come back over your own connection to it.
+
+**What it keeps.** In `shared.json` in the app home, not encrypted: each model's context total, and which agents are set up on which machine. Terminal labels in the core hold each session file's path, and Pi's context total. No conversation text, token count or cost is saved.
 
 ## Telemetry
 
