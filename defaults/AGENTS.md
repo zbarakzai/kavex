@@ -264,42 +264,34 @@ be undone. Cmd-click (Ctrl-click) a line opens it in Cursor, VS Code or Zed,
 else the system's app. Commit takes what's staged, or everything if nothing is, by its
 button, Enter or `cmd-enter` (`ctrl-enter`).
 
-The gauge in the sidebar footer, beside Add machine and Settings, opens Usage limits (the `usage`
-popup mod): the Claude Code and Codex subscriptions on this computer and every added machine, with
-each one's tier and each limit's percent used, bar and time to reset: weekly first, then a model's
-own, then shorter windows such as the 5-hour limit. A limit past its reset time reads 0% before the
-next check. Numbers come from each agent's own commands, on the machine it's signed in on (`claude
-auth status` and `claude -p /usage`; `codex app-server`'s `account/read` and
-`account/rateLimits/read`, read-only), in that machine's shell PATH. From programs.json's `run` they
-take only a path to the agent's own program, never its flags or a program of another name. Claude's run with no hooks, plugins, MCP or saved session. Neither spends tokens, and for
-these two the mod reads no login and sends no request. Signed out, on an API key or not installed, an agent gets
-no row. One account on several machines is one row naming them all, with the newest numbers, and
-different accounts stay apart. A row names its machine unless it's on this computer alone, with no
-other row of that agent to tell it from. Opening checks, reusing a result
-under a minute old, and the refresh button checks at once: `workspace-chrome.check-usage` and
-`workspace-chrome.refresh-usage`, run by the footer so that closing the popover doesn't cut a check
-off. A failed check, or a machine that can't be reached, keeps the last numbers with their age, or
-reads "Could not check" with none; another machine's fresh numbers for that account win. A removed
-machine's rows go at the next check. `shared("usage")` holds the numbers and a short fingerprint of
-the account, never an email, login or key.
-The footer also checks by itself, 5 seconds after it starts and every 15 minutes, whether the popover
-was opened or not; only a layout with that footer does, so not Terminals or Zaki 98. A limit at 90%
-used or more turns its bar orange and puts an orange dot on the gauge, until it's past its reset time.
-The Usage limits row in Settings > Look, under Workspace, turns all of this off: `shared("usage.enabled")`
-is `false` (anything else is on), the gauge goes, no check runs, and `shared("usage")` and
-`shared("usage.opencode")` are cleared; a check still running then runs nothing more and saves nothing.
-Turned back on, the gauge returns and limits are checked within a minute.
+The gauge in the sidebar footer opens Usage limits (the `usage` popup mod): each Claude Code, Codex
+and OpenCode Go subscription, with its tier and each limit's percent used and time to reset, weekly
+first. A limit past its reset reads 0%. At 90% used its bar turns orange and the gauge gets a dot.
 
-OpenCode has no such command, so it is the one thing Usage sends itself, and only with the person's
-say. It's checked on this computer only. Installed with no answer yet, it shows a card in the popover:
-"Zaki reads your OpenCode key and sends it only to opencode.ai, to ask for your Go plan's limits."
-Until it's answered no key is read, and only the person's press answers: no command does, so never
-set `shared("usage.opencode")` for them. Allow sets it to `true` and checks OpenCode at once, even
-during a running check; Not now sets it to `false`, reads nothing and stops asking. Turning Usage off and on is
-how to change the answer: it asks again. Keys come only from OpenCode's `auth.json` and the `credential`
-table of its database, and go only to `opencode.ai`, as a Bearer header; one written as a variable or a
-command is never sent. Go's limits show weekly first, then 5 hours and the month. A key it refuses (401
-or 403) means no Go plan: no row and no error. An OpenCode row saves nothing made from the key.
+- **Numbers:** each agent's own commands on its machine, in that machine's shell PATH: `claude auth
+  status`, `claude -p /usage` (no hooks, plugins, MCP or saved session), and `codex app-server`'s
+  `account/read` and `account/rateLimits/read` (read-only). No tokens spent, no login read, no request
+  sent. From programs.json's `run` they take only a path to the agent's own program, never flags;
+  a program of another name means the plain agent.
+- **Rows:** none for an agent signed out, on an API key or not installed. One account on several
+  machines is one row, with the newest numbers. A removed machine's rows go at the next check.
+- **Checks:** on opening (a result under a minute old is reused), on the refresh button, and 5 seconds
+  after the footer starts and every 15 minutes, so only in a layout with that footer: not Terminals
+  or Zaki 98. `workspace-chrome.check-usage` and `workspace-chrome.refresh-usage` run one.
+- **Failure:** a failed check or an unreachable machine keeps the last numbers with their age, or
+  reads "Could not check" with none.
+- **Saved:** `shared("usage")` holds the numbers and an account fingerprint, never an email, login,
+  key or anything made from a key.
+- **Off:** the Usage limits row in Settings > Look, under Workspace. `shared("usage.enabled")` is
+  `false` (anything else is on): the gauge goes, no check runs, one still running saves nothing, and
+  `shared("usage")` and `shared("usage.opencode")` are cleared. Back on, it checks within a minute.
+- **OpenCode** has no such command, so it's the one thing Usage sends itself, on this computer only.
+  A card in the popover asks first, and no key is read until it's answered. Allow sets
+  `shared("usage.opencode")` to `true` and checks at once; Not now sets it to `false` and stops
+  asking. Only the person's press answers: no command does, so never set it for them. Turning Usage
+  off and on asks again. Keys come only from OpenCode's `auth.json` and its database's `credential`
+  table and go only to `opencode.ai`, as a Bearer header; one written as a variable or a command is
+  never sent. A 401 or 403 means no Go plan: no row and no error.
 
 **Zaki's own layouts and mods are read-only.** They are replaced whole
 on every start. Use settings.json for look (fonts, sizes, theme, colors,
