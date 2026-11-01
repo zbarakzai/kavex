@@ -741,17 +741,21 @@ test("a Codex plan it doesn't name itself shows no made-up tier", async () => {
   expect(words(popover.draw())).not.toContain("Unknown");
 });
 
-for (const [why, account] of [
-  ["signed out", null],
-  ["using an API key", { type: "apiKey" }],
-  ["signed in through Amazon Bedrock", { type: "amazonBedrock", usesCodexManagedCredentials: false }],
+for (const [why, account, rates] of [
+  ["signed out, its limits refused", null, null],
+  ["signed out, its limits empty", null, {}],
+  ["signed out, its limits with no window in them", null, { rateLimits: bucket("codex", null, null), rateLimitsByLimitId: { codex: bucket("codex", null, null) } }],
+  ["using an API key", { type: "apiKey" }, null],
+  ["using an API key, with limits in the answer", { type: "apiKey" }, RATES],
+  ["signed in through Amazon Bedrock", { type: "amazonBedrock", usesCodexManagedCredentials: false }, null],
+  ["signed in through Amazon Bedrock, with limits in the answer", { type: "amazonBedrock", usesCodexManagedCredentials: false }, RATES],
 ] as const) {
-  test(`Codex ${why} gives no row, whatever the limits answer says, and takes an older row with it`, async () => {
+  test(`Codex ${why} gives no row, and takes an older row with it`, async () => {
     codex();
     const { popover } = await opened();
     expect(limits(popover.draw()).length).toBe(4);
 
-    state.says["app-server"] = codexSays(account, null);
+    state.says["app-server"] = codexSays(account, rates);
     refresh(popover);
     await settle();
     expect(words(popover.draw())).not.toContain("Codex");
@@ -765,6 +769,7 @@ for (const [why, answer] of [
   ["text that isn't JSON", "Error: something went wrong\n"],
   ["no answer about the account", JSON.stringify({ error: { code: -32603, message: "made up" }, id: 2 })],
   ["no answer about the limits", codexSays(PRO, null)],
+  ["no account beside real limits", codexSays(null)],
   ["limits with no window in them", codexSays(PRO, { rateLimits: bucket("codex", null, null), rateLimitsByLimitId: { codex: bucket("codex", null, null) } })],
   ["limits with no bucket at all", codexSays(PRO, {})],
 ] as const) {

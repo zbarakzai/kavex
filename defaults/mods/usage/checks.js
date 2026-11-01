@@ -78,8 +78,20 @@ function spanName(minutes) {
 
 const rank = ({ span, model }) => (span === WEEK ? (model ? 1 : 0) : 2);
 
-// Answers to account/read and account/rateLimits/read. Every bucket counts: "codex" is the general
-// one, and a model can have its own beside it, with a window or two like the general one's.
+function codexLimits(rates) {
+  const buckets = Object.entries(rates?.rateLimitsByLimitId ?? {});
+  const limits = (buckets.length ? buckets : [["codex", rates?.rateLimits]]).flatMap(([id, bucket]) => {
+    const model = id === "codex" ? null : bucket?.limitName ?? titled(id);
+    return [bucket?.primary, bucket?.secondary].filter(Boolean).map((window) => {
+      const span = window.windowDurationMins ?? 0, name = span ? spanName(span) : null;
+      const label = !model ? name ?? "Limit" : !name || span === WEEK ? model : `${model} · ${name}`;
+      return { span, model, label, used: Math.round(window.usedPercent ?? 0), resetsAt: window.resetsAt ? window.resetsAt * 1000 : null };
+    });
+  });
+  limits.sort((a, b) => rank(a) - rank(b) || b.span - a.span || Boolean(a.model) - Boolean(b.model));
+  return limits.map(({ label, used, resetsAt }) => ({ label, used, resetsAt }));
+}
+
 function codexReport(output) {
   const answers = {};
   for (const line of output.split("\n")) {
@@ -88,22 +100,13 @@ function codexReport(output) {
       if (message.id && !message.method) answers[message.id] = message.result;
     } catch {}
   }
-  const account = answers[2]?.account, rates = answers[3];
+  const account = answers[2]?.account, limits = codexLimits(answers[3]);
   if (!answers[2]) throw new Error("no answer from codex");
+  // account/read has come back empty beside real limits (one real run in eight): that isn't signed out.
+  if (!account && limits.length) throw new Error("no account from codex");
   if (account?.type !== "chatgpt") return null;
-  if (!rates) throw new Error("no limits from codex");
-  const buckets = Object.entries(rates.rateLimitsByLimitId ?? {});
-  const limits = (buckets.length ? buckets : [["codex", rates.rateLimits]]).flatMap(([id, bucket]) => {
-    const model = id === "codex" ? null : bucket?.limitName ?? titled(id);
-    return [bucket?.primary, bucket?.secondary].filter(Boolean).map((window) => {
-      const span = window.windowDurationMins ?? 0, name = span ? spanName(span) : null;
-      const label = !model ? name ?? "Limit" : !name || span === WEEK ? model : `${model} · ${name}`;
-      return { span, model, label, used: Math.round(window.usedPercent ?? 0), resetsAt: window.resetsAt ? window.resetsAt * 1000 : null };
-    });
-  });
   if (!limits.length) throw new Error("no limits from codex");
-  limits.sort((a, b) => rank(a) - rank(b) || b.span - a.span || Boolean(a.model) - Boolean(b.model));
-  return { plan: CODEX_PLANS[account.planType] ?? titled(account.planType ?? ""), who: fingerprint(account.email, account.planType), limits: limits.map(({ label, used, resetsAt }) => ({ label, used, resetsAt })) };
+  return { plan: CODEX_PLANS[account.planType] ?? titled(account.planType ?? ""), who: fingerprint(account.email, account.planType), limits };
 }
 
 // Go's answer nests the windows under "usage"; another deployment spells them "<window>Usage".
