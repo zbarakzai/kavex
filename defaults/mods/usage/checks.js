@@ -7,7 +7,8 @@ import { exec as execute, home, knownAgents, machines, readTextFile, setShared, 
 
 export const EVERY = 15 * 60_000;
 export const NEAR = 90;
-export const POPOVER_WIDTH = 340;
+export const POPOVER_WIDTH = 400;
+export const POPOVER_HEIGHT = 540;
 
 const REUSE = 60_000;
 const BUSY = 60_000;
@@ -99,7 +100,7 @@ function codexReport(output) {
   }
   const account = answers[2]?.account, limits = codexLimits(answers[3]);
   if (!answers[2]) throw new Error("no answer from codex");
-  // account/read has come back empty beside real limits (one real run in eight): that isn't signed out.
+  // An empty account beside real limits isn't signed out.
   if (!account && limits.length) throw new Error("no account from codex");
   if (account?.type !== "chatgpt") return null;
   if (!limits.length) throw new Error("no limits from codex");
@@ -189,10 +190,11 @@ const CODEX_REQUESTS = [
   { id: 3, method: "account/rateLimits/read" },
 ].map((request) => JSON.stringify(request));
 
-// The server stops answering once its input ends, so the input stays open until the last answer is in.
+// The server stops answering once its input ends, so the input stays open until both answers are in.
+// They can come in either order.
 const codexPosix = (program) => `out=$(mktemp) || exit 1
 { printf '%s\\n' ${CODEX_REQUESTS.map((line) => `'${line}'`).join(" ")}
-  i=0; while [ $i -lt 75 ] && ! grep -q '"id":3' "$out"; do sleep 0.2; i=$((i+1)); done
+  i=0; while [ $i -lt 75 ] && ! { grep -q '"id":2' "$out" && grep -q '"id":3' "$out"; }; do sleep 0.2; i=$((i+1)); done
 } | ${posixWords([program])} -s read-only -a never app-server >"$out" 2>/dev/null
 cat "$out"; rm -f "$out"`;
 // This pipe can't watch the output for the last answer, so the input stays open for a fixed wait.

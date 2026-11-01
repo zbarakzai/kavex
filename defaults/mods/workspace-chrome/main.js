@@ -1,7 +1,7 @@
 import { View, div, image, svg } from "gpui-kit";
 import { h_flex, HoverCard } from "gpui-base";
 import { theme, run, props, window, shared, setShared, updates, layout, agents, spaces, openOverlay, settings, nextCommand } from "herdr";
-import { allowOpencode, checkUsage, EVERY, nearLimit, POPOVER_WIDTH, usageOff } from "./checks.js";
+import { allowOpencode, checkUsage, EVERY, nearLimit, POPOVER_HEIGHT, POPOVER_WIDTH, usageOff } from "./checks.js";
 import { look, spaced } from "./look.js";
 
 function find(node, id) {
@@ -83,7 +83,7 @@ export default class WorkspaceChrome extends View {
   usage() {
     const shut = shared("popup.closed"), { at, bounds } = this.pressed;
     if (shut?.from === "usage" && shut.at >= at - 100) return;
-    openOverlay({ mod: "usage", kind: "popup", width: POPOVER_WIDTH, height: 480, at: { x: bounds.x + PAST_BUTTONS * settings().zoom, y: bounds.y }, props: { from: "usage" } });
+    openOverlay({ mod: "usage", kind: "popup", width: POPOVER_WIDTH, height: POPOVER_HEIGHT, at: { x: bounds.x + PAST_BUTTONS * settings().zoom, y: bounds.y }, props: { from: "usage" } });
   }
 
   footer(t) {

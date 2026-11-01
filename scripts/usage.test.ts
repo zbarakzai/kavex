@@ -31,7 +31,10 @@ const mine = (n: any): El | null => (n && typeof n === "object" && n.el ? n.el :
 const all = (e: El): El[] => [e, ...e.kids.flatMap((k) => (mine(k) ? all(mine(k)!) : []))];
 const arg = (e: El, name: string) => e.calls.findLast(([k]) => k === name)?.[1][0];
 const byId = (root: El, id: string) => all(root).find((e) => arg(e, "id") === id);
-const words = (root: El) => all(root).flatMap((e) => e.kids.filter((k) => typeof k === "string"));
+// `spaced` draws a label one letter at a time: it reads as one word here.
+const spelled = (e: El) => e.kids.length > 0 && e.kids.every((kid) => { const [letter, more] = mine(kid)?.kids ?? []; return typeof letter === "string" && letter.length === 1 && more === undefined; });
+const words = (root: El): string[] => spelled(root) ? [root.kids.map((kid) => mine(kid)!.kids[0]).join("").replaceAll("\u00a0", " ")]
+  : root.kids.flatMap((kid) => (typeof kid === "string" ? [kid] : mine(kid) ? words(mine(kid)!) : []));
 const handler = (e: El, name: string) => e.calls.find(([k]) => k === name)?.[1].at(-1);
 const paths = (root: El) => all(root).map((e) => arg(e, "path")).filter(Boolean);
 const icon = (path: string) => { const s = make(); s.el.calls.push(["path", [path]]); return s; };
@@ -184,6 +187,7 @@ function claude(...lines: string[]) {
 const limits = (root: El) => all(root).filter((e) => String(arg(e, "id")).startsWith("limit-"));
 const barOf = (limit: El) => all(limit).find((e) => String(arg(e, "id")).startsWith("bar-"))!;
 const trackOf = (limit: El) => all(limit).find((e) => e.kids.some((kid) => mine(kid) === barOf(limit)))!;
+const barColor = (limit: El) => arg(all(barOf(limit)).find((e) => arg(e, "bg"))!, "bg");
 const filled = (limit: El) => Math.round((arg(barOf(limit), "w") / arg(trackOf(limit), "w")) * 100);
 
 function footer() {
@@ -279,7 +283,7 @@ test("the collapsed rail stays Settings only", () => {
 test("a press on the gauge opens the popover beside the footer's buttons, where it can't cover them", () => {
   const f = footer();
   press(f, "usage");
-  expect(state.overlays).toEqual([{ mod: "usage", kind: "popup", width: 340, height: 480, at: { x: BUTTON.x + 72, y: BUTTON.y }, props: { from: "usage" } }]);
+  expect(state.overlays).toEqual([{ mod: "usage", kind: "popup", width: 400, height: 540, at: { x: BUTTON.x + 72, y: BUTTON.y }, props: { from: "usage" } }]);
 });
 
 test("a second press on the gauge only closes the popover", () => {
@@ -299,9 +303,9 @@ test("a Claude subscription shows its logo, name and tier, and each limit's perc
   const { popover } = await opened();
   const root = popover.draw();
   expect(paths(root)).toContain("icons/claude.svg");
-  expect(words(root)).toEqual(expect.arrayContaining(["Claude Code", "Max"]));
+  expect(words(root)).toEqual(expect.arrayContaining(["Claude Code", "MAX"]));
   const [week] = limits(root);
-  expect(words(week)).toEqual(["This week", "12%", "resets in 5d 7h"]);
+  expect(words(week)).toEqual(["THIS WEEK", "12%", "RESETS IN 5D 7H"]);
   expect(filled(week)).toBe(12);
 });
 
@@ -309,9 +313,9 @@ test("weekly limits come first, then model limits, then the 5-hour limit", async
   claude(SESSION, SONNET, WEEK);
   const { popover } = await opened();
   expect(limits(popover.draw()).map((limit) => words(limit))).toEqual([
-    ["This week", "12%", "resets in 5d 7h"],
-    ["Sonnet", "4%", "resets in 2d 0h"],
-    ["5 hours", "33%", "resets in 3h 30m"],
+    ["THIS WEEK", "12%", "RESETS IN 5D 7H"],
+    ["SONNET", "4%", "RESETS IN 2D 0H"],
+    ["5 HOURS", "33%", "RESETS IN 3H 30M"],
   ]);
 });
 
@@ -372,15 +376,15 @@ test("while a check runs the window stays free and the line says so, then says h
   claude(WEEK);
   state.says["claude -p /usage"] = usage.answer;
   const { popover } = await opened();
-  expect(words(popover.draw())).toContain("Checking…");
+  expect(words(popover.draw())).toContain("CHECKING…");
 
   usage.release(ANSWER);
   await settle();
-  expect(words(popover.draw())).toContain("Updated just now");
-  expect(words(popover.draw())).not.toContain("Checking…");
+  expect(words(popover.draw())).toContain("UPDATED JUST NOW");
+  expect(words(popover.draw())).not.toContain("CHECKING…");
 
   setSystemTime(NOW + 3 * 60_000);
-  expect(words(popover.draw())).toContain("Updated 3m ago");
+  expect(words(popover.draw())).toContain("UPDATED 3M AGO");
 });
 
 test("closing the popover midway leaves the check to finish, so its numbers still arrive", async () => {
@@ -419,16 +423,16 @@ test("a check started under a minute ago still counts as running", async () => {
   state.shared.usage = { startedAt: NOW - 59_000 };
   const { popover } = await opened();
   expect(checks()).toBe(0);
-  expect(words(popover.draw())).toContain("Checking…");
+  expect(words(popover.draw())).toContain("CHECKING…");
 });
 
 test("while open, the time left is redrawn every 30 seconds", async () => {
   claude(SESSION);
   const { popover } = await opened();
   expect(popover.copy.every).toEqual([30_000]);
-  expect(words(limits(popover.draw())[0])).toContain("resets in 3h 30m");
+  expect(words(limits(popover.draw())[0])).toContain("RESETS IN 3H 30M");
   setSystemTime(NOW + 31 * 60_000);
-  expect(words(limits(popover.draw())[0])).toContain("resets in 2h 59m");
+  expect(words(limits(popover.draw())[0])).toContain("RESETS IN 2H 59M");
 });
 
 test("a limit past its reset time reads 0% and empties its bar before the next check", async () => {
@@ -436,7 +440,7 @@ test("a limit past its reset time reads 0% and empties its bar before the next c
   const { popover } = await opened();
   setSystemTime(NOW + 4 * 3600_000);
   const [limit] = limits(popover.draw());
-  expect(words(limit)).toEqual(["5 hours", "0%"]);
+  expect(words(limit)).toEqual(["5 HOURS", "0%"]);
   expect(filled(limit)).toBe(0);
 });
 
@@ -486,7 +490,7 @@ test("with no agents at all the popover reads as a result, and the gauge stays",
   state.says["printenv PATH"] = "/made/up/bin\n";
   const { f, popover } = await opened();
   expect(words(popover.draw())).toContain(NONE);
-  expect(words(popover.draw())).toContain("Updated just now");
+  expect(words(popover.draw())).toContain("UPDATED JUST NOW");
   expect(byId(f.draw(), "usage")).toBeDefined();
 });
 
@@ -508,9 +512,9 @@ test("a failed check keeps the last numbers, saying how old they are, in the row
   await settle();
   const root = popover.draw();
   expect(words(limits(root)[0])).toContain("12%");
-  expect(words(root)).toContain("Last checked 12m ago");
-  expect(words(root)).toContain("Updated 12m ago");
-  expect(words(root)).not.toContain("Could not check");
+  expect(words(root)).toContain("LAST CHECKED 12M AGO");
+  expect(words(root)).toContain("UPDATED 12M AGO");
+  expect(words(root)).not.toContain("COULD NOT CHECK");
 });
 
 test("the next good check clears the note", async () => {
@@ -523,7 +527,7 @@ test("the next good check clears the note", async () => {
   claude(WEEK);
   refresh(popover);
   await settle();
-  expect(words(popover.draw()).filter((word) => word.startsWith("Last checked"))).toEqual([]);
+  expect(words(popover.draw()).filter((word) => word.startsWith("LAST CHECKED"))).toEqual([]);
 });
 
 for (const [why, usage] of [
@@ -533,12 +537,12 @@ for (const [why, usage] of [
   ["a percent that isn't one", usageAnswer("Current week (all models): most% used · resets Nov 6 at 7:59pm (UTC)")],
   ["an empty answer", ""],
 ] as const) {
-  test(`${why} with no earlier numbers reads "Could not check", with no numbers and no age`, async () => {
+  test(`${why} with no earlier numbers reads "COULD NOT CHECK", with no numbers and no age`, async () => {
     claude(WEEK);
     state.says["claude -p /usage"] = usage;
     const { popover } = await opened();
     const root = popover.draw();
-    expect(words(root)).toEqual(expect.arrayContaining(["Claude Code", "Could not check"]));
+    expect(words(root)).toEqual(expect.arrayContaining(["Claude Code", "COULD NOT CHECK"]));
     expect(words(root)).not.toContain(NONE);
     expect(limits(root)).toEqual([]);
     expect(words(root).filter((word) => word.startsWith("Updated"))).toEqual([]);
@@ -552,19 +556,19 @@ test("unreadable sign-in text is a failed check, not a signed-out one", async ()
   refresh(popover);
   await settle();
   expect(words(limits(popover.draw())[0])).toContain("12%");
-  expect(words(popover.draw())).toContain("Last checked just now");
+  expect(words(popover.draw())).toContain("LAST CHECKED JUST NOW");
 });
 
 test("unreadable lines are left out, and the ones that read stay", async () => {
   claude("Current week (all models): most% used", SONNET);
   const { popover } = await opened();
-  expect(limits(popover.draw()).map((limit) => words(limit)[0])).toEqual(["Sonnet"]);
+  expect(limits(popover.draw()).map((limit) => words(limit)[0])).toEqual(["SONNET"]);
 });
 
 test("a line whose reset text can't be read gives no limit, and the ones that read stay", async () => {
   claude("Current week (all models): 12% used · resets when it feels like it", SONNET);
   const { popover } = await opened();
-  expect(limits(popover.draw()).map((limit) => words(limit)[0])).toEqual(["Sonnet"]);
+  expect(limits(popover.draw()).map((limit) => words(limit)[0])).toEqual(["SONNET"]);
 });
 
 test("every line's reset text unreadable is a failed check, keeping the last numbers", async () => {
@@ -575,7 +579,7 @@ test("every line's reset text unreadable is a failed check, keeping the last num
   refresh(popover);
   await settle();
   expect(words(limits(popover.draw())[0])).toContain("12%");
-  expect(words(popover.draw())).toContain("Last checked 12m ago");
+  expect(words(popover.draw())).toContain("LAST CHECKED 12M AGO");
 });
 
 test("Claude's reset text: date and time, time only, the turn of the year, and none at all", async () => {
@@ -588,10 +592,10 @@ test("Claude's reset text: date and time, time only, the turn of the year, and n
   );
   const { popover } = await opened();
   expect(limits(popover.draw()).map((limit) => words(limit))).toEqual([
-    ["This week", "10%", "resets in 2d 0h"],
-    ["Sonnet", "20%", "resets in 1h 0m"],
-    ["Opus", "30%"],
-    ["5 hours", "40%", "resets in 23h 0m"],
+    ["THIS WEEK", "10%", "RESETS IN 2D 0H"],
+    ["SONNET", "20%", "RESETS IN 1H 0M"],
+    ["OPUS", "30%"],
+    ["5 HOURS", "40%", "RESETS IN 23H 0M"],
   ]);
 });
 
@@ -633,22 +637,29 @@ test("no login, email or organisation reaches shared storage", async () => {
   expect(saved).not.toMatch(/email|org/i);
 });
 
-test("colors come from the theme, and the popover paints no background over its frame", async () => {
+test("colors come from the theme, and the popover sits on the window's darkest color", async () => {
   expect(readFileSync(new URL("../defaults/mods/usage/main.js", import.meta.url), "utf8")).not.toMatch(/#[0-9a-f]{3,8}\b/i);
   claude(WEEK);
   const { popover } = await opened();
   const root = popover.draw(), theirs = new Set(Object.values(colors));
-  expect(arg(root, "bg")).toBeUndefined();
+  expect(arg(root, "bg")).toBe(colors.canvas);
   for (const e of all(root)) for (const name of ["bg", "text_color"]) if (arg(e, name)) expect(theirs.has(arg(e, name))).toBe(true);
 });
 
-test("the list scrolls inside the popover's 480 px, keeping its header and line in view", async () => {
+test("a list that fits has no scroller to collapse; a longer one scrolls inside the popover's 540 px", async () => {
+  const scrolls = (list: El) => list.calls.some(([name]) => name === "overflow_y_scrollbar");
   claude(WEEK);
   const { popover } = await opened();
+  expect(scrolls(byId(popover.draw(), "usage-rows")!)).toBe(false);
+
+  const limit = { label: "This week", used: 1 };
+  const many = Array.from({ length: 8 }, (_, i) => [`claude|m${i}`, { agent: "claude", name: "Claude Code", icon: "icons/claude.svg", machine: `m${i}`, who: `who${i}`, limits: [limit, limit], checkedAt: 1 }]);
+  state.shared.usage = { checkedAt: 1, entries: Object.fromEntries(many) };
   const root = popover.draw(), list = byId(root, "usage-rows")!;
+  expect(scrolls(list)).toBe(true);
+  expect(arg(list, "h")).toBe(448);
   expect(arg(root, "min_h")).toBe(0);
   expect(arg(list, "min_h")).toBe(0);
-  expect(list.calls.some(([name]) => name === "overflow_y_scrollbar")).toBe(true);
   for (const part of root.kids.map(mine).filter((kid) => kid !== list)) expect(part!.calls.some(([name]) => name === "flex_none")).toBe(true);
 });
 
@@ -662,7 +673,7 @@ test("a limit over 100% still fills its bar and no more", async () => {
 
 test("the line beside the buttons gives up the gauge's width", () => {
   state.agentsShown = 12;
-  const letters = words(footer().draw()).filter((word) => word.length === 1).join("").replaceAll(" ", " ");
+  const letters = words(footer().draw()).find((word) => word.includes("AGENTS"));
   // 25 letters fitted beside two buttons: 22 px more at 5.9 px a letter takes four.
   expect(letters).toBe("THIS COM… · 12 AGENTS");
 });
@@ -694,31 +705,31 @@ test("a Codex subscription shows its tier and every limit: weekly, then a model'
   const { popover } = await opened();
   const root = popover.draw();
   expect(paths(root)).toContain("icons/codex.svg");
-  expect(words(root)).toEqual(expect.arrayContaining(["Codex", "Pro 100"]));
+  expect(words(root)).toEqual(expect.arrayContaining(["Codex", "PRO 100"]));
   expect(limits(root).map((limit) => words(limit))).toEqual([
-    ["This week", "12%", "resets in 5d 7h"],
-    ["GPT-5-Spark", "20%", "resets in 1d 6h"],
-    ["5 hours", "33%", "resets in 3h 30m"],
-    ["GPT-5-Spark · 5 hours", "30%", "resets in 1h 0m"],
+    ["THIS WEEK", "12%", "RESETS IN 5D 7H"],
+    ["GPT-5-SPARK", "20%", "RESETS IN 1D 6H"],
+    ["5 HOURS", "33%", "RESETS IN 3H 30M"],
+    ["GPT-5-SPARK · 5 HOURS", "30%", "RESETS IN 1H 0M"],
   ]);
 });
 
 test("a Codex answer with one bucket and no list of them still shows its limits", async () => {
   codex(PRO, { rateLimits: GENERAL, rateLimitsByLimitId: null });
   const { popover } = await opened();
-  expect(limits(popover.draw()).map((limit) => words(limit)[0])).toEqual(["This week", "5 hours"]);
+  expect(limits(popover.draw()).map((limit) => words(limit)[0])).toEqual(["THIS WEEK", "5 HOURS"]);
 });
 
 test("a model's bucket with no name of its own still shows", async () => {
   codex(PRO, { rateLimits: GENERAL, rateLimitsByLimitId: { codex: GENERAL, codex_other: bucket("codex_other", null, window_(5, 10080, 2)) } });
   const { popover } = await opened();
-  expect(limits(popover.draw()).map((limit) => words(limit)[0])).toEqual(["This week", "Codex other", "5 hours"]);
+  expect(limits(popover.draw()).map((limit) => words(limit)[0])).toEqual(["THIS WEEK", "CODEX OTHER", "5 HOURS"]);
 });
 
 test("a window of any other length reads as what it is", async () => {
   codex(PRO, { rateLimitsByLimitId: { codex: bucket("codex", null, window_(1, 60, 1), window_(2, 1440, 2)), codex_a: bucket("codex_a", "A", window_(3, 45, 1), window_(4, 43200, 2)), codex_b: bucket("codex_b", "B", window_(5, null, 1)) } });
   const { popover } = await opened();
-  expect(limits(popover.draw()).map((limit) => words(limit)[0]).sort()).toEqual(["1 day", "1 hour", "A · 30 days", "A · 45 minutes", "B"]);
+  expect(limits(popover.draw()).map((limit) => words(limit)[0]).sort()).toEqual(["1 DAY", "1 HOUR", "A · 30 DAYS", "A · 45 MINUTES", "B"]);
 });
 
 for (const [planType, tier] of [
@@ -730,7 +741,7 @@ for (const [planType, tier] of [
   test(`Codex's ${planType} plan reads ${tier}`, async () => {
     codex({ ...PRO, planType });
     const { popover } = await opened();
-    expect(words(popover.draw())).toContain(tier);
+    expect(words(popover.draw())).toContain(tier.toUpperCase());
   });
 }
 
@@ -773,12 +784,12 @@ for (const [why, answer] of [
   ["limits with no window in them", codexSays(PRO, { rateLimits: bucket("codex", null, null), rateLimitsByLimitId: { codex: bucket("codex", null, null) } })],
   ["limits with no bucket at all", codexSays(PRO, {})],
 ] as const) {
-  test(`${why} from Codex with no earlier numbers reads "Could not check"`, async () => {
+  test(`${why} from Codex with no earlier numbers reads "COULD NOT CHECK"`, async () => {
     codex();
     state.says["app-server"] = answer;
     const { popover } = await opened();
     const root = popover.draw();
-    expect(words(root)).toEqual(expect.arrayContaining(["Codex", "Could not check"]));
+    expect(words(root)).toEqual(expect.arrayContaining(["Codex", "COULD NOT CHECK"]));
     expect(limits(root)).toEqual([]);
   });
 
@@ -790,7 +801,7 @@ for (const [why, answer] of [
     refresh(popover);
     await settle();
     expect(words(limits(popover.draw())[0])).toContain("12%");
-    expect(words(popover.draw())).toContain("Last checked 12m ago");
+    expect(words(popover.draw())).toContain("LAST CHECKED 12M AGO");
   });
 }
 
@@ -822,12 +833,12 @@ test("no email reaches shared storage from Codex", async () => {
 // each answer arrives `after` seconds later, and only if its input is still open by then.
 const scratch: string[] = [];
 afterEach(() => { for (const dir of scratch.splice(0)) rmSync(dir, { recursive: true, force: true }); });
-function realShell(program: string, says: string, after = 0.5) {
+function realShell(program: string, says: string, after = 0.5, gap = 0) {
   const dir = mkdtempSync(join(tmpdir(), "usage-test-"));
   scratch.push(dir);
   mkdirSync(join(dir, "tmp"));
   mkdirSync(join(dir, program, ".."), { recursive: true });
-  const answers = says.trim().split("\n").filter((line) => line.includes('"id"')).map((line) => `printf '%s\\n' '${line}'`).join("\n");
+  const answers = says.trim().split("\n").filter((line) => line.includes('"id"')).map((line) => `printf '%s\\n' '${line}'`).join(`\nsleep ${gap}\n`);
   writeFileSync(join(dir, program), `#!/bin/sh\necho "$@" > "${dir}/asked"\nread -r first\n( sleep ${after}\n${answers}\n) &\nwhile read -r line; do :; done\nkill $! 2>/dev/null\n`);
   chmodSync(join(dir, program), 0o755);
   state.agents[""] = [{ ...CODEX, run: [program] }];
@@ -850,6 +861,13 @@ test("a Codex check keeps its input open for a slow last answer, and stops as so
   expect(limits(popover.draw()).length).toBe(4);
   expect((Bun.nanoseconds() - started) / 1e9).toBeLessThan(5);
   expect(readdirSync(join(dir, "tmp"))).toEqual([]);
+}, 10_000);
+
+test("a Codex that answers limits before the account still gets to finish", async () => {
+  realShell("codex", codexSays(PRO).trim().split("\n").reverse().join("\n"), 0.1, 0.5);
+  const { popover } = await opened();
+  await checked();
+  expect(limits(popover.draw()).length).toBe(4);
 }, 10_000);
 
 test("a signed-out Codex's refused last answer ends the wait too", async () => {
@@ -977,13 +995,13 @@ test("a row on this computer alone has no machine label, even with a machine add
   claude(WEEK);
   added("vps");
   const { popover } = await opened();
-  expect(words(rows(popover.draw())[0])).toEqual(["Claude Code", "Max", "This week", "12%", "resets in 5d 7h"]);
+  expect(words(rows(popover.draw())[0])).toEqual(["Claude Code", "MAX", "THIS WEEK", "12%", "RESETS IN 5D 7H"]);
 });
 
 test("a row on an added machine is labelled with it", async () => {
   claudeOn("vps", ACCOUNT, WEEK);
   const { popover } = await opened();
-  expect(words(rows(popover.draw())[0])).toContain("vps");
+  expect(words(rows(popover.draw())[0])).toContain("VPS");
 });
 
 test("one account on two machines is one row, labelled with both", async () => {
@@ -993,7 +1011,7 @@ test("one account on two machines is one row, labelled with both", async () => {
   const root = popover.draw();
   expect(rows(root).length).toBe(1);
   expect(limits(root).length).toBe(1);
-  expect(words(root)).toContain("This computer, vps");
+  expect(words(root)).toContain("THIS COMPUTER, VPS");
 });
 
 for (const last of ["vps", "this computer"]) {
@@ -1017,8 +1035,8 @@ test("different accounts on two machines are two rows, each labelled with its ma
   const { popover } = await opened();
   const shown = rows(popover.draw());
   expect(shown.length).toBe(2);
-  expect(words(shown[0])).toEqual(expect.arrayContaining(["This computer", "10%"]));
-  expect(words(shown[1])).toEqual(expect.arrayContaining(["vps", "20%"]));
+  expect(words(shown[0])).toEqual(expect.arrayContaining(["THIS COMPUTER", "10%"]));
+  expect(words(shown[1])).toEqual(expect.arrayContaining(["VPS", "20%"]));
 });
 
 test("different agents on two machines leave this computer's row unlabelled, as nothing needs telling apart", async () => {
@@ -1029,7 +1047,7 @@ test("different agents on two machines leave this computer's row unlabelled, as 
   const { popover } = await opened();
   const shown = rows(popover.draw());
   expect(words(shown[0])).not.toContain("This computer");
-  expect(words(shown[1])).toContain("vps");
+  expect(words(shown[1])).toContain("VPS");
 });
 
 test("Claude Code and Codex on one email stay two rows, as they're two subscriptions", async () => {
@@ -1064,7 +1082,7 @@ test("an unreachable machine keeps its last numbers, marked with their age, and 
   const root = popover.draw();
   expect(state.runs.filter((run) => run.on === "vps")).toEqual([]);
   expect(words(limits(root)[0])).toContain("40%");
-  expect(words(root)).toEqual(expect.arrayContaining(["vps", "Last checked 12m ago"]));
+  expect(words(root)).toEqual(expect.arrayContaining(["VPS", "LAST CHECKED 12M AGO"]));
 });
 
 test("an unreachable machine with no last numbers shows nothing, and leaves the others alone", async () => {
@@ -1072,7 +1090,7 @@ test("an unreachable machine with no last numbers shows nothing, and leaves the 
   added("vps", "unavailable");
   const { popover } = await opened();
   expect(rows(popover.draw()).length).toBe(1);
-  expect(words(popover.draw())).not.toContain("Could not check");
+  expect(words(popover.draw())).not.toContain("COULD NOT CHECK");
 });
 
 test("a machine still connecting is asked like any other", async () => {
@@ -1098,7 +1116,7 @@ test("a machine lost after it last looked ready keeps its rows too", async () =>
   refresh(popover);
   await settle();
   expect(words(limits(popover.draw())[0])).toContain("40%");
-  expect(words(popover.draw())).toContain("Last checked 12m ago");
+  expect(words(popover.draw())).toContain("LAST CHECKED 12M AGO");
 });
 
 for (const [why, machine] of [
@@ -1119,8 +1137,8 @@ for (const [why, machine] of [
     const root = popover.draw();
     expect(rows(root).length).toBe(1);
     expect(words(limits(root)[0])).toContain("30%");
-    expect(words(root)).toContain("This computer, vps");
-    expect(words(root).filter((word) => word.startsWith("Last checked"))).toEqual([]);
+    expect(words(root)).toContain("THIS COMPUTER, VPS");
+    expect(words(root).filter((word) => word.startsWith("LAST CHECKED"))).toEqual([]);
   });
 }
 
@@ -1132,7 +1150,7 @@ test("a shared row failing everywhere shows the newest it has, with its age", as
   state.says["claude -p /usage"] = state.on.vps["claude -p /usage"] = new Error("no");
   refresh(popover);
   await settle();
-  expect(words(popover.draw())).toContain("Last checked 12m ago");
+  expect(words(popover.draw())).toContain("LAST CHECKED 12M AGO");
 });
 
 test("one machine's failure leaves another machine's agents alone", async () => {
@@ -1144,7 +1162,7 @@ test("one machine's failure leaves another machine's agents alone", async () => 
   const { popover } = await opened();
   const root = popover.draw();
   expect(rows(root).length).toBe(3);
-  expect(words(root)).toContain("Could not check");
+  expect(words(root)).toContain("COULD NOT CHECK");
   expect(words(root)).toEqual(expect.arrayContaining(["10%", "12%"]));
 });
 
@@ -1192,7 +1210,7 @@ for (const [why, shell, probe] of [
     refresh(popover);
     await settle();
     expect(words(limits(popover.draw())[0])).toContain("12%");
-    expect(words(popover.draw())).toContain("Last checked 12m ago");
+    expect(words(popover.draw())).toContain("LAST CHECKED 12M AGO");
     expect(checks()).toBe(0);
   });
 
@@ -1255,7 +1273,7 @@ for (const [why, list] of [["fails", new Error("no")], ["comes back empty", []]]
     refresh(popover);
     await settle();
     expect(words(limits(popover.draw())[0])).toContain("12%");
-    expect(words(popover.draw())).toContain("Last checked 12m ago");
+    expect(words(popover.draw())).toContain("LAST CHECKED 12M AGO");
   });
 }
 
@@ -1384,7 +1402,7 @@ test("a footer cut off in the middle of a check doesn't stop the next footer che
   footer();
   await wait(60_000);
   expect(checks()).toBe(2);
-  expect(words(openedAfter().draw())).toContain("Updated just now");
+  expect(words(openedAfter().draw())).toContain("UPDATED JUST NOW");
 });
 
 const AT = (percent: number) => `Current week (all models): ${percent}% used · resets Nov 6 at 7:59pm (UTC)`;
@@ -1409,30 +1427,32 @@ test("any one limit at 90% is enough for the dot", async () => {
   expect(dotOn(f.draw())).toBeDefined();
 });
 
-test("a bar turns orange at 90%, and not at 89%", async () => {
+const percentColor = (limit: El) => arg(all(limit).find((e) => e.kids.some((kid) => typeof kid === "string" && kid.endsWith("%")))!, "text_color");
+
+test("a limit's percent turns orange at 90%, and not at 89%", async () => {
   claude(AT(89), "Current week (Sonnet only): 90% used · resets Nov 3 at 12:30pm (UTC)");
   const { popover } = await opened();
   const [week, sonnet] = limits(popover.draw());
-  expect(arg(barOf(week), "bg")).not.toBe(colors.blocked);
-  expect(arg(barOf(sonnet), "bg")).toBe(colors.blocked);
+  expect(percentColor(week)).toBe(colors.foreground);
+  expect(percentColor(sonnet)).toBe(colors.accent_text);
 });
 
-test("the dot clears once its limit passes the reset time, before any new check", async () => {
-  claude("Current session: 96% used · resets 3:30pm (UTC)");
-  const f = footer();
-  await wait(5_000);
-  expect(dotOn(f.draw())).toBeDefined();
-  state.says["claude -p /usage"] = new Error("no more checks");
-
-  setSystemTime(NOW + 4 * 3600_000);
-  expect(dotOn(f.draw())).toBeUndefined();
-});
-
-test("a bar past its reset time isn't orange", async () => {
+test("a percent past its reset time isn't orange", async () => {
   claude("Current session: 96% used · resets 3:30pm (UTC)");
   const { popover } = await opened();
   setSystemTime(NOW + 4 * 3600_000);
-  expect(arg(barOf(limits(popover.draw())[0]), "bg")).not.toBe(colors.blocked);
+  expect(percentColor(limits(popover.draw())[0])).toBe(colors.foreground);
+});
+
+test("Claude's bar is the primary orange; other agents keep their color until 90%", async () => {
+  claude(WEEK);
+  const { popover } = await opened();
+  expect(barColor(limits(popover.draw())[0])).toBe(colors.accent);
+  const codexAt = (used: number) => ({ agent: "codex", name: "Codex", icon: "icons/codex.svg", machine: null, who: "codex", limits: [{ label: "This week", used }], checkedAt: 1 });
+  state.shared.usage = { checkedAt: 1, entries: { "codex|": codexAt(89) } };
+  expect(barColor(limits(popover.draw())[0])).toBe(colors.group_blue);
+  state.shared.usage = { checkedAt: 1, entries: { "codex|": codexAt(90) } };
+  expect(barColor(limits(popover.draw())[0])).toBe(colors.blocked);
 });
 
 test("the footer redraws by itself when a limit resets, and not for every look at the clock", async () => {
@@ -1479,7 +1499,7 @@ test("turned off, the gauge goes and the line takes back its room", () => {
   expect(byId(root, "usage")).toBeUndefined();
   expect(byId(root, "machine")).toBeDefined();
   expect(byId(root, "settings")).toBeDefined();
-  const letters = words(root).filter((word) => word.length === 1).join("").replace(/\s/g, " ");
+  const letters = words(root).find((word) => word.includes("AGENTS"));
   expect(letters).toBe("THIS COMPUTER · 12 AGENTS");
 });
 
@@ -1745,14 +1765,14 @@ test("Allow shows Go's limits straight away, weekly first, with nothing else sta
   const root = popover.draw();
   expect(state.shared["usage.opencode"]).toBe(true);
   expect(words(root)).not.toContain(ASKS);
-  expect(words(root)).toEqual(expect.arrayContaining(["OpenCode", "Go"]));
+  expect(words(root)).toEqual(expect.arrayContaining(["OpenCode", "GO"]));
   expect(limits(root).map((limit) => words(limit))).toEqual([
-    ["This week", "12%", "resets in 2d 0h"],
-    ["5 hours", "33%", "resets in 3h 0m"],
-    ["This month", "4%", "resets in 19d 0h"],
+    ["THIS WEEK", "12%", "RESETS IN 2D 0H"],
+    ["5 HOURS", "33%", "RESETS IN 3H 0M"],
+    ["THIS MONTH", "4%", "RESETS IN 19D 0H"],
   ]);
   expect(state.fetched.length).toBe(1);
-  expect(words(root)).toContain("Updated just now");
+  expect(words(root)).toContain("UPDATED JUST NOW");
 });
 
 // The card showing, and a later pass stopped at Claude's usage command.
@@ -1781,13 +1801,13 @@ test("Allow checks at once during a running check, starting no agent again, and 
   const { popover, usage } = await allowDuringAPass();
   reply(popover, ALLOW);
   await settle();
-  expect(limits(popover.draw()).map((limit) => words(limit)[0])).toContain("This month");
-  expect(words(popover.draw())).toContain("Checking…");
+  expect(limits(popover.draw()).map((limit) => words(limit)[0])).toContain("THIS MONTH");
+  expect(words(popover.draw())).toContain("CHECKING…");
   expect(checks()).toBe(2);
 
   usage.release(usageAnswer(AT(50)));
   await settle();
-  expect(limits(popover.draw()).map((limit) => words(limit).slice(0, 2))).toEqual(expect.arrayContaining([["This month", "4%"], ["This week", "50%"]]));
+  expect(limits(popover.draw()).map((limit) => words(limit).slice(0, 2))).toEqual(expect.arrayContaining([["THIS MONTH", "4%"], ["THIS WEEK", "50%"]]));
   expect(words(popover.draw())).not.toContain(ASKS);
   expect(state.fetched.length).toBe(1);
 });
@@ -1811,7 +1831,7 @@ test("the running check finishing first leaves Allow's check to finish and save"
 
 for (const [why, answerGo, row] of [
   ["a refused key", go({}, 401), undefined],
-  ["no network", new Error("offline"), "Could not check"],
+  ["no network", new Error("offline"), "COULD NOT CHECK"],
 ] as const) {
   test(`${why} from Allow's check stands when the running check ends after it`, async () => {
     const { popover, usage } = await allowDuringAPass();
@@ -1848,12 +1868,12 @@ test("while Allow's check runs the line says so and the numbers can't be mistake
   reply(popover, ALLOW);
   await settle();
   const root = popover.draw();
-  expect(words(root)).toContain("Checking…");
+  expect(words(root)).toContain("CHECKING…");
   expect(words(root)).not.toContain(NONE);
 
   request.release(go()());
   await settle();
-  expect(words(popover.draw())).not.toContain("Checking…");
+  expect(words(popover.draw())).not.toContain("CHECKING…");
   setSystemTime(NOW + 1);
   state.runs.length = 0;
   refresh(popover);
@@ -1896,7 +1916,7 @@ test("a failed check can't replace with \"Could not check\" the numbers a hung A
   later.release(new Error("offline"));
   await settle();
   expect(limits(popover.draw()).length).toBe(3);
-  expect(words(popover.draw())).not.toContain("Could not check");
+  expect(words(popover.draw())).not.toContain("COULD NOT CHECK");
 });
 
 test("nor can a hung Allow failing at last replace the numbers a later check found", async () => {
@@ -1909,7 +1929,7 @@ test("nor can a hung Allow failing at last replace the numbers a later check fou
   request.release(new Error("offline"));
   await settle();
   expect(limits(popover.draw()).length).toBe(3);
-  expect(words(popover.draw())).not.toContain("Could not check");
+  expect(words(popover.draw())).not.toContain("COULD NOT CHECK");
 });
 
 test("any agent's failed check keeps numbers saved since it began, marked with their age", async () => {
@@ -1928,7 +1948,7 @@ test("any agent's failed check keeps numbers saved since it began, marked with t
   await settle();
   const root = openedAfter().draw();
   expect(words(limits(root)[0])).toContain("12%");
-  expect(words(root)).toContain("Last checked just now");
+  expect(words(root)).toContain("LAST CHECKED JUST NOW");
 });
 
 const { run: zakiDo } = await import("herdr");
@@ -2039,7 +2059,7 @@ for (const written of ["$OPENCODE_API_KEY", "${OPENCODE_API_KEY}", "$(cat key)",
     state.answers[GO] = go();
     const { popover } = await allowed();
     expect(state.fetched).toEqual([]);
-    expect(words(popover.draw())).not.toContain("Could not check");
+    expect(words(popover.draw())).not.toContain("COULD NOT CHECK");
     expect(words(popover.draw())).not.toContain("OpenCode");
   });
 }
@@ -2087,9 +2107,9 @@ for (const status of [401, 403]) {
     const { popover } = await allowed();
     const root = popover.draw();
     expect(words(root)).not.toContain("OpenCode");
-    expect(words(root)).not.toContain("Could not check");
+    expect(words(root)).not.toContain("COULD NOT CHECK");
     expect(words(root)).toContain(NONE);
-    expect(words(root)).not.toContain("Checking…");
+    expect(words(root)).not.toContain("CHECKING…");
   });
 
   test(`a ${status} later takes the older row with it`, async () => {
@@ -2123,8 +2143,8 @@ test("a network failure keeps the last numbers with their age", async () => {
   await settle();
   const root = popover.draw();
   expect(words(limits(root)[0])).toContain("12%");
-  expect(words(root)).toContain("Last checked 12m ago");
-  expect(words(root)).toContain("Updated 12m ago");
+  expect(words(root)).toContain("LAST CHECKED 12M AGO");
+  expect(words(root)).toContain("UPDATED 12M AGO");
 });
 
 for (const [why, reply_] of [
@@ -2135,11 +2155,11 @@ for (const [why, reply_] of [
   ["a percent that isn't one", go({ usage: { weekly: { percent: "most" } } })],
   ["a null answer", go("null")],
 ] as const) {
-  test(`${why} with no earlier numbers reads "Could not check"`, async () => {
+  test(`${why} with no earlier numbers reads "COULD NOT CHECK"`, async () => {
     opencode();
     state.answers[GO] = reply_;
     const { popover } = await allowed();
-    expect(words(popover.draw())).toEqual(expect.arrayContaining(["OpenCode", "Could not check"]));
+    expect(words(popover.draw())).toEqual(expect.arrayContaining(["OpenCode", "COULD NOT CHECK"]));
     expect(limits(popover.draw())).toEqual([]);
     expect(words(popover.draw())).not.toContain(NONE);
   });
@@ -2149,7 +2169,7 @@ test("the second spelling of Go's answer and a rate-limited window read too", as
   opencode();
   state.answers[GO] = go({ weeklyUsage: { usagePercent: 80, status: "rate-limited", resetInSec: 3600 } });
   const { popover } = await allowed();
-  expect(limits(popover.draw()).map((limit) => words(limit))).toEqual([["This week", "100%", "resets in 1h 0m"]]);
+  expect(limits(popover.draw()).map((limit) => words(limit))).toEqual([["THIS WEEK", "100%", "RESETS IN 1H 0M"]]);
 });
 
 test("Go at 90% lights the dot like any other limit", async () => {

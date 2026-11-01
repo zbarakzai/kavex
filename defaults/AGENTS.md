@@ -266,7 +266,7 @@ button, Enter or `cmd-enter` (`ctrl-enter`).
 
 The gauge in the sidebar footer opens Usage limits (the `usage` popup mod): each Claude Code, Codex
 and OpenCode Go subscription, with its tier and each limit's percent used and time to reset, weekly
-first. A limit past its reset reads 0%. At 90% used its bar turns orange and the gauge gets a dot.
+first. A limit past its reset reads 0%. At 90% used its percent turns orange and the gauge gets a dot.
 
 - **Numbers:** each agent's own commands on its machine, in that machine's shell PATH: `claude auth
   status`, `claude -p /usage` (no hooks, plugins, MCP or saved session), and `codex app-server`'s
