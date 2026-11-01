@@ -68,7 +68,6 @@ export default class Start extends View {
     to("alive", SUNK);
   }
 
-  // The lines of the entrance, each coming on at its time, sinking into the fill together.
   entrance(colors) {
     const shown = this.stage !== "before";
     return div().id("ram-entrance").absolute().inset_0().opacity(this.stage === "filled" ? 0 : 1).transition("opacity", { duration: 800, easing: "ease-in-out" })
@@ -76,7 +75,6 @@ export default class Start extends View {
         .child(window.paint_path(line, horn ? colors.horn : colors.face).size_full())));
   }
 
-  // The light that runs the outlines once the ram is whole.
   travelling(colors) {
     const on = this.stage === "filled" || this.stage === "alive";
     return div().id("ram-light").absolute().inset_0().opacity(on ? 1 : 0).transition("opacity", { duration: 1200, easing: "ease-in-out" })

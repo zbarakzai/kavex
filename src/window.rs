@@ -1185,7 +1185,7 @@ impl AppWindow {
                 }
             }
         }
-        if self.model.active_tab().is_none() {
+        if self.model.active_tab().is_none() && !self.local_layout_loading() {
             mods.extend(self.chrome.visible_blocks().into_iter().filter_map(empty_mod));
         }
         for o in &self.overlays {
@@ -1295,6 +1295,10 @@ impl AppWindow {
 
     fn shows_tab(&self) -> bool {
         self.chrome.visible_blocks().iter().any(|n| matches!(n.content(), Some(Content::Context { .. })))
+    }
+
+    fn local_layout_loading(&self) -> bool {
+        self.documents.get("").is_some_and(|s| s.layout() == "loading")
     }
 
     fn agent_block(&self) -> Option<String> {
@@ -3806,7 +3810,7 @@ impl AppWindow {
             },
             Content::Context { .. } => match self.model.active_tab() {
                 Some(c) => self.render_node(c.shown(), focused, self.pane_frame(), cx),
-                None if self.documents.get("").is_some_and(|s| s.layout() == "loading") => div().size_full().into_any_element(),
+                None if self.local_layout_loading() => div().size_full().into_any_element(),
                 None if empty_mod(n).is_some() => self.render_slot(&format!("{}#empty", n.id), cx),
                 None => {
                     let key = crate::keys::listing().into_iter().find(|(_, _, a)| a == "space.new").map(|(_, k, _)| format!(" ({k})"));

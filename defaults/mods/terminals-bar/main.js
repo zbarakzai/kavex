@@ -49,7 +49,7 @@ function tile(t, p) {
       el.child(g.tint ? svg(g.icon).size(15).text_color(g.color ?? C.text) : image(g.icon).w(15).h(15)),
     )
     .when(p?.status === "working", (el) =>
-      el.child(div().absolute().top(-4).right(-6).p(1.5).rounded(4).bg(C.tray).child(loader(t.accent, 2))),
+      el.child(div().absolute().top(-4).right(-6).p(1.5).rounded(4).bg(t.raised).child(loader(t.accent, 2))),
     )
     .when(Boolean(dot) && p?.status !== "working", (el) =>
       el.child(div().absolute().top(-4).right(-4).w(11).h(11).rounded_full().border_2().border_color(C.tray).bg(dot)),

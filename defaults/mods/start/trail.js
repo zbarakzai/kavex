@@ -58,7 +58,6 @@ export default class Trail extends View {
     });
   }
 
-  // Returns whether anything is lit.
   draw() {
     let lit = false;
     this.bits = [];
@@ -79,8 +78,7 @@ export default class Trail extends View {
 
   render() {
     const t = theme();
-    // Only the rows with something on them become elements.
-    const rows = (lines, color) => lines.flatMap((line, row) => (line ? [div().absolute().top(row * ROW).left(0).h(ROW).whitespace_nowrap().text_color(color).child(line)] : []));
+    const rows =(lines, color) => lines.flatMap((line, row) => (line ? [div().absolute().top(row * ROW).left(0).h(ROW).whitespace_nowrap().text_color(color).child(line)] : []));
     return div().id("trail").relative().size_full().font_family("Geist Mono").text_size(11)
       .on_size_change((size, cx) => { this.sized(size); cx.notify(); })
       .on_hover((hovered) => { if (!hovered) this.last = null; })
