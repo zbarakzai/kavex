@@ -16,7 +16,7 @@ const plain = Object.fromEntries(["background", "canvas", "chrome", "surface", "
   "accent", "accent_foreground", "working", "blocked", "done", "idle", "unknown", ...Array.from({ length: 16 }, (_, i) => `ansi${i}`)].map((name) => [name, "#123456"]));
 
 test("every mod's look.js is the same file", () => {
-  const copies = readdirSync(join(root, "mods")).map((mod) => join(root, "mods", mod, "look.js")).filter(existsSync).map((path) => readFileSync(path, "utf8"));
+  const copies = [...readdirSync(join(root, "mods")).map((mod) => join(root, "mods", mod, "look.js")), join(root, "frame/settings/look.js")].filter(existsSync).map((path) => readFileSync(path, "utf8"));
   expect(copies.length).toBeGreaterThan(1);
   expect(new Set(copies).size).toBe(1);
 });
@@ -47,6 +47,11 @@ test("the Tabs column's focus key sits beside the panel key, on a key nothing el
   }
 });
 
+test("no framed overlay paints its own background over the rounded frame", () => {
+  const screens = ["mods/picker", "mods/machine-add", "mods/tab-menu", "mods/file-menu", "mods/new-menu", "mods/confirm", "mods/menu", "mods/worktree", "mods/agents", "mods/help", "mods/toast", "mods/prompt", "frame/palette", "frame/settings", "frame/whatsnew", "frame/feedback"];
+  for (const screen of screens) expect(readFileSync(join(root, screen, "main.js"), "utf8"), screen).not.toContain(".bg(t.popover)");
+});
+
 test("a group saved under an old color keeps the nearest of the three, never orange", () => {
   const k = look(zaki.colors);
   expect(groupHue(k, "violet").text).toBe("#B9A8F7");
@@ -64,4 +69,30 @@ test("a file shows its logo, and each logo is shipped", () => {
 
 test("a file's tag says its type", () => {
   expect(["a/AGENTS.md", "main.js", "x.test.ts", "keys.json", "justfile", "run.sh", "lib.rs", "LICENSE", ".env"].map(tagOf)).toEqual(["MD", "JS", "TS", "{ }", ">_", ">_", "RS", "··", "··"]);
+});
+
+// Sizes in fixed steps, never per icon: an icon's art fills 19 of its 24 units, so 16 draws about
+// 13 px, level with 13 px text, even alone in a button: a bigger one beside it looks oversized. A
+// caret is 12, and only the welcome screen's tiles take 20. Logos have no margin and stay 14;
+// no-color is sized to its swatch.
+test("interface icons come in three sizes", async () => {
+  const steps: Record<string, number> = {};
+  const bad: string[] = [];
+  const paths = [...new Bun.Glob("{mods,frame}/**/*.js").scanSync({ cwd: root })].filter((p) => !p.startsWith("mods/win98/"));
+  const args = "(?:[^()]|\\((?:[^()]|\\([^()]*\\))*\\))*";
+  for (const path of paths) {
+    const source = await Bun.file(join(root, path)).text();
+    if (/\.size\([^)]*\?/.test(source)) bad.push(`${path}: a size chosen per icon`);
+    const uses = [
+      ...[...source.matchAll(new RegExp(`\\bsvg\\((${args})\\)(?:\\.[a-z_]+\\([^()]*\\))*?\\.size\\((\\d+)\\)`, "g"))].map((m) => [m[1], m[2]]),
+      ...[...source.matchAll(/\bicon\(("[a-z-]+"|name|more\.name),\s*(\d+)\)/g)].map((m) => [m[1], m[2]]),
+    ];
+    for (const [name, size] of uses) {
+      if (!/workspace-chrome|^I\(|^"|^name$|more\.name|^icon$|menuIcon/.test(name) || /icons\/shell|no-color/.test(name)) continue;
+      steps[size] = (steps[size] ?? 0) + 1;
+      if (!(/chevron/.test(name) ? ["12", "16"] : path === "frame/welcome/main.js" ? ["16", "20"] : ["16"]).includes(size)) bad.push(`${path}: ${name} at ${size}`);
+    }
+  }
+  expect(bad).toEqual([]);
+  expect(Object.keys(steps).sort()).toEqual(["12", "16", "20"]);
 });

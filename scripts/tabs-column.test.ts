@@ -94,11 +94,16 @@ test("the panel: surface, radius 14, no border, a 56px header and 32px buttons",
   expect([arg(button.hover!, "bg"), arg(button.hover!, "text_color")]).toEqual(["#222222", "#F2F2F2"]);
 });
 
+test("the header's two buttons don't look alike: New group is the menu's layers icon", () => {
+  const root = column().draw(), icon = (id: string) => arg(all(byId(root, id)!).find((e) => has(e, "path"))!, "path");
+  expect([icon("column-group"), icon("column-new")]).toEqual(["mods/workspace-chrome/icons/layers.svg", "mods/workspace-chrome/icons/plus.svg"]);
+});
+
 test("the list has no cards, and sections and rows keep their gaps", () => {
   const root = column().draw(), list = byId(root, "column-list")!;
   expect([arg(list, "gap"), arg(list, "px"), arg(list, "pb")]).toEqual([14, 8, 12]);
   for (const e of all(list)) expect(has(e, "border_1") || arg(e, "bg") === colors.card).toBe(false);
-  expect(arg(byId(root, "column-group-blue")!, "gap")).toBe(2);
+  expect([arg(byId(root, "column-tuck-c")!, "h"), arg(byId(root, "column-group-blue")!, "mb")]).toEqual([32, -2]);
 });
 
 test("loose and grouped rows have the spec's sizes", () => {
@@ -127,8 +132,8 @@ test("every row state has the spec's background, ring and name", () => {
 });
 
 test("a row's status never changes its background, only the badge shows it", () => {
-  const row = byId(column().draw(), "column-d")!;
-  expect(shown(row)).toEqual([]);
+  const root = column().draw(), row = byId(root, "column-d")!;
+  expect(shown(row)).toEqual(shown(byId(root, "column-c")!));
   expect(all(row).some((e) => e.kids.some((k) => mine(k) && text(mine(k)!) === "N"))).toBe(true);
 });
 
@@ -140,6 +145,7 @@ test("backgrounds ease over 120ms", () => {
 test("a group's header: name in its color, hover, and the orange dot when one needs you", () => {
   const root = column().draw(), head = byId(root, "column-fold-blue")!;
   expect([arg(head, "h"), arg(head, "pl"), arg(head, "pr"), arg(head, "gap"), arg(head, "rounded")]).toEqual([30, 8, 10, 8, 9]);
+  expect(has(head, "bg")).toBe(false);
   expect([arg(head, "text_color"), arg(head.hover!, "bg"), arg(head.hover!, "text_color")]).toEqual(["#8E8E8E", "#1C1C1C", "#CFCFCF"]);
   expect(arg(nameOf(head), "text_color")).toBe("#8C9CF5");
   expect([arg(nameOf(head), "text_size"), has(nameOf(head), "font_semibold")]).toEqual([13.5, true]);
@@ -150,7 +156,7 @@ test("a group's header: name in its color, hover, and the orange dot when one ne
 
 test("a fold turns the chevron and hides the tabs", () => {
   const root = column().draw();
-  expect(byId(root, "column-e")).toBeUndefined();
+  expect(arg(byId(root, "column-tuck-e")!, "h")).toBe(0);
   const chevron = (id: string) => arg(all(byId(root, id)!).find((e) => has(e, "path"))!, "path");
   expect([chevron("column-fold-shut"), chevron("column-fold-blue")]).toEqual(["mods/workspace-chrome/icons/chevron-right.svg", "mods/workspace-chrome/icons/chevron-down.svg"]);
   const clicks = handler(byId(root, "column-fold-blue")!, "on_mouse_up", "left");
@@ -162,7 +168,8 @@ test("a fold turns the chevron and hides the tabs", () => {
 test("a folded group with the current tab keeps only that row, in its active style", () => {
   state.tabs = state.tabs.map((c) => ({ ...c, active: c.id === "e" }));
   const { draw } = column(), root = draw();
-  expect(byId(root, "column-f")).toBeUndefined();
+  expect(arg(byId(root, "column-tuck-f")!, "h")).toBe(0);
+  expect(arg(byId(root, "column-tuck-e")!, "h")).toBe(32);
   const row = byId(root, "column-e")!;
   expect([arg(row, "h"), shown(row), rings(row).map((r) => arg(r, "border_color"))]).toEqual([30, ["#242424"], ["#2C2C2C"]]);
 });
@@ -295,4 +302,76 @@ test("a dragged group carries its header, and sections slide apart for it", () =
   const root = draw(), ghost = byId(root, `ghost-${view.drag.n}`)!;
   expect([arg(ghost, "bg"), has(ghost, "shadow_2xl")]).toEqual(["#262626", true]);
   expect(roomOf(view, root, "before:blue")).toBe(view.drag.room);
+});
+
+test("a fold slides each row shut on a spring, and never unmounts it", () => {
+  const { draw } = column(), rows = (root: El) => ["column-tuck-e", "column-tuck-f"].map((id) => byId(root, id)!);
+  for (const row of rows(draw())) {
+    expect([arg(row, "h"), arg(row, "spring")]).toEqual([0, "height"]);
+    expect(has(row, "overflow_hidden")).toBe(true);
+  }
+  state.shared["tab.groups"] = { ...GROUPS, shut: { ...GROUPS.shut, folded: false } };
+  expect(rows(draw()).map((row) => arg(row, "h"))).toEqual([32, 32]);
+});
+
+test("a tab's color fills its row, under the states, and hover deepens it", () => {
+  state.shared["tab.colors"] = { a: "violet", b: "blue" };
+  const { view, draw } = column(), rowOf = (id: string) => byId(draw(), `column-${id}`)!;
+  expect(shown(rowOf("b"))).toEqual([colors.group_blue_row]);
+  expect(shown(rowOf("a"))).toEqual([colors.group_violet_row, colors.group_violet_row]);
+  expect(arg(rings(rowOf("a"))[0], "border_color")).toBe(colors.group_violet_ring);
+  view.over = "b";
+  expect(shown(rowOf("b"))).toEqual([colors.group_blue_row, colors.group_blue_tint]);
+});
+
+test("a group's rows stay clear until a color is picked for it", () => {
+  const { draw } = column();
+  expect(shown(byId(draw(), "column-c")!)).toEqual([]);
+  expect(arg(all(byId(draw(), "column-fold-blue")!).find((e) => has(e, "truncate"))!, "text_color")).toBe(colors.group_blue);
+});
+
+test("a picked group color fills its rows, a tab's own wins, and none keeps a tab clear", () => {
+  state.shared["tab.groups"] = { ...GROUPS, blue: { ...GROUPS.blue, tabs: ["c", "d", "b"], fill: true } };
+  state.shared["tab.colors"] = { d: "violet", b: "none" };
+  const { draw } = column();
+  expect(shown(byId(draw(), "column-c")!)).toEqual([colors.group_blue_row]);
+  expect(shown(byId(draw(), "column-d")!)).toEqual([colors.group_violet_row]);
+  expect(shown(byId(draw(), "column-b")!)).toEqual([]);
+  expect(has(byId(draw(), "column-fold-blue")!, "bg")).toBe(false);
+});
+
+test("old saves' \"none\" and an unpainted tab draw no color", () => {
+  state.shared["tab.colors"] = { b: "none" };
+  const { draw } = column();
+  expect(shown(byId(draw(), "column-b")!)).toEqual([]);
+});
+
+const openGroup = (root: El) => { handler(byId(root, "column-group")!, "on_mouse_down", "left")({ bounds: { x: 0, y: 0, width: 32, height: 32 } }, cx); handler(byId(root, "column-group")!, "on_click")({}, cx); };
+
+test("the group button drafts a new group and changes nothing", () => {
+  state.shared["tabs.picked"] = ["b"];
+  const before = JSON.stringify(state.shared);
+  openGroup(column().draw());
+  expect(JSON.stringify(state.shared)).toBe(before);
+  expect(state.overlays[0].props).toMatchObject({ tabs: ["a", "b"], make: true, from: "column-group" });
+});
+
+test("on a tab alone in a group, the group button opens that group", () => {
+  state.tabs = state.tabs.map((c) => ({ ...c, active: c.id === "c" }));
+  openGroup(column().draw());
+  expect(state.overlays[0].props).toEqual({ group: "blue", from: "column-group" });
+});
+
+test("a second press on the group button shuts its menu, and the other button still opens", () => {
+  const root = column().draw(), group = byId(root, "column-group")!, add = byId(root, "column-new")!;
+  const clickAfterShut = (el: El, from: string) => {
+    const at = { bounds: { x: 0, y: 0, width: 32, height: 32 } };
+    handler(el, "on_mouse_down", "left")(at, cx);
+    state.shared["popup.closed"] = { from, at: Date.now() };
+    handler(el, "on_click")({}, cx);
+  };
+  clickAfterShut(group, "column-group");
+  expect(state.overlays).toEqual([]);
+  clickAfterShut(add, "column-group");
+  expect(state.overlays.map((o) => o.mod)).toEqual(["new-menu"]);
 });

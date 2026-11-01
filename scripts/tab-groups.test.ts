@@ -1,6 +1,6 @@
 import { test, expect } from "bun:test";
 import { readFile } from "node:fs/promises";
-import { COLUMN, GAP, INNER, away, clicked, columnHome, columnRuns, columnSlots, columnStops, gathered, groupOf, home, labeled, landed, moves, nearest, nearestY, pruned, runs, sectionHeight, shownIn, slots, stepped } from "../defaults/mods/tabs/groups.js";
+import { COLUMN, GAP, INNER, away, clicked, columnHome, columnOrder, columnRuns, columnSlots, columnStops, gathered, groupOf, home, labeled, landed, moves, nearest, nearestY, pruned, reopening, runs, sectionHeight, shownIn, slots, stepped } from "../defaults/mods/tabs/groups.js";
 
 const blank = { groups: {}, colors: {}, folders: [] };
 const auth = { auth: { name: "auth", color: "ansi4", folded: false, tabs: ["b", "c"] } };
@@ -342,4 +342,26 @@ test("a label puts a tab in its group, makes one if needed, and moves it from an
   const moved = labeled(joined, "b", "checks", colors, "g4");
   expect(moved.g1.tabs).toEqual(["a"]);
   expect(moved.g4).toMatchObject({ name: "checks", color: "violet", tabs: ["b"] });
+});
+
+test("the column's order is what it draws: loose tabs, then each group", () => {
+  const tabs = ["a", "b", "c", "d", "e"].map((id) => ({ id }));
+  expect(columnOrder(tabs, auth)).toEqual(["a", "d", "e", "b", "c"]);
+  expect(columnOrder(tabs, {})).toEqual(["a", "b", "c", "d", "e"]);
+});
+
+test("in the column, ungrouping leaves the tabs at the end of the loose ones", () => {
+  const two = { ...auth, ops: { name: "ops", color: "teal", folded: false, tabs: ["e"] } };
+  const drawn = columnOrder(["a", "b", "c", "d", "e"].map((id) => ({ id })), two), { ops, ...rest } = two;
+  expect(drawn).toEqual(["a", "d", "b", "c", "e"]);
+  expect(columnOrder(drawn.map((id) => ({ id })), { ops })).toEqual(["a", "d", "b", "c", "e"]);
+  expect(columnOrder(drawn.map((id) => ({ id })), rest)).toEqual(["a", "d", "e", "b", "c"]);
+});
+
+test("a press that closed its own button's popup doesn't open it again", () => {
+  expect(reopening({ from: "x", at: 1000 }, "x", 1000)).toBe(true);
+  expect(reopening({ from: "x", at: 950 }, "x", 1000)).toBe(true);
+  expect(reopening({ from: "x", at: 500 }, "x", 1000)).toBe(false);
+  expect(reopening({ from: "y", at: 1000 }, "x", 1000)).toBe(false);
+  expect(reopening(undefined, "x", 1000)).toBe(false);
 });

@@ -24,6 +24,7 @@ const SPLITS_AT = 400, TREE_MIN = 140, TREE_STATS_AT = 190, HUNK_BUTTONS = 138, 
 // Codex's tree moves on a spring of 0.5 s and 0.1 bounce: this is that spring as a period and a damping.
 const TREE_SPRING = { response: 370, damping: 0.9 }, TREE_SNAP = { response: 0 }, TREE_SETTLE = 650, TIP_DELAY = 300;
 const JUMP_WIDTH = 360, JUMP_ROW = 28, JUMP_ROWS = 10, UI_CHAR = 7;
+const MENU_EASE = { duration: 160, easing: "ease-out" }, MENU_RISE = 6, MENU_REVEAL = 30; // how a dropdown arrives, as the app's own menus do
 // Past either, one file shows at a time. Codex allows 9,000 lines; a long list is slower to lay out here.
 const MOST_LINES = 6000, MOST_FILES = 128, MOST_LISTED = 2000, MOST_UNTRACKED = 300, EXEC_LIMIT = 8 << 20, STUCK = 45000;
 
@@ -816,7 +817,7 @@ export default class Changes extends View {
     return [
       { name: "chevron-right", action: (cx) => this.stepFile(1, cx) },
       { name: "chevron-left", action: (cx) => this.stepFile(-1, cx) },
-      { name: "more", action: (cx, press, end) => { this.rowMenu = { path: file.path, x: end, y: press.y + 10 }; this.menu = "row"; cx.notify(); } },
+      { name: "more", action: (cx, press, end) => { this.rowMenu = { path: file.path, x: end, y: press.y + 10 }; this.menu = "row"; this.reveal(cx); cx.notify(); } },
     ];
   }
 
@@ -883,7 +884,7 @@ export default class Changes extends View {
 
   // The row's hover layer: a clear sheet, shown whole when the pointer is on it.
   hoverLayer(row, t) {
-    const badge = (at) => h_flex().absolute().left(at).top(0).size(LINE).ml(GUTTER - LINE - 6).items_center().justify_center().rounded(6).bg(t.solid).text_color(t.solid_foreground).child(icon("plus", 13));
+    const badge = (at) => h_flex().absolute().left(at).top(0).size(LINE).ml(GUTTER - LINE - 6).items_center().justify_center().rounded(6).bg(t.solid).text_color(t.solid_foreground).child(icon("plus", 16));
     const layer = div().id("hover").absolute().inset_0().opacity(0).hover((s) => s.opacity(1)).child(badge(0)).when(row.kind === "pair", (el) => el.child(badge(Math.round(this.diffWidth() / 2))));
     const changed = row.kind === "pair" ? (row.left?.kind === "del" || row.right?.kind === "add") : this.canHunk(row);
     if (!changed || this.tight) return layer;
@@ -914,7 +915,7 @@ export default class Changes extends View {
 
   gapRow(row, t) {
     return div().w_full().h_full().py(4).child(h_flex().id("gap").size_full().bg(t.diff_collapsed_row).items_center().text_size(11.5).text_color(t.text_faint).hover((s) => s.bg(t.hover))
-      .child(h_flex().w(GUTTER).h_full().flex_none().items_center().justify_center().bg(t.diff_collapsed_gutter).child(icon("unfold", 12)))
+      .child(h_flex().w(GUTTER).h_full().flex_none().items_center().justify_center().bg(t.diff_collapsed_gutter).child(icon("unfold", 16)))
       .child(div().pl(14).child(`${commas(row.count)} unmodified ${row.count === 1 ? "line" : "lines"}`)));
   }
 
@@ -942,7 +943,7 @@ export default class Changes extends View {
   commentRow(row, t) {
     return div().w_full().h_full().px(14).py(5).child(
       v_flex().id("note").size_full().px(12).py(7).gap(2).rounded(9).bg(t.raised).border_1().border_color(t.border).hover((s) => s.border_color(t.input))
-        .child(h_flex().gap(6).items_center().text_size(11).text_color(t.dim).child(icon("comment", 12)).child(`Line ${row.comment.line}`))
+        .child(h_flex().gap(6).items_center().text_size(11).text_color(t.dim).child(icon("comment", 16)).child(`Line ${row.comment.line}`))
         .child(v_flex().text_size(12).text_color(t.foreground).child(row.comment.text)));
   }
 
@@ -950,8 +951,8 @@ export default class Changes extends View {
   // handlers, so its buttons are matched by place (`fileButtons`).
   fileRow(row, t) {
     const file = row.file, shut = this.shut.has(file.path), [next, back, more] = this.fileButtons(file);
-    const button = (name) => h_flex().size(FILE_BUTTON).flex_none().items_center().justify_center().rounded(7).text_color(t.muted).child(icon(name, 13));
-    const options = h_flex().absolute().right(FILE_END + 2 * (FILE_BUTTON + FILE_GAP)).top(6).size(FILE_BUTTON).items_center().justify_center().rounded(7).bg(t.card).text_color(t.muted).child(icon(more.name, 13));
+    const button = (name) => h_flex().size(FILE_BUTTON).flex_none().items_center().justify_center().rounded(7).text_color(t.muted).child(icon(name, 16));
+    const options = h_flex().absolute().right(FILE_END + 2 * (FILE_BUTTON + FILE_GAP)).top(6).size(FILE_BUTTON).items_center().justify_center().rounded(7).bg(t.card).text_color(t.muted).child(icon(more.name, 16));
     return h_flex().id("file").relative().w_full().h_full().pl(18).pr(FILE_END).gap(8).items_center().when(!row.first, (el) => el.border_t(1).border_color(t.card_border).hover((s) => s.bg(t.hover)))
       .child(this.fileLabel(file, t, file.path === this.open))
       .child(this.stats(file, t))
@@ -977,7 +978,7 @@ export default class Changes extends View {
 
   toolButton(id, name, t, on = false) {
     return h_flex().id(id).size(26).flex_none().items_center().justify_center().rounded(13).cursor_pointer().text_color(on ? t.foreground : t.muted).when(on, (el) => el.bg(t.pill_selected))
-      .when(!on, (el) => el.hover((s) => s.bg(t.hover_strong).text_color(t.foreground))).child(icon(name, 14));
+      .when(!on, (el) => el.hover((s) => s.bg(t.hover_strong).text_color(t.foreground))).child(icon(name, 16));
   }
 
   // `.tooltip()` shows nothing here: its layer is looked up on the window's first
@@ -992,6 +993,7 @@ export default class Changes extends View {
     return Popover.new(`changes-${id}`).anchor(anchor).open(open)
       .on_open_change((next, cx) => {
         this.menu = next ? id : null;
+        if (next) this.reveal(cx);
         if (next && id === "base") { this.baseInput.set_value(""); this.baseFilter = ""; this.baseInput.focus(); }
         if (next && id === "jump") this.openJump();
         if (next && id === "switch") this.openSwitch(cx);
@@ -1000,15 +1002,26 @@ export default class Changes extends View {
       .trigger(trigger).when(open, (el) => el.content(content()));
   }
 
+  // A dropdown starts hidden, then eases in, as the app's own menus do: a transition needs a
+  // frame to start from.
+  reveal(cx) {
+    this.menuIn = false;
+    cx.timer.after(MENU_REVEAL, (cx) => { this.menuIn = true; cx.notify(); });
+  }
+
+  arrive(box) {
+    return box.relative().top(this.menuIn ? 0 : -MENU_RISE).opacity(this.menuIn ? 1 : 0).transition("opacity", MENU_EASE).transition("top", MENU_EASE);
+  }
+
   menuBox(width, t, rows) {
-    return v_flex().id("changes-menu-box").w(width).max_h(380).overflow_y_scrollbar().p(6).gap(1).rounded(14).bg(t.raised).border_1().border_color(t.border).shadow_lg().text_size(13).text_color(t.foreground).children(rows);
+    return this.arrive(v_flex()).id("changes-menu-box").w(width).max_h(380).overflow_y_scrollbar().p(6).gap(1).rounded(14).bg(t.raised).border_1().border_color(t.border).shadow_lg().text_size(13).text_color(t.foreground).children(rows);
   }
 
   item(id, label, action, t, { hint = null, on = false, danger = false, enabled = true } = {}) {
     return h_flex().id(`changes-item-${id}`).h(32).flex_none().px(10).gap(10).items_center().rounded(9).when(enabled, (el) => el.cursor_pointer().hover((s) => s.bg(t.hover)).on_click((_e, cx) => { this.menu = null; action(cx); cx.notify(); })).text_color(!enabled ? t.dim : danger ? (t.failed ?? t.blocked) : t.foreground)
       .child(div().flex_1().min_w(0).truncate().child(label))
       .when(Boolean(hint), (el) => el.child(div().flex_none().text_size(11).text_color(t.dim).child(hint)))
-      .when(on, (el) => el.child(icon("check", 14).text_color(t.accent)));
+      .when(on, (el) => el.child(icon("check", 16).text_color(t.accent)));
   }
 
   // Scope, branch and tools share one shape: a filled pill on the panel.
@@ -1024,7 +1037,7 @@ export default class Changes extends View {
     const label = SCOPES.find(([id]) => id === this.scope)?.[1];
     const add = this.files.reduce((n, f) => n + f.add, 0), del = this.files.reduce((n, f) => n + f.del, 0);
     const trigger = this.pill("changes-scope", t).flex_none().gap(9)
-      .child(h_flex().gap(4).items_center().child(label).child(icon("chevron-down", 11).text_color(t.label)))
+      .child(h_flex().gap(4).items_center().child(label).child(icon("chevron-down", 12).text_color(t.label)))
       .child(div().font_family(MONO).text_size(12.5).text_color(t.added).child(`+${commas(add)}`))
       .child(div().font_family(MONO).text_size(12.5).text_color(t.removed).child(`${minus}${commas(del)}`));
     return this.tip("changes-scope", "Choose which changes to show", this.popover("scope", "top_left", trigger, () => this.menuBox(180, t, SCOPES.map(([id, name]) => this.item(id, name, (cx) => this.setScope(id, cx), t, { on: id === this.scope })))), t);
@@ -1033,8 +1046,8 @@ export default class Changes extends View {
   compareControl(t) {
     if (this.scope === "branch" && this.base) {
       const trigger = this.pill("changes-base", t)
-        .child(icon("branch", 14).text_color(t.accent))
-        .child(div().min_w(0).truncate().child(this.branch ?? "")).child(icon("arrow-right", 14).text_color(t.label))
+        .child(icon("branch", 16).text_color(t.accent))
+        .child(div().min_w(0).truncate().child(this.branch ?? "")).child(icon("arrow-right", 16).text_color(t.label))
         .child(div().min_w(0).truncate().child(this.base)).child(icon("chevron-down", 12).text_color(t.label));
       return this.popover("base", "top_left", trigger, () => {
         const wanted = this.baseFilter.toLowerCase(), refs = this.refs.filter((ref) => ref !== this.branch && ref.toLowerCase().includes(wanted)).slice(0, 80);
@@ -1056,9 +1069,9 @@ export default class Changes extends View {
 
   branchControl(t) {
     const trigger = this.pill("changes-branch", t).pr(11)
-      .child(icon("branch", 13).text_color(t.accent))
+      .child(icon("branch", 16).text_color(t.accent))
       .child(div().min_w(0).truncate().child(this.branch))
-      .child(icon("chevron-down", 11).text_color(t.label));
+      .child(icon("chevron-down", 12).text_color(t.label));
     return this.tip("changes-branch", "Switch branch", this.popover("switch", "top_left", trigger, () => {
       const wanted = this.baseFilter.toLowerCase(), list = this.branches.filter((name) => name.toLowerCase().includes(wanted)).slice(0, 80);
       return this.menuBox(300, t, [
@@ -1116,7 +1129,7 @@ export default class Changes extends View {
     const rows = jumpList(this.files, this.jumpWanted), at = Math.min(this.jumpAt, rows.length - 1);
     const list = v_virtual_list("changes-jump", rows.length, JUMP_ROW, (i) => rows[i].path, (range) => rows.slice(range.start, range.end).map((row) => this.jumpRow(row, rows[at] === row, t)))
       .track_scroll(this.jumpScroll).size_full().on_item_click((path, cx) => this.jumpTo(rows.find((row) => row.path === path), cx));
-    return v_flex().id("changes-jump-box").w(JUMP_WIDTH).mt(4).p(4).rounded(14).bg(t.raised).border_1().border_color(t.border).shadow_lg().text_size(13)
+    return this.arrive(v_flex()).id("changes-jump-box").w(JUMP_WIDTH).mt(4).p(4).rounded(14).bg(t.raised).border_1().border_color(t.border).shadow_lg().text_size(13)
       .on_key_down((e, cx) => {
         if ((e.key !== "down" && e.key !== "up") || !rows.length) return;
         this.jumpAt = stepped(at, e.key === "down" ? 1 : -1, rows.length);
@@ -1124,7 +1137,7 @@ export default class Changes extends View {
         cx.stop_propagation();
         cx.notify();
       })
-      .child(h_flex().h(38).flex_none().px(8).gap(8).items_center().child(icon("search", 15).text_color(t.dim)).child(div().flex_1().min_w(0).child(Input.new(this.jumpInput).h_full().text_size(13))))
+      .child(h_flex().h(38).flex_none().px(8).gap(8).items_center().child(icon("search", 16).text_color(t.dim)).child(div().flex_1().min_w(0).child(Input.new(this.jumpInput).h_full().text_size(13))))
       .child(rows.length ? div().relative().w_full().flex_none().h(Math.min(rows.length, JUMP_ROWS) * JUMP_ROW).child(list).child(Scrollbar.vertical("changes-jump").viewport_from_layout().absolute().inset_0())
         : div().px(8).py(6).text_color(t.dim).child("No matching files"));
   }
@@ -1158,8 +1171,8 @@ export default class Changes extends View {
   }
 
   fileHeader(file, t) {
-    const step = (id, name, by, tip) => this.tip(id, tip, h_flex().id(id).size(FILE_BUTTON).flex_none().items_center().justify_center().rounded(7).cursor_pointer().text_color(t.muted).hover((s) => s.bg(t.hover_strong).text_color(t.foreground)).on_click((_e, cx) => this.stepFile(by, cx)).child(icon(name, 13)), t);
-    const trigger = h_flex().id("changes-file-more").size(FILE_BUTTON).flex_none().items_center().justify_center().rounded(7).cursor_pointer().text_color(t.muted).hover((s) => s.bg(t.hover_strong).text_color(t.foreground)).child(icon("more", 13));
+    const step = (id, name, by, tip) => this.tip(id, tip, h_flex().id(id).size(FILE_BUTTON).flex_none().items_center().justify_center().rounded(7).cursor_pointer().text_color(t.muted).hover((s) => s.bg(t.hover_strong).text_color(t.foreground)).on_click((_e, cx) => this.stepFile(by, cx)).child(icon(name, 16)), t);
+    const trigger = h_flex().id("changes-file-more").size(FILE_BUTTON).flex_none().items_center().justify_center().rounded(7).cursor_pointer().text_color(t.muted).hover((s) => s.bg(t.hover_strong).text_color(t.foreground)).child(icon("more", 16));
     return h_flex().h(FILE_ROW).flex_none().pl(18).pr(FILE_END).gap(8).items_center()
       .child(this.fileLabel(file, t))
       .child(this.stats(file, t))
@@ -1225,7 +1238,7 @@ export default class Changes extends View {
       : targets.length === 1 ? send.on_click((_e, cx) => this.sendComments(targets[0], cx)).child(`Send to ${targets[0].program?.name ?? "agent"}`)
         : this.popover("send", "bottom_right", send.child("Send to agent"), () => this.menuBox(260, t, targets.map((a) => this.item(`send-${a.address}`, a.program?.name ?? a.address, (cx) => this.sendComments(a, cx), t, { hint: a.tab_name }))));
     return h_flex().flex_none().h(44).px(10).gap(8).items_center().border_t(1).border_color(t.border)
-      .child(icon("comment", 14).text_color(t.muted))
+      .child(icon("comment", 16).text_color(t.muted))
       .child(div().flex_1().min_w(0).truncate().text_size(12).child(plural(count, "comment")))
       .child(div().id("changes-comments-clear").h(28).px(10).flex().items_center().rounded(7).cursor_pointer().text_size(12).text_color(t.muted).hover((s) => s.bg(t.hover)).on_click((_e, cx) => this.clearComments(cx)).child("Clear"))
       .child(control);
@@ -1244,7 +1257,7 @@ export default class Changes extends View {
         .child(div().flex_none().font_family(MONO).text_size(10.5).text_color(t.label).child(window()?.platform === "macos" ? "\u2318\u21b5" : "Ctrl \u21b5")))
       .child(h_flex().id("commit").h(34).px(15).gap(6).flex_none().items_center().rounded(11).bg(t.accent).text_color(t.accent_foreground).text_size(13.5).font_medium()
         .when(!enabled, (e) => e.opacity(0.55)).when(enabled, (e) => e.cursor_pointer()).on_click((_e, cx) => this.commit(cx))
-        .child(icon("commit", 14)).child(this.busy ? "Committing…" : "Commit"));
+        .child(icon("commit", 16)).child(this.busy ? "Committing…" : "Commit"));
   }
 
   treeRow(row, t) {
@@ -1261,7 +1274,7 @@ export default class Changes extends View {
     const rows = this.treeList ?? [];
     return v_flex().size_full().min_h(0).pt(10).px(8).pb(8).gap(8).bg(t.card).border_1().border_color(t.card_border).rounded(18).overflow_hidden().text_size(12.5)
       .child(h_flex().h(34).flex_none().px(10).gap(8).items_center().rounded(10).bg(t.well).text_color(t.label)
-        .child(icon("search", 14)).child(div().flex_1().min_w(0).child(Input.new(this.filterInput).h_full().text_size(12.5).text_color(t.foreground))))
+        .child(icon("search", 16)).child(div().flex_1().min_w(0).child(Input.new(this.filterInput).h_full().text_size(12.5).text_color(t.foreground))))
       .child(div().flex_1().min_h(0).relative()
         .child(v_virtual_list("changes-tree", rows.length, TREE_ROW, (i) => rows[i].id, (range) => rows.slice(range.start, range.end).map((row) => this.treeRow(row, t)))
           .track_scroll(this.treeScroll).size_full()

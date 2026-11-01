@@ -125,11 +125,15 @@ the highlighted line shows where it will land.
 - Tabs can be **grouped** on this screen, in the `tabs` bar (the main layout's) or
   its `tabs-column`. It's shared state, not the model, so any mod can read or edit it and
   the bar makes the tabs follow: `shared("tab.groups")` is `{ id: { name, color,
-  folded, tabs: [tab ids] } }`. A group's color is `blue`, `violet` or `teal`, never
+  fill?, folded, tabs: [tab ids] } }`. A group's color is `blue`, `violet` or `teal`, never
   orange, which means "you"; a group saved under another color shows the nearest of
-  them. `shared("tab.colors")` and `shared("tab.folders")`, older per-tab and
-  per-folder colors, are kept but no longer drawn. A group's tabs stay side by side (strays are
-  moved with `tab.move`). A folded group's tabs are settled, so `tab.next`,
+  them. A group's color is its name's text; with `fill: true`, set when a person picks a color, it's
+  also the background of the tabs in it in the column, never of its name.
+  `shared("tab.colors")` is `{ tab id: color }`, the same three: a tab's own background, which
+  wins over its group's; `"none"` keeps a tab clear in a filled group. Setting either moves nothing. `shared("tab.folders")`, older per-folder colors, are kept but no
+  longer drawn. A group's tabs stay side by side (strays are moved with `tab.move`); with tabs
+  on the right the tabs' order is the one the column draws, so a tab leaving a group lands at
+  the end of the loose tabs. A folded group's tabs are settled, so `tab.next`,
   `tab.prev` and `tab.select {index}` skip them, and its name shows how many, with an
   orange dot if one needs you; the shown tab stays out of the fold until you leave it.
   `shared("tabs.placement")` is `"top"` (the default) or `"right"`: one value, set by
@@ -144,7 +148,8 @@ the highlighted line shows where it will land.
   tab or folds a group, and Esc goes back to the terminal. It needs the column on
   screen, and otherwise fails with a toast. The list can't be scrolled from a mod, so
   a list too long for the column can leave the keyboard's row out of view.
-  A person right-clicks a tab or a group's name (the `tab-menu` mod), clicks a
+  A person right-clicks a tab or a group's name (the `tab-menu` mod: props `{ tabs, make: true }`
+  drafts a new group, which changes nothing until it's created), clicks a
   name to fold, drags a tab in or out of a group and a name to move the group,
   and Cmd-clicks (Ctrl-clicks) or Shift-clicks to pick several tabs. The bar or
   column makes room as a tab is carried; pulled far from it, the tab goes back
@@ -153,7 +158,7 @@ the highlighted line shows where it will land.
   tabs and stops at the ends; a trackpad scrolls. A terminal started with the label
   `zaki.group=<name>` lands in that group, made if it's new, once; after that its tab
   is the person's to move. For keys:
-  `tabs.group` (the picked tabs, or the shown one; asks for a name), `tabs.fold`,
+  `tabs.group` (the picked tabs, or the shown one; asks for a name and a color), `tabs.fold`,
   `tabs.ungroup`. They act on the shown tab and need the bar.
 - A **pane** is a terminal on screen, or a **mod** beside them (a markdown
   viewer, a board, a git panel): `pane.split {direction, mod, props}`. A
@@ -207,12 +212,21 @@ that starts a terminal or any installed agent, `new-menu`; a pane gets a frame
 and header once its tab is split; Files and Changes panels on the right, `files` and
 `changes`, opened from the tab bar's folder button, shown or hidden with `cmd-shift-b` (`ctrl-shift-j`)
 and remembered per space (which ones:
-shared `"workspace.panels"`, set by the welcome)), and as examples `terminals` ("Terminals": tabs in
+shared `"workspace.panels"`, set by the welcome and the switches in Settings > Look; one left out
+has no button or tab and can't stay open)), and as examples `terminals` ("Terminals": tabs in
 the title bar, panes as cards, a space picker) and `win98`
 ("Zaki 98": a whole desktop in one mod, `win98`). Add a layout by
 writing a new file. The Files panel shows the same tree as Changes, without its counts:
 each file has its language logo in the theme's color, or a short type tag where there is none,
-and supports Windows folder paths with spaces, parentheses and apostrophes.
+and supports Windows folder paths with spaces, parentheses and apostrophes. Right-click a file,
+a folder or the empty space under them (the `file-menu` mod, whose rows run `files.<id>`): New
+file (typed in the tree; `a/b.txt` makes the folder too), cd to directory (into the focused
+terminal, a shell only, clearing what's half typed), Open in new tab (a folder: a terminal there; a
+file, like Open in new pane: `tab.new {mod: "files", props: {file, on}}`, the read-only preview),
+Reveal (this machine only), Rename, Delete (always asks; moves to the Trash or Recycle Bin here and
+fails if it can't, deletes for good on another machine), Attach as context (pastes `@path` into a
+focused agent, the quoted path into anything else, and restores copied text), Copy path and Copy
+relative path (from the folder shown). The folder shown itself can't be renamed or deleted.
 
 The Changes panel shows the focused repo's diff by scope: Unstaged (with new
 files), Staged, Commit (a picked commit), Branch (from where it left a picked
@@ -795,10 +809,13 @@ has 120 programs (agents, editors, runtimes, tools, databases, infra);
 - Images and SVGs are referenced from `~/.config/zaki`:
   `image("mods/<name>/logo.svg")` (full color), `svg("mods/<name>/icon.svg")`
   (tinted with the text color). Zaki's interface icons are for every mod:
-  `svg("mods/workspace-chrome/icons/plus.svg")`, in any layout, shown or not.
+  `svg("mods/workspace-chrome/icons/plus.svg")`, in any layout, shown or not. They come in
+  three sizes, each a fixed step: 16 everywhere, 12 for the small arrows on pills and folders,
+  and 20 only inside a big tile, like the welcome screen's. Their art leaves a margin, so a logo
+  with none, from `icons/`, stays at 14 to look the same.
   Icon paths from before that folder still work for this release only.
 - The defaults are mods too, read them as examples: `spaces`, `agents`,
-  `tabs` (the tab bar), `tab-menu`, `tab-drag`, `menu`, `prompt`, `confirm`, `help`, `toast`,
+  `tabs` (the tab bar), `tab-menu`, `file-menu`, `tab-drag`, `menu`, `prompt`, `confirm`, `help`, `toast`,
   Terminals' `picker`, `peek`, and `pane` (an
   example pane header, not used by the default layouts), and `worktree`
   (git worktrees as spaces: the space menu's and the + menu's New worktree,
@@ -956,6 +973,9 @@ All of it is in `herdr.d.ts`. In short:
   returns an id; the mod gets `props().overlay` and closes itself with
   `closeOverlay(id)`; Esc closes the top dialog or popup. `frame: "none"`
   drops Zaki's border, corners and shadow so the mod draws its own.
+  A framed overlay gets its background, rounded corners, border and shadow from Zaki, and
+  dialogs and popups fade in by themselves: its mod paints no background of its own, or
+  square corners show over the rounded frame.
   `notify({ title, body, level, icon, timeout })` posts a notification, drawn by the `toast` mod.
 - Windows (`kind: "window"`): stay open until closed, over the layout and
   under dialogs; a press the mod doesn't stop drags it (stop it on your

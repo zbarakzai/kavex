@@ -275,7 +275,6 @@ export default class Palette extends View {
       .min_h(0)
       .p(18)
       .gap(10)
-      .bg(t.popover)
       .on_key_down((e, cx) => {
         const k = e.key;
         if (k === "escape") return this.close();

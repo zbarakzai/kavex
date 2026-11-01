@@ -575,6 +575,8 @@ fn local_state_and_overlay_initial_descriptions(cx: &mut TestAppContext) {
         ("mods/menu", json!({"tab":"space","target":{"id":"s1"}})),
         ("mods/tab-menu", json!({"tabs":["tab1"],"space":"s1","machine":null,"color":"ansi4","cwd":"/fixture/project"})),
         ("mods/tab-menu", json!({"tabs":["tab1"],"space":"s1","make":true})),
+        ("mods/file-menu", json!({"from":"files","dir":true,"root":false,"local":true})),
+        ("mods/file-menu", json!({"from":"files","dir":false,"root":false,"local":false})),
         ("mods/tab-drag", json!({})),
         ("mods/prompt", json!({"machines":true})),
         (

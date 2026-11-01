@@ -154,7 +154,7 @@ export default class Welcome extends View {
       .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
       .on_click(onClick)
       .child(label)
-      .when(Boolean(icon), (el) => el.child(svg(I(icon)).size(14)));
+      .when(Boolean(icon), (el) => el.child(svg(I(icon)).size(16)));
   }
 
   segment(t, items, now, onPick) {
@@ -217,7 +217,7 @@ export default class Welcome extends View {
     return h_flex()
       .gap(12)
       .items_start()
-      .child(div().flex_none().w(32).h(32).rounded(9).bg(t.raised).border_1().border_color(t.border).flex().items_center().justify_center().child(svg(I(icon)).size(icon === "layers" ? 14 : 15).text_color(t.accent)))
+      .child(div().flex_none().w(32).h(32).rounded(9).bg(t.raised).border_1().border_color(t.border).flex().items_center().justify_center().child(svg(I(icon)).size(20).text_color(t.accent)))
       .child(v_flex().flex_1().min_w(0).gap(3).child(div().text_size(13.5).font_semibold().text_color(t.foreground).child(title)).child(this.para(t, body)));
   }
 
@@ -301,7 +301,7 @@ export default class Welcome extends View {
       .items_center()
       .border_b(1)
       .border_color(t.border)
-      .child(svg(I(icon)).size(13).text_color(t.muted))
+      .child(svg(I(icon)).size(16).text_color(t.muted))
       .child(div().flex_1().min_w(0).truncate().text_size(13).text_color(t.foreground).child(name))
       .child(div().text_size(12).text_color(t.dim).child(note))
       .child(div().w(8).h(8).rounded(4).bg(ok ? t.ansi2 : t.dim));
@@ -333,7 +333,7 @@ export default class Welcome extends View {
               .hover((s) => s.bg(t.hover))
               .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
               .on_click(() => run("mod.open", { name: "machine-add" }))
-              .child(svg(I("plus")).size(15))
+              .child(svg(I("plus")).size(16))
               .child("Add a machine"),
           ),
       )
@@ -358,7 +358,7 @@ export default class Welcome extends View {
         this.togglePanel(p.id);
         cx.notify();
       })
-      .child(div().flex_none().w(32).h(32).rounded(9).bg(t.raised).border_1().border_color(t.border).flex().items_center().justify_center().child(svg(I(p.icon)).size(15).text_color(t.foreground)))
+      .child(div().flex_none().w(32).h(32).rounded(9).bg(t.raised).border_1().border_color(t.border).flex().items_center().justify_center().child(svg(I(p.icon)).size(20).text_color(t.foreground)))
       .child(
         v_flex()
           .flex_1()
@@ -469,7 +469,6 @@ export default class Welcome extends View {
       .id("welcome")
       .track_focus(this.handle)
       .size_full()
-      .bg(t.popover)
       .on_key_down((e, cx) => {
         const k = e.key;
         const m = e.modifiers;
@@ -513,7 +512,7 @@ export default class Welcome extends View {
               .hover((s) => s.bg(t.hover).text_color(t.foreground))
               .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
               .on_click(() => this.done("skipped"))
-              .child(svg(I("close")).size(14)),
+              .child(svg(I("close")).size(16)),
           ),
       )
       // A bar that always shows: a page taller than the window should look it.

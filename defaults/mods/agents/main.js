@@ -123,7 +123,6 @@ export default class Agents extends View {
     return v_flex()
       .w_full()
       .p(5)
-      .bg(t.popover)
       .text_size(12.8)
       .child(div().px(8).pt(4).pb(6).text_size(11).text_color(t.dim).child("Sort agents"))
       .children(SORTS.map((s) => h_flex()
@@ -139,9 +138,9 @@ export default class Agents extends View {
           setShared("agents.sort", s.id);
           closeOverlay(props().overlay);
         })
-        .child(svg(`mods/workspace-chrome/icons/${s.icon}.svg`).size(14).flex_none().text_color(t.muted))
+        .child(svg(`mods/workspace-chrome/icons/${s.icon}.svg`).size(16).flex_none().text_color(t.muted))
         .child(div().flex_1().child(s.label))
-        .when(s.id === on, (el) => el.child(svg("mods/workspace-chrome/icons/check.svg").size(14).flex_none().text_color(t.foreground)))));
+        .when(s.id === on, (el) => el.child(svg("mods/workspace-chrome/icons/check.svg").size(16).flex_none().text_color(t.foreground)))));
   }
 
   peek(addr) {
@@ -243,7 +242,7 @@ export default class Agents extends View {
           open ? this.folded.add(a.address) : this.folded.delete(a.address);
           cx.notify();
         })
-        .child(svg(`mods/workspace-chrome/icons/chevron-${open ? "down" : "right"}.svg`).size(11).flex_none())
+        .child(svg(`mods/workspace-chrome/icons/chevron-${open ? "down" : "right"}.svg`).size(12).flex_none())
         .when(!open, (el) => el.child(String(subs.length)));
     };
 
@@ -284,7 +283,7 @@ export default class Agents extends View {
           this.hovered = null;
           cx.notify();
         })
-        .child(svg(`mods/workspace-chrome/icons/${isPinned ? "unpin" : "pin"}.svg`).size(13));
+        .child(svg(`mods/workspace-chrome/icons/${isPinned ? "unpin" : "pin"}.svg`).size(16));
       return h_flex()
         .id(`ag-${a.address}`)
         .px(8)
@@ -352,7 +351,7 @@ export default class Agents extends View {
         .child(div().flex_1())
         .when(!open, (el) => el
           .when(top && top !== "idle", (el) => el.child(this.status(t, { status: top }, true)))
-          .child(svg("mods/workspace-chrome/icons/chevron-right.svg").size(11).flex_none().text_color(t.dim)));
+          .child(svg("mods/workspace-chrome/icons/chevron-right.svg").size(12).flex_none().text_color(t.dim)));
     };
     const rows = collapsed
       ? list.flatMap(withKids)
@@ -381,7 +380,7 @@ export default class Agents extends View {
                 .hover((s) => s.text_color(t.foreground))
                 .on_click(() => openOverlay({ mod: "agents", kind: "popup", width: 200, height: 140, props: { sortMenu: true } }))
                 .tooltip(`Sort agents: ${sort.label}`)
-                .child(svg(`mods/workspace-chrome/icons/${sort.icon}.svg`).size(14)),
+                .child(svg(`mods/workspace-chrome/icons/${sort.icon}.svg`).size(16)),
             ),
         ),
       )
@@ -391,7 +390,7 @@ export default class Agents extends View {
       .child(v_flex().id("ag-list").flex_1().min_h(0).gap(2).overflow_y_scrollbar().mode("always").children(rows))
       .when(collapsed, (el) =>
         el.child(h_flex().h(28).items_center().justify_center()
-          .child(div().id("collapse").text_size(13).text_color(t.dim).hover((s) => s.text_color(t.foreground)).on_click(toggleSidebar).child(svg("mods/workspace-chrome/icons/sidebar.svg").size(15)))),
+          .child(div().id("collapse").text_size(13).text_color(t.dim).hover((s) => s.text_color(t.foreground)).on_click(toggleSidebar).child(svg("mods/workspace-chrome/icons/sidebar.svg").size(16)))),
       );
   }
 }

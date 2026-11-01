@@ -35,7 +35,7 @@ export default class WorkspaceChrome extends View {
   // names show on hover, above the button: there's no room below the window's last line.
   action(id, icon, name, run, k, mark = false) {
     const button = div().id(id).relative().size(22).flex_none().flex().items_center().justify_center().rounded(7).text_color(k.muted).cursor_pointer()
-      .hover(s => s.bg(k.hover_strong).text_color(k.foreground)).on_click(run).child(svg(`mods/workspace-chrome/icons/${icon}.svg`).size(15))
+      .hover(s => s.bg(k.hover_strong).text_color(k.foreground)).on_click(run).child(svg(`mods/workspace-chrome/icons/${icon}.svg`).size(16))
       .when(mark, el => el.child(div().absolute().top(2).right(2).size(6).rounded_full().bg(k.accent)));
     return HoverCard.new(`tip-${id}`).anchor("bottom_center").open_delay(300).close_delay(0).trigger(button)
       .content(div().mb(6).px(9).py(5).rounded(8).bg(k.raised).border_1().border_color(k.border).shadow_md().text_size(12).text_color(k.foreground).whitespace_nowrap().child(name));
@@ -65,6 +65,6 @@ export default class WorkspaceChrome extends View {
         .child(div().flex_1().min_w(0).truncate().text_size(16).font_medium().text_color(t.foreground).child("Zaki"))
         .child(this.button("search", svg("mods/workspace-chrome/icons/search.svg").size(16), () => run("mod.open", { name: "picker" }), t)))
       // On the macOS rail the traffic lights fill the row; the agents list's » unfolds it.
-      .when(collapsed && !mac, el => el.child(this.button("sidebar-toggle", svg("mods/workspace-chrome/icons/sidebar.svg").size(15), toggleSidebar, t)));
+      .when(collapsed && !mac, el => el.child(this.button("sidebar-toggle", svg("mods/workspace-chrome/icons/sidebar.svg").size(16), toggleSidebar, t)));
   }
 }

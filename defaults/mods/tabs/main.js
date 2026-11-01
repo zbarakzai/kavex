@@ -1,8 +1,8 @@
 import { View, div, svg, image } from "gpui-kit";
 import { h_flex } from "gpui-base";
 import { spaces, panes, terminals, machines, run, openOverlay, closeOverlay, theme, window, shared, setShared, layout, settings, nextCommand, home as homeFolder } from "herdr";
-import { GAP, INNER, away, clicked, gathered, groupOf, home, labeled, landed, moves, nearest, pruned, runs, slots, stepped } from "./groups.js";
-import { look, groupHue, spaced, MONO } from "./look.js";
+import { GAP, INNER, away, clicked, columnOrder, gathered, groupOf, home, labeled, landed, moves, nearest, pruned, reopening, runs, slots, stepped } from "./groups.js";
+import { look, groupHue, tabHue, spaced, MONO } from "./look.js";
 
 function find(node, id) {
   if (node?.id === id) return node;
@@ -94,8 +94,9 @@ export default class Tabs extends View {
     if (!same(next, groups)) setShared("tab.groups", next);
     const paints = Object.fromEntries(Object.entries(colors).filter(([id]) => kept(id)));
     if (!same(paints, colors)) setShared("tab.colors", paints);
-    const order = space.tabs.map((c) => c.id);
-    if (ready(space.machine) && !this.drag && Date.now() > Math.max(this.hold, shared("tabs.hold") ?? 0)) for (const m of moves(order, gathered(order, next))) run("tab.move", m);
+    // In the column, the tabs' order is the one it draws. On the bar a group only stays together.
+    const order = space.tabs.map((c) => c.id), want = shared("tabs.placement") === "right" ? columnOrder(space.tabs, next) : gathered(order, next);
+    if (ready(space.machine) && !this.drag && Date.now() > Math.max(this.hold, shared("tabs.hold") ?? 0)) for (const m of moves(order, want)) run("tab.move", m);
     // Unfolded or left its group: back. A tab settled for any other reason stays settled.
     const out = away(space.tabs, next);
     for (const c of space.tabs) {
@@ -130,8 +131,17 @@ export default class Tabs extends View {
   }
 
   group(tabs, kind) {
-    setShared("tabs.picked", []);
-    this.menu({ tabs, make: true, space: spaces().find((p) => p.active)?.id }, kind);
+    this.menu({ tabs, make: true, space: spaces().find((p) => p.active)?.id, from: "group-picked" }, kind);
+  }
+
+  // A press on a button that opens a popup: a second one only shuts it (see `reopening`).
+  armed(_e, cx) {
+    cx.stop_propagation();
+    this.armedAt = Date.now();
+  }
+
+  unlessShut(id, act) {
+    return () => { if (!reopening(shared("popup.closed"), id, this.armedAt)) act(); };
   }
 
   fold(id, groups) {
@@ -270,7 +280,7 @@ export default class Tabs extends View {
   // An agent wears its own icon, anything else the terminal icon.
   glyph(program, k, on) {
     if (program?.agent && program.icon) return program.tint ? svg(program.icon).size(14).flex_none().text_color(k.muted) : image(program.icon).size(14).flex_none();
-    return svg("mods/workspace-chrome/icons/terminal.svg").size(14).flex_none().text_color(on ? k.accent : k.label);
+    return svg("mods/workspace-chrome/icons/terminal.svg").size(16).flex_none().text_color(on ? k.accent : k.label);
   }
 
   pill(c, v, tray, lifted) {
@@ -278,14 +288,15 @@ export default class Tabs extends View {
     const { program, cwd, name } = shows(c, v.ps);
     const picked = v.picked.length > 1 && v.picked.includes(c.id);
     const stop = (_e, cx) => cx.stop_propagation(), shown = c.active || lifted;
-    const dot = k.status[failed(c, v.ps, v.words)]?.dot;
+    const dot = k.status[failed(c, v.ps, v.words)]?.dot, hue = tabHue(k, v.s.colors[c.id]);
     return this.measured(h_flex().id(`tab-${c.id}`), c.id).relative().h(tray ? 28 : CHIP).flex_none().items_center().rounded(tray ? 9 : 11).text_size(13.5)
       .when(c.active, (el) => el.pl(11).pr(6).gap(7)).when(!c.active, (el) => el.px(tray ? 8 : 10).gap(6))
       .when(/^\d+$/.test(name), (el) => el.font_family(MONO).text_size(12))
-      .border(1).border_color(picked ? k.accent : shown ? k.chip_active_ring : "#00000000")
-      .when(Boolean(shown), (el) => el.bg(lifted ?? k.chip_active))
+      .border(1).border_color(picked ? k.accent : shown ? hue?.ring ?? k.chip_active_ring : "#00000000")
+      .when(Boolean(shown), (el) => el.bg(lifted ?? hue?.row ?? k.chip_active))
+      .when(!shown && Boolean(hue), (el) => el.bg(hue.row))
       .text_color(shown ? k.foreground : k.muted)
-      .when(!shown, (el) => el.hover((s) => s.bg(k.hover)))
+      .when(!shown, (el) => el.hover((s) => s.bg(hue?.ring ?? k.hover)))
       .on_mouse_down("left", (e, cx) => {
         cx.stop_propagation();
         this.pressed(e, { tabs: picked ? v.picked : [c.id] }, c.id);
@@ -300,7 +311,7 @@ export default class Tabs extends View {
       .child(div().max_w(170).truncate().child(c.zoomed ? `${name} Z` : name))
       .when(Boolean(dot), (el) => el.child(div().size(6).rounded(3).flex_none().bg(dot)))
       .when(c.active, (el) => el.child(h_flex().id(`close-${c.id}`).size(20).flex_none().items_center().justify_center().rounded(6).text_color(k.label).hover((s) => s.bg(k.hover_strong).text_color(k.foreground))
-        .on_mouse_down("left", stop).on_click((_e, cx) => { cx.stop_propagation(); run("tab.close", { id: c.id }); }).child(svg("mods/workspace-chrome/icons/close.svg").size(12))));
+        .on_mouse_down("left", stop).on_click((_e, cx) => { cx.stop_propagation(); run("tab.close", { id: c.id }); }).child(svg("mods/workspace-chrome/icons/close.svg").size(16))));
   }
 
   // A group's name: click folds, drag moves the whole group, right-click edits it.
@@ -338,7 +349,7 @@ export default class Tabs extends View {
       .when(now !== value, (el) => el.hover((s) => s.bg(k.hover_strong).text_color(k.foreground)))
       .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
       .on_click(() => setShared("tabs.placement", value))
-      .child(svg(`mods/workspace-chrome/icons/${icon}.svg`).size(14));
+      .child(svg(`mods/workspace-chrome/icons/${icon}.svg`).size(16));
     return h_flex().id("placement").flex_none().gap(2).p(3).items_center().rounded(999).bg(k.pill).border_1().border_color(k.pill_ring)
       .child(radio("top", "tabs-top")).child(radio("right", "tabs-right"));
   }
@@ -419,6 +430,8 @@ export default class Tabs extends View {
     this.syncColumn(root, panel);
     const right = shared("tabs.placement") === "right";
     const open = panel && !panel.hidden;
+    // A panel turned off (Settings) doesn't stay open, or come back by its key.
+    if (open && body && !enabled.includes(body.active)) run(...(enabled.length ? ["layout.select", { stack: "panel-body", child: enabled[0] }] : ["layout.hide", { id: "panel" }]));
     const folder = h_flex().id("panel-toggle").size(CHIP).flex_none().items_center().justify_center().rounded(10)
       .text_color(open ? k.foreground : k.muted).when(open, (el) => el.bg(k.card_border)).when(!open, (el) => el.hover((s) => s.bg(k.hover_strong).text_color(k.foreground)))
       .on_mouse_down("left", stop)
@@ -426,7 +439,7 @@ export default class Tabs extends View {
         if (open) return run("layout.hide", { id: "panel" });
         if (!enabled.includes(body?.active)) run("layout.select", { stack: "panel-body", child: enabled[0] });
         run("layout.show", { id: "panel" });
-      }).child(svg("mods/workspace-chrome/icons/folder.svg").size(15));
+      }).child(svg("mods/workspace-chrome/icons/folder.svg").size(16));
     const strip = h_flex().id("tab-scroll").flex_1().min_w(0).h_full().items_center().gap(GAP).overflow_x_scroll()
       .on_size_change((size) => { this.stripW = size.width / settings().zoom; })
       .children(bar.map((r, i) => this.roomed(r.group ? this.tray(r, v) : this.pill(r.tab, v), r.group ? `before:${r.group}` : r.tab.id, i === bar.length - 1 ? "end" : null)));
@@ -438,14 +451,14 @@ export default class Tabs extends View {
       .child(right ? this.current(shown, v) : strip)
       .when(!right && v.picked.length > 1, el => el.child(h_flex().id("group-picked").h(CHIP).px(10).flex_none().items_center().rounded(11)
         .border(1).border_color(k.accent).text_size(13.5).text_color(k.foreground).hover(s => s.bg(k.hover))
-        .on_mouse_down("left", stop).on_click(() => this.group(v.picked)).child(`Group ${v.picked.length} tabs`)))
+        .on_mouse_down("left", (e, cx) => this.armed(e, cx)).on_click(this.unlessShut("group-picked", () => this.group(v.picked))).child(`Group ${v.picked.length} tabs`)))
       .when(!right, (el) => el.child(h_flex().id("tab-new").size(28).flex_none().items_center().justify_center().rounded(8).text_color(k.muted).hover(s => s.bg(k.hover_strong).text_color(k.foreground))
-        .on_mouse_down("left", stop).on_click(() => openOverlay({ mod: "new-menu", kind: "popup", width: 250, height: 512 })).child(svg("mods/workspace-chrome/icons/plus.svg").size(14))))
+        .on_mouse_down("left", (e, cx) => this.armed(e, cx)).on_click(this.unlessShut("tab-new", () => openOverlay({ mod: "new-menu", kind: "popup", width: 250, height: 512, props: { from: "tab-new" } }))).child(svg("mods/workspace-chrome/icons/plus.svg").size(16))))
       .child(this.placement(k))
       .when(enabled.length > 0, (el) => el.child(folder))
       .when(w?.buttons, el => el.child(button("minimize", w.platform === "windows" ? svg("mods/workspace-chrome/icons/win-minimize.svg").size(16) : "−", () => run("window.minimize")))
         .child(button("maximize", w.platform === "windows" ? svg(`mods/workspace-chrome/icons/${w.maximized ? "win-restore" : "win-maximize"}.svg`).size(16) : "□", () => run("window.maximize")))
-        .child(button("close-window", w.platform === "windows" ? svg("mods/workspace-chrome/icons/win-close.svg").size(16) : svg("mods/workspace-chrome/icons/close.svg").size(13), () => run("window.close"))))
+        .child(button("close-window", w.platform === "windows" ? svg("mods/workspace-chrome/icons/win-close.svg").size(16) : svg("mods/workspace-chrome/icons/close.svg").size(16), () => run("window.close"))))
       .when(Boolean(d), el => el.child(this.ghost(v)));
   }
 }

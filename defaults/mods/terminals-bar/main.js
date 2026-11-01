@@ -88,7 +88,7 @@ function iconButton(id, icon, onClick) {
     .cursor_pointer()
     .hover((s) => s.bg(C.chip).text_color(C.text))
     .on_click(onClick)
-    .child(svg(`mods/workspace-chrome/icons/${icon}.svg`).size(icon === "plus" ? 15 : 16));
+    .child(svg(`mods/workspace-chrome/icons/${icon}.svg`).size(16));
 }
 
 export default class TerminalsBar extends View {
@@ -155,7 +155,7 @@ export default class TerminalsBar extends View {
           .text_color(C.dim)
           .hover((s) => s.text_color(C.text))
           .on_click(() => openOverlay({ mod: "picker", kind: "popup", at: "top", offset: 40, width: 640, height: 0.8 }))
-          .child(svg("mods/workspace-chrome/icons/stack.svg").size(15))
+          .child(svg("mods/workspace-chrome/icons/stack.svg").size(16))
           .child(div().max_w(160).truncate().text_color(C.text).child(space.name)),
       )
       .child(

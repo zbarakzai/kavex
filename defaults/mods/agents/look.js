@@ -20,6 +20,7 @@ export function look(t) {
   const group = (name, color) => ({
     text: t[`group_${name}`] ?? color,
     tint: t[`group_${name}_tint`] ?? soft(color, "12"),
+    row: t[`group_${name}_row`] ?? soft(color, "29"),
     ring: t[`group_${name}_ring`] ?? soft(color, "38"),
     card: t[`group_${name}_card`] ?? t.raised,
   });
@@ -77,6 +78,13 @@ export function look(t) {
 // Groups saved before there were three colors keep the nearest one. Never orange: that's "you".
 const NEAREST = { ansi4: "blue", ansi5: "violet", ansi6: "teal", ansi2: "teal" };
 export const groupHue = (k, color) => k.groups[color] ?? k.groups[NEAREST[color]] ?? k.groups.blue;
+
+// What fills a tab: its own color from "tab.colors", else its group's, if one was picked for the
+// group (`fill`): the color every group has by itself is only its name's. "none" keeps a tab clear.
+export function tabHue(k, color, group) {
+  if (color) return color === "none" ? null : groupHue(k, color);
+  return group?.fill ? groupHue(k, group.color) : null;
+}
 
 // GPUI has no letter spacing. Geist Mono is one width, so a gap between letters is exact.
 export function spaced(text, size, em) {
@@ -143,17 +151,17 @@ export function panelHeader(k, active) {
   const stop = (_e, cx) => cx.stop_propagation();
   const chip = ([id, label, icon]) => h_flex().id(`panel-${id}`).h(34).min_w(118).pl(11).pr(6).gap(7).flex_none().items_center().rounded(11).bg(k.selected).border_1().border_color(k.pill_ring)
     .text_size(13.5).text_color(k.foreground)
-    .child(svg(icon).size(15).flex_none())
+    .child(svg(icon).size(16).flex_none())
     .child(div().flex_1().child(label))
     .when(docked, (el) => el.child(h_flex().id(`panel-close-${id}`).size(20).flex_none().items_center().justify_center().rounded(6).text_color(k.label).hover((s) => s.bg(k.hover_strong).text_color(k.foreground))
-      .on_mouse_down("left", stop).on_click(() => run("layout.hide", { id: "panel" })).child(svg("mods/workspace-chrome/icons/close.svg").size(12))));
+      .on_mouse_down("left", stop).on_click(() => run("layout.hide", { id: "panel" })).child(svg("mods/workspace-chrome/icons/close.svg").size(16))));
   const other = ([id, label, icon]) => h_flex().id(`panel-${id}`).h(34).pl(11).pr(12).gap(7).flex_none().items_center().rounded(11).text_size(13.5).text_color(k.muted).hover((s) => s.bg(k.hover))
     .on_click(() => run("layout.select", { stack: "panel-body", child: id }))
-    .child(svg(icon).size(15).flex_none()).child(label);
+    .child(svg(icon).size(16).flex_none()).child(label);
   return h_flex().h(46).flex_none().px(6).gap(6).items_center()
     .child(h_flex().flex_1().min_w(0).gap(2).items_center()
       .children(PANELS.filter(([id]) => id === active || (docked && enabled.includes(id))).map((p) => (p[0] === active ? chip(p) : other(p)))))
     .when(docked, (el) => el.child(h_flex().id("panel-expand").size(30).flex_none().items_center().justify_center().rounded(8).text_color(k.muted).hover((s) => s.bg(k.hover_strong).text_color(k.foreground))
       .on_click(() => run("layout.resize", { id: "panel", px: full ? PANEL_WIDE : PANEL_FULL }))
-      .child(svg(`mods/workspace-chrome/icons/panel-${full ? "shrink" : "expand"}.svg`).size(14))));
+      .child(svg(`mods/workspace-chrome/icons/panel-${full ? "shrink" : "expand"}.svg`).size(16))));
 }

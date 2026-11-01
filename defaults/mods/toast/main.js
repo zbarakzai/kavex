@@ -18,7 +18,6 @@ export default class Toast extends View {
       .px(18)
       .gap(12)
       .items_center()
-      .bg(t.popover)
       .cursor_pointer()
       .hover((s) => s.bg(t.hover))
       .on_click(() => {

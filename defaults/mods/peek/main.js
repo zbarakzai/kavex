@@ -71,6 +71,6 @@ export default class Peek extends View {
           closeOverlay(overlay);
         }),
       )
-      .child(this.button(t, "close", svg("mods/workspace-chrome/icons/close.svg").size(12), () => closeOverlay(overlay)));
+      .child(this.button(t, "close", svg("mods/workspace-chrome/icons/close.svg").size(16), () => closeOverlay(overlay)));
   }
 }

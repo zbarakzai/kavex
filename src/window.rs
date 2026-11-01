@@ -35,6 +35,12 @@ const HANDLE: f32 = 6.0;
 // The three native buttons plus their trailing breathing room (also used by the tabs mod).
 const TRAFFIC_LIGHT_WIDTH: f32 = 64.0;
 
+// Every framed dialog and menu: one corner, and how it arrives.
+const OVERLAY_RADIUS: f32 = 14.0;
+const OVERLAY_OPENING: Duration = Duration::from_millis(160);
+const OVERLAY_RISE: f32 = 6.0;
+const SCRIM_OPACITY: f32 = 0.35;
+
 fn traffic_light_divider_inset(n: &Node, axis: Axis, index: usize, macos: bool, zoom: f32) -> f32 {
     if !macos || axis != Axis::Row || n.titlebar != Some(crate::layout::Titlebar::Layout) {
         return 0.0;
@@ -4009,7 +4015,7 @@ impl AppWindow {
                 .when(o.layout.is_none() && o.kind.modal_keys(), |d| d.key_context("Overlay"))
                 .when(sized(o.size.width), |d| d.w(w))
                 .when(sized(o.size.height), |d| if o.fit { d.max_h(h) } else { d.h(h) })
-                .when(!o.bare, |d| d.bg(c("popover")).border_1().border_color(c("border")).rounded(settings::z(8.0)).shadow_lg())
+                .when(!o.bare, |d| d.bg(c("popover")).border_1().border_color(c("border")).rounded(settings::z(OVERLAY_RADIUS)).shadow_lg())
                 .overflow_hidden()
                 .flex()
                 // Scroll, hover and cursor stop here, not on the pane behind.
@@ -4022,13 +4028,18 @@ impl AppWindow {
                     div()
                         .absolute()
                         .inset_0()
-                        .bg(hsla(0.0, 0.0, 0.0, 0.35))
+                        .bg(hsla(0.0, 0.0, 0.0, SCRIM_OPACITY))
                         .occlude()
                         .flex()
                         .items_center()
                         .justify_center()
                         .when(!o.modal, |d| d.on_mouse_down(MouseButton::Left, cx.listener(move |this, _, w, cx| this.close_overlay(&id, w, cx))))
-                        .child(body)
+                        .child(opening(body, &o.id))
+                        .with_animation(
+                            SharedString::from(format!("ov-scrim-{}", o.id)),
+                            Animation::new(OVERLAY_OPENING),
+                            |scrim, t| scrim.bg(hsla(0.0, 0.0, 0.0, SCRIM_OPACITY * t)),
+                        )
                         .into_any_element(),
                 ),
                 OverlayKind::Popup => {
@@ -4046,7 +4057,7 @@ impl AppWindow {
                                 let id = o.id.clone();
                                 move |this, _, w, cx| this.close_overlay(&id, w, cx)
                             }))
-                            .child(position_popup(at, body))
+                            .child(position_popup(at, opening(body, &o.id)))
                             .into_any_element(),
                     );
                 }
@@ -4178,7 +4189,16 @@ fn agent_name(app: &str) -> String {
     }
 }
 
-fn position_popup(at: Point<Pixels>, body: Stateful<Div>) -> Anchored {
+/// A dialog or menu fades in as it settles into place.
+fn opening(body: Stateful<Div>, id: &str) -> AnimationElement<Stateful<Div>> {
+    body.relative().with_animation(
+        SharedString::from(format!("ov-open-{id}")),
+        Animation::new(OVERLAY_OPENING).with_easing(ease_out_quint()),
+        |body, t| body.opacity(t).top(settings::z(OVERLAY_RISE * (t - 1.0))),
+    )
+}
+
+fn position_popup(at: Point<Pixels>, body: impl IntoElement) -> Anchored {
     anchored()
         .position(point(at.x.max(px(8.0)), at.y.max(px(8.0))))
         .snap_to_window_with_margin(px(8.0))

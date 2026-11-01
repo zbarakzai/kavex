@@ -174,6 +174,18 @@ export function columnRuns(tabs, groups) {
   return { loose, sections };
 }
 
+// The order the column draws, so `tab.next` and the number keys go top to bottom, and a tab
+// that leaves a group lands at the end of the loose tabs, not at some earlier place.
+export function columnOrder(tabs, groups) {
+  const { loose, sections } = columnRuns(tabs, groups);
+  return [...loose, ...sections.flatMap((s) => s.tabs)].map((c) => c.id);
+}
+
+// A press outside a popup closes it and still reaches what's under it, so the button that opened
+// the popup would open it again. `closed`: what a popup leaves in "popup.closed" as it goes, with
+// the name of its button (the `from` prop). Closed by this press: the button only shuts it.
+export const reopening = (closed, from, pressed) => closed?.from === from && closed.at >= pressed - 100;
+
 // A folded group still shows the shown tab, as the bar does.
 export const shownIn = (g, tabs) => (g.folded ? tabs.filter((c) => c.active) : tabs);
 
