@@ -198,6 +198,19 @@ the highlighted line shows where it will land.
   peek at it. The same click on a Markdown file opens it in the Files panel; any other
   file or URL goes to the system. Bare addresses refer to the machine of the terminal showing them;
   use `machine/address` for another machine. Names and non-live addresses aren't links.
+- **Session context**: in the agents list, a Claude Code row on this computer, and a Claude
+  sub-agent's, shows how full its session's context is, as a small percent between the name and the
+  time, orange from 90%. Clicking its logo opens a dropdown with the model running now, a context
+  bar with tokens used, the total and the percent, and input, output and cached tokens. It follows
+  the session while open, and neither focuses the agent nor folds anything; the chevron folds
+  sub-agents. The numbers come from Claude's own files on this computer, read through `sh`, and
+  each agent's are its own, even with several in one folder. Context is the newest message of the
+  agent's own conversation, so its helpers don't count, and `/compact` lowers it with Claude's next
+  message. The total comes from `claude -p "/context"`, which spends no tokens, once per model, and
+  is kept for a day in `shared("agents.limits")`; until then the dropdown shows tokens alone and the
+  row shows nothing. A new agent shows no percent and "No usage yet", and an unreadable session
+  shows no percent and no error. Nothing is sent over the network and no login is read. Any other
+  agent, and one on another machine, shows no percent, and its logo acts like its row.
 - **Agent navigation order** belongs to the mods. A mod displaying agents calls
   `setAgentOrder(list.map(a => a.address))` on render so `agent.next` /
   `agent.prev` follow its list.
