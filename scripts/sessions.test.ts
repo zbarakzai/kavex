@@ -585,8 +585,41 @@ test("an unreadable session shows no percent and no error", async () => {
   state.brokenExec = true;
   await ticks();
   expect(rowPercents(draw, "t1")).toEqual([]);
+});
+
+test("a session that can't be read claims nothing: its logo acts like the row, as for an agent with no numbers", async () => {
+  state.brokenExec = true;
+  const { draw } = await one([said({ id: "m1", read: 100000 })]);
+  expect(clicks(byId(draw(), "logo-t1")!)).toBeUndefined();
+  expect(state.stopped).toBe(0);
+  expect(state.opened).toEqual([]);
+
+  state.brokenExec = false;
+  changed(fileOf("one"));
+  await ticks();
   clicks(byId(draw(), "logo-t1")!);
-  expect(words((await dropdown()).draw())).toEqual(["No usage yet"]);
+  expect(state.stopped).toBe(1);
+  expect(words((await dropdown()).draw())).toContain("100k / 1M");
+});
+
+test("a Claude whose record can't be found claims nothing either", async () => {
+  const term = running("t1", 101);
+  state.terminals = [term];
+  state.agents = [listed(term)];
+  const { draw } = await open();
+  await ticks();
+  expect(rowPercents(draw, "t1")).toEqual([]);
+  expect(clicks(byId(draw(), "logo-t1")!)).toBeUndefined();
+  expect(state.opened).toEqual([]);
+});
+
+test("a dropdown already open keeps what it knew if its own read fails, and never says No usage yet", async () => {
+  const { draw } = await one([said({ id: "m1", read: 100000 })]);
+  clicks(byId(draw(), "logo-t1")!);
+  state.brokenExec = true;
+  const seen = words((await dropdown()).draw());
+  expect(seen).toContain("100k / 1M");
+  expect(seen).not.toContain("No usage yet");
 });
 
 test("a record that isn't JSON shows no percent and no error", async () => {

@@ -18,7 +18,7 @@ function money(cost) {
 }
 
 export function dropdown(t, session) {
-  if (session.state !== "ready") return div().w_full().p(12).text_size(12.8).text_color(t.muted).child(session.say ?? "No usage yet");
+  if (session.state !== "ready") return div().w_full().p(12).text_size(12.8).text_color(t.muted).child(session.say ?? "");
   const k = look(t);
   const { used, total, percent } = session.context;
   const known = percent !== undefined;

@@ -91,11 +91,12 @@ export default class Agents extends View {
     return text ? [div().flex_none().font_family(MONO).text_size(10).text_color(percent >= 90 ? t.blocked : k.label).child(text)] : [];
   }
 
-  // A logo with a session behind it opens its dropdown; any other is part of the row.
+  // A logo with a session it can read opens its dropdown; any other is part of the row, as an agent
+  // with no numbers is: `none` is both, and has nothing true to say.
   logo(a, inner) {
     return div()
       .id(`logo-${a.address}`)
-      .when(hasSession(a), (el) => el.cursor_pointer().on_click((_e, cx) => {
+      .when(hasSession(a) && this.sessions.shown(a.address).state !== "none", (el) => el.cursor_pointer().on_click((_e, cx) => {
         cx.stop_propagation();
         openOverlay({ mod: "agents", kind: "popup", width: 290, height: 190, props: { session: a.address, first: this.sessions.shown(a.address) } });
       }))
