@@ -94,6 +94,8 @@ pub struct TerminalView {
     link: Option<LinkTarget>,
     /// Right-clicks go to the program when it takes the mouse (Shift: the menu).
     pub right_click_to_program: bool,
+    /// An agent runs here.
+    pub agent: bool,
     grid: Rc<RefCell<Grid>>,
     focus: FocusHandle,
     was_focused: bool,
@@ -166,6 +168,7 @@ impl TerminalView {
             cwd: None,
             link: None,
             right_click_to_program: false,
+            agent: false,
             grid: Rc::new(RefCell::new(Grid {
                 vt: Vt::new(size_hint.0.max(2), size_hint.1.max(1)),
                 core: core.clone(),
@@ -1037,6 +1040,51 @@ enum RowOp {
     Text { x: usize, line: ShapedLine },
 }
 
+const BAR_RADIUS: f32 = 8.0;
+/// Above and below a bar's text. Agents pad their bars with whole rows or none, so a bar is
+/// drawn around its text and comes out the same height from every agent.
+const BAR_PADDING: f32 = 5.0;
+
+/// An agent's bar as one shape: columns `from..to` around the text in rows `top..bottom`.
+#[derive(Debug, PartialEq)]
+struct Bar {
+    from: usize,
+    to: usize,
+    top: usize,
+    bottom: usize,
+    color: vt::Rgb,
+}
+
+/// The agents' bars on screen. Each row's bar runs from its first bar cell to its last, so a cursor
+/// or selection inside doesn't split it, and rows that touch are one bar with one set of corners.
+fn agent_bars(rows: &[Rc<Vec<vt::Cell>>]) -> Vec<Bar> {
+    let mut bars: Vec<(Bar, Option<(usize, usize)>)> = Vec::new();
+    for (y, row) in rows.iter().enumerate() {
+        let (Some(from), Some(last)) = (row.iter().position(|c| c.bar), row.iter().rposition(|c| c.bar)) else {
+            continue;
+        };
+        let (to, color) = (last + 1, row[from].bg.unwrap_or_default());
+        let filled = row[from..to].iter().any(|c| !c.bar || !c.text.trim().is_empty());
+        match bars.last_mut() {
+            Some((bar, text)) if bar.bottom == y && bar.color == color && from < bar.to && bar.from < to => {
+                bar.from = bar.from.min(from);
+                bar.to = bar.to.max(to);
+                bar.bottom = y + 1;
+                if filled {
+                    *text = Some((text.map_or(y, |(top, _)| top), y + 1));
+                }
+            }
+            _ => bars.push((Bar { from, to, top: y, bottom: y + 1, color }, filled.then_some((y, y + 1)))),
+        }
+    }
+    bars.into_iter()
+        .map(|(bar, text)| {
+            let (top, bottom) = text.unwrap_or((bar.top, bar.bottom));
+            Bar { top, bottom, ..bar }
+        })
+        .collect()
+}
+
 /// A row's drawing: its backgrounds, merged into runs of one color, then its
 /// text in runs of one style (wide characters, sprites and icons on their own).
 fn row_ops(row: &[vt::Cell], cell: Size<Pixels>, window: &mut Window) -> Vec<RowOp> {
@@ -1044,12 +1092,12 @@ fn row_ops(row: &[vt::Cell], cell: Size<Pixels>, window: &mut Window) -> Vec<Row
     let mut ops = Vec::new();
     let mut x = 0;
     while x < row.len() {
-        let Some(bg) = row[x].bg else {
+        let Some(bg) = row[x].bg.filter(|_| !row[x].bar) else {
             x += 1;
             continue;
         };
         let start = x;
-        while x < row.len() && row[x].bg == Some(bg) {
+        while x < row.len() && row[x].bg == Some(bg) && !row[x].bar {
             x += 1;
         }
         ops.push(RowOp::Bg { from: start, to: x, color: hsla(bg) });
@@ -1203,6 +1251,12 @@ fn paint_grid(bounds: Bounds<Pixels>, grid: &Rc<RefCell<Grid>>, focused: bool, w
         painted.clear();
     }
     painted.truncate(frame.rows.len());
+    for bar in agent_bars(&frame.rows) {
+        let padding = px(BAR_PADDING);
+        let top = at(bar.from, bar.top) - point(px(0.0), padding);
+        let b = Bounds::new(top, size(cell.width * (bar.to - bar.from) as f32, cell.height * (bar.bottom - bar.top) as f32 + padding * 2.0));
+        window.paint_quad(fill(snap_box(b), hsla(bar.color)).corner_radii(px(BAR_RADIUS)));
+    }
     for (y, row) in frame.rows.iter().enumerate() {
         let fresh;
         let ops = if frame.all {
@@ -1380,6 +1434,7 @@ impl Render for TerminalView {
         self.grid.borrow_mut().link_spans = spans.unwrap_or_default();
         let grid = self.grid.clone();
         let grid_paint = self.grid.clone();
+        let agent = self.agent;
         let selection_view = cx.entity().downgrade();
         let (input_focus, input_view) = (self.focus.clone(), cx.entity());
         let ended = self.ended.clone().or_else(|| self.lost.then(|| "reconnecting to core…".to_owned()));
@@ -1459,6 +1514,7 @@ impl Render for TerminalView {
                     move |bounds, window, _cx| {
                         let mut g = grid.borrow_mut();
                         g.vt.set_theme(vt::theme());
+                        g.vt.set_agent(agent);
                         g.cell = cell;
                         g.scale = window.scale_factor();
                         let dev = device_cell(cell, g.scale);
@@ -1559,6 +1615,28 @@ impl Focusable for TerminalView {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn an_agents_bar_is_one_shape_whatever_is_inside_it() {
+        use super::*;
+        use std::rc::Rc;
+        let color = vt::Rgb(30, 30, 30);
+        // `#` a bar cell, `x` one with text, `c` a cursor, which isn't a bar cell.
+        let row = |text: &str| Rc::new(text.chars().map(|c| vt::Cell {
+            bar: matches!(c, '#' | 'x'),
+            bg: (c != ' ').then_some(color),
+            text: if c == 'x' { "x".to_owned() } else { String::new() },
+            ..Default::default()
+        }).collect::<Vec<_>>());
+        let shape = |from, to, top, bottom| Bar { from, to, top, bottom, color };
+        assert_eq!(agent_bars(&[row("    "), row(" xx ")]), [shape(1, 3, 1, 2)], "one row");
+        assert_eq!(agent_bars(&[row("####"), row("xx##"), row("####")]), [shape(0, 4, 1, 2)], "padded with blank rows");
+        assert_eq!(agent_bars(&[row("####"), row("#c##"), row("####")]), [shape(0, 4, 1, 2)], "a cursor alone counts as text");
+        assert_eq!(agent_bars(&[row("xx  "), row("xxxx")]), [shape(0, 4, 0, 2)], "a message of two rows");
+        assert_eq!(agent_bars(&[row("xxxx"), row("    "), row("xxxx")]), [shape(0, 4, 0, 1), shape(0, 4, 2, 3)], "a gap makes two");
+        assert_eq!(agent_bars(&[row("####"), row("####")]), [shape(0, 4, 0, 2)], "nothing in it stays whole");
+        assert!(agent_bars(&[row("    ")]).is_empty());
+    }
+
     #[test]
     fn mouse_buttons_only_follow_the_pane_that_took_each_press() {
         use super::*;

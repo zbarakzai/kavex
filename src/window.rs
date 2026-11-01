@@ -1851,9 +1851,14 @@ impl AppWindow {
     fn tell_term(&self, view: &Entity<TerminalView>, addr: &str, cx: &mut Context<Self>) {
         let cwd = self.cwds.get(addr).map(std::path::PathBuf::from);
         let to_program = self.live.get(addr).and_then(|r| r.pointer("/labels/zaki.right-click")).and_then(Value::as_str) == Some("program");
-        view.update(cx, |v, _| {
+        let agent = self.live.get(addr).and_then(|r| r.pointer("/program/agent")).and_then(Value::as_bool) == Some(true);
+        view.update(cx, |v, cx| {
             v.cwd = cwd;
             v.right_click_to_program = to_program;
+            if v.agent != agent {
+                v.agent = agent;
+                cx.notify();
+            }
         });
     }
 
