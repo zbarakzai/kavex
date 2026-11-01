@@ -7,7 +7,7 @@
 // each other's files; scripts/look.test.ts keeps them equal.
 
 import { createHash } from "crypto";
-import { exec, home, knownAgents, machines, readTextFile, setShared, shared, window } from "herdr";
+import { exec as execute, home, knownAgents, machines, readTextFile, setShared, shared, window } from "herdr";
 
 export const EVERY = 15 * 60_000;
 export const NEAR = 90;
@@ -28,6 +28,12 @@ const GO_WINDOWS = [["weekly", "This week"], ["rolling", "5 hours"], ["monthly",
 const titled = (word) => word.replaceAll("_", " ").replace(/^./, (c) => c.toUpperCase());
 // No email means nothing to match on, and two such accounts mustn't pass for one.
 const fingerprint = (...parts) => (parts[0] ? createHash("sha256").update(parts.join("|")).digest("hex").slice(0, 16) : undefined);
+
+// Turning Usage off ends a pass where it stands: nothing it had left to run gets started.
+async function exec(...call) {
+  if (shared("usage.enabled") === false || !shared("usage")?.era) throw new Error("usage was turned off");
+  return execute(...call);
+}
 
 // Claude writes its reset time for people, in the zone it was run in: "Nov 6 at 7:59pm (UTC)", or
 // only the time when that's today. The check asks for UTC so the answer doesn't depend on the machine.
@@ -208,6 +214,8 @@ async function opencodeKeys() {
 async function opencode() {
   let unreachable = false;
   for (const key of await opencodeKeys()) {
+    // Turning Usage off takes the consent back, and that can happen while the key is being read.
+    if (shared("usage.opencode") !== true) return null;
     try {
       const answer = await fetch("https://opencode.ai/zen/go/v1/usage", { headers: { Authorization: `Bearer ${key}`, Accept: "application/json", "User-Agent": "zaki-usage/1.0" } });
       if (answer.status === 401 || answer.status === 403) continue;
@@ -253,15 +261,20 @@ async function checkMachine(on, last, now) {
 
 export const checking = (usage, now) => Boolean(usage.startedAt) && now - usage.startedAt < BUSY;
 
-export async function checkUsage({ force = false } = {}) {
-  const last = shared("usage") ?? {}, now = Date.now();
+// `era` names one stretch of Usage being on, and goes with the numbers when it's turned off. A pass
+// saves only into the era it started in, so one from before can't bring cleared numbers back, even
+// with Usage on again. It isn't one mark per pass: a pass over a minute long has another start beside
+// it, and if that took away its right to save, checks that slow would never save at all.
+export async function checkUsage({ force = false, within = REUSE } = {}) {
+  const last = shared("usage") ?? {}, now = Date.now(), era = last.era ?? Math.random();
   if (shared("usage.enabled") === false) return;
   if (checking(last, now)) return;
-  if (!force && last.checkedAt && now - last.checkedAt < REUSE) return;
-  setShared("usage", { ...last, startedAt: now });
+  if (!force && last.checkedAt && now - last.checkedAt < within) return;
+  setShared("usage", { ...last, era, startedAt: now });
   const names = [...new Set([null, ...machines().map((machine) => machine.name)])];
   const results = await Promise.all(names.map((on) => checkMachine(on, last.entries ?? {}, now)));
-  setShared("usage", { checkedAt: Date.now(), entries: Object.assign({}, ...results) });
+  if (shared("usage.enabled") === false || shared("usage")?.era !== era) return;
+  setShared("usage", { era, checkedAt: now, entries: Object.assign({}, ...results) });
 }
 
 // A limit past its reset time has started over, whatever the last check said.
