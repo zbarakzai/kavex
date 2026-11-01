@@ -29,6 +29,8 @@ pub struct TextViewStyle {
     /// [`Self::on_text_color`] sets it, to let a table on an inverted surface
     /// show that surface.
     table_background: Option<Hsla>,
+    // HERDR: note, tip, important, warning, caution.
+    alerts: [Hsla; 5],
     is_dark: bool,
 }
 
@@ -48,6 +50,7 @@ impl PartialEq for TextViewStyle {
             && self.table_cell == other.table_cell
             && self.inline_code == other.inline_code
             && self.table_background == other.table_background
+            && self.alerts == other.alerts
             && self.is_dark == other.is_dark
     }
 }
@@ -91,6 +94,7 @@ impl TextViewStyle {
                 ..Default::default()
             },
             table_background: None,
+            alerts: [colors.primary; 5],
             is_dark,
         }
     }
@@ -198,6 +202,12 @@ impl TextViewStyle {
         self
     }
 
+    /// HERDR: sets the colors of alerts: note, tip, important, warning, caution.
+    pub fn with_alerts(mut self, colors: [Hsla; 5]) -> Self {
+        self.alerts = colors;
+        self
+    }
+
     /// Sets whether content-specific assets should use their dark variant.
     pub fn with_dark(mut self, is_dark: bool) -> Self {
         self.is_dark = is_dark;
@@ -268,6 +278,11 @@ impl TextViewStyle {
     /// fallback in [`Self::inline_code_highlight`] applies.
     pub fn inline_code(&self) -> HighlightStyle {
         self.inline_code
+    }
+
+    /// HERDR: the color of an alert's bar and title.
+    pub(crate) fn alert(&self, alert: crate::text::Alert) -> Hsla {
+        self.alerts[alert as usize]
     }
 
     /// Whether content-specific assets should use their dark variant.

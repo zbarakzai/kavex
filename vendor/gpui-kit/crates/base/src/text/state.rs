@@ -13,7 +13,8 @@ use web_time::Instant;
 
 use gpui::{
     App, AppContext as _, Bounds, Context, EntityId, FocusHandle, IntoElement, KeyBinding,
-    ListState, ParentElement as _, Pixels, Point, Render, SharedString, Styled as _, Task, Window,
+    ListOffset, ListState, ParentElement as _, Pixels, Point, Render, SharedString, Styled as _,
+    Task, Window,
     prelude::FluentBuilder as _, px,
 };
 
@@ -67,6 +68,28 @@ pub(super) enum TextViewFormat {
     Html,
 }
 
+/// HERDR: past this many blocks a reader measures only what shows. Below it the
+/// scrollbar is exact, for a few milliseconds per change or resize.
+const ALL_MEASURED_BLOCKS: usize = 200;
+
+/// HERDR: how tall a block of `bytes` of source will be, near enough for the
+/// scrollbar of a document whose blocks aren't all measured. Each one takes its
+/// real height as it shows.
+fn estimated_block_height(bytes: usize, font_size: Pixels, width: Pixels) -> Pixels {
+    let columns = (f32::from(width) / (f32::from(font_size) * 0.5)).max(20.);
+    let lines = (bytes as f32 / columns).ceil().max(1.);
+    font_size * (lines * 1.5 + 0.9)
+}
+
+/// HERDR: a heading in [`TextViewState::outline`].
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct OutlineEntry {
+    pub level: u8,
+    pub text: String,
+    /// What [`TextViewState::scroll_to_block`] takes.
+    pub block: usize,
+}
+
 /// The format of the text returned by
 /// [`TextViewState::selected_text`], which is also what copy writes to the
 /// clipboard.
@@ -112,6 +135,8 @@ pub struct TextViewState {
     /// Whether the last painted frame clipped content due to `max_lines`.
     pub(super) clamped: bool,
     pub(super) text_view_style: Arc<TextViewStyle>,
+    // HERDR: a replaced document keeps the reader's place.
+    keep_place: bool,
     pub(super) code_block_actions: Option<std::sync::Arc<CodeBlockActionsFn>>,
     pub(super) code_block_highlighter: Option<std::sync::Arc<CodeBlockHighlighterFn>>,
     pub(super) table_actions: Option<std::sync::Arc<TableActionsFn>>,
@@ -218,6 +243,7 @@ impl TextViewState {
             // scrollbar jitter as more blocks get measured during scrolling.
             list_state: ListState::new(0, gpui::ListAlignment::Top, px(1000.)).measure_all(),
             text_view_style: Arc::default(),
+            keep_place: false,
             code_block_actions: None,
             code_block_highlighter: None,
             table_actions: None,
@@ -255,6 +281,41 @@ impl TextViewState {
     /// Get the text content.
     pub(crate) fn source(&self) -> SharedString {
         self.parsed_content.document.source.clone()
+    }
+
+    /// HERDR: keep the scroll position when the text is replaced by text with
+    /// a different number of blocks, as a file reloaded from disk is.
+    pub fn set_keep_place(&mut self, keep_place: bool) {
+        self.keep_place = keep_place;
+    }
+
+    /// HERDR: the document's top-level headings.
+    pub fn outline(&self) -> Vec<OutlineEntry> {
+        self.parsed_content
+            .document
+            .blocks
+            .iter()
+            .enumerate()
+            .filter_map(|(block, node)| match node {
+                node::BlockNode::Heading {
+                    level, children, ..
+                } => Some(OutlineEntry {
+                    level: *level,
+                    text: children.text(),
+                    block,
+                }),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// HERDR: scrolls a block to the top of a scrollable view.
+    pub fn scroll_to_block(&mut self, block: usize, cx: &mut Context<Self>) {
+        self.list_state.scroll_to(ListOffset {
+            item_ix: block,
+            offset_in_item: px(0.),
+        });
+        cx.notify();
     }
 
     /// Set whether the text is selectable, default false.
@@ -371,7 +432,7 @@ impl TextViewState {
         self.stream_fade.set_motion(motion);
     }
 
-    pub(crate) fn set_markdown_extensions(
+    pub fn set_markdown_extensions(
         &mut self,
         markdown_extensions: Arc<MarkdownExtensions>,
         cx: &mut Context<Self>,
@@ -1083,6 +1144,29 @@ impl Render for TextViewState {
             body_font_size,
         };
 
+        let blocks = self.parsed_content.document.blocks.len();
+        if self.keep_place && self.scrollable && self.list_state.item_count() != blocks {
+            let top = self.list_state.logical_scroll_top();
+            if blocks > ALL_MEASURED_BLOCKS {
+                let size = window.text_style().font_size.to_pixels(window.rem_size());
+                self.list_state.measure_visible();
+                self.list_state.reset_with_uniform_height(
+                    blocks,
+                    estimated_block_height(
+                        self.parsed_content.document.source.len() / blocks,
+                        size,
+                        self.bounds.size.width,
+                    ),
+                );
+            } else {
+                self.list_state.reset(blocks);
+            }
+            self.list_state.scroll_to(ListOffset {
+                item_ix: top.item_ix.min(blocks.saturating_sub(1)),
+                ..top
+            });
+        }
+
         let content = v_flex()
             .w_full()
             // Clamped content must keep its natural height: stretching it to
@@ -1332,6 +1416,134 @@ fn parse_content(
     }
 
     Ok(content)
+}
+
+#[cfg(test)]
+mod reader_tests {
+    use gpui::{Entity, TestAppContext, VisualTestContext, div};
+
+    use super::*;
+    use crate::text::TextView;
+
+    struct Root {
+        state: Entity<TextViewState>,
+    }
+
+    impl Render for Root {
+        fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+            div()
+                .size_full()
+                .child(TextView::new(&self.state).scrollable(true))
+        }
+    }
+
+    fn sections(count: usize) -> String {
+        (0..count)
+            .map(|i| format!("## Section {i}\n\nText {i}.\n\n"))
+            .collect()
+    }
+
+    fn open<'a>(
+        text: &str,
+        keep_place: bool,
+        cx: &'a mut TestAppContext,
+    ) -> (Entity<TextViewState>, &'a mut VisualTestContext) {
+        cx.update(crate::init);
+        let (root, cx) = cx.add_window_view(|_, cx| Root {
+            state: cx.new(|cx| {
+                let mut state = TextViewState::markdown(text, cx);
+                state.set_keep_place(keep_place);
+                state
+            }),
+        });
+        settle(cx);
+        let state = root.read_with(cx, |root, _| root.state.clone());
+        (state, cx)
+    }
+
+    fn settle(cx: &mut VisualTestContext) {
+        cx.run_until_parked();
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+    }
+
+    /// A save that edits the top: text that only grew would be an append, which
+    /// never resets the list.
+    fn edited(count: usize) -> String {
+        format!("Intro.\n\n{}", sections(count))
+    }
+
+    fn jump_then_replace(
+        state: &Entity<TextViewState>,
+        block: usize,
+        text: &str,
+        cx: &mut VisualTestContext,
+    ) -> usize {
+        state.update(cx, |state, cx| state.scroll_to_block(block, cx));
+        settle(cx);
+        assert_eq!(top_block(state, cx), block);
+        state.update(cx, |state, cx| state.set_text(text, cx));
+        settle(cx);
+        top_block(state, cx)
+    }
+
+    fn top_block(state: &Entity<TextViewState>, cx: &mut VisualTestContext) -> usize {
+        state.read_with(cx, |state, _| state.list_state.logical_scroll_top().item_ix)
+    }
+
+    #[gpui::test]
+    fn a_reloaded_document_keeps_the_place(cx: &mut TestAppContext) {
+        let (state, cx) = open(&sections(50), true, cx);
+        assert_eq!(jump_then_replace(&state, 40, &edited(60), cx), 40);
+    }
+
+    #[gpui::test]
+    fn without_it_an_edited_text_goes_back_to_the_top(cx: &mut TestAppContext) {
+        let (state, cx) = open(&sections(50), false, cx);
+        assert_eq!(jump_then_replace(&state, 40, &edited(60), cx), 0);
+    }
+
+    #[gpui::test]
+    fn a_long_document_measured_as_it_shows_keeps_the_place(cx: &mut TestAppContext) {
+        let (state, cx) = open(&sections(150), true, cx);
+        assert_eq!(jump_then_replace(&state, 200, &edited(160), cx), 200);
+    }
+
+    #[gpui::test]
+    fn a_document_cut_short_keeps_a_place_inside_it(cx: &mut TestAppContext) {
+        let (state, cx) = open(&sections(50), true, cx);
+        assert!(jump_then_replace(&state, 40, &sections(5), cx) < 10);
+    }
+
+    #[gpui::test]
+    fn the_outline_lists_top_level_headings_by_block(cx: &mut TestAppContext) {
+        let (state, cx) = open("# One\n\nText\n\n> ## Quoted\n\n### Two `code`\n", true, cx);
+        let outline = state.read_with(cx, |state, _| state.outline());
+        assert_eq!(
+            outline
+                .iter()
+                .map(|entry| (entry.level, entry.text.as_str(), entry.block))
+                .collect::<Vec<_>>(),
+            [(1, "One", 0), (3, "Two code", 3)]
+        );
+    }
+}
+
+#[cfg(test)]
+mod estimate_tests {
+    use super::*;
+
+    #[test]
+    fn longer_blocks_and_narrower_views_are_taller() {
+        let height = |bytes, width| estimated_block_height(bytes, px(14.), px(width));
+        assert!(height(400, 600.) > height(40, 600.));
+        assert!(height(400, 300.) > height(400, 600.));
+        assert_eq!(height(0, 600.), height(1, 600.));
+    }
+
+    #[test]
+    fn a_view_not_laid_out_yet_still_gives_a_height() {
+        assert!(estimated_block_height(160, px(14.), px(0.)) > px(0.));
+    }
 }
 
 #[cfg(test)]

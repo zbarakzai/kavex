@@ -39,6 +39,65 @@ pub enum TerminalEvent {
     Ended,
     /// Right-click where the program doesn't take the mouse: the pane menu.
     ContextMenu(Point<Pixels>),
+    /// A Markdown file was opened: it shows in the Files panel.
+    Preview(PathBuf),
+}
+
+/// The Markdown files a terminal's text names, so they can look like links
+/// without anyone holding a key. Rows are read only when they change, and only
+/// past a cheap check for `.m`, so this costs a screen of source code nothing.
+#[derive(Default)]
+struct MarkdownRefs {
+    /// On another machine this disk says nothing about the files named.
+    remote: bool,
+    cwd: Option<PathBuf>,
+    /// Answers about the disk, kept briefly as output scrolls past at frame rate.
+    seen: HashMap<String, bool>,
+    since: Option<Instant>,
+}
+
+impl MarkdownRefs {
+    const REMEMBER: Duration = Duration::from_secs(3);
+
+    fn set_cwd(&mut self, cwd: Option<&std::path::Path>) {
+        if self.cwd.as_deref() != cwd {
+            self.cwd = cwd.map(PathBuf::from);
+            self.seen.clear();
+        }
+    }
+
+    fn exists(&mut self, word: &str) -> bool {
+        if self.since.is_none_or(|t| t.elapsed() > Self::REMEMBER) {
+            self.seen.clear();
+            self.since = Some(Instant::now());
+        }
+        if let Some(known) = self.seen.get(word) {
+            return *known;
+        }
+        let found = links::resolve(word, self.cwd.as_deref()).is_some();
+        self.seen.insert(word.to_owned(), found);
+        found
+    }
+
+    fn underline(&mut self, row: &[vt::Cell], ops: &mut Vec<RowOp>) {
+        if self.remote || !row.windows(2).any(|p| p[0].text == "." && matches!(p[1].text.as_str(), "m" | "M")) {
+            return;
+        }
+        let mut text = String::with_capacity(row.len());
+        // The column of each byte of `text`.
+        let mut cols = Vec::with_capacity(row.len());
+        for (x, c) in row.iter().enumerate() {
+            let shown = if c.text.is_empty() { " " } else { &c.text };
+            text.push_str(shown);
+            cols.resize(cols.len() + shown.len(), x);
+        }
+        for word in links::markdown_words(&text) {
+            if self.exists(&text[word.clone()]) {
+                let (from, to) = (cols[word.start], cols[word.end - 1] + 1);
+                ops.push(RowOp::Line { from, to, color: hsla(row[from].fg).opacity(0.55) });
+            }
+        }
+    }
 }
 
 /// What the canvas closures need, shared outside the entity so prepaint can resize.
@@ -61,6 +120,7 @@ struct Grid {
     images: HashMap<(u32, u64, [u32; 4]), Arc<RenderImage>>,
     /// Where the pointer is over the pane.
     hover: Option<Point<Pixels>>,
+    markdown: MarkdownRefs,
     /// The link under the pointer to underline: (row, first column, last column).
     link_spans: vt::Spans,
     /// Text an input method is still composing ("nihao" before "\u{4f60}\u{597d}"),
@@ -173,6 +233,7 @@ impl TerminalView {
                 buttons_down: Vec::new(),
                 images: HashMap::new(),
                 hover: None,
+                markdown: MarkdownRefs::default(),
                 link_spans: Vec::new(),
                 marked: None,
                 cursor_at: None,
@@ -587,6 +648,11 @@ impl TerminalView {
         self.grid.borrow().hover.is_some()
     }
 
+    /// On another machine, whose address says which.
+    fn remote(&self) -> bool {
+        self.address.contains('/')
+    }
+
     /// The link at a window position, and where it shows.
     fn link_at(&self, pos: Point<Pixels>) -> Option<(LinkTarget, vt::Spans)> {
         let g = self.grid.borrow();
@@ -599,6 +665,18 @@ impl TerminalView {
             {
                 target = Some(LinkTarget::External(link));
                 return Some(range);
+            }
+            if let Some(range) = links::markdown_word(text, at) {
+                let word = &text[range.clone()];
+                let link = if self.remote() {
+                    links::remote_path(word, self.cwd.as_deref()).map(links::Target::File)
+                } else {
+                    links::resolve(word, self.cwd.as_deref())
+                };
+                if let Some(link) = link {
+                    target = Some(LinkTarget::External(link));
+                    return Some(range);
+                }
             }
             let range = links::word(text, at)?;
             let address = crate::mods::terminal_address(&text[range.clone()], &self.address)?;
@@ -967,6 +1045,7 @@ pub fn cell_size(window: &Window) -> Size<Pixels> {
 /// One piece of a row's drawing, in cells from the row's start.
 enum RowOp {
     Bg { from: usize, to: usize, color: Hsla },
+    Line { from: usize, to: usize, color: Hsla },
     Sprite { x: usize, text: String, color: Hsla },
     Icon { x: usize, offset: Point<Pixels>, font: FontId, glyph: GlyphId, size: Pixels, color: Hsla },
     Text { x: usize, line: ShapedLine },
@@ -1130,18 +1209,24 @@ fn paint_grid(bounds: Bounds<Pixels>, grid: &Rc<RefCell<Grid>>, focused: bool, w
     // When every row changed (output scrolling), nothing is kept: the next
     // frame would find none of them the same.
     let mut painted = std::mem::take(&mut grid.borrow_mut().painted);
+    let mut markdown = std::mem::take(&mut grid.borrow_mut().markdown);
     if grid.borrow().painted_with != with || frame.all {
         painted.clear();
     }
     painted.truncate(frame.rows.len());
     for (y, row) in frame.rows.iter().enumerate() {
+        let mut build = |window: &mut Window| {
+            let mut ops = row_ops(row, cell, window);
+            markdown.underline(row, &mut ops);
+            ops
+        };
         let fresh;
         let ops = if frame.all {
-            fresh = row_ops(row, cell, window);
+            fresh = build(window);
             &fresh
         } else {
             if painted.get(y).is_none_or(|(r, _)| !Rc::ptr_eq(r, row)) {
-                let ops = row_ops(row, cell, window);
+                let ops = build(window);
                 if y < painted.len() {
                     painted[y] = (row.clone(), ops);
                 } else {
@@ -1156,6 +1241,10 @@ fn paint_grid(bounds: Bounds<Pixels>, grid: &Rc<RefCell<Grid>>, focused: bool, w
                     let b = Bounds::new(at(*from, y), size(cell.width * (to - from) as f32, cell.height));
                     window.paint_quad(fill(snap_box(b), *color));
                 }
+                RowOp::Line { from, to, color } => {
+                    let line = Bounds::new(at(*from, y) + point(px(0.0), cell.height - px(2.0)), size(cell.width * (to - from) as f32, px(1.0)));
+                    window.paint_quad(fill(snap_box(line), *color));
+                }
                 RowOp::Sprite { x, text, color } => crate::sprites::paint(text, Bounds::new(at(*x, y), cell), *color, window),
                 RowOp::Icon { x, offset, font, glyph, size, color } => {
                     let _ = window.paint_glyph(at(*x, y) + *offset, *font, *glyph, *size, *color);
@@ -1168,7 +1257,7 @@ fn paint_grid(bounds: Bounds<Pixels>, grid: &Rc<RefCell<Grid>>, focused: bool, w
     }
     {
         let mut g = grid.borrow_mut();
-        (g.painted, g.painted_with) = (painted, with);
+        (g.painted, g.painted_with, g.markdown) = (painted, with, markdown);
     }
 
     for &(y, x0, x1) in &link_spans {
@@ -1300,6 +1389,11 @@ impl Render for TerminalView {
         }
         let cell = cell_size(window);
         let hover = self.grid.borrow().hover;
+        {
+            let mut g = self.grid.borrow_mut();
+            g.markdown.remote = self.remote();
+            g.markdown.set_cwd(self.cwd.as_deref());
+        }
         let found = hover.filter(|_| link_mods(&window.modifiers())).and_then(|pos| self.link_at(pos));
         let (link, spans) = found.unzip();
         self.link = link;
@@ -1343,7 +1437,10 @@ impl Render for TerminalView {
                     && let Some((target, _)) = this.link_at(ev.position)
                 {
                     match target {
-                        LinkTarget::External(target) => links::open(&target),
+                        LinkTarget::External(target) => match links::markdown_file(&target) {
+                            Some(path) => cx.emit(TerminalEvent::Preview(path)),
+                            None => links::open(&target),
+                        },
                         LinkTarget::Terminal(address) => cx.emit(TerminalEvent::Peek(address)),
                     }
                     return;
@@ -1476,6 +1573,37 @@ impl Focusable for TerminalView {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn markdown_refs_underline_only_files_that_exist() {
+        let dir = std::env::temp_dir().join(format!("zaki-refs-{}", std::process::id()));
+        std::fs::create_dir_all(dir.join("docs")).unwrap();
+        std::fs::write(dir.join("README.md"), "").unwrap();
+        std::fs::write(dir.join("docs/plan.md"), "").unwrap();
+        let row = |text: &str| text.chars().map(|c| crate::vt::Cell { text: c.to_string(), ..Default::default() }).collect::<Vec<_>>();
+        let spans = |refs: &mut super::MarkdownRefs, text: &str| {
+            let mut ops = Vec::new();
+            refs.underline(&row(text), &mut ops);
+            ops.iter().filter_map(|op| match op {
+                super::RowOp::Line { from, to, .. } => Some((*from, *to)),
+                _ => None,
+            }).collect::<Vec<_>>()
+        };
+        let mut refs = super::MarkdownRefs::default();
+        refs.set_cwd(Some(&dir));
+        assert_eq!(spans(&mut refs, "see README.md and docs/plan.md."), [(4, 13), (18, 30)]);
+        assert_eq!(spans(&mut refs, "gone.md and main.rs"), []);
+        assert_eq!(spans(&mut refs, "nothing here"), []);
+        std::fs::write(dir.join("gone.md"), "").unwrap();
+        assert_eq!(spans(&mut refs, "gone.md"), [], "a recent answer stands for a moment");
+        refs.set_cwd(None);
+        assert_eq!(spans(&mut refs, "README.md"), [], "a relative name needs a folder");
+        refs.set_cwd(Some(&dir));
+        assert_eq!(spans(&mut refs, "gone.md"), [(0, 7)], "a new folder asks again");
+        refs.remote = true;
+        assert_eq!(spans(&mut refs, "gone.md"), [], "this disk can't speak for another machine");
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
     #[test]
     fn mouse_buttons_only_follow_the_pane_that_took_each_press() {
         use super::*;

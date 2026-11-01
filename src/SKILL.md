@@ -34,6 +34,17 @@ zaki do pane.split --direction right --pane p12
 zaki do agent.focus --terminal t7
 ```
 
+To show the person a Markdown file (a plan, a report), open it in the Files panel
+when asked. It renders there and follows the file as you save it:
+
+```sh
+zaki do file.preview --file plan.md
+```
+
+A relative path starts at the focused terminal's folder. Add `--on vps` for a file on
+another machine. Cmd-click (Ctrl-click) on a Markdown file's name in terminal text does the
+same, so naming a file that exists in your output lets the person open it themselves.
+
 Tab groups and colors belong to the person. `zaki do tabs.group`, `tabs.fold`,
 `tabs.ungroup` and `tabs.color` act on the shown tab, in layouts with the tab
 bar: use them only when asked. Folded tabs show `settled` in `ls`.

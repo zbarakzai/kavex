@@ -538,6 +538,149 @@ pub fn install(ctx: &Ctx<'_>, module: &Object<'_>, runtime: Weak<ShellRuntime>) 
         ),
     )?;
 
+    // HERDR: retained Markdown documents.
+    let create_markdown = runtime.clone();
+    globals.set(
+        "__markdown_state_new",
+        Func::from(
+            move |ctx: Ctx<'_>, json: String| -> JsResult<EntityHandle> {
+                refuse_creation_in_render(&ctx, "MarkdownState.new(...)")?;
+                let options: crate::markdown::MarkdownOptions = serde_json::from_str(&json)
+                    .map_err(|error| Exception::throw_type(&ctx, &error.to_string()))?;
+                let store = alive(&ctx, &create_markdown)?;
+                scope::with_current_app(|cx| {
+                    store
+                        .entities()
+                        .create_markdown(options, scope::current_application_generation(), cx)
+                        .map_err(|_| entity_limit_reached(&ctx))
+                })
+                .ok_or_else(|| needs_call(&ctx, "MarkdownState.new(...)"))?
+            },
+        ),
+    )?;
+
+    let write_markdown = runtime.clone();
+    globals.set(
+        "__markdown_set_value",
+        Func::from(
+            move |ctx: Ctx<'_>, handle: EntityHandle, value: String| -> JsResult<()> {
+                let document = live_markdown(&ctx, &write_markdown, handle)?;
+                scope::with_current_app(|cx| {
+                    document.state.update(cx, |state, cx| state.set_text(&value, cx));
+                })
+                .ok_or_else(|| needs_call(&ctx, "set_value()"))
+            },
+        ),
+    )?;
+
+    let look_markdown = runtime.clone();
+    globals.set(
+        "__markdown_set_look",
+        Func::from(
+            move |ctx: Ctx<'_>, handle: EntityHandle, json: String| -> JsResult<()> {
+                let spec: crate::markdown::LookSpec = serde_json::from_str(&json)
+                    .map_err(|error| Exception::throw_type(&ctx, &error.to_string()))?;
+                let look = crate::markdown::MarkdownLook::new(spec)
+                    .map_err(|error| Exception::throw_type(&ctx, &error.to_string()))?;
+                live_markdown(&ctx, &look_markdown, handle)?.set_look(look);
+                Ok(())
+            },
+        ),
+    )?;
+
+    let outline_markdown = runtime.clone();
+    globals.set(
+        "__markdown_outline",
+        Func::from(
+            move |ctx: Ctx<'_>, handle: EntityHandle| -> JsResult<String> {
+                let document = live_markdown(&ctx, &outline_markdown, handle)?;
+                let outline = scope::with_current_app(|cx| document.state.read(cx).outline())
+                    .ok_or_else(|| needs_call(&ctx, "outline()"))?;
+                let rows: Vec<_> = outline
+                    .into_iter()
+                    .map(|entry| {
+                        serde_json::json!({
+                            "level": entry.level,
+                            "text": entry.text,
+                            "block": entry.block,
+                        })
+                    })
+                    .collect();
+                Ok(serde_json::Value::Array(rows).to_string())
+            },
+        ),
+    )?;
+
+    let scroll_markdown = runtime.clone();
+    globals.set(
+        "__markdown_scroll_to",
+        Func::from(
+            move |ctx: Ctx<'_>, handle: EntityHandle, block: u32| -> JsResult<()> {
+                let document = live_markdown(&ctx, &scroll_markdown, handle)?;
+                scope::with_current_app(|cx| {
+                    document
+                        .state
+                        .update(cx, |state, cx| state.scroll_to_block(block as usize, cx));
+                })
+                .ok_or_else(|| needs_call(&ctx, "scroll_to()"))
+            },
+        ),
+    )?;
+
+    let find_markdown = runtime.clone();
+    globals.set(
+        "__markdown_find",
+        Func::from(
+            move |ctx: Ctx<'_>, handle: EntityHandle, query: String| -> JsResult<u32> {
+                let document = live_markdown(&ctx, &find_markdown, handle)?;
+                scope::with_current_app(|cx| document.find(&query, cx) as u32)
+                    .ok_or_else(|| needs_call(&ctx, "find()"))
+            },
+        ),
+    )?;
+
+    let step_markdown = runtime.clone();
+    globals.set(
+        "__markdown_find_step",
+        Func::from(
+            move |ctx: Ctx<'_>, handle: EntityHandle, by: i32| -> JsResult<u32> {
+                let document = live_markdown(&ctx, &step_markdown, handle)?;
+                scope::with_current_app(|cx| document.find_step(by, cx) as u32)
+                    .ok_or_else(|| needs_call(&ctx, "find_step()"))
+            },
+        ),
+    )?;
+
+    let discard_markdown = runtime.clone();
+    globals.set(
+        "__markdown_release",
+        Func::from(move |handle: EntityHandle| {
+            discard_markdown
+                .upgrade()
+                .is_some_and(|runtime| runtime.entities().release(handle))
+        }),
+    )?;
+
+    let markdown_element = runtime.clone();
+    globals.set(
+        "__markdown_element",
+        Func::from(
+            move |ctx: Ctx<'_>, handle: EntityHandle| -> JsResult<SpecId> {
+                let store = alive(&ctx, &markdown_element)?;
+                if store.entities().markdown(handle).is_none() {
+                    return Err(Exception::throw_type(
+                        &ctx,
+                        "this Markdown state has been released and can no longer be rendered",
+                    ));
+                }
+                Ok(store.push_component(Component::Markdown(crate::spec::MarkdownSpec {
+                    handle,
+                    policy: scope::policy(),
+                })))
+            },
+        ),
+    )?;
+
     // Sliders. A slider's value is retained for the same reason an input's
     // text is, and for one more: a drag writes it from a GPUI listener with no
     // script in the loop, so there is nowhere else it could live.
@@ -1282,6 +1425,17 @@ fn live_editor(
         .entities()
         .editor(handle)
         .ok_or_else(|| Exception::throw_type(ctx, "this editor state has been released"))
+}
+
+fn live_markdown(
+    ctx: &Ctx<'_>,
+    runtime: &Weak<ShellRuntime>,
+    handle: EntityHandle,
+) -> JsResult<std::rc::Rc<crate::markdown::MarkdownDocument>> {
+    alive(ctx, runtime)?
+        .entities()
+        .markdown(handle)
+        .ok_or_else(|| Exception::throw_type(ctx, "this Markdown state has been released"))
 }
 
 fn live_textarea(

@@ -1186,6 +1186,7 @@ pub(crate) mod exports {
         // HERDR: source editor exports in gpui-base.
         "Editor",
         "EditorState",
+        "MarkdownState",
         "Textarea",
         "TextView",
         "TextareaState",
@@ -7028,6 +7029,22 @@ globalThis.__gpui = (() => {
       },
     },
     Editor: { new: (state) => element(__editor_element(state.__handle)) },
+    // HERDR: a Markdown document kept with its parse, scroll and find.
+    MarkdownState: {
+      new: (options = {}) => {
+        const handle = __markdown_state_new(JSON.stringify(options));
+        return {
+          __handle: handle,
+          set_value: (value) => __markdown_set_value(handle, String(value)),
+          set_look: (look) => __markdown_set_look(handle, JSON.stringify(look)),
+          outline: () => JSON.parse(__markdown_outline(handle)),
+          scroll_to: (block) => __markdown_scroll_to(handle, Number(block)),
+          find: (query) => __markdown_find(handle, String(query)),
+          find_step: (by) => __markdown_find_step(handle, Number(by)),
+          release: () => __markdown_release(handle),
+        };
+      },
+    },
     TextareaState: {
       new: (options) =>
         textareaState(
@@ -7044,6 +7061,8 @@ globalThis.__gpui = (() => {
     TextView: {
       html: (id, text) => element(__text_view(String(id), String(text), "html")),
       markdown: (id, text) => element(__text_view(String(id), String(text), "markdown")),
+      // HERDR: a document kept in a MarkdownState.
+      state: (state) => element(__markdown_element(state.__handle)),
     },
     CalendarState: { new: () => calendarState(__calendar_state_new()) },
     SliderState: {

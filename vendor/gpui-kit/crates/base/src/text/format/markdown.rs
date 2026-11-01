@@ -975,6 +975,42 @@ fn new_span(pos: Option<markdown::unist::Position>, cx: &NodeContext) -> Option<
     })
 }
 
+/// HERDR: reads a blockquote's opening `[!NOTE]` line and takes it out of the
+/// text, moving the text's position past the marker so ranges stay right.
+fn take_alert(source: &str, children: &mut Vec<Node>) -> Option<node::Alert> {
+    let Some(Node::Paragraph(paragraph)) = children.first_mut() else {
+        return None;
+    };
+    let Some(Node::Text(text)) = paragraph.children.first_mut() else {
+        return None;
+    };
+    let (marker, rest) = text
+        .value
+        .split_once('\n')
+        .unwrap_or((text.value.as_str(), ""));
+    let alert = node::Alert::parse(marker.trim_end())?;
+    let rest = rest.trim_start_matches([' ', '\t', '\r']).to_string();
+    if rest.is_empty() {
+        paragraph.children.remove(0);
+        if paragraph.children.is_empty() {
+            children.remove(0);
+        }
+        return Some(alert);
+    }
+    if let Some(position) = &mut text.position {
+        let start = source.as_bytes()[position.start.offset..position.end.offset]
+            .iter()
+            .position(|byte| *byte == b'\n')
+            .map_or(position.end.offset, |at| position.start.offset + at);
+        let skipped = source[start..position.end.offset]
+            .find(|c: char| !matches!(c, ' ' | '\t' | '\r' | '\n' | '>'))
+            .unwrap_or(0);
+        position.start.offset = start + skipped;
+    }
+    text.value = rest;
+    Some(alert)
+}
+
 fn ast_to_node(source: &str, value: mdast::Node, cx: &mut NodeContext) -> BlockNode {
     let span = new_span(value.position().cloned(), cx);
     let parse_cx = MarkdownParseContext::new(source, cx.offset);
@@ -994,7 +1030,8 @@ fn ast_to_node(source: &str, value: mdast::Node, cx: &mut NodeContext) -> BlockN
             paragraph.span = new_span(val.position, cx);
             BlockNode::Paragraph(paragraph)
         }
-        Node::Blockquote(val) => {
+        Node::Blockquote(mut val) => {
+            let alert = take_alert(source, &mut val.children);
             let children = val
                 .children
                 .into_iter()
@@ -1003,6 +1040,7 @@ fn ast_to_node(source: &str, value: mdast::Node, cx: &mut NodeContext) -> BlockN
             BlockNode::Blockquote {
                 children,
                 span: new_span(val.position, cx),
+                alert,
             }
         }
         Node::List(list) => {
@@ -1160,6 +1198,43 @@ fn ast_to_node(source: &str, value: mdast::Node, cx: &mut NodeContext) -> BlockN
                 tracing::warn!("unsupported node: {:#?}", value);
             }
             BlockNode::Unknown
+        }
+    }
+}
+
+#[cfg(test)]
+mod alert_tests {
+    use super::*;
+
+    fn quote(source: &str) -> (Option<node::Alert>, String) {
+        let mut cx = NodeContext::default();
+        let document = parse(source, &mut cx).unwrap();
+        let [BlockNode::Blockquote { children, alert, .. }] = document.blocks.as_slice() else {
+            panic!("not one blockquote: {:?}", document.blocks);
+        };
+        let text = children.iter().map(BlockNode::text).collect::<String>();
+        (*alert, text)
+    }
+
+    #[test]
+    fn a_marker_on_its_own_line_makes_an_alert() {
+        let (alert, text) = quote("> [!WARNING]\n> Back up first.\n");
+        assert_eq!(alert, Some(node::Alert::Warning));
+        assert_eq!(text.trim(), "Back up first.");
+        assert_eq!(quote("> [!tip]\n> Try it.\n").0, Some(node::Alert::Tip));
+    }
+
+    #[test]
+    fn a_lone_marker_leaves_no_empty_paragraph() {
+        let (alert, text) = quote("> [!NOTE]\n>\n> Later.\n");
+        assert_eq!(alert, Some(node::Alert::Note));
+        assert_eq!(text.trim(), "Later.");
+    }
+
+    #[test]
+    fn other_quotes_stay_quotes() {
+        for source in ["> [!NOPE]\n> text\n", "> [!NOTE] text\n", "> plain\n"] {
+            assert_eq!(quote(source).0, None, "{source}");
         }
     }
 }

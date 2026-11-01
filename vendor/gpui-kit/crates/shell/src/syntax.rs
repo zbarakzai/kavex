@@ -39,6 +39,28 @@ impl SyntectHighlighter {
         })
     }
 
+    fn parse(&mut self, text: &str) {
+        let syntax = find_syntax(self.language.as_ref())
+            .unwrap_or_else(|| SYNTAX_SET.find_syntax_plain_text());
+        let mut parser = ParseState::new(syntax);
+        let mut scopes = ScopeStack::new();
+        let mut offset = 0;
+        self.highlights.clear();
+
+        for line in LinesWithEndings::from(text) {
+            if let Ok(operations) = parser.parse_line(line, &SYNTAX_SET) {
+                let mut cursor = 0;
+                for (index, operation) in operations {
+                    self.push_highlight(offset + cursor..offset + index, &scopes);
+                    let _ = scopes.apply(&operation);
+                    cursor = index;
+                }
+                self.push_highlight(offset + cursor..offset + line.len(), &scopes);
+            }
+            offset += line.len();
+        }
+    }
+
     fn push_highlight(&mut self, range: Range<usize>, scopes: &ScopeStack) {
         if range.is_empty() {
             return;
@@ -62,6 +84,45 @@ fn find_syntax(language: &str) -> Option<&'static SyntaxReference> {
         .or_else(|| SYNTAX_SET.find_syntax_by_extension(language))
 }
 
+/// HERDR: longer code than this shows plain: highlighting runs inside a frame.
+const MAX_BLOCK_BYTES: usize = 64 * 1024;
+
+pub(crate) fn preload() {
+    LazyLock::force(&SYNTAX_SET);
+}
+
+/// HERDR: the colored runs of one fenced code block.
+pub(crate) fn highlight_block(
+    language: &str,
+    code: &str,
+    styles: &SyntaxStyles,
+) -> Vec<(Range<usize>, HighlightStyle)> {
+    if code.len() > MAX_BLOCK_BYTES {
+        return Vec::new();
+    }
+    let Some(mut highlighter) = SyntectHighlighter::new(fence_language(language)) else {
+        return Vec::new();
+    };
+    highlighter.parse(code);
+    resolve_styles(&highlighter.highlights, &(0..code.len()), styles)
+}
+
+/// HERDR: what people write after a fence, in the names the syntaxes go by.
+fn fence_language(language: &str) -> &str {
+    match language.to_ascii_lowercase().as_str() {
+        "ts" | "tsx" | "typescript" | "jsx" | "mjs" | "cjs" | "mts" | "cts" | "javascript" => "js",
+        "shell" | "console" | "shellsession" | "zsh" | "fish" | "bash" => "sh",
+        "toml" | "yml" => "yaml",
+        "jsonc" | "json5" => "json",
+        "svelte" | "vue" => "html",
+        "rust" => "rs",
+        "python" => "py",
+        "golang" => "go",
+        "c++" => "cpp",
+        _ => language,
+    }
+}
+
 impl InputHighlighter for SyntectHighlighter {
     fn language(&self) -> SharedString {
         self.language.clone()
@@ -78,25 +139,7 @@ impl InputHighlighter for SyntectHighlighter {
         // `syntect` has no incremental mode, so the whole document is reparsed.
         // Read the rope once and reuse that string for folding too.
         let text = text.to_string();
-        let syntax = find_syntax(self.language.as_ref())
-            .unwrap_or_else(|| SYNTAX_SET.find_syntax_plain_text());
-        let mut parser = ParseState::new(syntax);
-        let mut scopes = ScopeStack::new();
-        let mut offset = 0;
-        self.highlights.clear();
-
-        for line in LinesWithEndings::from(&text) {
-            if let Ok(operations) = parser.parse_line(line, &SYNTAX_SET) {
-                let mut cursor = 0;
-                for (index, operation) in operations {
-                    self.push_highlight(offset + cursor..offset + index, &scopes);
-                    let _ = scopes.apply(&operation);
-                    cursor = index;
-                }
-                self.push_highlight(offset + cursor..offset + line.len(), &scopes);
-            }
-            offset += line.len();
-        }
+        self.parse(&text);
 
         self.fold_ranges = if folding {
             brace_fold_ranges(&text)
@@ -262,6 +305,28 @@ impl HighlightStyleResolver for SyntaxStyles {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn fences_highlight_by_the_names_people_write() {
+        let styles = SyntaxStyles::default();
+        for language in ["rust", "ts", "bash", "yml", "jsonc", "python"] {
+            let code = "true \"text\" 1";
+            let runs = highlight_block(language, code, &styles);
+            assert!(
+                runs.iter().any(|(_, style)| style.color.is_some()),
+                "{language}: {runs:?}"
+            );
+            assert_eq!(runs.last().map(|(range, _)| range.end), Some(code.len()));
+        }
+    }
+
+    #[test]
+    fn unknown_fences_and_huge_blocks_stay_plain() {
+        let styles = SyntaxStyles::default();
+        assert!(highlight_block("no-such-language", "x = 1", &styles).is_empty());
+        let huge = "let x = 1;\n".repeat(MAX_BLOCK_BYTES);
+        assert!(highlight_block("rust", &huge, &styles).is_empty());
+    }
 
     #[test]
     fn resolved_styles_cover_the_requested_range_without_gaps() {

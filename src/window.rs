@@ -1393,6 +1393,10 @@ impl AppWindow {
             let (block, addr) = (id.clone(), address.clone());
             let sub = cx.subscribe_in(&view, window, move |this, _, ev: &TerminalEvent, window, cx| match ev {
                 TerminalEvent::Peek(address) => this.peek_terminal(address, window, cx),
+                TerminalEvent::Preview(path) => {
+                    let on = addr.split_once('/').map(|(machine, _)| machine);
+                    this.run("file.preview", json!({ "file": path, "on": on }), window, cx);
+                }
                 TerminalEvent::TitleChanged => this.publish(cx),
                 TerminalEvent::Ended => this.terminal_ended(&block, window, cx),
                 TerminalEvent::ContextMenu(at) => {
@@ -3044,6 +3048,25 @@ impl AppWindow {
                 } else if let Some(w) = a.get("weight").and_then(Value::as_f64) {
                     n.size = Some(Span::Weight { weight: w as f32 });
                 }
+            }
+            "file.preview" => {
+                let focused = self.focused_terminal(window).map(|t| t.address.clone());
+                let machine = focused.as_deref().and_then(|t| t.split_once('/')).map(|(machine, _)| machine.to_owned());
+                let folder = focused.and_then(|t| self.cwds.get(&t).cloned());
+                let asked = Self::arg(a, "file").unwrap_or_default();
+                let path = folder.map_or_else(|| asked.into(), |f| std::path::Path::new(&f).join(asked));
+                let on = Self::owned(a, "on").or(machine);
+                let file = json!({ "file": path, "on": on });
+                let allowed = mods::shared("workspace.panels").and_then(|p| p.as_array().cloned()).is_none_or(|p| p.iter().any(|id| id == "files"));
+                let docked = allowed && self.chrome.find("panel-body").is_some_and(|n| n.find("files").is_some());
+                let shown = if docked {
+                    mods::set_shared("files.open".into(), file);
+                    self.run_as("layout.select", json!({ "stack": "panel-body", "child": "files" }), false, window, cx);
+                    self.run_as("layout.show", json!({ "id": "panel" }), false, window, cx)
+                } else {
+                    self.run_as("pane.split", json!({ "direction": "right", "mod": "files", "props": file }), false, window, cx)
+                };
+                self.reply = Some(shown);
             }
             "layout.reset" => {
                 let name = Self::owned(a, "name").unwrap_or_else(|| self.layout_name.clone());

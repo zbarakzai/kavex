@@ -219,6 +219,28 @@ impl std::fmt::Debug for TextViewSpec {
     }
 }
 
+// HERDR: a retained Markdown document, drawn under its script's authority like a TextView.
+#[derive(Clone)]
+pub(crate) struct MarkdownSpec {
+    pub(crate) handle: crate::entities::EntityHandle,
+    pub(crate) policy: Rc<crate::policy::Policy>,
+}
+
+impl std::fmt::Debug for MarkdownSpec {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("MarkdownSpec")
+            .field("handle", &self.handle)
+            .finish_non_exhaustive()
+    }
+}
+
+impl PartialEq for MarkdownSpec {
+    fn eq(&self, other: &Self) -> bool {
+        self.handle == other.handle && Rc::ptr_eq(&self.policy, &other.policy)
+    }
+}
+
 impl PartialEq for TextViewSpec {
     fn eq(&self, other: &Self) -> bool {
         self.id == other.id
@@ -236,6 +258,8 @@ pub(crate) enum Component {
     VFlex,
     Module(ModuleComponentSpec),
     TextView(TextViewSpec),
+    // HERDR: `TextView.state(markdownState)`.
+    Markdown(MarkdownSpec),
     /// A retained nested script view. The frozen description keeps the entity
     /// itself alive, so releasing the numeric handle cannot invalidate a frame
     /// that was already published.
@@ -676,6 +700,7 @@ impl Component {
             Component::VFlex => "v_flex",
             Component::Module(_) => "module_component",
             Component::TextView(_) => "TextView",
+            Component::Markdown(_) => "TextView",
             Component::ChildView(_) => "child_view",
             Component::Text(_) => "text",
             Component::Registered(component) => component.name(),
@@ -1384,6 +1409,7 @@ impl SpecArena {
                 out.push_str(&format!(" {:?} \u{d7}{}", spec.id(), spec.item_count()))
             }
             Component::ChildView(spec) => out.push_str(&format!(" #{}", spec.handle())),
+            Component::Markdown(spec) => out.push_str(&format!(" #{}", spec.handle)),
             Component::Slider(handle)
             | Component::SliderTrack(handle)
             | Component::SliderIndicator(handle)

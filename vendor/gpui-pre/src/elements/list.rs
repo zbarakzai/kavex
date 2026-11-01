@@ -338,6 +338,12 @@ impl ListState {
         self
     }
 
+    /// HERDR: measure only what shows from now on. Measuring everything costs a frame per
+    /// item after every change and resize, which a long document can't afford.
+    pub fn measure_visible(&self) {
+        self.0.borrow_mut().measuring_behavior = ListMeasuringBehavior::Visible;
+    }
+
     /// Pre-populate every unmeasured item with a uniform height hint so the scrollbar thumb
     /// is correctly sized from the first frame, without measuring all items up front.
     ///
