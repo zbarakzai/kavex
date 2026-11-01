@@ -90,7 +90,8 @@ pub fn markdown_words(text: &str) -> Vec<Range<usize>> {
                 // `//` is what's left of a URL once its scheme ended the last word.
                 let url = name.starts_with("//");
                 let file_link = url && text[..begin].ends_with(FILE_SCHEME);
-                if (!url || file_link) && is_markdown(Path::new(name)) {
+                // Without its slashes: Windows reads `//host/z.md` as a share, with no file name.
+                if (!url || file_link) && is_markdown(Path::new(name.trim_start_matches('/'))) {
                     let begin = if file_link { begin - FILE_SCHEME.len() } else { begin };
                     words.push(begin..from + word.len());
                 }
