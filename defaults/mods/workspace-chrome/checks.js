@@ -15,10 +15,14 @@ export const NEAR = 90;
 const REUSE = 60_000; // repeated clicks don't start the agents again
 const BUSY = 60_000; // a check that long ago was cut off, not still going
 const DAY = 24 * 3600_000;
+const WEEK = 7 * 1440; // minutes, as Codex counts its windows
 const HERE = "This computer";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-const CODEX_PLANS = { pro: "Pro 200", prolite: "Pro 100", promax: "Pro 500", team: "Business", self_serve_business_usage_based: "Business", self_serve_business_prolite: "Business Premium" };
+const CODEX_PLANS = {
+  pro: "Pro 200", prolite: "Pro 100", promax: "Pro 500", team: "Business", self_serve_business_usage_based: "Business", self_serve_business_prolite: "Business Premium",
+  ent26: "Enterprise", enterprise_cbp_automation: "Enterprise", enterprise_cbp_usage_based: "Enterprise", edu_plus: "Edu Plus", edu_pro: "Edu Pro", unknown: "",
+};
 const GO_WINDOWS = [["weekly", "This week"], ["rolling", "5 hours"], ["monthly", "This month"]];
 
 const titled = (word) => word.replaceAll("_", " ").replace(/^./, (c) => c.toUpperCase());
@@ -57,36 +61,40 @@ function claudeLimits(text, now) {
   return [...week, ...other, ...session];
 }
 
-const spanName = (minutes) => {
-  if (minutes === 300) return "5 hours";
-  if (minutes === 10080) return "This week";
-  return minutes % 1440 === 0 ? `${minutes / 1440} days` : `${Math.round(minutes / 60)} hours`;
-};
+function spanName(minutes) {
+  if (minutes === WEEK) return "This week";
+  const [count, unit] = minutes % 1440 === 0 ? [minutes / 1440, "day"] : minutes >= 60 ? [Math.round(minutes / 60), "hour"] : [minutes, "minute"];
+  return `${count} ${unit}${count === 1 ? "" : "s"}`;
+}
 
-// Answers to account/read and account/rateLimits/read. Every bucket counts: a model can have its
-// own allowance beside the general one.
+const rank = ({ span, model }) => (span === WEEK ? (model ? 1 : 0) : 2);
+
+// Answers to account/read and account/rateLimits/read. Every bucket counts: "codex" is the general
+// one, and a model can have its own beside it, with a window or two like the general one's.
 function codexReport(output) {
   const answers = {};
   for (const line of output.split("\n")) {
     try {
       const message = JSON.parse(line);
-      if (message.id) answers[message.id] = message.result;
+      if (message.id && !message.method) answers[message.id] = message.result;
     } catch {}
   }
   const account = answers[2]?.account, rates = answers[3];
   if (!answers[2]) throw new Error("no answer from codex");
   if (account?.type !== "chatgpt") return null;
   if (!rates) throw new Error("no limits from codex");
-  const buckets = Object.values(rates.rateLimitsByLimitId ?? {});
-  const limits = (buckets.length ? buckets : [rates.rateLimits]).flatMap((bucket) =>
-    [bucket?.primary, bucket?.secondary].filter(Boolean).map((window) => ({
-      span: window.windowDurationMins ?? 0,
-      label: bucket.limitName ?? spanName(window.windowDurationMins ?? 0),
-      used: Math.round(window.usedPercent ?? 0),
-      resetsAt: window.resetsAt ? window.resetsAt * 1000 : null,
-    })));
-  limits.sort((a, b) => b.span - a.span);
-  return { plan: CODEX_PLANS[account.planType] ?? titled(account.planType ?? ""), who: fingerprint(account.email, account.planType), limits: limits.map(({ span, ...limit }) => limit) };
+  const buckets = Object.entries(rates.rateLimitsByLimitId ?? {});
+  const limits = (buckets.length ? buckets : [["codex", rates.rateLimits]]).flatMap(([id, bucket]) => {
+    const model = id === "codex" ? null : bucket?.limitName ?? titled(id);
+    return [bucket?.primary, bucket?.secondary].filter(Boolean).map((window) => {
+      const span = window.windowDurationMins ?? 0, name = span ? spanName(span) : null;
+      const label = !model ? name ?? "Limit" : !name || span === WEEK ? model : `${model} · ${name}`;
+      return { span, model, label, used: Math.round(window.usedPercent ?? 0), resetsAt: window.resetsAt ? window.resetsAt * 1000 : null };
+    });
+  });
+  if (!limits.length) throw new Error("no limits from codex");
+  limits.sort((a, b) => rank(a) - rank(b) || b.span - a.span || Boolean(a.model) - Boolean(b.model));
+  return { plan: CODEX_PLANS[account.planType] ?? titled(account.planType ?? ""), who: fingerprint(account.email, account.planType), limits: limits.map(({ label, used, resetsAt }) => ({ label, used, resetsAt })) };
 }
 
 // Go's answer nests the windows under "usage"; another deployment spells them "<window>Usage".
@@ -115,18 +123,24 @@ async function shellPath(on) {
   }
 }
 
-function inShell(on, path, posix, powershell) {
+function inShell({ on, path }, posix, powershell) {
   if (windows(on)) return exec("powershell", ["-NoLogo", "-NoProfile", "-Command", powershell]);
   return exec("sh", ["-c", `[ -n "$1" ] && PATH="$1" && export PATH; ${posix}`, "sh", path], { on });
 }
 
-// `--setting-sources=` keeps the person's hooks and plugins out of a check that runs every 15 minutes.
-const CLAUDE_USAGE = "claude -p /usage --output-format json --no-session-persistence --strict-mcp-config --setting-sources=";
+// programs.json's `run` is the person's, so it reaches a shell as words and never as script. PowerShell
+// also ends a quoted string at a curly quote.
+const posixWords = (run) => run.map((word) => (/^[\w@%+:,./-]+$/.test(word) ? word : `'${word.replaceAll("'", `'\\''`)}'`)).join(" ");
+const powershellWords = (run) => run.map((word) => `'${word.replace(/['‘’‚‛]/g, "$&$&")}'`).join(" ");
 
-async function claude(on, path, now) {
-  const auth = JSON.parse((await inShell(on, path, "claude auth status", "claude auth status")).stdout);
+// `--setting-sources=` keeps the person's hooks and plugins out of a check that runs every 15 minutes.
+const CLAUDE_USAGE = "-p /usage --output-format json --no-session-persistence --strict-mcp-config --setting-sources=";
+
+async function claude(where, now) {
+  const posix = posixWords(where.run), powershell = `& ${powershellWords(where.run)}`;
+  const auth = JSON.parse((await inShell(where, `${posix} auth status`, `${powershell} auth status`)).stdout);
   if (!auth.loggedIn || auth.authMethod !== "claude.ai") return null;
-  const usage = await inShell(on, path, `env TZ=UTC ${CLAUDE_USAGE}`, `$env:TZ='UTC'; ${CLAUDE_USAGE}`);
+  const usage = await inShell(where, `env TZ=UTC ${posix} ${CLAUDE_USAGE}`, `$env:TZ='UTC'; ${powershell} ${CLAUDE_USAGE}`);
   const limits = claudeLimits(JSON.parse(usage.stdout).result ?? "", now);
   if (!limits.length) throw new Error("no limits from claude");
   return { plan: titled(auth.subscriptionType ?? ""), who: fingerprint(auth.email, auth.orgId), limits };
@@ -140,15 +154,15 @@ const CODEX_REQUESTS = [
 ].map((request) => JSON.stringify(request));
 
 // The server stops answering once its input ends, so the input stays open until the last answer is in.
-const CODEX_POSIX = `out=$(mktemp) || exit 1
+const codexPosix = (run) => `out=$(mktemp) || exit 1
 { printf '%s\\n' ${CODEX_REQUESTS.map((line) => `'${line}'`).join(" ")}
   i=0; while [ $i -lt 75 ] && ! grep -q '"id":3' "$out"; do sleep 0.2; i=$((i+1)); done
-} | codex -s read-only -a never app-server >"$out" 2>/dev/null
+} | ${posixWords(run)} -s read-only -a never app-server >"$out" 2>/dev/null
 cat "$out"; rm -f "$out"`;
-const CODEX_WINDOWS = `& { ${CODEX_REQUESTS.map((line) => `'${line}'`).join("; ")}; Start-Sleep 6 } | codex -s read-only -a never app-server 2>$null`;
+const codexWindows = (run) => `& { ${CODEX_REQUESTS.map((line) => `'${line}'`).join("; ")}; Start-Sleep 6 } | & ${powershellWords(run)} -s read-only -a never app-server 2>$null`;
 
-async function codex(on, path) {
-  return codexReport((await inShell(on, path, CODEX_POSIX, CODEX_WINDOWS)).stdout);
+async function codex(where) {
+  return codexReport((await inShell(where, codexPosix(where.run), codexWindows(where.run))).stdout);
 }
 
 async function opencodeKeys() {
@@ -192,7 +206,7 @@ const CHECKS = {
   claude,
   codex,
   // The key can't leave for another machine's sake: OpenCode is checked on this computer only.
-  opencode: (on) => (on ? null : opencode()),
+  opencode: ({ on }) => (on ? null : opencode()),
 };
 
 async function checkMachine(on, last, now) {
@@ -208,7 +222,7 @@ async function checkMachine(on, last, now) {
     const id = `${agent.key}|${on ?? ""}`, base = { agent: agent.key, name: agent.name, icon: agent.icon, tint: agent.tint, machine: on };
     if (agent.key === "opencode" && shared("usage.opencode") !== true) return shared("usage.opencode") === false ? null : [id, { ...base, ask: true, limits: [] }];
     try {
-      const report = await CHECKS[agent.key](on, path, now);
+      const report = await CHECKS[agent.key]({ on, path, run: agent.run }, now);
       return report && [id, { ...base, ...report, checkedAt: now }];
     } catch {
       return [id, last[id] ? { ...last[id], failed: true } : { ...base, limits: [], failed: true }];

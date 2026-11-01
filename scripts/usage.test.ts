@@ -1,12 +1,15 @@
 import { test, expect, mock, beforeEach, afterEach, setSystemTime } from "bun:test";
-import { readFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 // The real footer button, popover and checks, with only the outside world faked: what `exec`,
 // `knownAgents` and `machines` answer, and what's in shared storage. All data here is made up.
 //
 // To teach it a new agent, add its commands to `state.says` (a piece of the command line, and what
-// comes back) and its entry to `state.agents`, by machine ("" is this computer). `state.answers`
-// is the same for `fetch`, by address: anything unlisted fails, so no test reaches the network.
+// comes back) and its entry to `state.agents`, by machine ("" is this computer). A machine with its
+// own table in `state.on` answers from that instead. `state.answers` is the same for `fetch`, by
+// address: anything unlisted fails, so no test reaches the network.
 type El = { calls: [string, any[]][]; kids: any[]; hover?: El };
 function make(): any {
   const el: El = { calls: [], kids: [] };
@@ -31,9 +34,12 @@ const handler = (e: El, name: string) => e.calls.find(([k]) => k === name)?.[1].
 const paths = (root: El) => all(root).map((e) => arg(e, "path")).filter(Boolean);
 const icon = (path: string) => { const s = make(); s.el.calls.push(["path", [path]]); return s; };
 
-type Reply = string | Error | { code?: number; stdout?: string; stderr?: string } | (() => Reply | Promise<Reply>) | Promise<Reply>;
+type Asked = { args: string[]; on: string | null };
+type Reply = string | Error | { code?: number; stdout?: string; stderr?: string } | ((asked: Asked) => Reply | Promise<Reply>) | Promise<Reply>;
 let state: {
   says: Record<string, Reply>;
+  on: Record<string, Record<string, Reply>>;
+  platform: string;
   agents: Record<string, any[] | Error>;
   machines: { name: string | null; layout: string }[];
   runs: { line: string; on: string | null }[];
@@ -53,12 +59,13 @@ let state: {
 const colors = JSON.parse(readFileSync(new URL("../defaults/themes/zaki.json", import.meta.url), "utf8")).colors;
 
 async function exec(command: string, args: string[] = [], options: { on?: string | null } = {}) {
-  const line = [command, ...args].join(" ");
-  state.runs.push({ line, on: options.on ?? null });
-  const piece = Object.keys(state.says).find((said) => line.includes(said));
+  const line = [command, ...args].join(" "), on = options.on ?? null;
+  state.runs.push({ line, on });
+  const says = state.on[on ?? ""] ?? state.says;
+  const piece = Object.keys(says).find((said) => line.includes(said));
   if (piece === undefined) throw new Error(`nothing fakes: ${line}`);
-  let reply: Reply = state.says[piece];
-  while (typeof reply === "function" || reply instanceof Promise) reply = await (typeof reply === "function" ? reply() : reply);
+  let reply: Reply = says[piece];
+  while (typeof reply === "function" || reply instanceof Promise) reply = await (typeof reply === "function" ? reply({ args, on }) : reply);
   if (reply instanceof Error) throw reply;
   return typeof reply === "string" ? { code: 0, stdout: reply, stderr: "" } : { code: 0, stdout: "", stderr: "", ...reply };
 }
@@ -86,7 +93,7 @@ mock.module("herdr", () => ({
   props: () => state.props,
   theme: () => colors,
   settings: () => ({ zoom: 1 }),
-  window: () => ({ platform: "macos" }),
+  window: () => ({ platform: state.platform }),
   home: () => "/home/person",
   readTextFile: async () => null,
   layout: () => ({ id: "root", children: [{ id: "sidebar", size: { px: state.sidebar } }] }),
@@ -177,6 +184,8 @@ beforeEach(() => {
   ticks.length = 0;
   state = {
     says: {},
+    on: {},
+    platform: "macos",
     agents: {},
     machines: [{ name: null, layout: "ready" }],
     runs: [],
@@ -592,4 +601,245 @@ test("the line beside the buttons gives up the gauge's width", () => {
   const letters = words(footer().draw()).filter((word) => word.length === 1).join("").replaceAll(" ", " ");
   // 25 letters fitted beside two buttons: 22 px more at 5.9 px a letter takes four.
   expect(letters).toBe("THIS COM… · 12 AGENTS");
+});
+
+const CODEX = { ...CLAUDE, key: "codex", name: "Codex", icon: "icons/codex.svg", run: ["codex"] };
+const PRO = { type: "chatgpt", email: "someone@example.test", planType: "prolite" };
+const window_ = (usedPercent: number, windowDurationMins: number | null, inHours: number) => ({ usedPercent, windowDurationMins, resetsAt: NOW / 1000 + inHours * 3600 });
+const bucket = (limitId: string | null, limitName: string | null, primary: any, secondary: any = null) => ({ limitId, limitName, primary, secondary, credits: null, planType: "prolite" });
+const GENERAL = bucket("codex", null, window_(33.4, 300, 3.5), window_(12.4, 10080, 127));
+const SPARK = bucket("codex_spark", "GPT-5-Spark", window_(30, 300, 1), window_(20, 10080, 30));
+const RATES = { rateLimits: GENERAL, rateLimitsByLimitId: { codex_spark: SPARK, codex: GENERAL } };
+
+// What `codex app-server` prints: an answer per request, and news nobody asked for between them.
+const codexSays = (account: any, rates: any = RATES) => [
+  { id: 1, result: { userAgent: "made-up/0" } },
+  { method: "configWarning", params: { summary: "made up" } },
+  { id: 2, result: { account, requiresOpenaiAuth: !account } },
+  rates ? { id: 3, result: rates } : { error: { code: -32600, message: "sign in first" }, id: 3 },
+].map((line) => JSON.stringify(line)).join("\n") + "\n";
+
+function codex(account: any = PRO, rates: any = RATES) {
+  state.agents[""] = [CODEX];
+  state.says["printenv PATH"] = "/made/up/bin:/usr/bin\n";
+  state.says["app-server"] = codexSays(account, rates);
+}
+
+test("a Codex subscription shows its tier and every limit: weekly, then a model's own, then shorter ones", async () => {
+  codex();
+  const { popover } = await opened();
+  const root = popover.draw();
+  expect(paths(root)).toContain("icons/codex.svg");
+  expect(words(root)).toEqual(expect.arrayContaining(["Codex", "Pro 100"]));
+  expect(limits(root).map((limit) => words(limit))).toEqual([
+    ["This week", "12%", "resets in 5d 7h"],
+    ["GPT-5-Spark", "20%", "resets in 1d 6h"],
+    ["5 hours", "33%", "resets in 3h 30m"],
+    ["GPT-5-Spark · 5 hours", "30%", "resets in 1h 0m"],
+  ]);
+});
+
+test("a Codex answer with one bucket and no list of them still shows its limits", async () => {
+  codex(PRO, { rateLimits: GENERAL, rateLimitsByLimitId: null });
+  const { popover } = await opened();
+  expect(limits(popover.draw()).map((limit) => words(limit)[0])).toEqual(["This week", "5 hours"]);
+});
+
+test("a model's bucket with no name of its own still shows", async () => {
+  codex(PRO, { rateLimits: GENERAL, rateLimitsByLimitId: { codex: GENERAL, codex_other: bucket("codex_other", null, window_(5, 10080, 2)) } });
+  const { popover } = await opened();
+  expect(limits(popover.draw()).map((limit) => words(limit)[0])).toEqual(["This week", "Codex other", "5 hours"]);
+});
+
+test("a window of any other length reads as what it is", async () => {
+  codex(PRO, { rateLimitsByLimitId: { codex: bucket("codex", null, window_(1, 60, 1), window_(2, 1440, 2)), codex_a: bucket("codex_a", "A", window_(3, 45, 1), window_(4, 43200, 2)), codex_b: bucket("codex_b", "B", window_(5, null, 1)) } });
+  const { popover } = await opened();
+  expect(limits(popover.draw()).map((limit) => words(limit)[0]).sort()).toEqual(["1 day", "1 hour", "A · 30 days", "A · 45 minutes", "B"]);
+});
+
+for (const [planType, tier] of [
+  ["free", "Free"], ["go", "Go"], ["plus", "Plus"], ["pro", "Pro 200"], ["prolite", "Pro 100"], ["promax", "Pro 500"],
+  ["team", "Business"], ["business", "Business"], ["self_serve_business_usage_based", "Business"], ["self_serve_business_prolite", "Business Premium"],
+  ["enterprise", "Enterprise"], ["ent26", "Enterprise"], ["enterprise_cbp_usage_based", "Enterprise"], ["enterprise_cbp_automation", "Enterprise"],
+  ["edu", "Edu"], ["edu_plus", "Edu Plus"], ["edu_pro", "Edu Pro"],
+] as const) {
+  test(`Codex's ${planType} plan reads ${tier}`, async () => {
+    codex({ ...PRO, planType });
+    const { popover } = await opened();
+    expect(words(popover.draw())).toContain(tier);
+  });
+}
+
+test("a Codex plan it doesn't name itself shows no made-up tier", async () => {
+  codex({ ...PRO, planType: "unknown" });
+  const { popover } = await opened();
+  expect(words(popover.draw())).toContain("Codex");
+  expect(words(popover.draw())).not.toContain("Unknown");
+});
+
+for (const [why, account] of [
+  ["signed out", null],
+  ["using an API key", { type: "apiKey" }],
+  ["signed in through Amazon Bedrock", { type: "amazonBedrock", usesCodexManagedCredentials: false }],
+] as const) {
+  test(`Codex ${why} gives no row, whatever the limits answer says, and takes an older row with it`, async () => {
+    codex();
+    const { popover } = await opened();
+    expect(limits(popover.draw()).length).toBe(4);
+
+    state.says["app-server"] = codexSays(account, null);
+    refresh(popover);
+    await settle();
+    expect(words(popover.draw())).not.toContain("Codex");
+    expect(words(popover.draw())).toContain(NONE);
+  });
+}
+
+for (const [why, answer] of [
+  ["a failure", new Error("sh took longer than 30 s and was stopped")],
+  ["nothing at all", ""],
+  ["text that isn't JSON", "Error: something went wrong\n"],
+  ["no answer about the account", JSON.stringify({ error: { code: -32603, message: "made up" }, id: 2 })],
+  ["no answer about the limits", codexSays(PRO, null)],
+  ["limits with no window in them", codexSays(PRO, { rateLimits: bucket("codex", null, null), rateLimitsByLimitId: { codex: bucket("codex", null, null) } })],
+  ["limits with no bucket at all", codexSays(PRO, {})],
+] as const) {
+  test(`${why} from Codex with no earlier numbers reads "Could not check"`, async () => {
+    codex();
+    state.says["app-server"] = answer;
+    const { popover } = await opened();
+    const root = popover.draw();
+    expect(words(root)).toEqual(expect.arrayContaining(["Codex", "Could not check"]));
+    expect(limits(root)).toEqual([]);
+  });
+
+  test(`${why} from Codex keeps the last numbers with their age`, async () => {
+    codex();
+    const { popover } = await opened();
+    setSystemTime(NOW + 12 * 60_000);
+    state.says["app-server"] = answer;
+    refresh(popover);
+    await settle();
+    expect(words(limits(popover.draw())[0])).toContain("12%");
+    expect(words(popover.draw())).toContain("Last checked 12m ago");
+  });
+}
+
+test("a question from Codex's server is no answer to ours", async () => {
+  codex();
+  state.says["app-server"] = JSON.stringify({ id: 2, method: "item/tool/requestUserInput", params: {} }) + "\n" + codexSays(PRO) + JSON.stringify({ id: 3, method: "item/tool/requestUserInput", params: {} }) + "\n";
+  const { popover } = await opened();
+  expect(limits(popover.draw()).length).toBe(4);
+});
+
+test("checking Codex sends no request of its own and reads no login", async () => {
+  codex();
+  await opened();
+  expect(state.fetched).toEqual([]);
+  expect(state.runs.every((run) => /app-server|printenv PATH/.test(run.line))).toBe(true);
+  expect(state.runs.some((run) => /auth\.json|keychain|security /i.test(run.line))).toBe(false);
+});
+
+test("no email reaches shared storage from Codex", async () => {
+  codex();
+  await opened();
+  const saved = JSON.stringify(state.shared);
+  expect(saved).toContain("Pro 100");
+  expect(saved).not.toContain(PRO.email);
+  expect(saved).not.toMatch(/email/i);
+});
+
+// The check's own script in a real `sh`, against a made-up program that behaves like Codex's server:
+// each answer arrives `after` seconds later, and only if its input is still open by then.
+const scratch: string[] = [];
+afterEach(() => { for (const dir of scratch.splice(0)) rmSync(dir, { recursive: true, force: true }); });
+function realShell(program: string, says: string, after = 0.5) {
+  const dir = mkdtempSync(join(tmpdir(), "usage-test-"));
+  scratch.push(dir);
+  mkdirSync(join(dir, "tmp"));
+  const answers = says.trim().split("\n").filter((line) => line.includes('"id"')).map((line) => `printf '%s\\n' '${line}'`).join("\n");
+  writeFileSync(join(dir, program), `#!/bin/sh\necho "$@" > "${dir}/asked"\nread -r first\n( sleep ${after}\n${answers}\n) &\nwhile read -r line; do :; done\nkill $! 2>/dev/null\n`);
+  chmodSync(join(dir, program), 0o755);
+  state.agents[""] = [{ ...CODEX, run: [program] }];
+  state.says["printenv PATH"] = `${dir}:/usr/bin:/bin\n`;
+  state.says["app-server"] = async ({ args }) => {
+    const child = Bun.spawn(["sh", ...args], { env: { TMPDIR: join(dir, "tmp"), PATH: "/usr/bin:/bin" }, stdout: "pipe", stderr: "ignore" });
+    const stdout = await new Response(child.stdout).text();
+    return { code: await child.exited, stdout };
+  };
+  return dir;
+}
+
+const checked = async () => { while (!state.shared.usage?.checkedAt) await Bun.sleep(10); };
+
+test("a Codex check keeps its input open for a slow last answer, and stops as soon as it's in", async () => {
+  const dir = realShell("codex", codexSays(PRO));
+  const started = Bun.nanoseconds();
+  const { popover } = await opened();
+  await checked();
+  expect(limits(popover.draw()).length).toBe(4);
+  expect((Bun.nanoseconds() - started) / 1e9).toBeLessThan(5);
+  expect(readdirSync(join(dir, "tmp"))).toEqual([]);
+}, 10_000);
+
+test("a signed-out Codex's refused last answer ends the wait too", async () => {
+  realShell("codex", codexSays(null, null));
+  const started = Bun.nanoseconds();
+  const { popover } = await opened();
+  await checked();
+  expect(words(popover.draw())).toContain(NONE);
+  expect((Bun.nanoseconds() - started) / 1e9).toBeLessThan(5);
+}, 10_000);
+
+test("Codex is asked read-only, with no approvals", async () => {
+  const dir = realShell("codex", codexSays(PRO));
+  await opened();
+  await checked();
+  expect(readFileSync(join(dir, "asked"), "utf8").trim()).toBe("-s read-only -a never app-server");
+}, 10_000);
+
+test("a program whose name the shell would take apart still runs as itself, and only that", async () => {
+  const dir = realShell("it's my; touch injected", codexSays(PRO));
+  const { popover } = await opened();
+  await checked();
+  expect(limits(popover.draw()).length).toBe(4);
+  expect(existsSync(join(dir, "injected"))).toBe(false);
+  expect(existsSync("injected")).toBe(false);
+}, 10_000);
+
+test("the program in programs.json runs instead of plain claude, with what it's started with", async () => {
+  claude(WEEK);
+  state.agents[""] = [{ ...CLAUDE, run: ["my-claude", "--profile", "work"] }];
+  state.says["my-claude --profile work auth status"] = JSON.stringify(ACCOUNT);
+  state.says["my-claude --profile work -p /usage"] = usageAnswer(WEEK);
+  delete state.says["claude auth status"];
+  delete state.says["claude -p /usage"];
+  const { popover } = await opened();
+  expect(limits(popover.draw()).length).toBe(1);
+});
+
+test("the program in programs.json runs instead of plain codex", async () => {
+  codex();
+  state.agents[""] = [{ ...CODEX, run: ["my-codex"] }];
+  await opened();
+  const asked = state.runs.find((run) => run.line.includes("app-server"))!.line;
+  expect(asked).toContain("my-codex -s read-only -a never app-server");
+  expect(asked).not.toMatch(/(^|[^-])codex -s/);
+});
+
+test("on Windows the agents are asked through PowerShell, with no PATH to fetch and their names quoted for it", async () => {
+  state.platform = "windows";
+  claude(WEEK);
+  state.agents[""] = [{ ...CLAUDE, run: ["my claude's"] }, { ...CODEX, run: ["codex’s"] }];
+  delete state.says["printenv PATH"];
+  state.says["auth status"] = JSON.stringify(ACCOUNT);
+  state.says["/usage"] = usageAnswer(WEEK);
+  state.says["app-server"] = codexSays(PRO);
+  const { popover } = await opened();
+  expect(limits(popover.draw()).length).toBe(5);
+  expect(state.runs.map((run) => run.line.slice(0, "powershell -NoLogo -NoProfile -Command".length))).toEqual(Array(3).fill("powershell -NoLogo -NoProfile -Command"));
+  const line = (piece: string) => state.runs.find((run) => run.line.includes(piece))!.line;
+  expect(line("auth status")).toEndWith("-Command & 'my claude''s' auth status");
+  expect(line("/usage")).toContain("$env:TZ='UTC'; & 'my claude''s' -p /usage");
+  expect(line("app-server")).toContain("| & 'codex’’s' -s read-only -a never app-server");
 });
