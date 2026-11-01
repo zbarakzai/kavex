@@ -11,6 +11,7 @@ mod keys;
 mod layout;
 mod layout_sync;
 mod links;
+mod markdown_refs;
 mod model;
 mod mirror;
 mod mirror_sync;

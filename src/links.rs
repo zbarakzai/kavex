@@ -98,7 +98,6 @@ pub fn markdown_words(text: &str) -> Vec<Range<usize>> {
     words
 }
 
-/// The Markdown word in `text` that covers byte `at`.
 pub fn markdown_word(text: &str, at: usize) -> Option<Range<usize>> {
     markdown_words(text).into_iter().find(|r| r.contains(&at))
 }
@@ -127,25 +126,9 @@ fn file_url(url: &str) -> Option<PathBuf> {
     if !path.starts_with('/') {
         return None;
     }
-    let path = path.split(['#', '?']).next()?;
-    let mut bytes = Vec::with_capacity(path.len());
-    let mut rest = path.as_bytes();
-    while let [first, tail @ ..] = rest {
-        let hex = (*first == b'%').then(|| tail.get(..2).and_then(|h| std::str::from_utf8(h).ok()).and_then(|h| u8::from_str_radix(h, 16).ok())).flatten();
-        match hex {
-            Some(byte) => {
-                bytes.push(byte);
-                rest = &tail[2..];
-            }
-            None => {
-                bytes.push(*first);
-                rest = tail;
-            }
-        }
-    }
-    let path = String::from_utf8(bytes).ok()?;
+    let path = gpui_shell::percent_decoded(path.split(['#', '?']).next()?);
     // Windows' `file:///C:/x` has no folder called `/C:`.
-    Some(PathBuf::from(if cfg!(windows) { path.trim_start_matches('/').to_owned() } else { path }))
+    Some(PathBuf::from(if cfg!(windows) { path.trim_start_matches('/') } else { path.as_str() }))
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -398,6 +381,12 @@ mod tests {
         assert_eq!(words("https://example.com/a.md file:///x/y.md"), Vec::<&str>::new());
         assert_eq!(words("a.md:12 b.md:3:4"), ["a.md", "b.md"]);
         assert_eq!(words("文档/说明.md"), ["文档/说明.md"]);
+    }
+
+    #[test]
+    fn the_files_panel_reads_the_same_extensions() {
+        let panel = include_str!("../defaults/mods/files/markdown.js");
+        assert!(panel.contains(&format!("\\.({})$", MARKDOWN.join("|"))));
     }
 
     #[test]

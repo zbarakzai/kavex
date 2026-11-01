@@ -3,7 +3,7 @@
 //! how they're split. Plus which pane has focus and agent attention (done vs
 //! seen) with Zaki's rollup. Pure data; the window drives it.
 
-use crate::layout::{Axis, Content, Node};
+use crate::layout::{Axis, Content, Kind, Node};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::collections::{BTreeMap, HashMap};
@@ -284,6 +284,18 @@ impl Model {
         c.zoomed = None;
         c.focus(&new_pane);
         true
+    }
+
+    /// Gives the active tab's first pane showing mod `name` new props, and so a
+    /// fresh copy. Returns the pane.
+    pub fn set_active_mod_props(&mut self, name: &str, props: Value) -> Option<String> {
+        let tab = self.active_tab()?.id.clone();
+        let tab = self.tab_mut(&tab)?;
+        let shows = |p: &&Node| matches!(p.content(), Some(Content::Mod { name: shown, .. }) if shown == name);
+        let pane = tab.root.panes().into_iter().find(shows)?.id.clone();
+        let Kind::Block { content: Content::Mod { props: held, .. } } = &mut tab.root.find_mut(&pane)?.kind else { return None };
+        *held = props;
+        Some(pane)
     }
 
     /// Rearranges existing panes in one tab without changing their terminal addresses.
@@ -696,6 +708,22 @@ mod tests {
         // Opening it again takes it off the recent list.
         m.add_space("p4", "web", "/src/web", Tab::new("c4", "x", "x4", "t4"));
         assert!(m.recent.is_empty());
+    }
+
+    #[test]
+    fn a_new_file_replaces_what_the_tabs_files_pane_shows() {
+        let mut m = model_with_one();
+        assert_eq!(m.set_active_mod_props("files", json!({ "file": "/a.md" })), None);
+        let pane = Node::block("x2", Content::Mod { name: "files".into(), props: json!({ "file": "/a.md" }) });
+        m.split_with("x1", Axis::Row, pane);
+        assert_eq!(m.set_active_mod_props("files", json!({ "file": "/b.md" })), Some("x2".to_owned()));
+        let panes = m.active_tab().unwrap().root.panes();
+        assert_eq!(panes.len(), 2, "no new pane");
+        let shown = panes.iter().find_map(|p| match p.content() {
+            Some(Content::Mod { props, .. }) => Some(props.clone()),
+            _ => None,
+        });
+        assert_eq!(shown, Some(json!({ "file": "/b.md" })));
     }
 
     #[test]

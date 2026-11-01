@@ -590,6 +590,7 @@ fn parse_node(
             }
             local_name!("blockquote") => {
                 let children = consume_children_nodes(node, paragraph, cx);
+                // HERDR: alerts are Markdown's.
                 Some(BlockNode::Blockquote {
                     alert: None,
                     children,

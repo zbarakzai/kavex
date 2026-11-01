@@ -50,6 +50,7 @@ impl PartialEq for TextViewStyle {
             && self.table_cell == other.table_cell
             && self.inline_code == other.inline_code
             && self.table_background == other.table_background
+            // HERDR: alerts.
             && self.alerts == other.alerts
             && self.is_dark == other.is_dark
     }
@@ -94,6 +95,7 @@ impl TextViewStyle {
                 ..Default::default()
             },
             table_background: None,
+            // HERDR: alerts.
             alerts: [colors.primary; 5],
             is_dark,
         }

@@ -7,7 +7,7 @@ import { h_flex } from "gpui-base";
 
 export const MONO = "Geist Mono";
 
-const soft = (color, alpha) => `${color.slice(0, 7)}${alpha}`;
+export const soft = (color, alpha) => `${color.slice(0, 7)}${alpha}`;
 
 export function look(t) {
   const status = (name, label, color, bg = soft(color, "1f"), dot = color) => ({

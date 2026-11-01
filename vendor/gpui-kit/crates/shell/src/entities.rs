@@ -489,6 +489,7 @@ impl EntityStore {
         })
     }
 
+    // HERDR: retained Markdown documents.
     pub(crate) fn create_markdown(
         &mut self,
         options: crate::markdown::MarkdownOptions,

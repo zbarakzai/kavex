@@ -41,7 +41,7 @@ pub const COMMANDS: &[Command] = &[
     cmd("tab.move", &[req("id"), req("index")], "Move a tab to a position in its space (1 = first)."),
     cmd("pane.split", &[req("direction"), opt("pane"), opt("argv"), opt("mod"), opt("props")], "Split a pane (default: the focused one) \"right\" or \"down\" with a new terminal, or with a mod (`mod`, its `props`) beside it."),
     cmd("pane.close", &[opt("pane")], "Close a pane and end its terminal."),
-    cmd("file.preview", &[req("file"), opt("on")], "Show a file in the Files panel, Markdown rendered: its path, absolute or from the focused terminal's folder, and the machine it's on (`hc machine ls`; default the focused terminal's). A layout without that panel opens it in a pane beside."),
+    cmd("file.preview", &[req("file"), opt("on")], "Show a file in the Files panel, Markdown rendered: its path, absolute or from the focused terminal's folder, and the machine it's on (`hc machine ls`; default the focused terminal's). A layout without that panel uses the tab's Files pane, or opens one beside."),
     cmd("terminal.open", &[opt("argv"), opt("folder"), opt("place"), opt("name")], "Start a terminal: as a new tab (place \"tab\", default), or \"right\"/\"down\" of the focused pane."),
     cmd("terminal.keep", &[req("terminal"), opt("place")], "Give a running terminal without a pane (a sub-agent) a pane: a new tab, or \"right\"/\"down\"."),
     cmd("terminal.park", &[req("terminal")], "Take a terminal's pane away and disable core keep; it keeps running (a sub-agent shows under its parent again)."),

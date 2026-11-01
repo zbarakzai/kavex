@@ -571,7 +571,7 @@ struct Behavior {
     aria_active_descendant: bool,
 }
 
-/// What a script sets on any `TextView`.
+/// HERDR: what a script sets on any `TextView`, split out for retained documents.
 fn text_view_behavior(
     mut view: TextView,
     behavior: &Behavior,
@@ -1141,6 +1141,7 @@ fn materialize_component(
                 cx,
             )
         }
+        // HERDR: shares `text_view_behavior` with `Component::Markdown`.
         Component::TextView(spec) => {
             let view = match spec.format {
                 crate::spec::TextViewFormat::Html => TextView::html(spec.id, spec.text),

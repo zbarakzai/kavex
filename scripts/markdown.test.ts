@@ -1,5 +1,5 @@
 import { test, expect } from "bun:test";
-import { isMarkdown, isAbsolute, forward, tidy, linkTarget, headingFor, readerLook } from "../defaults/mods/files/markdown.js";
+import { isMarkdown, isAbsolute, forwardSlashes, tidy, linkTarget, headingFor } from "../defaults/mods/files/markdown.js";
 
 test("Markdown files are known by their extension, in any case", () => {
   for (const name of ["a.md", "A.MD", "dir.x/b.markdown", "c.mdx", "d.mdown", "e.mkd"]) expect(isMarkdown(name)).toBe(true);
@@ -12,9 +12,9 @@ test("Absolute paths include Windows drives", () => {
 });
 
 test("Windows paths turn their slashes; a backslash in a Unix name stays", () => {
-  expect(forward("C:\\repo\\docs\\a.md")).toBe("C:/repo/docs/a.md");
-  expect(forward("/repo/a\\b.md")).toBe("/repo/a\\b.md");
-  expect(forward(null)).toBeNull();
+  expect(forwardSlashes("C:\\repo\\docs\\a.md")).toBe("C:/repo/docs/a.md");
+  expect(forwardSlashes("/repo/a\\b.md")).toBe("/repo/a\\b.md");
+  expect(forwardSlashes(null)).toBeNull();
 });
 
 test("Paths lose their dots, and can't climb past the root", () => {
@@ -49,14 +49,4 @@ test("Anchors find headings the way GitHub names them, repeats numbered", () => 
   expect(headingFor(outline, "api-run")?.block).toBe(3);
   expect(headingFor(outline, "ÜBERBLICK")?.block).toBe(4);
   expect(headingFor(outline, "nope")).toBeNull();
-});
-
-test("The look only uses the theme's colors, each one a color", () => {
-  const theme: Record<string, string> = new Proxy({}, { get: (_t, name) => `#${(String(name).length * 40503 % 0xffffff).toString(16).padStart(6, "0")}` });
-  const look = readerLook(theme);
-  const colors = [...Object.entries(look).filter(([key]) => !key.endsWith("_icon")).map(([, value]) => value)].flatMap((value) => (typeof value === "string" ? [value] : Object.values(value as object)));
-  for (const color of colors) expect(color).toMatch(/^#[0-9a-f]{6}([0-9a-f]{2})?$/);
-  expect(look.alerts).toHaveLength(5);
-  // Selections paint over the glyphs: opaque, they hide what's selected.
-  expect(look.selection).toMatch(/^#[0-9a-f]{8}$/);
 });

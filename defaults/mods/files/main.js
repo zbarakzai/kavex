@@ -3,14 +3,15 @@
 // { file, on } it's a pane or tab showing that one file. `file.preview` asks through shared
 // "files.open": a file a terminal or agent named.
 import { View, div, svg } from "gpui-kit";
-import { v_flex, h_flex, Editor, EditorState, InputState, Input, MarkdownState, TextView, Popover, HoverCard } from "gpui-base";
+import { v_flex, h_flex, Editor, InputState, Input } from "gpui-base";
 import { spaces, panes, focused, terminals, exec, readTextFile, watchFolder, theme, window, props, run, notify, openOverlay, nextCommand, shared, setShared } from "herdr";
 import * as fs from "fs/promises";
 import { look, MONO } from "./look.js";
 import { typeTag } from "./filetypes.js";
 import { panelHeader } from "./panel.js";
 import { baseName, parentOf, native, quoted, badName, create, move, trash, reveal, cd, WASTE } from "./ops.js";
-import { READER_FONT, isMarkdown, isAbsolute, forward, tidy, linkTarget, headingFor, syntaxColors, readerLook } from "./markdown.js";
+import { isMarkdown, isAbsolute, forwardSlashes, tidy, linkTarget } from "./markdown.js";
+import { Reader, rememberedMode, codeState, iconButton } from "./reader.js";
 
 function location() {
   const space = spaces().find(s => s.active), f = focused();
@@ -19,11 +20,9 @@ function location() {
   return { cwd: pane?.cwd || f?.cwd || space?.folder, on, space: space?.id };
 }
 const key = () => JSON.stringify(location());
-const LANG = { ts: "js", tsx: "js", mts: "js", cts: "js", jsx: "js", mjs: "js", toml: "yaml", jsonc: "json", svelte: "html", vue: "html" };
 const PER_FOLDER = 500, TOTAL = 5000;
-// A file the folder watch can't see is read this often while it's open; on a machine, gently.
-const RECHECK = 2000, RECHECK_REMOTE = 10000;
-const OUTLINE_ROWS = 500, TIP_DELAY = 500;
+// No watching another machine's folders: an open file there is read this often.
+const RECHECK_REMOTE = 10000;
 
 async function directory(path, on) {
   if (!on && window()?.platform === "windows") {
@@ -49,18 +48,16 @@ export default class Files extends View {
   init(_props, cx) {
     this.saved = new Map();
     this.entries = new Map(); this.folders = new Set(); this.pending = new Set(); this.marks = {};
-    this.mode = localStorage.getItem("markdown") === "raw" ? "raw" : "preview";
     this.trail = [];
     const { file, on } = props() ?? {};
     if (file) {
       this.pinned = true; this.root = parentOf(file); this.on = on ?? null; this.context = {};
       this.show(baseName(file), cx);
-      cx.timer.every(this.on ? RECHECK_REMOTE : RECHECK, cx => this.reload(cx));
+      if (this.on) cx.timer.every(RECHECK_REMOTE, cx => this.reload(cx));
       return;
     }
     this.refresh(cx);
     cx.timer.every(10000, cx => this.refresh(cx));
-    cx.timer.every(RECHECK, cx => { if (!this.fileOn && isAbsolute(this.file)) this.reload(cx); });
     cx.spawn(async cx => {
       for (;;) {
         const name = await nextCommand();
@@ -98,13 +95,13 @@ export default class Files extends View {
     const { cwd, on } = location(), next = key();
     this.reload(cx);
     if (next !== this.context?.key) {
-      if (this.context) this.saved.set(this.context.key, { folders: this.folders, file: this.file });
+      if (this.context) this.saved.set(this.context.key, { folders: this.folders, file: this.file, on: this.fileOn });
       const saved = this.saved.get(next);
       this.context = { key: next, cwd, on }; this.root = cwd; this.on = on; this.entries = new Map(); this.folders = new Set(saved?.folders);
       this.pending = new Set(); this.marks = {}; this.show(null); this.watched = null; this.error = null; this.limited = false;
       this.edit = null; this.target = null; this.trail = [];
       this.loading = false;
-      if (saved?.file) this.show(saved.file, cx);
+      if (saved?.file) this.show(saved.file, cx, { on: saved.on });
     }
     if (!cwd || this.loading) return;
     const context = this.context;
@@ -162,13 +159,19 @@ export default class Files extends View {
   }
 
   closeFile() {
-    this.code?.release(); this.doc?.release();
-    this.code = null; this.doc = null; this.text = null; this.dressed = null;
-    this.finding = false; this.found = 0; this.findInput = null; this.popup = null;
+    this.code?.release(); this.reader?.release();
+    this.code = null; this.reader = null;
   }
 
-  show(path, cx, on = this.on) {
-    if (path && path === this.file && this.doc) return this.reload(cx);
+  // `file` runs from the folder shown, or is absolute when it's from anywhere else.
+  get elsewhere() { return isAbsolute(this.file); }
+
+  show(path, cx, { on = this.on, mode = rememberedMode(), anchor } = {}) {
+    if (path && path === this.file && this.reader) {
+      this.reader.show(mode);
+      if (anchor) this.reader.jump(anchor, cx);
+      return this.reload(cx);
+    }
     this.closeFile(); this.file = path; this.fileOn = on; this.fileError = null;
     if (!path || !cx) return;
     const context = this.context, full = this.full(path);
@@ -178,62 +181,58 @@ export default class Files extends View {
         if (this.file !== path || !this.current(context)) return;
         if (text === null) { this.fileError = "This file is no longer available"; return; }
         if (text.includes("\0")) { this.fileError = "Binary file · no text preview"; return; }
-        this.text = text;
-        if (!isMarkdown(path)) { this.code = this.editor(path, text); return; }
-        this.doc = MarkdownState.new({ value: text, folder: on ? undefined : parentOf(full) });
-        if (this.mode === "raw") this.code = this.editor(path, text);
+        if (!isMarkdown(path)) { this.code = codeState(path, text); return; }
+        this.reader = new Reader({ path, text, mode, folder: on ? undefined : parentOf(full), onLink: (url, cx) => this.follow(url, cx) });
+        if (anchor) this.reader.jump(anchor, cx);
+        if (!on && (this.pinned || this.elsewhere)) this.watchFile(parentOf(full), cx);
       } catch { if (this.file === path && this.current(context)) this.fileError = "Cannot preview this file (binary, too large, or unreadable)"; }
       finally { cx.notify(); }
     });
   }
 
-  editor(path, text) {
-    const ext = path.includes(".") ? path.split(".").pop() : "txt";
-    return EditorState.new({ language: LANG[ext] ?? ext, readonly: true,
-      value: text.length > 400000 ? text.slice(0, 400000) + "\n… (file truncated)" : text,
-      font_family: MONO, font_size: 11.5, syntax: syntaxColors(theme()) });
-  }
-
-  // A document someone is reading follows its file, and they keep their place in it.
-  reload(cx) {
-    if (!this.doc || this.reloading) return;
-    const doc = this.doc, path = this.file;
-    this.reloading = true;
+  watchFile(folder, cx) {
+    const reader = this.reader;
     cx.spawn(async cx => {
-      try {
-        const text = await readTextFile(this.full(path), { on: this.fileOn });
-        if (doc !== this.doc || text === null || text === this.text || text.includes("\0")) return;
-        this.text = text;
-        doc.set_value(text);
-        this.code?.set_value(text);
-      } catch {}
-      finally { this.reloading = false; cx.notify(); }
+      try { while (this.reader === reader) { await watchFolder(folder); this.reload(cx); } }
+      catch {}
     });
   }
 
-  setMode(mode, cx) {
-    this.mode = mode; this.popup = null; this.finding = false;
-    localStorage.setItem("markdown", mode);
-    if (mode === "raw" && !this.code) this.code = this.editor(this.file, this.text);
-    cx.notify();
+  // A document someone is reading follows its file, and they keep their place in it. A change
+  // that lands mid-read is read again: nothing else would ever pick it up.
+  reload(cx) {
+    const reader = this.reader;
+    if (!reader) return;
+    if (this.reloading) { this.reloadAgain = true; return; }
+    this.reloading = true;
+    const path = this.file;
+    cx.spawn(async cx => {
+      try {
+        const text = await readTextFile(this.full(path), { on: this.fileOn });
+        if (reader === this.reader && text !== null && !text.includes("\0")) reader.update(text);
+      } catch {}
+      finally {
+        this.reloading = false;
+        if (this.reloadAgain) { this.reloadAgain = false; this.reload(cx); }
+      }
+    });
   }
 
-  // A file's path from the folder shown, if it's in there.
   inside(path) {
-    const root = forward(this.root), file = forward(path);
+    const root = forwardSlashes(this.root), file = forwardSlashes(path);
     return root && file.startsWith(`${root}/`) ? file.slice(root.length + 1) : file;
   }
 
   // What `file.preview` asked for: a file named from outside, maybe outside the folder shown.
-  take(ask, cx) {
+  openAsked(ask, cx) {
     setShared("files.open", null);
-    this.mode = "preview"; this.trail = [];
-    this.show(this.inside(ask.file), cx, ask.on ?? this.on);
+    this.trail = [];
+    this.show(this.inside(ask.file), cx, { on: ask.on ?? this.on, mode: "preview" });
   }
 
   back(cx) {
     const last = this.trail.pop();
-    if (last) this.show(last, cx);
+    if (last) this.show(last.file, cx, { on: last.on });
     else this.show(null);
     cx.notify();
   }
@@ -243,38 +242,9 @@ export default class Files extends View {
     if (to.web) return cx.open_url(to.web);
     if (to.other) return notify({ title: "Files", body: `Can't open ${to.other} from here`, level: "error" });
     if (to.file && to.file !== here) {
-      this.trail.push(this.file);
-      this.show(this.inside(to.file), cx, this.fileOn);
-    }
-    if (to.anchor) this.jump(to.anchor, this.file, cx);
-  }
-
-  // A document's headings exist once its parse lands, which a large one does a little later.
-  jump(anchor, file, cx, tries = 12) {
-    const heading = this.doc && headingFor(this.doc.outline(), anchor);
-    if (heading) return this.doc.scroll_to(heading.block);
-    if (tries > 0 && file === this.file) cx.timer.after(120, cx => this.jump(anchor, file, cx, tries - 1));
-  }
-
-  openFind(cx) {
-    if (this.finding) return this.findInput?.focus();
-    this.finding = true; this.found = 0; this.foundAt = 0;
-    this.findInput = InputState.new({ placeholder: "Find in this file" });
-    this.findInput.on("change", (_e, cx) => { this.found = this.doc?.find(this.findInput.value()) ?? 0; this.foundAt = this.found ? 1 : 0; cx.notify(); });
-    this.findInput.on("submit", (_e, cx) => this.step(1, cx));
-    this.findInput.focus();
-    cx.notify();
-  }
-
-  step(by, cx) {
-    this.foundAt = this.doc?.find_step(by) ?? 0;
-    cx.notify();
-  }
-
-  closeFind(cx) {
-    this.finding = false; this.found = 0; this.findInput = null;
-    this.doc?.find("");
-    cx.notify();
+      this.trail.push({ file: this.file, on: this.fileOn });
+      this.show(this.inside(to.file), cx, { on: this.fileOn, anchor: to.anchor });
+    } else if (to.anchor) this.reader?.jump(to.anchor, cx);
   }
 
   full(path) { return path ? (isAbsolute(path) ? path : `${this.root}/${path}`) : this.root; }
@@ -443,80 +413,15 @@ export default class Files extends View {
     this.draft(depth, h_flex().w(18).flex_none().child(svg("mods/workspace-chrome/icons/file-new.svg").size(16).text_color(t.label)), out, t);
   }
 
-  // A deep path gives way before the file's own name does.
   title(t) {
-    const file = this.file ?? "", folder = isAbsolute(file) ? "" : parentOf(file);
+    const file = this.file ?? "", folder = this.elsewhere ? "" : parentOf(file);
     return h_flex().flex_1().min_w(0).overflow_hidden().items_center()
       .when(Boolean(folder), el => el.child(div().min_w(0).truncate().text_color(t.muted).child(`${folder}/`)))
       .child(div().flex_none().child(baseName(file)));
   }
 
-  tool(id, name, tip, on, t) {
-    const button = h_flex().id(id).size(26).flex_none().items_center().justify_center().rounded(13).cursor_pointer().text_color(on ? t.foreground : t.muted).when(on, el => el.bg(t.pill_selected))
-      .when(!on, el => el.hover(s => s.bg(t.hover_strong).text_color(t.foreground))).child(svg(`mods/workspace-chrome/icons/${name}.svg`).size(16));
-    return { button, tipped: (trigger) => HoverCard.new(`tip-${id}`).open_delay(TIP_DELAY).close_delay(0).trigger(trigger)
-      .when(!this.popup, el => el.content(div().mt(6).px(9).py(5).rounded(8).bg(t.raised).border_1().border_color(t.border).shadow_md().text_size(12).text_color(t.foreground).whitespace_nowrap().child(tip))) };
-  }
-
-  outline(t) {
-    const open = this.popup === "outline", { button, tipped } = this.tool("files-outline", "file-tree", "Outline", open, t);
-    return tipped(Popover.new("files-outline-menu").anchor("top_right").open(open)
-      .on_open_change((next, cx) => { this.popup = next ? "outline" : null; cx.notify(); })
-      .trigger(button).when(open, el => el.content(this.headings(t))));
-  }
-
-  headings(t) {
-    const rows = this.doc?.outline().slice(0, OUTLINE_ROWS) ?? [], top = Math.min(...rows.map(row => row.level));
-    return v_flex().id("files-headings").w(280).max_h(420).overflow_y_scrollbar().p(6).gap(1).rounded(14).bg(t.raised).border_1().border_color(t.border).shadow_lg().text_size(13)
-      .when(!rows.length, el => el.child(div().px(10).py(6).text_color(t.dim).child("No headings")))
-      .children(rows.map((row, i) => h_flex().id(`files-heading-${i}`).h(30).flex_none().pl(10 + (row.level - top) * 14).pr(10).items_center().rounded(8).cursor_pointer().hover(s => s.bg(t.hover))
-        .text_color(row.level === top ? t.foreground : t.muted)
-        .on_click((_e, cx) => { this.popup = null; this.doc?.scroll_to(row.block); cx.notify(); })
-        .child(div().flex_1().min_w(0).truncate().child(row.text))));
-  }
-
-  modes(t) {
-    const tab = (mode, label) => {
-      const on = this.mode === mode;
-      return h_flex().id(`files-${mode}`).h(24).px(10).flex_none().items_center().rounded(12).cursor_pointer().text_size(12).text_color(on ? t.foreground : t.muted)
-        .when(on, el => el.bg(t.pill_selected)).when(!on, el => el.hover(s => s.text_color(t.foreground)))
-        .on_click((_e, cx) => this.setMode(mode, cx)).child(label);
-    };
-    return h_flex().flex_none().gap(2).p(2).items_center().rounded(999).bg(t.pill).border_1().border_color(t.pill_ring).child(tab("preview", "Preview")).child(tab("raw", "Raw"));
-  }
-
-  tools(t) {
-    const { button, tipped } = this.tool("files-find", "search", "Find", this.finding, t);
-    return h_flex().flex_none().gap(4).items_center()
-      .when(this.mode === "preview", el => el.child(this.outline(t)).child(tipped(button.on_click((_e, cx) => (this.finding ? this.closeFind(cx) : this.openFind(cx))))))
-      .child(this.modes(t));
-  }
-
-  findBar(t) {
-    const asked = Boolean(this.findInput?.value());
-    const step = (id, name, by) => h_flex().id(id).size(24).flex_none().items_center().justify_center().rounded(7).cursor_pointer().text_color(t.muted).hover(s => s.bg(t.hover_strong).text_color(t.foreground))
-      .on_click((_e, cx) => this.step(by, cx)).child(svg(`mods/workspace-chrome/icons/${name}.svg`).size(16));
-    return h_flex().h(34).flex_none().mx(10).mb(4).pl(10).pr(4).gap(6).items_center().rounded(10).bg(t.well).border_1().border_color(t.card_border)
-      .on_key_down((e, cx) => { if (e.key === "escape") { cx.stop_propagation(); this.closeFind(cx); } })
-      .child(svg("mods/workspace-chrome/icons/search.svg").size(16).flex_none().text_color(t.dim))
-      .child(div().flex_1().min_w(0).child(Input.new(this.findInput).h_full().text_size(12.5).text_color(t.foreground)))
-      .when(asked, el => el.child(div().flex_none().text_size(11.5).text_color(t.dim).child(this.found ? `${this.foundAt} of ${this.found}` : "No matches")))
-      .when(this.found > 1, el => el.child(step("files-find-back", "chevron-left", -1)).child(step("files-find-next", "chevron-right", 1)))
-      .child(step("files-find-close", "close", 0).on_click((_e, cx) => this.closeFind(cx)));
-  }
-
-  // The look follows the theme; handing it over only when it changes keeps a render free.
-  reader(t) {
-    const dress = readerLook(t), worn = JSON.stringify(dress);
-    if (worn !== this.dressed) { this.dressed = worn; this.doc.set_look(dress); }
-    return v_flex().flex_1().min_h(0)
-      .when(this.finding, el => el.child(this.findBar(t)))
-      .child(div().flex_1().min_h(0).pl(20).pr(10).pb(10).child(TextView.state(this.doc).scrollable(true).selectable(true).size_full().font_family(READER_FONT).text_size(13.5)
-        .on_link_click((url, cx) => this.follow(url, cx))));
-  }
-
   viewer(t) {
-    if (this.doc && this.mode === "preview") return this.reader(t);
+    if (this.reader) return this.reader.body(t);
     if (this.code) return Editor.new(this.code).flex_1().min_h(0);
     return div().p(12).text_color(t.label).child(this.fileError || "Loading file…");
   }
@@ -524,25 +429,22 @@ export default class Files extends View {
   render(cx) {
     if (!this.pinned && key() !== this.context?.key) this.refresh(cx);
     const ask = this.pinned ? null : shared("files.open");
-    if (ask?.file) this.take(ask, cx);
+    if (ask?.file) this.openAsked(ask, cx);
     const t = look(theme());
     const card = v_flex().id("files-card").flex_1().min_w(0).min_h(0).h_full().rounded(18).overflow_hidden().bg(t.card).border_1().border_color(t.card_border)
-      .when(Boolean(this.doc), el => el.on_key_down((e, cx) => {
-        if (e.key === "f" && this.mode === "preview" && (e.modifiers.platform || e.modifiers.control)) { cx.stop_propagation(); this.openFind(cx); }
-      }))
+      .when(Boolean(this.reader), el => el.on_key_down((e, cx) => this.reader?.key(e, cx)))
       .when(Boolean(this.file), el => el.child(h_flex().h(46).flex_none().pl(this.pinned && !this.trail.length ? 16 : 10).pr(10).gap(8).items_center()
-        .when(!this.pinned || this.trail.length > 0, el => el.child(h_flex().id("files-back").size(28).flex_none().items_center().justify_center().rounded(7).text_color(t.muted).hover(s => s.bg(t.hover_strong).text_color(t.foreground))
-          .on_click((_e, cx) => this.back(cx)).child(svg("mods/workspace-chrome/icons/chevron-left.svg").size(16))))
+        .when(!this.pinned || this.trail.length > 0, el => el.child(iconButton("files-back", "chevron-left", t, { size: 28, radius: 7 }).on_click((_e, cx) => this.back(cx))))
         .child(typeTag(this.file ?? "", t.accent))
         .child(this.title(t))
-        .when(Boolean(this.doc), el => el.child(this.tools(t)))))
+        .when(Boolean(this.reader), el => el.child(this.reader.tools(t)))))
       .when(!this.file, el => el.child(v_flex().id("files-tree").flex_1().min_h(0).overflow_y_scrollbar().px(8).py(8)
         .when(Boolean(this.root), el => el.on_mouse_down("right", (_e, cx) => this.menu("", true, cx)))
         .children(this.rows("", 0, [], t))
         .when(Boolean(this.error) || !this.entries.get("")?.length, el => el.child(div().p(8).text_size(12).text_color(t.label).child(this.error || (this.loading ? "Loading files…" : this.root ? "No files" : "No folder"))))
         .when(this.limited, el => el.child(div().p(8).text_size(11).text_color(t.label).child("File list limited to 500 entries per folder and 5,000 total")))))
       .when(Boolean(this.file), el => el.child(this.viewer(t)));
-    if (this.pinned) return card.text_color(t.foreground).text_size(13);
+    if (this.pinned) return card.size_full().text_color(t.foreground).text_size(13);
     return v_flex().id("files").size_full().min_h(0).rounded(20).overflow_hidden().bg(t.panel).border_1().border_color(t.panel_border).text_color(t.foreground).text_size(13)
       .child(panelHeader(t, "files"))
       .child(h_flex().flex_1().min_h(0).px(8).pb(8).child(card));

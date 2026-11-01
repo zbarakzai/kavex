@@ -1394,7 +1394,7 @@ impl AppWindow {
             let sub = cx.subscribe_in(&view, window, move |this, _, ev: &TerminalEvent, window, cx| match ev {
                 TerminalEvent::Peek(address) => this.peek_terminal(address, window, cx),
                 TerminalEvent::Preview(path) => {
-                    let on = addr.split_once('/').map(|(machine, _)| machine);
+                    let on = crate::mirror::machine(&addr);
                     this.run("file.preview", json!({ "file": path, "on": on }), window, cx);
                 }
                 TerminalEvent::TitleChanged => this.publish(cx),
@@ -2331,6 +2331,11 @@ impl AppWindow {
     }
 
     /// A mod as a pane beside the target (a viewer next to the shell).
+    fn files_panel_docked(&self) -> bool {
+        let allowed = mods::shared("workspace.panels").and_then(|p| p.as_array().cloned()).is_none_or(|p| p.iter().any(|id| id == "files"));
+        allowed && self.chrome.find("panel-body").is_some_and(|n| n.find("files").is_some())
+    }
+
     fn split_mod(&mut self, pane: Option<String>, axis: Axis, name: String, props: Value) -> Result<Value, String> {
         let target = pane.or_else(|| self.model.focused_pane()).ok_or("no pane to split")?;
         if self.model.tab_of(&target).is_none() {
@@ -3050,19 +3055,20 @@ impl AppWindow {
                 }
             }
             "file.preview" => {
-                let focused = self.focused_terminal(window).map(|t| t.address.clone());
-                let machine = focused.as_deref().and_then(|t| t.split_once('/')).map(|(machine, _)| machine.to_owned());
+                // A mod pane can hold the focus: the tab's terminal still says where we are.
+                let focused = self.focused_terminal(window).map(|t| t.address.clone())
+                    .or_else(|| self.model.active_tab()?.root.panes().into_iter().find_map(|p| self.model.address_of(&p.id)));
+                let machine = focused.as_deref().and_then(crate::mirror::machine).map(str::to_owned);
                 let folder = focused.and_then(|t| self.cwds.get(&t).cloned());
                 let asked = Self::arg(a, "file").unwrap_or_default();
                 let path = folder.map_or_else(|| asked.into(), |f| std::path::Path::new(&f).join(asked));
-                let on = Self::owned(a, "on").or(machine);
-                let file = json!({ "file": path, "on": on });
-                let allowed = mods::shared("workspace.panels").and_then(|p| p.as_array().cloned()).is_none_or(|p| p.iter().any(|id| id == "files"));
-                let docked = allowed && self.chrome.find("panel-body").is_some_and(|n| n.find("files").is_some());
-                let shown = if docked {
+                let file = json!({ "file": path, "on": Self::owned(a, "on").or(machine) });
+                let shown = if self.files_panel_docked() {
                     mods::set_shared("files.open".into(), file);
                     self.run_as("layout.select", json!({ "stack": "panel-body", "child": "files" }), false, window, cx);
                     self.run_as("layout.show", json!({ "id": "panel" }), false, window, cx)
+                } else if let Some(pane) = self.model.set_active_mod_props("files", file.clone()) {
+                    json!({ "pane": pane })
                 } else {
                     self.run_as("pane.split", json!({ "direction": "right", "mod": "files", "props": file }), false, window, cx)
                 };

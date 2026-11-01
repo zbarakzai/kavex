@@ -1030,6 +1030,7 @@ fn ast_to_node(source: &str, value: mdast::Node, cx: &mut NodeContext) -> BlockN
             paragraph.span = new_span(val.position, cx);
             BlockNode::Paragraph(paragraph)
         }
+        // HERDR: alerts.
         Node::Blockquote(mut val) => {
             let alert = take_alert(source, &mut val.children);
             let children = val

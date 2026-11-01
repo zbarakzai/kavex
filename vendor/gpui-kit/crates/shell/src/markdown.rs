@@ -244,6 +244,30 @@ impl MarkdownDocument {
     }
 }
 
+/// `%20` and the like, in a path from a link.
+pub fn percent_decoded(value: &str) -> String {
+    let bytes = value.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut at = 0;
+    while at < bytes.len() {
+        let pair = (bytes[at] == b'%')
+            .then(|| value.get(at + 1..at + 3))
+            .flatten()
+            .and_then(|hex| u8::from_str_radix(hex, 16).ok());
+        match pair {
+            Some(byte) => {
+                out.push(byte);
+                at += 3;
+            }
+            None => {
+                out.push(bytes[at]);
+                at += 1;
+            }
+        }
+    }
+    String::from_utf8_lossy(&out).into_owned()
+}
+
 /// The corner of a code block: its language and a copy button.
 fn code_controls(
     controls: &Controls,

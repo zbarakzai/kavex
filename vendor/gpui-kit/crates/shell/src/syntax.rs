@@ -39,6 +39,7 @@ impl SyntectHighlighter {
         })
     }
 
+    // HERDR: split from `update`, for one-off code blocks.
     fn parse(&mut self, text: &str) {
         let syntax = find_syntax(self.language.as_ref())
             .unwrap_or_else(|| SYNTAX_SET.find_syntax_plain_text());
@@ -79,6 +80,7 @@ impl SyntectHighlighter {
 }
 
 fn find_syntax(language: &str) -> Option<&'static SyntaxReference> {
+    let language = syntax_name(language);
     SYNTAX_SET
         .find_syntax_by_token(language)
         .or_else(|| SYNTAX_SET.find_syntax_by_extension(language))
@@ -100,15 +102,16 @@ pub(crate) fn highlight_block(
     if code.len() > MAX_BLOCK_BYTES {
         return Vec::new();
     }
-    let Some(mut highlighter) = SyntectHighlighter::new(fence_language(language)) else {
+    let Some(mut highlighter) = SyntectHighlighter::new(language) else {
         return Vec::new();
     };
     highlighter.parse(code);
     resolve_styles(&highlighter.highlights, &(0..code.len()), styles)
 }
 
-/// HERDR: what people write after a fence, in the names the syntaxes go by.
-fn fence_language(language: &str) -> &str {
+/// HERDR: file extensions and what people write after a fence, in the names
+/// the syntaxes go by.
+fn syntax_name(language: &str) -> &str {
     match language.to_ascii_lowercase().as_str() {
         "ts" | "tsx" | "typescript" | "jsx" | "mjs" | "cjs" | "mts" | "cts" | "javascript" => "js",
         "shell" | "console" | "shellsession" | "zsh" | "fish" | "bash" => "sh",
@@ -309,7 +312,7 @@ mod tests {
     #[test]
     fn fences_highlight_by_the_names_people_write() {
         let styles = SyntaxStyles::default();
-        for language in ["rust", "ts", "bash", "yml", "jsonc", "python"] {
+        for language in ["rust", "ts", "tsx", "bash", "yml", "toml", "jsonc", "python"] {
             let code = "true \"text\" 1";
             let runs = highlight_block(language, code, &styles);
             assert!(
@@ -317,6 +320,13 @@ mod tests {
                 "{language}: {runs:?}"
             );
             assert_eq!(runs.last().map(|(range, _)| range.end), Some(code.len()));
+        }
+    }
+
+    #[test]
+    fn editors_find_the_same_languages_as_code_blocks() {
+        for language in ["ts", "tsx", "mjs", "toml", "jsonc", "svelte"] {
+            assert!(SyntectHighlighter::new(language).is_some(), "{language}");
         }
     }
 

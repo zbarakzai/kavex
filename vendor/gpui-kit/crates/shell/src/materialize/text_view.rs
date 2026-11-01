@@ -30,6 +30,7 @@ const IMAGE_TIMEOUT: Duration = Duration::from_secs(30);
 
 type ImageResult = Result<Arc<RenderImage>, ImageCacheError>;
 
+// HERDR: `folder`, for a retained document's local images.
 pub(super) fn with_policy(
     view: TextView,
     policy: Rc<Policy>,
@@ -78,6 +79,7 @@ impl Element for PolicyTextView {
         window: &mut Window,
         cx: &mut App,
     ) -> (LayoutId, Self::RequestLayoutState) {
+        // HERDR: `folder`.
         self.view = image_sources(
             self.view.clone(),
             self.policy.clone(),
@@ -177,6 +179,7 @@ impl Asset for DocumentImage {
         (owner, uri): Self::Source,
         cx: &mut App,
     ) -> impl Future<Output = ImageResult> + Send + 'static {
+        // HERDR: local images read from the document's folder.
         let owned = owner.upgrade().map(|images| {
             let images = images.read(cx);
             (images.policy.capabilities().clone(), images.folder.clone())
@@ -216,7 +219,7 @@ fn local_image(folder: &Path, value: &str) -> Option<PathBuf> {
         None if has_scheme(value) => return None,
         None => value,
     };
-    Some(folder.join(percent_decoded(path)))
+    Some(folder.join(crate::markdown::percent_decoded(path)))
 }
 
 fn has_scheme(value: &str) -> bool {
@@ -226,29 +229,6 @@ fn has_scheme(value: &str) -> bool {
                 .chars()
                 .all(|c| c.is_ascii_alphanumeric() || "+-.".contains(c))
     })
-}
-
-fn percent_decoded(value: &str) -> String {
-    let bytes = value.as_bytes();
-    let mut out = Vec::with_capacity(bytes.len());
-    let mut at = 0;
-    while at < bytes.len() {
-        let pair = (bytes[at] == b'%')
-            .then(|| value.get(at + 1..at + 3))
-            .flatten()
-            .and_then(|hex| u8::from_str_radix(hex, 16).ok());
-        match pair {
-            Some(byte) => {
-                out.push(byte);
-                at += 3;
-            }
-            None => {
-                out.push(bytes[at]);
-                at += 1;
-            }
-        }
-    }
-    String::from_utf8_lossy(&out).into_owned()
 }
 
 fn read_local_image(path: &Path) -> Result<Vec<u8>, ImageCacheError> {

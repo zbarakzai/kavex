@@ -232,17 +232,19 @@ relative path (from the folder shown). The folder shown itself can't be renamed 
 A Markdown file (`.md`, `.markdown`, `.mdown`, `.mkd`, `.mdx`) opens rendered in a native reader,
 with a Preview | Raw switch that's remembered: GitHub's Markdown with alerts (`> [!NOTE]`), tables,
 task lists, footnotes, front matter, images beside the file (or `https://` ones) and code in color
-with a copy button. The outline button jumps to a heading; the search button, or `cmd-f` (`ctrl-f`)
+with a copy button. Its text uses the system font, as Geist has one weight and no italics, whatever
+`ui_font` says. The outline button jumps to a heading; the search button, or `cmd-f` (`ctrl-f`)
 once the document has the keyboard, marks matches. The reader follows the file as it's saved and
-keeps your place: at once in the folder shown, within 2 seconds elsewhere, within 10 on another
-machine. Files stop at 1 MiB. Links stay in the reader: another file (the back arrow returns), a
-heading, or the browser for the web. Mermaid diagrams and math show as their source.
+keeps your place, at once on this machine and within 10 seconds on another. Files stop at 1 MiB.
+Links stay in the reader: another file (the back arrow returns), a heading, or the browser for the
+web. Mermaid diagrams and math show as their source.
 
 In a terminal, a Markdown file named in its text, with or without a slash (`README.md`,
-`@docs/plan.md`), gets a soft underline if it exists. On another machine that can't be checked, so
-there's no underline, but the click still works. Cmd-click (Ctrl-click) opens it in the reader,
-`zaki do file.preview --file plan.md` does the same for an agent, and a layout without the panel
-gets a pane beside the focused one.
+`@docs/plan.md`), gets a soft underline while it exists, also when a long path wraps. On another
+machine that can't be checked, so there's no underline, but the click still works. Cmd-click
+(Ctrl-click) opens it in the reader, and `zaki do file.preview --file plan.md` does the same for an
+agent. In a layout without the panel it opens in a pane beside the focused one, and the next file
+replaces what that pane shows.
 
 The Changes panel shows the focused repo's diff by scope: Unstaged (with new
 files), Staged, Commit (a picked commit), Branch (from where it left a picked
@@ -652,7 +654,7 @@ The main ones:
 - Agents: `agent.next`, `agent.prev`, `agent.focus {terminal}`.
 - Files: `file.preview {file, on?}` (shows a file in the Files panel, Markdown rendered; the path
   is absolute or from the focused terminal's folder, `on` is the machine it's on; a layout
-  without the panel opens it in a pane beside).
+  without the panel uses the tab's Files pane, or opens one beside).
 - Layout: `layout.switch {name?}`, `layout.toggle {id}`, `layout.show {id}`, `layout.hide {id}`
   (a node with a px size slides open and shut; its mod keeps its full size throughout),
   `layout.resize {id, px | weight}`, `layout.select {stack, child}`, `layout.set {layout}`

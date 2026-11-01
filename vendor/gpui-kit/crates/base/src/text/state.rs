@@ -432,6 +432,7 @@ impl TextViewState {
         self.stream_fade.set_motion(motion);
     }
 
+    // HERDR: public, so a retained document's first parse has its extensions.
     pub fn set_markdown_extensions(
         &mut self,
         markdown_extensions: Arc<MarkdownExtensions>,
@@ -1144,6 +1145,8 @@ impl Render for TextViewState {
             body_font_size,
         };
 
+        // HERDR: a replaced document keeps the reader's place, and a long one
+        // measures only what shows.
         let blocks = self.parsed_content.document.blocks.len();
         if self.keep_place && self.scrollable && self.list_state.item_count() != blocks {
             let top = self.list_state.logical_scroll_top();
