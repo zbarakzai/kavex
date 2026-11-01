@@ -92,7 +92,7 @@ export default class Agents extends View {
       .id(`logo-${a.address}`)
       .when(hasSession(a), (el) => el.cursor_pointer().on_click((_e, cx) => {
         cx.stop_propagation();
-        openOverlay({ mod: "agents", kind: "popup", width: 290, height: 150, props: { session: a.address, first: this.sessions.shown(a.address) } });
+        openOverlay({ mod: "agents", kind: "popup", width: 290, height: 190, props: { session: a.address, first: this.sessions.shown(a.address) } });
       }))
       .child(inner);
   }

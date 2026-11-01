@@ -1,6 +1,7 @@
 // Claude Code's session: where it is, and the numbers in its lines.
 
 import { exec, home, readTextFile } from "herdr";
+import { PRICES, REGIONS, priced } from "./prices.js";
 
 const folderName = (cwd) => cwd.replace(/[^a-zA-Z0-9]/g, "-");
 
@@ -8,6 +9,15 @@ const folderName = (cwd) => cwd.replace(/[^a-zA-Z0-9]/g, "-");
 function modelName(id) {
   const [, name, major, minor] = id.match(/^claude-([a-z]+)-(\d+)(?:-(\d{1,2}))?(?:-\d{8})?(?:\[.*\])?$/) ?? [];
   return name ? `Claude ${name[0].toUpperCase()}${name.slice(1)} ${major}${minor ? `.${minor}` : ""}` : id;
+}
+
+// One message at API prices, or null if any part of it has no exact price.
+function dollars(model, speed, region, tokens) {
+  const listed = PRICES[model];
+  const prompt = tokens.input + tokens.read + tokens.write5m + tokens.write1h;
+  const sized = prompt > listed?.over?.tokens ? listed.over : listed;
+  const spent = priced(speed === "standard" ? sized : sized?.[speed], tokens);
+  return spent === null || REGIONS[region] === undefined ? null : spent * REGIONS[region];
 }
 
 export const claude = {
@@ -26,24 +36,42 @@ export const claude = {
     return { id: sessionId, folder, file: `${folder}/${sessionId}.jsonl` };
   },
 
-  facts: () => ({ seen: new Set(), newest: null, tokens: { input: 0, output: 0, cached: 0 } }),
-
-  // A message comes on several lines, one per block, each with the same usage. "<synthetic>"
-  // lines are Claude's own notices, with no usage to speak of.
-  add(facts, line) {
-    const message = line.message, usage = message?.usage;
-    if (line.type !== "assistant" || line.isSidechain || !usage || message.model === "<synthetic>") return;
-    const input = usage.input_tokens ?? 0;
-    const cached = (usage.cache_read_input_tokens ?? 0) + (usage.cache_creation_input_tokens ?? 0);
-    facts.newest = { model: message.model, asked: line.requestedModel ?? message.model, used: input + cached };
-    if (facts.seen.has(message.id)) return;
-    facts.seen.add(message.id);
-    facts.tokens.input += input;
-    facts.tokens.output += usage.output_tokens ?? 0;
-    facts.tokens.cached += cached;
+  // A helper has a file of its own beside the session. One `wc` says how big they all are.
+  async helpers({ folder, id }) {
+    const { stdout } = await exec("sh", ["-c", 'wc -c "$1"/*.jsonl 2>/dev/null', "sh", `${folder}/${id}/subagents`]);
+    return stdout.split("\n").flatMap((line) => {
+      const [, size, file] = line.match(/^\s*(\d+)\s(.+\.jsonl)$/) ?? [];
+      return file ? [{ file, size: Number(size) }] : [];
+    });
   },
 
-  numbers: (facts) => facts.newest && { model: modelName(facts.newest.model), asked: facts.newest.asked, used: facts.newest.used, tokens: { ...facts.tokens } },
+  // Running totals: reading a session comes down to `add`, so `numbers` stays cheap however long
+  // it gets. `messages` holds what each one has added so far.
+  facts: () => ({ newest: null, messages: new Map(), tokens: { input: 0, output: 0, cached: 0 }, cost: 0, unpriced: false }),
+
+  // A message comes on several lines, one per block, and counts once. A helper's early lines
+  // hold a part-way output count, so the biggest is the real one. "<synthetic>" lines are
+  // Claude's own notices, with no usage to speak of.
+  add(facts, line, helper) {
+    const message = line.message, usage = message?.usage;
+    if (line.type !== "assistant" || !usage || message.model === "<synthetic>") return;
+    const input = usage.input_tokens ?? 0, output = usage.output_tokens ?? 0;
+    const read = usage.cache_read_input_tokens ?? 0, write = usage.cache_creation_input_tokens ?? 0;
+    if (!helper && !line.isSidechain) facts.newest = { model: message.model, asked: line.requestedModel ?? message.model, used: input + read + write };
+    const kept = facts.messages.get(message.id);
+    if (kept?.output >= output) return;
+    const write1h = usage.cache_creation?.ephemeral_1h_input_tokens ?? 0;
+    const spent = dollars(message.model, usage.speed ?? "standard", usage.inference_geo ?? "global", { input, output, read, write5m: write - write1h, write1h });
+    facts.messages.set(message.id, { output, spent });
+    facts.tokens.output += output - (kept?.output ?? 0);
+    facts.cost += (spent ?? 0) - (kept?.spent ?? 0);
+    if (spent === null) facts.unpriced = true;
+    if (kept) return;
+    facts.tokens.input += input;
+    facts.tokens.cached += read + write;
+  },
+
+  numbers: (facts) => facts.newest && { model: modelName(facts.newest.model), asked: facts.newest.asked, used: facts.newest.used, tokens: { ...facts.tokens }, cost: facts.unpriced ? undefined : facts.cost },
 
   // Claude's files don't say how big a model's context is, but `/context` does, at no tokens.
   async limit(model) {

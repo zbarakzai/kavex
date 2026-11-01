@@ -85,9 +85,11 @@ down` when done.
 
 Work on a branch and open a pull request to `master`. CI must pass and
 Zakiullah approves; merges are squashed. Commit messages: lowercase conventional
-commits, single line, no AI co-author lines. Only Zakiullah releases: bump the
-version in `Cargo.toml`, add its CHANGELOG section, wait for `ci` on `master`,
-then push the `v*` tag. `release.yml` publishes to the R2 bucket in the
+commits, single line, no AI co-author lines. Only Zakiullah releases: check
+`defaults/mods/agents/prices.js` against each provider's official pricing page
+(a model missing from it reads "no price" until it's added), bump the version
+in `Cargo.toml`, add its CHANGELOG section, wait for `ci` on `master`, then
+push the `v*` tag. `release.yml` publishes to the R2 bucket in the
 repository's `R2_BUCKET` and `RELEASES_URL` variables, and installed copies
 update from there. The bucket stays private: the Cloudflare Worker in
 `distribution/worker` serves it under the secret key in `RELEASES_URL`. That

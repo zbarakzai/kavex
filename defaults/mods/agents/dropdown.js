@@ -12,6 +12,11 @@ function count(n) {
   return n < 1000 ? String(n) : n < 999500 ? short(n / 1e3, "k") : short(n / 1e6, "M");
 }
 
+function money(cost) {
+  if (cost === undefined) return "no price";
+  return cost > 0 && cost < 0.01 ? "<$0.01" : `$${cost.toFixed(2)}`;
+}
+
 export function dropdown(t, session) {
   if (session.state !== "ready") return div().w_full().p(12).text_size(12.8).text_color(t.muted).child("No usage yet");
   const k = look(t);
@@ -32,5 +37,7 @@ export function dropdown(t, session) {
         .child(figure(known ? `${count(used)} / ${count(total)}` : count(used)))
         .when(known, (el) => el.child(figure(`${percent}%`))),
     )
-    .child(line("Tokens").child(figure(`in ${count(input)} · out ${count(output)} · cached ${count(cached)}`)));
+    .child(line("API cost").child(div().flex_1()).child(figure(money(session.cost))))
+    .child(line("Tokens").child(figure(`in ${count(input)} · out ${count(output)} · cached ${count(cached)}`)))
+    .child(div().text_size(11).text_color(k.label).child("What this would cost on the API, not what you paid."));
 }

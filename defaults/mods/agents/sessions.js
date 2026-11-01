@@ -1,6 +1,7 @@
 // What each agent's session shows on its row and in its dropdown. An agent here is a small
-// object (see claude.js): `locate` finds a terminal's session, `filter`, `facts` and `add` read
-// its lines, `numbers` says what they add up to, and `limit` asks how big its model's context is.
+// object (see claude.js): `locate` finds a terminal's session, `helpers` its helpers' files,
+// `filter`, `facts` and `add` read their lines, `numbers` says what they add up to (cost included,
+// or left out for "no price"), and `limit` asks how big its model's context is.
 
 import { exec, setShared, shared, terminals, watchFolder } from "herdr";
 import { claude } from "./claude.js";
@@ -74,7 +75,7 @@ export class Sessions {
       const found = await agent.locate(term);
       if (this.reading !== run) return;
       if (found && found.id !== session?.id) {
-        session = { ...found, facts: agent.facts(), block: 0, changes: 1, done: 0 };
+        session = { ...found, facts: agent.facts(), files: new Map(), changes: 1, done: 0 };
         this.live.set(term.address, session);
       }
       if (!session || (session.done === session.changes && this.folders.has(session.folder))) return;
@@ -89,32 +90,53 @@ export class Sessions {
     } catch {}
   }
 
-  // What a session comes to, or null while it has no file.
+  // A pass that has been replaced stops here, before it touches anything.
+  still(run) {
+    if (this.reading !== run) throw new Error("replaced");
+  }
+
+  // What a session comes to, or null while it has no file. Helpers add to its facts, and only
+  // those that have grown are read; one found rewritten starts the whole session over.
   async read(session, agent, run) {
     for (;;) {
-      const { code, stdout } = await exec("sh", ["-c", NEW_LINES, "sh", session.file, String(session.block), agent.filter]);
-      if (this.reading !== run) throw new Error("replaced");
-      if (code === 3) return null;
+      if (!(await this.take(session, session.file, agent, run))) return null;
+      const { facts } = session;
+      const helpers = (await agent.helpers?.(session)) ?? [];
+      this.still(run);
+      for (const { file, size } of helpers) {
+        if (session.files.get(file)?.size !== size) await this.take(session, file, agent, run, true);
+      }
+      if (session.facts === facts) break;
+    }
+    const numbers = agent.numbers(session.facts);
+    return numbers ? { state: "ready", ...numbers } : { state: "empty" };
+  }
+
+  // Reads a file's new lines into the session's facts, or returns false if it isn't there.
+  async take(session, file, agent, run, helper = false) {
+    for (;;) {
+      const block = session.files.get(file)?.block ?? 0;
+      const { code, stdout } = await exec("sh", ["-c", NEW_LINES, "sh", file, String(block), agent.filter]);
+      this.still(run);
+      if (code === 3) return false;
       const lines = stdout.split("\n");
       const size = Number(lines[0]);
       if (!lines[0] || !Number.isFinite(size)) throw new Error("no size");
-      if (size < session.block * BLOCK) {
+      if (size < block * BLOCK) {
         session.facts = agent.facts();
-        session.block = 0;
+        session.files.clear();
         continue;
       }
       for (let i = 1; i < lines.length; i++) {
         try {
-          agent.add(session.facts, JSON.parse(lines[i]));
+          agent.add(session.facts, JSON.parse(lines[i]), helper);
         } catch {}
       }
-      const end = session.block + WINDOW;
+      const end = block + WINDOW;
       const last = Math.floor(size / BLOCK);
-      session.block = Math.max(0, Math.min(end, last) - 1);
-      if (end > last) break;
+      session.files.set(file, { block: Math.max(0, Math.min(end, last) - 1), size });
+      if (end > last) return true;
     }
-    const numbers = agent.numbers(session.facts);
-    return numbers ? { state: "ready", ...numbers } : { state: "empty" };
   }
 
   // Changes under a session's folder make it due, so nothing is read more than once per pass

@@ -52,7 +52,7 @@ mock.module("herdr", () => ({
   props: () => state.props,
   window: () => ({ platform: "macos" }),
   layout: () => state.layout,
-  home: () => home,
+  home: () => state.home ?? home,
   readTextFile: async (path: string) => {
     state.reads.push(path);
     if (state.brokenFiles) throw new Error("no such thing");
@@ -72,6 +72,7 @@ mock.module("herdr", () => ({
     const stdout = r.stdout.toString();
     state.outputs.push(stdout.length);
     if (state.asleep) await state.asleep;
+    if (args.at(-1)?.endsWith("/subagents")) await state.listing;
     return { code: r.exitCode, stdout: stdout.slice(0, EXEC_OUTPUT), stderr: r.stderr.toString() };
   },
 }));
@@ -121,13 +122,13 @@ const recordOf = (pid: number, sessionId: string, cwd = "/work/project") => {
 const fileOf = (sessionId: string, cwd = "/work/project") => join(home, ".claude", "projects", folderOf(cwd), `${sessionId}.jsonl`);
 
 // One assistant line as Claude writes it, with made-up words.
-type Said = { id: string; input?: number; read?: number; write?: number; output?: number; model?: string; side?: boolean; text?: string };
-const said = ({ id, input = 0, read = 0, write = 0, output = 0, model = "claude-opus-5-5", side = false, text = "made up" }: Said) =>
+type Said = { id: string; input?: number; read?: number; write?: number; write5m?: number; output?: number; model?: string; side?: boolean; text?: string; speed?: string; geo?: string };
+const said = ({ id, input = 0, read = 0, write = 0, write5m = 0, output = 0, model = "claude-opus-5-5", side = false, text = "made up", speed = "standard", geo = "global" }: Said) =>
   JSON.stringify({
     parentUuid: "p", isSidechain: side,
     message: {
       model, id, type: "message", role: "assistant", content: [{ type: "text", text }], stop_reason: "end_turn",
-      usage: { input_tokens: input, cache_creation_input_tokens: write, cache_read_input_tokens: read, output_tokens: output, cache_creation: { ephemeral_1h_input_tokens: write, ephemeral_5m_input_tokens: 0 } },
+      usage: { input_tokens: input, cache_creation_input_tokens: write + write5m, cache_read_input_tokens: read, output_tokens: output, cache_creation: { ephemeral_1h_input_tokens: write, ephemeral_5m_input_tokens: write5m }, service_tier: "standard", inference_geo: geo, speed },
     },
     requestId: "r", requestedModel: model, type: "assistant", uuid: "u", timestamp: "2026-11-01T10:00:00.000Z", cwd: "/work/project", sessionId: "s", version: "2.1.316",
   });
@@ -306,9 +307,11 @@ test("a sub-agent's row shows its own percent, and its logo opens its own dropdo
   expect(words((await dropdown()).draw())).toContain("250k / 1M");
 });
 
+const realReads = () => state.execs.filter(([cmd, , script]: string[]) => cmd === "sh" && script.includes("dd if=")).length;
+const changed = (path: string) => { for (const wake of state.watchers.splice(0)) wake([path]); };
 const changes = async (id: string, lines: string[]) => {
   writes(id, lines);
-  state.watchers.shift()([fileOf(id)]);
+  changed(fileOf(id));
   await ticks();
 };
 
@@ -376,10 +379,9 @@ test("a total smaller than what's used is wrong, so no percent shows", async () 
 test("numbers follow the file, at most once per pass however often it changes", async () => {
   const { draw } = await one([said({ id: "m1", read: 100000 })]);
   expect(rowPercents(draw, "t1")).toEqual(["10%"]);
-  const reads = () => state.execs.filter(([cmd]: string[]) => cmd === "sh").length;
-  const before = reads();
+  const before = realReads();
   await ticks();
-  expect(reads()).toBe(before);
+  expect(realReads()).toBe(before);
 
   writes("one", [said({ id: "m2", read: 200000 })]);
   const notified = state.notified;
@@ -388,9 +390,9 @@ test("numbers follow the file, at most once per pass however often it changes", 
   writes("one", [said({ id: "m3", read: 300000 })]);
   state.watchers.shift()([fileOf("one")]);
   await settle();
-  expect(reads()).toBe(before);
+  expect(realReads()).toBe(before);
   await ticks();
-  expect(reads()).toBe(before + 1);
+  expect(realReads()).toBe(before + 1);
   expect(state.notified).toBeGreaterThan(notified);
   expect(rowPercents(draw, "t1")).toEqual(["30%"]);
 });
@@ -599,7 +601,7 @@ test("every color the row and the dropdown use comes from the theme", async () =
   for (const e of [...all(root), ...all(byId(draw(), "ag-t1")!)]) {
     for (const [k, a] of e.calls) if (["text_color", "bg", "border_color"].includes(k) && a[0] !== undefined) expect(named.has(a[0])).toBe(true);
   }
-  for (const file of ["main.js", "sessions.js", "claude.js", "dropdown.js"]) {
+  for (const file of ["main.js", "sessions.js", "claude.js", "dropdown.js", "prices.js"]) {
     expect(readFileSync(new URL(`../defaults/mods/agents/${file}`, import.meta.url), "utf8")).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
   }
 });
@@ -645,7 +647,8 @@ test("a 100 MB session is read whole, however its lines fall, and after that onl
   state.outputs = [];
   await changes("one", [said({ id: "m1301", input: 10, read: 600000 })]);
   expect(rowPercents(draw, "t1")).toEqual(["60%"]);
-  expect(state.execs.filter(([cmd]: string[]) => cmd === "sh").length).toBe(1);
+  // One for the list and one for the dropdown it left open.
+  expect(realReads()).toBe(2);
   expect(state.outputs[0]).toBeLessThan(200000);
   rmSync(fileOf("one"));
 }, 30000);
@@ -723,6 +726,307 @@ test("a session of nothing but messages, far past what exec can carry in one go,
   rmSync(fileOf("one"));
 }, 30000);
 
+// What the list has worked out as it went, drawn by a dropdown that never reads for itself.
+const known = (draw: () => El) => {
+  clicks(byId(draw(), "logo-t1")!);
+  const list = state.props;
+  state.props = { ...state.opened.at(-1).props, overlay: "ov" };
+  const view: any = new Agents();
+  view.init({}, { ...cx, spawn: () => ({ cancel() {} }), timer: { every() {} } });
+  const seen = words(view.render(cx).el as El);
+  state.props = list;
+  return seen;
+};
+
+// A dropdown reads the session from its start and the list follows it: both must come to the same.
+const card = async (draw: () => El) => {
+  const followed = known(draw);
+  clicks(byId(draw(), "logo-t1")!);
+  const seen = words((await dropdown()).draw());
+  expect(seen).toEqual(followed);
+  return seen;
+};
+
+test("the dropdown shows the API cost, per token class, and says it is not what was paid", async () => {
+  const seen = await card((await one([said({ id: "m1", input: 1000000, write5m: 1000000, write: 1000000, read: 1000000, output: 1000000 })])).draw);
+  // Opus 5.5 on the pricing page: $4 in, $5 5m write, $8 1h write, $0.20 read, $20 out.
+  expect(seen).toContain("API cost");
+  expect(seen).toContain("$37.20");
+  expect(seen).toContain("What this would cost on the API, not what you paid.");
+});
+
+test("a session on several models names the one running now and counts them all", async () => {
+  const seen = await card((await one([
+    said({ id: "m1", input: 1000000 }),
+    said({ id: "m2", input: 1000000, model: "claude-fable-5-1" }),
+    said({ id: "m3", output: 1000000, model: "claude-sonnet-5-5" }),
+  ])).draw);
+  expect(seen).toContain("Claude Sonnet 5.5");
+  expect(seen).toContain("$24.00");
+});
+
+test("one model with no exact price reads no price, and the rest of the dropdown stays", async () => {
+  for (const model of ["claude-opus-9", "claude-opus-5-5-20270101", "anthropic.claude-opus-5-5"]) {
+    const { draw } = await one([said({ id: "m1", input: 1000000 }), said({ id: `m-${model}`, read: 100000, output: 50, model })]);
+    const seen = await card(draw);
+    expect(seen).toContain("no price");
+    expect(seen.join(" ")).not.toContain("$");
+    expect(seen).toContain("in 1M · out 50 · cached 100k");
+    expect(seen).toContain("100k / 1M");
+    expect(rowPercents(draw, "t1")).toEqual(["10%"]);
+    rmSync(fileOf("one"));
+  }
+});
+
+test("repeated lines for one message cost once", async () => {
+  const line = said({ id: "m1", input: 1000000 });
+  expect(await card((await one([line, line, line])).draw)).toContain("$4.00");
+});
+
+test("Claude's own notices cost nothing, and don't make a session no price", async () => {
+  expect(await card((await one([said({ id: "m1", input: 1000000 }), said({ id: "n1", input: 5, model: "<synthetic>" })])).draw)).toContain("$4.00");
+});
+
+test("a sum under a cent doesn't read as free, and an empty one does", async () => {
+  expect(await card((await one([said({ id: "m1", input: 100 })])).draw)).toContain("<$0.01");
+  rmSync(fileOf("one"));
+  expect(await card((await one([said({ id: "m1" })])).draw)).toContain("$0.00");
+});
+
+test("a Haiku 5.5 message over 100,000 prompt tokens pays the higher prices, by itself", async () => {
+  const haiku = "claude-haiku-5-5";
+  expect(await card((await one([said({ id: "m1", input: 100000, output: 2000000, model: haiku })])).draw)).toContain("$1.01");
+  rmSync(fileOf("one"));
+  expect(await card((await one([said({ id: "m1", input: 1, read: 100000, output: 2000000, model: haiku })])).draw)).toContain("$5.01");
+  rmSync(fileOf("one"));
+  expect(await card((await one([
+    said({ id: "m1", output: 2000000, model: haiku }),
+    said({ id: "m2", write: 200000, output: 2000000, model: haiku }),
+  ])).draw)).toContain("$6.20");
+});
+
+test("fast mode has its own prices, and a model without them reads no price", async () => {
+  const lots = { input: 1000000, write5m: 1000000, write: 1000000, read: 1000000, output: 1000000, speed: "fast" };
+  expect(await card((await one([said({ id: "m1", ...lots })])).draw)).toContain("$74.40");
+  rmSync(fileOf("one"));
+  expect(await card((await one([said({ id: "m1", ...lots, model: "claude-opus-4-7" })])).draw)).toContain("no price");
+  rmSync(fileOf("one"));
+  expect(await card((await one([said({ id: "m1", ...lots, speed: "turbo" })])).draw)).toContain("no price");
+});
+
+test("US-only inference is 1.1 times the price, and any other place reads no price", async () => {
+  const lots = { input: 1000000, output: 1000000 };
+  expect(await card((await one([said({ id: "m1", ...lots, geo: "us" })])).draw)).toContain("$26.40");
+  rmSync(fileOf("one"));
+  expect(await card((await one([said({ id: "m1", ...lots, geo: "not_available" })])).draw)).toContain("$24.00");
+  rmSync(fileOf("one"));
+  expect(await card((await one([said({ id: "m1", ...lots, geo: "moon" })])).draw)).toContain("no price");
+});
+
+test("a line that doesn't split its cache writes counts them as 5-minute ones", async () => {
+  const line = JSON.parse(said({ id: "m1", write: 1000000 }));
+  delete line.message.usage.cache_creation;
+  expect(await card((await one([JSON.stringify(line)])).draw)).toContain("$5.00");
+});
+
+test("/clear starts the cost over", async () => {
+  const { draw } = await one([said({ id: "m1", input: 1000000 })]);
+  recordOf(101, "two");
+  writes("two", [said({ id: "m2", input: 500000 })]);
+  await ticks();
+  expect(await card(draw)).toContain("$2.00");
+});
+
+test("/compact keeps the cost going", async () => {
+  const boundary = JSON.stringify({ type: "system", subtype: "compact_boundary", compactMetadata: { trigger: "manual", preTokens: 500000, postTokens: 25000 }, isSidechain: false });
+  const { draw } = await one([said({ id: "m1", input: 1000000 }), boundary]);
+  await changes("one", [said({ id: "m2", input: 500000 })]);
+  expect(await card(draw)).toContain("$6.00");
+});
+
+test("a resumed session keeps its cost, in a new process and after Zaki restarts", async () => {
+  const { draw } = await one([said({ id: "m1", input: 1000000 })]);
+  recordOf(202, "one");
+  state.terminals = [running("t1", 202)];
+  await changes("one", [said({ id: "m2", input: 500000 })]);
+  expect(await card(draw)).toContain("$6.00");
+
+  const restarted = await open();
+  await ticks();
+  expect(await card(restarted.draw)).toContain("$6.00");
+});
+
+const helperOf = (sessionId: string, name: string) => join(dirname(fileOf(sessionId)), sessionId, "subagents", `agent-${name}.jsonl`);
+const helps = (sessionId: string, name: string, lines: string[]) => {
+  mkdirSync(dirname(helperOf(sessionId, name)), { recursive: true });
+  appendFileSync(helperOf(sessionId, name), lines.map((l) => `${l}\n`).join(""));
+  writeFileSync(helperOf(sessionId, name).replace(/\.jsonl$/, ".meta.json"), '{"agentType":"made-up"}');
+};
+const helperChanges = async (sessionId: string, name: string, lines: string[]) => {
+  helps(sessionId, name, lines);
+  changed(helperOf(sessionId, name));
+  await ticks();
+};
+
+test("helpers add to their parent's cost and tokens, and never to its context", async () => {
+  helps("one", "a1", [said({ id: "h1", input: 1000000, output: 10, side: true }), said({ id: "h2", read: 900000, side: true })]);
+  helps("one", "a2", [said({ id: "h3", output: 1000000, model: "claude-sonnet-5-5", side: true })]);
+  const { draw } = await one([said({ id: "m1", input: 100000, read: 10000 })]);
+  expect(rowPercents(draw, "t1")).toEqual(["11%"]);
+  const seen = await card(draw);
+  expect(seen).toContain("110k / 1M");
+  // Opus 5.5: $0.40 + $0.002 + $4 + $0.0002 + $0.18. Sonnet 5.5: $10.
+  expect(seen).toContain("$14.58");
+  expect(seen).toContain("in 1.1M · out 1M · cached 910k");
+});
+
+test("a helper file saying nothing of being a helper still stays out of context", async () => {
+  helps("one", "a1", [said({ id: "h1", read: 900000, model: "claude-sonnet-5-5" })]);
+  const { draw } = await one([said({ id: "m1", read: 100000 })]);
+  expect(rowPercents(draw, "t1")).toEqual(["10%"]);
+  expect(await card(draw)).toContain("Claude Opus 5.5");
+});
+
+test("a helper's message counts at its final output, not the part-way one on its first line", async () => {
+  const first = said({ id: "h1", input: 1000000, read: 1000000, output: 1000000, side: true });
+  const last = said({ id: "h1", input: 1000000, read: 1000000, output: 2000000, side: true });
+  helps("one", "a1", [first, last, first]);
+  const seen = await card((await one([said({ id: "m1" })])).draw);
+  // $4 in, $0.20 read and $40 out, once.
+  expect(seen).toContain("$44.20");
+  expect(seen).toContain("in 1M · out 2M · cached 1M");
+});
+
+test("a helper on a model with no price makes the whole session no price", async () => {
+  helps("one", "a1", [said({ id: "h1", input: 5, model: "claude-opus-9", side: true })]);
+  const { draw } = await one([said({ id: "m1", input: 1000000 })]);
+  const seen = await card(draw);
+  expect(seen).toContain("no price");
+  expect(seen).toContain("in 1M · out 0 · cached 0");
+});
+
+test("a helper that starts or grows later is followed, and only it is read again", async () => {
+  helps("one", "a1", [said({ id: "h1", input: 1000000, side: true })]);
+  const { draw } = await one([said({ id: "m1", input: 1000000 })]);
+  expect(realReads()).toBe(2);
+  await helperChanges("one", "a2", [said({ id: "h2", input: 1000000, side: true })]);
+  expect(realReads()).toBe(4);
+  await helperChanges("one", "a2", [said({ id: "h3", input: 1000000, side: true })]);
+  expect(realReads()).toBe(6);
+  expect(await card(draw)).toContain("$16.00");
+});
+
+test("the dropdown stays live on a helper's work too", async () => {
+  const { draw } = await one([said({ id: "m1", input: 1000000 })]);
+  clicks(byId(draw(), "logo-t1")!);
+  const { draw: open } = await dropdown();
+  expect(words(open())).toContain("$4.00");
+  helps("one", "a1", [said({ id: "h1", input: 1000000, side: true })]);
+  changed(helperOf("one", "a1"));
+  await ticks();
+  expect(words(open())).toContain("$8.00");
+});
+
+test("a rewritten, shorter helper starts its session over, and counts nothing twice", async () => {
+  helps("one", "a1", [said({ id: "h1", input: 1000000, side: true, text: "x".repeat(3000000) }), said({ id: "h2", input: 1000000, side: true, text: "y".repeat(3000000) })]);
+  const { draw } = await one([said({ id: "m1", input: 1000000 })]);
+  expect(await card(draw)).toContain("$12.00");
+  await changes("one", [said({ id: "m2", input: 1000000 })]);
+  writeFileSync(helperOf("one", "a1"), `${said({ id: "h9", input: 500000, side: true })}\n`);
+  changed(helperOf("one", "a1"));
+  await ticks();
+  expect(await card(draw)).toContain("$10.00");
+});
+
+test("a helper file that goes away during a read costs nothing and breaks nothing", async () => {
+  helps("one", "a1", [said({ id: "h1", input: 1000000, side: true })]);
+  const { draw } = await one([said({ id: "m1", input: 1000000 })]);
+  rmSync(helperOf("one", "a1"));
+  await changes("one", [said({ id: "m2", input: 1000000 })]);
+  expect(known(draw)).toContain("$12.00");
+});
+
+test("a read replaced while it listed helpers reads nothing more", async () => {
+  const start = Date.now();
+  helps("one", "a1", [said({ id: "h1", input: 1000000, side: true })]);
+  await one([said({ id: "m1", input: 1000000 })]);
+  let wake = () => {};
+  state.listing = new Promise<void>((resolve) => { wake = resolve; });
+  helps("one", "a1", [said({ id: "h2", input: 1000000, side: true })]);
+  changed(helperOf("one", "a1"));
+  await Bun.sleep(5);
+  for (const [ms, f] of state.timers) if (ms === 2000) f(cx);
+  await Bun.sleep(30);
+
+  state.listing = null;
+  helps("one", "a1", [said({ id: "h3", input: 1000000, side: true })]);
+  changed(helperOf("one", "a1"));
+  setSystemTime(new Date(start + 15 * 60000));
+  await Bun.sleep(5);
+  for (const [ms, f] of state.timers) if (ms === 2000) f(cx);
+  await Bun.sleep(30);
+  const before = realReads();
+  wake();
+  await settle();
+  setSystemTime();
+  expect(realReads()).toBe(before);
+});
+
+test("a home folder with a space in its name still finds helpers", async () => {
+  const spaced = join(home, "first last");
+  state.home = spaced;
+  const file = join(spaced, ".claude", "projects", folderOf("/work/project"), "one", "subagents", "agent-a1.jsonl");
+  mkdirSync(dirname(file), { recursive: true });
+  writeFileSync(file, `${said({ id: "h1", input: 1000000, side: true })}\n`);
+  mkdirSync(join(spaced, ".claude", "sessions"), { recursive: true });
+  writeFileSync(join(spaced, ".claude", "sessions", "101.json"), JSON.stringify({ pid: 101, sessionId: "one", cwd: "/work/project" }));
+  writeFileSync(join(spaced, ".claude", "projects", folderOf("/work/project"), "one.jsonl"), `${said({ id: "m1", input: 1000000 })}\n`);
+  const term = running("t1", 101);
+  state.terminals = [term];
+  state.agents = [listed(term)];
+  const { draw } = await open();
+  await ticks();
+  expect(await card(draw)).toContain("$8.00");
+  rmSync(spaced, { recursive: true, force: true });
+});
+
+test("a very big session with many helpers on several models adds up, a window at a time", async () => {
+  const talk = JSON.stringify({ type: "user", message: { role: "user", content: `she said "type":"assistant" ${"x".repeat(77000)}` } });
+  const chunks: string[] = [];
+  for (let i = 1; i <= 1300; i++) {
+    const line = said({ id: `m${i}`, input: 100, read: 1000, write5m: 10, write: 10, output: 50, model: i % 2 ? "claude-opus-5-5" : "claude-sonnet-5-5", text: "z".repeat(300) });
+    chunks.push(line, line, line, talk);
+  }
+  writes("one", chunks);
+  expect(statSync(fileOf("one")).size).toBeGreaterThan(100000000);
+  for (let h = 1; h <= 40; h++) {
+    const lines: string[] = [];
+    for (let i = 1; i <= 2000; i++) {
+      const id = `h${h}-${i}`;
+      lines.push(said({ id, input: 100, read: 1000, output: 5, side: true, model: "claude-haiku-5-5", text: "y".repeat(300) }));
+      lines.push(said({ id, input: 100, read: 1000, output: 50, side: true, model: "claude-haiku-5-5" }));
+    }
+    helps("one", `a${h}`, lines);
+  }
+
+  const { draw } = await one([]);
+  const seen = await card(draw);
+  // Each of 650 Opus: 100×$4 + 1000×$0.20 + 10×$5 + 10×$8 + 50×$20 = $1730 a million.
+  // Each of 650 Sonnet: half that, $865. Each of 80,000 Haiku: 100×$0.10 + 1000×$0.01 + 50×$0.50 = $45.
+  expect(seen).toContain("$5.29");
+  expect(seen).toContain("in 8.1M · out 4.1M · cached 81.3M");
+  expect(Math.max(...state.outputs)).toBeLessThanOrEqual(EXEC_OUTPUT);
+
+  state.execs = [];
+  state.outputs = [];
+  await helperChanges("one", "a7", [said({ id: "h-new", input: 1000000, side: true, model: "claude-haiku-5-5" })]);
+  // The session and that one helper, for the list and for the dropdown it left open.
+  expect(realReads()).toBe(4);
+  expect(await card(draw)).toContain("$5.79");
+  rmSync(join(dirname(fileOf("one")), "one"), { recursive: true, force: true });
+  rmSync(fileOf("one"));
+}, 60000);
+
 test("no network, no login: all a pass touches is the session and Claude's own /context", async () => {
   const net = spyOn(globalThis, "fetch");
   const { draw } = await one([said({ id: "m1", read: 100000 })]);
@@ -734,7 +1038,7 @@ test("no network, no login: all a pass touches is the session and Claude's own /
   expect([...new Set(state.execs.map(([cmd]: string[]) => cmd))].sort()).toEqual(["claude", "sh"]);
   const touched = [...state.reads, ...state.execs.flat()].join("\n");
   expect(touched).not.toMatch(/credential|keychain|oauth|\.netrc|security/i);
-  for (const file of ["main.js", "sessions.js", "claude.js", "dropdown.js"]) {
+  for (const file of ["main.js", "sessions.js", "claude.js", "dropdown.js", "prices.js"]) {
     expect(readFileSync(new URL(`../defaults/mods/agents/${file}`, import.meta.url), "utf8")).not.toMatch(/\bfetch\(|WebSocket|https?:/);
   }
 });
