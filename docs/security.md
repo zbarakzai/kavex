@@ -43,6 +43,27 @@ On macOS the installer and updater verify certificate-signed bundles and preserv
 Apple notarization is tested separately; it is not required for publishing a release.
 Do not assume every download is notarized or signed.
 
+## Usage limits
+
+The gauge in the sidebar footer shows your subscriptions' limits. It checks 5 seconds after the footer starts, every 15 minutes, and when you open it. **Settings → Look → Usage limits** turns it off: checks stop and everything below is cleared, including your OpenCode answer.
+
+**What it runs.** On this computer and on each added machine:
+
+- Your shell, once per check, to learn its `PATH`: `$SHELL -ic 'printenv PATH'`. Your shell's startup files run when it does. Windows skips this step.
+- Claude Code: `claude auth status`, then `claude -p /usage`, with no hooks, plugins, MCP servers or saved session. It spends no tokens.
+- Codex: `codex app-server` in read-only mode, asked for your account and your limits.
+
+**What it reads.** The answers to those commands. It doesn't read Claude Code's or Codex's login, and it never touches the macOS Keychain. Those answers include your email, which is used to make a short SHA-256 fingerprint, so that one account on two machines shows as one row. The email isn't kept.
+
+**What it sends.** For Claude Code and Codex, nothing: those programs talk to their own providers, as they always do. OpenCode has no such command, so it is the one exception, and it works like this:
+
+- Nothing is read or sent until you press Allow on the card in the popover. Not now saves that answer and reads nothing. Turning Usage limits off and on asks again.
+- After Allow, on this computer only, each check reads the keys for `opencode` and `opencode-go` from `~/.local/share/opencode/auth.json` and from the `credential` table of `opencode.db` beside it, with `sqlite3 -readonly`. Keys on added machines are never read.
+- A key written as a variable or a command, such as `$OPENCODE_API_KEY` or `!pass show opencode`, is left alone and never sent.
+- Each key is sent in turn to `https://opencode.ai/zen/go/v1/usage` as a Bearer header, until one gives Go's limits. That is the only address it goes to. Zaki's `fetch` refuses to carry that header through a redirect to anywhere else.
+
+**What it keeps.** In `shared.json` in the app home, not encrypted: each subscription's name, tier and limits, and the fingerprint for Claude Code and Codex. No key, login or email is saved, and nothing made from an OpenCode key.
+
 ## Telemetry
 
 Zaki collects a small daily usage report with a random install ID, but no build sends it: Zaki has no telemetry server yet.
@@ -63,7 +84,7 @@ Turning it off deletes the local install ID and unsent reports. It cannot recall
 For one run, set `DO_NOT_TRACK=1` or `HERDR_TELEMETRY=0`. CI environments disable collection too.
 Ordinary source builds collect locally while enabled but do not send, unless pointed at a test endpoint with `HERDR_TELEMETRY_URL`.
 
-Telemetry being off does not stop update checks, mod network requests or feedback you choose to send.
+Telemetry being off does not stop update checks, Usage limits, mod network requests or feedback you choose to send.
 Feedback is drafted for you to review and send, not sent silently.
 
 [Back to Zaki](../README.md)

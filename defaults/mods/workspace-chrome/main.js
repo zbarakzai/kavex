@@ -1,7 +1,7 @@
 import { View, div, image, svg } from "gpui-kit";
 import { h_flex, HoverCard } from "gpui-base";
 import { theme, run, props, window, shared, setShared, updates, layout, agents, spaces, openOverlay, settings, nextCommand } from "herdr";
-import { checkUsage, EVERY, nearLimit } from "./checks.js";
+import { allowOpencode, checkUsage, EVERY, nearLimit } from "./checks.js";
 import { look, spaced } from "./look.js";
 
 function find(node, id) {
@@ -57,6 +57,7 @@ export default class WorkspaceChrome extends View {
         const command = await nextCommand();
         if (command === "check-usage") cx.spawn(() => checkUsage());
         if (command === "refresh-usage") cx.spawn(() => checkUsage({ force: true }));
+        if (command === "allow-opencode") cx.spawn(() => allowOpencode());
       }
     });
   }

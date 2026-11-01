@@ -1,4 +1,5 @@
 import { test, expect, mock, beforeEach, afterEach, setSystemTime } from "bun:test";
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 
 // The real footer button, popover, Settings row and checks, with only the outside world faked: what `exec`,
@@ -7,6 +8,7 @@ import { readFileSync } from "node:fs";
 // To teach it a new agent, add its commands to `state.says` (a piece of the command line, and what
 // comes back) and its entry to `state.agents`, by machine ("" is this computer). `state.answers`
 // is the same for `fetch`, by address: anything unlisted fails, so no test reaches the network.
+// `state.files` is what `readTextFile` finds; `state.reads` lists every path it was asked for.
 type El = { calls: [string, any[]][]; kids: any[]; hover?: El };
 function make(): any {
   const el: El = { calls: [], kids: [] };
@@ -37,8 +39,10 @@ let state: {
   agents: Record<string, any[] | Error>;
   machines: { name: string | null; layout: string }[];
   runs: { line: string; on: string | null }[];
-  answers: Record<string, Response | Error>;
+  answers: Record<string, (() => Response | Error | Promise<Response | Error>) | Error>;
   fetched: { url: string; init?: RequestInit }[];
+  files: Record<string, string>;
+  reads: string[];
   shared: Record<string, any>;
   props: any;
   sidebar: number;
@@ -50,7 +54,8 @@ let state: {
   waiting: ((command: string) => void) | null;
 };
 
-const colors = JSON.parse(readFileSync(new URL("../defaults/themes/zaki.json", import.meta.url), "utf8")).colors;
+// `solid` and its text are made for every theme by src/settings.rs, not written in the file.
+const colors = { ...JSON.parse(readFileSync(new URL("../defaults/themes/zaki.json", import.meta.url), "utf8")).colors, solid: "#abcdef", solid_foreground: "#123456" };
 
 async function exec(command: string, args: string[] = [], options: { on?: string | null } = {}) {
   const line = [command, ...args].join(" ");
@@ -65,8 +70,9 @@ async function exec(command: string, args: string[] = [], options: { on?: string
 
 globalThis.fetch = (async (url: string, init?: RequestInit) => {
   state.fetched.push({ url: String(url), init });
-  const answer = state.answers[String(url)];
-  if (!answer) throw new Error(`nothing fakes: ${url}`);
+  const reply = state.answers[String(url)];
+  if (!reply) throw new Error(`nothing fakes: ${url}`);
+  const answer = typeof reply === "function" ? await reply() : reply;
   if (answer instanceof Error) throw answer;
   return answer;
 }) as typeof fetch;
@@ -82,7 +88,7 @@ mock.module("herdr", () => ({
     return list;
   },
   machines: () => state.machines,
-  shared: (k: string) => state.shared[k],
+  shared: (k: string) => state.shared[k] ?? null,
   setShared: (k: string, v: any) => { state.shared[k] = v === undefined ? v : JSON.parse(JSON.stringify(v)); },
   props: () => state.props,
   theme: () => colors,
@@ -90,7 +96,7 @@ mock.module("herdr", () => ({
   window: () => ({ platform: "macos" }),
   home: () => "/home/person",
   appHome: () => "/home/person/.config/zaki",
-  readTextFile: async () => null,
+  readTextFile: async (path: string) => { state.reads.push(path); return state.files[path] ?? null; },
   writeTextFile: async () => {},
   hc: async () => ({ code: 0, stdout: '{"machines":[]}', stderr: "" }),
   themes: () => [],
@@ -228,6 +234,8 @@ beforeEach(() => {
     runs: [],
     answers: {},
     fetched: [],
+    files: {},
+    reads: [],
     shared: {},
     props: null,
     sidebar: 230,
@@ -596,14 +604,6 @@ test("no login, email or organisation reaches shared storage", async () => {
   expect(saved).toContain("12");
   for (const secret of [ACCOUNT.email, ACCOUNT.orgId, ACCOUNT.orgName]) expect(saved).not.toContain(secret);
   expect(saved).not.toMatch(/email|org/i);
-});
-
-test("an agent waiting to be asked for consent is no subscription", async () => {
-  state.says["printenv PATH"] = "/made/up/bin\n";
-  state.agents[""] = [{ ...CLAUDE, key: "opencode", name: "OpenCode", icon: "icons/opencode.svg" }];
-  const { popover } = await opened();
-  expect(words(popover.draw())).not.toContain("OpenCode");
-  expect(words(popover.draw())).toContain(NONE);
 });
 
 test("colors come from the theme, and the popover paints no background over its frame", async () => {
@@ -1016,4 +1016,503 @@ test("one check finishing doesn't stop another that's running", async () => {
   await settle();
   expect(checks()).toBe(1);
   expect(state.shared.usage.entries["claude|"].limits[0].used).toBe(12);
+});
+
+const OPENCODE = { ...CLAUDE, key: "opencode", name: "OpenCode", icon: "icons/opencode.svg", run: ["opencode"] };
+const KEY = "made-up-go-key-0123456789";
+const AUTH = "/home/person/.local/share/opencode/auth.json";
+const GO = "https://opencode.ai/zen/go/v1/usage";
+const ASKS = "Zaki reads your OpenCode key and sends it only to opencode.ai, to ask for your Go plan's limits.";
+
+// OpenCode installed on this computer, with this auth file and no database to read.
+function opencode(auth: unknown = { opencode: { type: "api", key: KEY } }) {
+  state.agents[""] = [...(Array.isArray(state.agents[""]) ? state.agents[""] : []), OPENCODE];
+  state.says["printenv PATH"] = "/made/up/bin:/usr/bin\n";
+  state.says["sqlite3"] = new Error("no database");
+  state.files[AUTH] = JSON.stringify(auth);
+}
+
+const keysRead = () => state.reads.length + state.runs.filter((run) => run.line.includes("sqlite3")).length;
+
+test("with OpenCode installed and no answer yet, the popover asks, and nothing is read or sent", async () => {
+  opencode();
+  const { popover } = await opened();
+  const root = popover.draw();
+  expect(words(root)).toEqual(expect.arrayContaining(["OpenCode", ASKS, "Allow", "Not now"]));
+  expect(paths(root)).toContain("icons/opencode.svg");
+  expect(words(root)).not.toContain(NONE);
+  expect(limits(root)).toEqual([]);
+  expect(keysRead()).toBe(0);
+  expect(state.fetched).toEqual([]);
+});
+
+test("OpenCode not installed never asks", async () => {
+  opencode();
+  state.agents[""] = [{ ...OPENCODE, installed: false }];
+  const { popover } = await opened();
+  expect(words(popover.draw())).not.toContain(ASKS);
+  expect(words(popover.draw())).toContain(NONE);
+});
+
+const reply = (popover: { draw: () => El }, id: string) => handler(byId(popover.draw(), id)!, "on_click")({}, cx);
+const NOT_NOW = "usage-not-now", ALLOW = "usage-allow";
+
+const GO_SAYS = { usage: {
+  rolling: { percent: 33, resetInSec: 3 * 3600 },
+  monthly: { percent: 4.4, resetsAt: "2026-11-20T12:00:00Z" },
+  weekly: { percent: 12, resetsAt: "2026-11-03T12:00:00Z" },
+} };
+const go = (body: unknown = GO_SAYS, status = 200) => () => new Response(typeof body === "string" ? body : JSON.stringify(body), { status });
+
+test("Not now hides the card at once and for good, and no key is read, then or later", async () => {
+  opencode();
+  const { popover } = await opened();
+  reply(popover, NOT_NOW);
+  expect(words(popover.draw())).not.toContain(ASKS);
+  expect(words(popover.draw())).toContain(NONE);
+  expect(state.shared["usage.opencode"]).toBe(false);
+
+  await wait(60_000);
+  refresh(popover);
+  await settle();
+  await wait(2 * 3600_000);
+  expect(words(popover.draw())).not.toContain(ASKS);
+  expect(Object.keys(state.shared.usage.entries)).toEqual([]);
+  expect(keysRead()).toBe(0);
+  expect(state.fetched).toEqual([]);
+});
+
+test("Allow shows Go's limits straight away, weekly first, with nothing else started", async () => {
+  opencode();
+  state.answers[GO] = go();
+  const { popover } = await opened();
+  reply(popover, ALLOW);
+  await settle();
+  const root = popover.draw();
+  expect(state.shared["usage.opencode"]).toBe(true);
+  expect(words(root)).not.toContain(ASKS);
+  expect(words(root)).toEqual(expect.arrayContaining(["OpenCode", "Go"]));
+  expect(limits(root).map((limit) => words(limit))).toEqual([
+    ["This week", "12%", "resets in 2d 0h"],
+    ["5 hours", "33%", "resets in 3h 0m"],
+    ["This month", "4%", "resets in 19d 0h"],
+  ]);
+  expect(state.fetched.length).toBe(1);
+  expect(words(root)).toContain("Updated just now");
+});
+
+// The card showing, and a later pass stopped at Claude's usage command.
+async function allowDuringAPass() {
+  claude(WEEK);
+  opencode();
+  state.answers[GO] = go();
+  const { f, popover } = await opened();
+  const usage = held();
+  state.says["claude -p /usage"] = usage.answer;
+  setSystemTime(NOW + 2 * 60_000);
+  refresh(popover);
+  await settle();
+  expect(checks()).toBe(2);
+  expect(words(popover.draw())).toContain(ASKS);
+  return { f, popover, usage };
+}
+const opencodeRow = () => state.shared.usage.entries["opencode|"];
+const heldGo = () => {
+  const request = held();
+  state.answers[GO] = () => request.answer as Promise<Response>;
+  return request;
+};
+
+test("Allow checks at once during a running check, starting no agent again, and both keep their numbers", async () => {
+  const { popover, usage } = await allowDuringAPass();
+  reply(popover, ALLOW);
+  await settle();
+  expect(limits(popover.draw()).map((limit) => words(limit)[0])).toContain("This month");
+  expect(words(popover.draw())).toContain("Checking…");
+  expect(checks()).toBe(2);
+
+  usage.release(usageAnswer(AT(50)));
+  await settle();
+  expect(limits(popover.draw()).map((limit) => words(limit).slice(0, 2))).toEqual(expect.arrayContaining([["This month", "4%"], ["This week", "50%"]]));
+  expect(words(popover.draw())).not.toContain(ASKS);
+  expect(state.fetched.length).toBe(1);
+});
+
+test("the running check finishing first leaves Allow's check to finish and save", async () => {
+  const { popover, usage } = await allowDuringAPass();
+  const request = heldGo();
+  reply(popover, ALLOW);
+  await settle();
+  usage.release(usageAnswer(AT(50)));
+  await settle();
+  expect(state.shared.usage.entries["claude|"].limits[0].used).toBe(50);
+  expect(words(popover.draw())).not.toContain(ASKS);
+  expect(words(popover.draw())).not.toContain(NONE);
+
+  request.release(go()());
+  await settle();
+  expect(state.shared.usage.entries["claude|"].limits[0].used).toBe(50);
+  expect(opencodeRow().limits.length).toBe(3);
+});
+
+for (const [why, answerGo, row] of [
+  ["a refused key", go({}, 401), undefined],
+  ["no network", new Error("offline"), "Could not check"],
+] as const) {
+  test(`${why} from Allow's check stands when the running check ends after it`, async () => {
+    const { popover, usage } = await allowDuringAPass();
+    state.answers[GO] = answerGo;
+    reply(popover, ALLOW);
+    await settle();
+    usage.release(usageAnswer(AT(50)));
+    await settle();
+    const root = popover.draw();
+    expect(words(root)).not.toContain(ASKS);
+    if (row) expect(words(root)).toEqual(expect.arrayContaining(["OpenCode", row]));
+    else expect(words(root)).not.toContain("OpenCode");
+  });
+}
+
+test("Not now during a running check stays answered when that check saves what it asked", async () => {
+  const { popover, usage } = await allowDuringAPass();
+  reply(popover, NOT_NOW);
+  usage.release(ANSWER);
+  await settle();
+  expect(words(popover.draw())).not.toContain(ASKS);
+  expect(words(popover.draw())).not.toContain("OpenCode");
+  expect(keysRead()).toBe(0);
+  setSystemTime(Date.now() + 60_000);
+  refresh(popover);
+  await settle();
+  expect(opencodeRow()).toBeUndefined();
+});
+
+test("while Allow's check runs the line says so and the numbers can't be mistaken for none, then checks go on as before", async () => {
+  opencode();
+  const request = heldGo();
+  const { popover } = await opened();
+  reply(popover, ALLOW);
+  await settle();
+  const root = popover.draw();
+  expect(words(root)).toContain("Checking…");
+  expect(words(root)).not.toContain(NONE);
+
+  request.release(go()());
+  await settle();
+  expect(words(popover.draw())).not.toContain("Checking…");
+  setSystemTime(NOW + 1);
+  state.runs.length = 0;
+  refresh(popover);
+  await settle();
+  expect(state.runs.length).toBeGreaterThan(0);
+});
+
+test("a second footer told of the same Allow sends nothing more", async () => {
+  opencode();
+  state.answers[GO] = go();
+  const { popover } = await opened();
+  footer();
+  await settle();
+  reply(popover, ALLOW);
+  state.commands.push("allow-opencode");
+  await settle();
+  expect(state.fetched.length).toBe(1);
+});
+
+test("Allow during a check that saves nothing when turned off: its own check saves nothing either", async () => {
+  opencode();
+  const request = heldGo();
+  const { popover } = await opened();
+  reply(popover, ALLOW);
+  await settle();
+  flip();
+  request.release(go()());
+  await settle();
+  expect(state.shared.usage ?? null).toBeNull();
+  expect(state.shared["usage.opencode"] ?? null).toBeNull();
+});
+
+test("nor can Allow's check bring its row back through off and on again", async () => {
+  opencode();
+  const request = heldGo();
+  const { popover } = await opened();
+  reply(popover, ALLOW);
+  await settle();
+  flip();
+  flip();
+  await wait(60_000);
+  expect(opencodeRow().ask).toBe(true);
+  request.release(go()());
+  await settle();
+  expect(opencodeRow().ask).toBe(true);
+  expect(words(popover.draw())).toContain(ASKS);
+});
+
+const allowed = async () => {
+  const opening = await opened();
+  reply(opening.popover, ALLOW);
+  await settle();
+  return opening;
+};
+const bearers = () => state.fetched.map((sent) => (sent.init?.headers as Record<string, string>).Authorization);
+
+test("keys come from OpenCode's auth file and its database's credential table, and nothing else is read", async () => {
+  opencode({ "opencode-go": { type: "api", key: "made-up-file-key" }, anthropic: { type: "api", key: "made-up-other-key" } });
+  state.says["sqlite3"] = `${JSON.stringify({ type: "key", key: "made-up-table-key" })}\n`;
+  state.answers[GO] = go({}, 403);
+  await allowed();
+  expect(bearers()).toEqual(["Bearer made-up-table-key", "Bearer made-up-file-key"]);
+  expect(state.reads).toEqual([AUTH]);
+  const database = state.runs.filter((run) => run.line.includes("sqlite3"));
+  expect(database.length).toBe(1);
+  expect(database[0].line).toContain("-readonly /home/person/.local/share/opencode/opencode.db");
+  expect(database[0].line).toContain("FROM credential");
+  expect(state.runs.filter((run) => !/sqlite3|printenv PATH/.test(run.line))).toEqual([]);
+});
+
+for (const written of ["$OPENCODE_API_KEY", "${OPENCODE_API_KEY}", "$(cat key)", "!pass show opencode", " !pass show opencode", "`cat key`", "{env:OPENCODE_API_KEY}", "{file:~/key}", "%OPENCODE_API_KEY%", "two words", "line\nbreak", ""]) {
+  test(`a key written as ${JSON.stringify(written)} is never sent, from the file or the table`, async () => {
+    opencode({ opencode: { type: "api", key: written }, "opencode-go": written });
+    state.says["sqlite3"] = `${JSON.stringify({ type: "key", key: written })}\n`;
+    state.answers[GO] = go();
+    const { popover } = await allowed();
+    expect(state.fetched).toEqual([]);
+    expect(words(popover.draw())).not.toContain("Could not check");
+    expect(words(popover.draw())).not.toContain("OpenCode");
+  });
+}
+
+test("the same key in both places is sent once", async () => {
+  opencode();
+  state.says["sqlite3"] = `${JSON.stringify({ type: "key", key: KEY })}\n`;
+  state.answers[GO] = go({}, 401);
+  await allowed();
+  expect(bearers()).toEqual([`Bearer ${KEY}`]);
+});
+
+test("a login that isn't a key, such as a Console session, is left alone", async () => {
+  opencode({ opencode: { type: "oauth", access: "made-up-access", refresh: "made-up-refresh", expires: 1 } });
+  state.answers[GO] = go();
+  await allowed();
+  expect(state.fetched).toEqual([]);
+});
+
+test("the key goes to opencode.ai over https and nowhere else, as a Bearer header alone", async () => {
+  opencode();
+  state.answers[GO] = go();
+  const { f, popover } = await allowed();
+  await wait(16 * 60_000);
+  refresh(popover);
+  await settle();
+  f.draw();
+  expect(state.fetched.length).toBeGreaterThan(1);
+  for (const { url, init } of state.fetched) {
+    expect(new URL(url).origin).toBe("https://opencode.ai");
+    expect(url).not.toContain(KEY);
+    expect(init?.body).toBeUndefined();
+    const headers = init?.headers as Record<string, string>;
+    expect(headers.Authorization).toBe(`Bearer ${KEY}`);
+    expect(Object.entries(headers).filter(([, value]) => value.includes(KEY)).length).toBe(1);
+    expect(headers["User-Agent"]).toBe("zaki-usage/1.0");
+  }
+  expect(JSON.stringify(state.runs)).not.toContain(KEY);
+});
+
+for (const status of [401, 403]) {
+  test(`a ${status} gives no row and no error`, async () => {
+    opencode();
+    state.answers[GO] = go({ error: "no" }, status);
+    const { popover } = await allowed();
+    const root = popover.draw();
+    expect(words(root)).not.toContain("OpenCode");
+    expect(words(root)).not.toContain("Could not check");
+    expect(words(root)).toContain(NONE);
+    expect(words(root)).not.toContain("Checking…");
+  });
+
+  test(`a ${status} later takes the older row with it`, async () => {
+    opencode();
+    state.answers[GO] = go();
+    const { popover } = await allowed();
+    expect(limits(popover.draw()).length).toBe(3);
+    state.answers[GO] = go({}, status);
+    refresh(popover);
+    await settle();
+    expect(limits(popover.draw())).toEqual([]);
+    expect(words(popover.draw())).not.toContain("OpenCode");
+  });
+}
+
+test("a key without a Go plan doesn't stop the next one being asked", async () => {
+  opencode({ opencode: { type: "api", key: "made-up-zen-key" }, "opencode-go": { type: "api", key: KEY } });
+  const answers = [go({}, 401), go()];
+  state.answers[GO] = () => answers.shift()!();
+  const { popover } = await allowed();
+  expect(limits(popover.draw()).length).toBe(3);
+});
+
+test("a network failure keeps the last numbers with their age", async () => {
+  opencode();
+  state.answers[GO] = go();
+  const { popover } = await allowed();
+  setSystemTime(NOW + 12 * 60_000);
+  state.answers[GO] = new Error("offline");
+  refresh(popover);
+  await settle();
+  const root = popover.draw();
+  expect(words(limits(root)[0])).toContain("12%");
+  expect(words(root)).toContain("Last checked 12m ago");
+  expect(words(root)).toContain("Updated 12m ago");
+});
+
+for (const [why, reply_] of [
+  ["no network", new Error("offline")],
+  ["a server error", go("nope", 500)],
+  ["text that isn't JSON", go("<html>")],
+  ["no limits in the answer", go({ plan: "go" })],
+  ["a percent that isn't one", go({ usage: { weekly: { percent: "most" } } })],
+  ["a null answer", go("null")],
+] as const) {
+  test(`${why} with no earlier numbers reads "Could not check"`, async () => {
+    opencode();
+    state.answers[GO] = reply_;
+    const { popover } = await allowed();
+    expect(words(popover.draw())).toEqual(expect.arrayContaining(["OpenCode", "Could not check"]));
+    expect(limits(popover.draw())).toEqual([]);
+    expect(words(popover.draw())).not.toContain(NONE);
+  });
+}
+
+test("the second spelling of Go's answer and a rate-limited window read too", async () => {
+  opencode();
+  state.answers[GO] = go({ weeklyUsage: { usagePercent: 80, status: "rate-limited", resetInSec: 3600 } });
+  const { popover } = await allowed();
+  expect(limits(popover.draw()).map((limit) => words(limit))).toEqual([["This week", "100%", "resets in 1h 0m"]]);
+});
+
+test("Go at 90% lights the dot like any other limit", async () => {
+  opencode();
+  state.answers[GO] = go({ usage: { weekly: { percent: 91, resetInSec: 3600 } } });
+  const { f } = await allowed();
+  expect(dotOn(f.draw())).toBeDefined();
+});
+
+test("with the answer given, later checks ask opencode.ai by themselves, with no card", async () => {
+  opencode();
+  state.answers[GO] = go();
+  state.shared["usage.opencode"] = true;
+  const { popover } = await opened();
+  expect(words(popover.draw())).not.toContain(ASKS);
+  expect(limits(popover.draw()).length).toBe(3);
+});
+
+test("OpenCode is checked on this computer only: an added machine's is neither asked about nor read", async () => {
+  for (const consent of [undefined, true]) {
+    state.shared["usage.opencode"] = consent;
+    state.shared.usage = undefined;
+    state.machines = [{ name: null, layout: "ready" }, { name: "made-up-box", layout: "ready" }];
+    state.agents = { "made-up-box": [OPENCODE] };
+    state.says["printenv PATH"] = "/made/up/bin\n";
+    state.answers[GO] = go();
+    state.reads.length = 0;
+    const f = footer();
+    await wait(5_000);
+    f.close();
+    expect(Object.keys(state.shared.usage.entries)).toEqual([]);
+    expect(state.reads).toEqual([]);
+    expect(state.fetched).toEqual([]);
+    expect(state.runs.filter((run) => run.line.includes("sqlite3"))).toEqual([]);
+  }
+});
+
+for (const [why, reply_] of [
+  ["good numbers", go()],
+  ["an answer that repeats the key and an email", go({ ...GO_SAYS, key: KEY, email: "someone@example.test" })],
+  ["a refused key", go({}, 401)],
+  ["a failure that names the key", new Error(`could not send ${KEY}`)],
+  ["a server error that names the key", go(KEY, 500)],
+] as const) {
+  test(`after ${why}, shared storage holds no key, nothing made from it and no email`, async () => {
+    opencode();
+    state.answers[GO] = reply_;
+    await allowed();
+    const saved = JSON.stringify(state.shared);
+    expect(saved).not.toContain(KEY);
+    expect(saved).not.toContain("someone@example.test");
+    expect(saved).not.toMatch(/email/i);
+    expect(saved).not.toContain(createHash("sha256").update(KEY).digest("hex").slice(0, 8));
+    expect(opencodeRow()?.who).toBeUndefined();
+  });
+}
+
+test("turned off while the key is being read, the rest of it is never read", async () => {
+  const database = held();
+  opencode();
+  state.says["sqlite3"] = database.answer;
+  state.answers[GO] = go();
+  const { popover } = await opened();
+  reply(popover, ALLOW);
+  await settle();
+  flip();
+  database.release(new Error("no database"));
+  await settle();
+  expect(state.reads).not.toContain(AUTH);
+  expect(state.fetched).toEqual([]);
+});
+
+test("off alone stops a key that's been read from being sent", async () => {
+  const database = held();
+  opencode();
+  state.says["sqlite3"] = database.answer;
+  state.answers[GO] = go();
+  const { popover } = await opened();
+  reply(popover, ALLOW);
+  await settle();
+  state.shared["usage.enabled"] = false;
+  database.release(`${JSON.stringify({ type: "key", key: KEY })}\n`);
+  await settle();
+  expect(state.fetched).toEqual([]);
+});
+
+test("a key refused by the first request isn't followed by the next once it's turned off", async () => {
+  opencode({ opencode: { type: "api", key: "made-up-zen-key" }, "opencode-go": { type: "api", key: KEY } });
+  const request = heldGo();
+  const { popover } = await opened();
+  reply(popover, ALLOW);
+  await settle();
+  expect(state.fetched.length).toBe(1);
+  state.shared["usage.enabled"] = false;
+  request.release(go({}, 401)());
+  await settle();
+  expect(state.fetched.length).toBe(1);
+});
+
+test("after Allow, turning it off and on asks again, and reads nothing until answered", async () => {
+  opencode();
+  state.answers[GO] = go();
+  const { popover } = await opened();
+  reply(popover, ALLOW);
+  await settle();
+  flip();
+  flip();
+  state.reads.length = 0;
+  await wait(2 * 3600_000);
+  expect(words(popover.draw())).toContain(ASKS);
+  expect(limits(popover.draw())).toEqual([]);
+  expect(state.reads).toEqual([]);
+  expect(state.fetched.length).toBe(1);
+
+  reply(popover, ALLOW);
+  await settle();
+  expect(limits(popover.draw()).length).toBe(3);
+  expect(state.fetched.length).toBe(2);
+});
+
+test("the card takes its colors from the theme, with Allow as the primary button", async () => {
+  opencode();
+  const { popover } = await opened();
+  const root = popover.draw(), theirs = new Set(Object.values(colors));
+  for (const e of all(root)) for (const name of ["bg", "text_color", "border_color"]) if (arg(e, name)) expect(theirs.has(arg(e, name))).toBe(true);
+  expect(arg(byId(root, ALLOW)!, "bg")).toBe(colors.solid);
+  expect(arg(byId(root, ALLOW)!, "text_color")).toBe(colors.solid_foreground);
 });

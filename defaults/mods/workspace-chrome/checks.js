@@ -16,6 +16,7 @@ const REUSE = 60_000; // repeated clicks don't start the agents again
 const BUSY = 60_000; // a check that long ago was cut off, not still going
 const DAY = 24 * 3600_000;
 const HERE = "This computer";
+const OPENCODE = "opencode|";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const CODEX_PLANS = { pro: "Pro 200", prolite: "Pro 100", promax: "Pro 500", team: "Business", self_serve_business_usage_based: "Business", self_serve_business_prolite: "Business Premium" };
@@ -101,7 +102,7 @@ function goLimits(answer) {
   return GO_WINDOWS.flatMap(([name, label]) => {
     const window = usage[name] ?? answer?.[`${name}Usage`];
     const percent = window?.percent ?? window?.usagePercent;
-    if (typeof percent !== "number") return [];
+    if (!Number.isFinite(percent)) return [];
     const resetsAt = window.resetsAt ? Date.parse(window.resetsAt) : window.resetInSec ? Date.now() + window.resetInSec * 1000 : null;
     return [{ label, used: window.status === "rate-limited" ? 100 : Math.round(percent), resetsAt: Number.isFinite(resetsAt) ? resetsAt : null }];
   });
@@ -157,36 +158,42 @@ async function codex(on, path) {
   return codexReport((await inShell(on, path, CODEX_POSIX, CODEX_WINDOWS)).stdout);
 }
 
+// Turning Usage off takes the consent back, and that can happen at any step of reading or sending.
+const opencodeAllowed = () => shared("usage.enabled") !== false && shared("usage.opencode") === true;
+
 async function opencodeKeys() {
   const data = `${home()}/.local/share/opencode`, keys = [];
   const add = (entry) => {
-    const key = typeof entry === "string" ? entry : entry?.type === "key" || entry?.key ? entry.key : "";
-    // A `$VAR` or `!command` entry is for OpenCode to resolve, and is never sent.
-    if (typeof key === "string" && key.trim() && !/^[!$]/.test(key.trim()) && !keys.includes(key.trim())) keys.push(key.trim());
+    const key = String((typeof entry === "string" ? entry : entry?.key) ?? "").trim();
+    // A real key is one token. `$VAR`, `!command`, `{env:VAR}` and the like are for OpenCode to
+    // resolve, and are never sent. Going by what a key is leaves no such spelling to miss.
+    if (/^[A-Za-z0-9][\w.~+/=-]*$/.test(key) && !keys.includes(key)) keys.push(key);
   };
   try {
     const rows = await exec("sqlite3", ["-readonly", `${data}/opencode.db`, "SELECT value FROM credential WHERE active = 1 AND integration_id IN ('opencode-go', 'opencode') ORDER BY integration_id = 'opencode-go' DESC"]);
     for (const row of rows.stdout.split("\n").filter(Boolean)) add(JSON.parse(row));
   } catch {}
+  if (!opencodeAllowed()) return [];
   try {
     const auth = JSON.parse((await readTextFile(`${data}/auth.json`)) ?? "{}");
-    add(auth.opencode);
     add(auth["opencode-go"]);
+    add(auth.opencode);
   } catch {}
   return keys;
 }
 
 // Only a Go plan has limits: a key OpenCode refuses (401) or one without a plan (403) is no trouble.
+// No `who` here, unlike the other agents: OpenCode has no second machine to match an account on, so
+// nothing made from the key needs saving.
 async function opencode() {
   let unreachable = false;
   for (const key of await opencodeKeys()) {
-    // Turning Usage off takes the consent back, and that can happen while the key is being read.
-    if (shared("usage.opencode") !== true) return null;
+    if (!opencodeAllowed()) return null;
     try {
       const answer = await fetch("https://opencode.ai/zen/go/v1/usage", { headers: { Authorization: `Bearer ${key}`, Accept: "application/json", "User-Agent": "zaki-usage/1.0" } });
       if (answer.status === 401 || answer.status === 403) continue;
       const limits = answer.ok ? goLimits(await answer.json()) : [];
-      if (limits.length) return { plan: "Go", who: fingerprint(key), limits };
+      if (limits.length) return { plan: "Go", limits };
       unreachable = true;
     } catch {
       unreachable = true;
@@ -196,12 +203,7 @@ async function opencode() {
   return null;
 }
 
-const CHECKS = {
-  claude,
-  codex,
-  // The key can't leave for another machine's sake: OpenCode is checked on this computer only.
-  opencode: (on) => (on ? null : opencode()),
-};
+const CHECKS = { claude, codex, opencode };
 
 async function checkMachine(on, last, now) {
   const mine = Object.entries(last).filter(([, entry]) => entry.machine === on);
@@ -212,6 +214,7 @@ async function checkMachine(on, last, now) {
     return Object.fromEntries(mine.map(([id, entry]) => [id, { ...entry, failed: true }]));
   }
   const path = await shellPath(on);
+  // The key can't leave for another machine's sake: OpenCode is checked on this computer only.
   const found = await Promise.all(agents.filter((agent) => agent.installed && CHECKS[agent.key] && (agent.key !== "opencode" || !on)).map(async (agent) => {
     const id = `${agent.key}|${on ?? ""}`, base = { agent: agent.key, name: agent.name, icon: agent.icon, tint: agent.tint, machine: on };
     if (agent.key === "opencode" && shared("usage.opencode") !== true) return shared("usage.opencode") === false ? null : [id, { ...base, ask: true, limits: [] }];
@@ -227,12 +230,17 @@ async function checkMachine(on, last, now) {
 
 export const checking = (usage, now) => Boolean(usage.startedAt) && now - usage.startedAt < BUSY;
 
+function withOpencode(entries, entry) {
+  const { [OPENCODE]: _, ...others } = entries ?? {};
+  return entry ? { ...others, [OPENCODE]: entry } : others;
+}
+
 // `era` names one stretch of Usage being on, and goes with the numbers when it's turned off. A pass
 // saves only into the era it started in, so one from before can't bring cleared numbers back, even
 // with Usage on again. It isn't one mark per pass: a pass over a minute long has another start beside
 // it, and if that took away its right to save, checks that slow would never save at all.
 export async function checkUsage({ force = false, within = REUSE } = {}) {
-  const last = shared("usage") ?? {}, now = Date.now(), era = last.era ?? Math.random();
+  const last = shared("usage") ?? {}, now = Date.now(), era = last.era ?? Math.random(), answer = shared("usage.opencode");
   if (shared("usage.enabled") === false) return;
   if (checking(last, now)) return;
   if (!force && last.checkedAt && now - last.checkedAt < within) return;
@@ -240,7 +248,25 @@ export async function checkUsage({ force = false, within = REUSE } = {}) {
   const names = [...new Set([null, ...machines().map((machine) => machine.name)])];
   const results = await Promise.all(names.map((on) => checkMachine(on, last.entries ?? {}, now)));
   if (shared("usage.enabled") === false || shared("usage")?.era !== era) return;
-  setShared("usage", { era, checkedAt: now, entries: Object.assign({}, ...results) });
+  // Answered midway, OpenCode's entry is no longer this pass's to save: Allow runs its own check.
+  const found = Object.assign({}, ...results), entries = shared("usage.opencode") === answer ? found : withOpencode(found, shared("usage").entries?.[OPENCODE]);
+  setShared("usage", { era, checkedAt: now, entries });
+}
+
+// Allow doesn't wait for a pass: one under way may have asked before the answer came, and the next
+// is up to 15 minutes off. It checks OpenCode alone, so no agent starts twice, and like a pass it
+// saves only into the era it began in. The answer is taken here, in one step with the row that
+// replaces the card, so a second footer told the same thing finds it answered and does nothing.
+export async function allowOpencode() {
+  const usage = shared("usage") ?? {}, now = Date.now(), { ask, ...base } = usage.entries?.[OPENCODE] ?? {};
+  if (shared("usage.enabled") === false || !ask || shared("usage.opencode") != null) return;
+  const mine = checking(usage, now) ? null : now;
+  setShared("usage.opencode", true);
+  setShared("usage", { ...usage, startedAt: mine ?? usage.startedAt, entries: { ...usage.entries, [OPENCODE]: { ...base, limits: [] } } });
+  const found = await opencode().then((report) => report && { ...base, ...report, checkedAt: now }, () => ({ ...base, limits: [], failed: true }));
+  const current = shared("usage");
+  if (shared("usage.enabled") === false || current?.era !== usage.era) return;
+  setShared("usage", { ...current, startedAt: current.startedAt === mine ? null : current.startedAt, entries: withOpencode(current.entries, found) });
 }
 
 // A limit past its reset time has started over, whatever the last check said.

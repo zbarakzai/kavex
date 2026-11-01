@@ -6,6 +6,7 @@ import { look, MONO, sectionLabel, tile } from "./look.js";
 
 const PAD = 14;
 const BAR = 340 - 2 - PAD * 2; // the popup's width, less its frame and sides
+const ASKS = "Zaki reads your OpenCode key and sends it only to opencode.ai, to ask for your Go plan's limits.";
 
 // "5d 3h", "2h 10m", "12m".
 function span(ms) {
@@ -57,10 +58,24 @@ export default class Usage extends View {
       .when(Boolean(note), (el) => el.child(div().text_size(11).text_color(k.text_faint).child(note)));
   }
 
+  // The footer takes the answer, as a check started here would stop when the popover closes.
+  asking(row, k) {
+    const button = (id, label, bg, fg, ring, press) => h_flex().id(id).h(26).px(10).flex_none().items_center().rounded(7).border_1().border_color(ring).bg(bg).text_color(fg).cursor_pointer()
+      .hover((s) => s.opacity(0.88)).on_click(press).child(label);
+    return v_flex().id("usage-ask").flex_none().gap(10)
+      .child(h_flex().gap(8).items_center()
+        .child(tile(row, 22, k))
+        .child(div().flex_1().min_w(0).truncate().text_size(13).font_medium().text_color(k.foreground).child(row.name)))
+      .child(div().text_size(12).text_color(k.text_secondary).child(ASKS))
+      .child(h_flex().gap(8).justify_end().text_size(12)
+        .child(button("usage-not-now", "Not now", k.raised, k.foreground, k.input, () => setShared("usage.opencode", false)))
+        .child(button("usage-allow", "Allow", k.solid, k.solid_foreground, k.solid, () => run("workspace-chrome.allow-opencode"))));
+  }
+
   render() {
-    const k = look(theme()), usage = shared("usage") ?? {}, now = Date.now();
+    const k = look(theme()), usage = shared("usage") ?? {}, now = Date.now(), found = subscriptions(usage.entries);
     // `ask` is OpenCode waiting for the person's answer, not a subscription yet.
-    const rows = subscriptions(usage.entries).filter((row) => !row.ask);
+    const rows = found.filter((row) => !row.ask), asking = shared("usage.opencode") == null ? found.find((row) => row.ask) : null;
     return v_flex().id("usage").w_full().min_h(0).text_color(k.foreground)
       .child(h_flex().h(40).flex_none().pl(PAD).pr(7).items_center().justify_between()
         .child(sectionLabel(k, "USAGE LIMITS"))
@@ -69,7 +84,8 @@ export default class Usage extends View {
           .on_click(() => run("workspace-chrome.refresh-usage"))
           .child(svg("mods/workspace-chrome/icons/updates.svg").size(16))))
       .child(v_flex().id("usage-rows").min_h(0).gap(18).px(PAD).pb(12).overflow_y_scrollbar()
-        .when(!rows.length && Boolean(usage.checkedAt), (el) => el.child(div().text_size(13).text_color(k.muted).child("No subscriptions found")))
+        .when(Boolean(asking), (el) => el.child(this.asking(asking, k)))
+        .when(!rows.length && !asking && Boolean(usage.checkedAt), (el) => el.child(div().text_size(13).text_color(k.muted).child("No subscriptions found")))
         .children(rows.map((row) => this.row(row, k, now))))
       .child(h_flex().h(32).flex_none().px(PAD).items_center().text_size(11).text_color(k.text_faint).child(freshness(usage, rows, now)));
   }

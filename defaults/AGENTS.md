@@ -269,12 +269,12 @@ popup mod): the Claude Code subscription on this computer, with its tier and eac
 used, bar and time to reset: weekly first, then a model's own, then the 5-hour limit when Claude
 reports it. A limit past its reset time reads 0% before the next check. Numbers come from Claude's
 own commands (`claude auth status`, `claude -p /usage`) in the person's shell PATH, with no hooks,
-plugins, MCP or saved session, and spend no tokens; the mod reads no login and sends no request.
+plugins, MCP or saved session, and spend no tokens; for Claude the mod reads no login and sends no request.
 Signed out, on an API key or not installed, Claude gets no row. Opening checks, reusing a result
 under a minute old, and the refresh button checks at once: `workspace-chrome.check-usage` and
 `workspace-chrome.refresh-usage`, run by the footer so that closing the popover doesn't cut a check
 off. A failed check keeps the last numbers with their age, or reads "Could not check" with none.
-`shared("usage")` holds the numbers and a short fingerprint of the account, never an email or login.
+`shared("usage")` holds the numbers and a short fingerprint of the account, never an email, login or key.
 The footer also checks by itself, 5 seconds after it starts and every 15 minutes, whether the popover
 was opened or not; only a layout with that footer does, so not Terminals or Zaki 98. A limit at 90%
 used or more turns its bar orange and puts an orange dot on the gauge, until it's past its reset time.
@@ -282,6 +282,17 @@ The Usage limits row in Settings > Look, under Workspace, turns all of this off:
 is `false` (anything else is on), the gauge goes, no check runs, and `shared("usage")` and
 `shared("usage.opencode")` are cleared; a check still running then runs nothing more and saves nothing.
 Turned back on, the gauge returns and limits are checked within a minute.
+
+OpenCode has no such command, so it is the one thing Usage sends itself, and only with the person's
+say. It's checked on this computer only. Installed with no answer yet, it shows a card in the popover:
+"Zaki reads your OpenCode key and sends it only to opencode.ai, to ask for your Go plan's limits."
+Until it's answered no key is read. Allow (`workspace-chrome.allow-opencode`, which only acts while the
+card is waiting) sets `shared("usage.opencode")` to `true` and checks OpenCode at once, even during a
+running check; Not now sets it to `false`, reads nothing and stops asking. Turning Usage off and on is
+how to change the answer: it asks again. Keys come only from OpenCode's `auth.json` and the `credential`
+table of its database, and go only to `opencode.ai`, as a Bearer header; one written as a variable or a
+command is never sent. Go's limits show weekly first, then 5 hours and the month. A key it refuses (401
+or 403) means no Go plan: no row and no error. An OpenCode row saves nothing made from the key.
 
 **Zaki's own layouts and mods are read-only.** They are replaced whole
 on every start. Use settings.json for look (fonts, sizes, theme, colors,
