@@ -60,7 +60,6 @@ export const PRICES = {
 // What Claude's `inference_geo` multiplies a message by: US-only inference is 1.1x on every class.
 export const REGIONS = { global: 1, not_available: 1, us: 1.1 };
 
-// Dollars for some tokens by class, or null when any class that has tokens has no price.
 export function priced(rates, tokens) {
   if (!rates) return null;
   let dollars = 0;

@@ -1,12 +1,9 @@
-// The popup a logo opens: it only draws what `sessions` says.
-
 import { div } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
 import { look, MONO } from "./look.js";
 
 const BAR = 80;
 
-// Tokens in a few letters: 950, 12k, 65.2k, 2.1M.
 function count(n) {
   const short = (value, unit) => `${value < 100 ? Number(value.toFixed(1)) : Math.round(value)}${unit}`;
   return n < 1000 ? String(n) : n < 999500 ? short(n / 1e3, "k") : short(n / 1e6, "M");

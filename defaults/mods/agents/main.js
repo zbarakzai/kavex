@@ -64,7 +64,6 @@ export default class Agents extends View {
     cx.timer.every(30000, (cx) => cx.notify());
   }
 
-  // The dropdown reads its one session itself, and goes when its agent does.
   initDropdown(cx) {
     const { session, overlay } = props();
     this.sessions = new Sessions(session);
@@ -82,8 +81,6 @@ export default class Agents extends View {
     return dropdown(t, shown.state === "none" || (shown.state === "empty" && first.state === "waiting") ? first : shown);
   }
 
-  // How full an agent's session is, in the time's small text. Orange means "needs you".
-  // A dash is an agent that has yet to report its session.
   percent(t, k, address) {
     const { state, context } = this.sessions.shown(address);
     const percent = context?.percent;
@@ -91,8 +88,7 @@ export default class Agents extends View {
     return text ? [div().flex_none().font_family(MONO).text_size(10).text_color(percent >= 90 ? t.blocked : k.label).child(text)] : [];
   }
 
-  // A logo with a session it can read opens its dropdown; any other is part of the row, as an agent
-  // with no numbers is: `none` is both, and has nothing true to say.
+  // `none` has nothing true to say, so its logo is part of the row, as for an agent with no numbers.
   logo(a, inner) {
     return div()
       .id(`logo-${a.address}`)

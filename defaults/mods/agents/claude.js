@@ -1,16 +1,12 @@
-// Claude Code's session: where it is, and the numbers in its lines.
-
 import { PRICES, REGIONS, priced } from "./prices.js";
 
 const folderName = (cwd) => cwd.replace(/[^a-zA-Z0-9]/g, "-");
 
-// "claude-opus-5-5" reads "Claude Opus 5.5"; anything else stays as Claude wrote it.
 function modelName(id) {
   const [, name, major, minor] = id.match(/^claude-([a-z]+)-(\d+)(?:-(\d{1,2}))?(?:-\d{8})?(?:\[.*\])?$/) ?? [];
   return name ? `Claude ${name[0].toUpperCase()}${name.slice(1)} ${major}${minor ? `.${minor}` : ""}` : id;
 }
 
-// One message at API prices, or null if any part of it has no exact price.
 function dollars(model, speed, region, tokens) {
   const listed = PRICES[model];
   const prompt = tokens.input + tokens.read + tokens.write5m + tokens.write1h;
@@ -20,10 +16,8 @@ function dollars(model, speed, region, tokens) {
 }
 
 export const claude = {
-  // What keeps a line worth parsing, cheaply: the rest of a session is most of its size.
   filter: '"type":"assistant"',
 
-  // Claude keeps a record per process, so agents in one folder never mix.
   async locate({ term, machine }) {
     const pid = term.foreground?.pid;
     if (!pid) return null;
@@ -41,11 +35,8 @@ export const claude = {
     return null;
   },
 
-  // A helper has a file of its own beside the session.
   helpers: ({ folder, id }, machine) => machine.inside(`${folder}/${id}/subagents`),
 
-  // Running totals: reading a session comes down to `add`, so `numbers` stays cheap however long
-  // it gets. `messages` holds what each one has added so far.
   facts: () => ({ newest: null, messages: new Map(), tokens: { input: 0, output: 0, cached: 0 }, cost: 0, unpriced: false }),
 
   // A message comes on several lines, one per block, and counts once. A helper's early lines

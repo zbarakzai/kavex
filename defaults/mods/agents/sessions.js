@@ -1,11 +1,8 @@
-// What each agent's session shows on its row and in its dropdown. An agent here is a small
-// object (see claude.js): `locate` finds a terminal's session, `helpers` its helpers' files,
-// `filter`, `facts` and `add` read their lines, `numbers` says what they add up to (cost included,
-// or left out for "no price"), and `total` asks how big its model's context is, unless `numbers`
-// knows and gives `context` itself. One that labels its own terminal is marked `reports`, says
-// what to do in `waiting`, and has `patience` if it labels at launch. One with files of its own to
-// set up has `setup`, a version, and `install`. What differs from one machine to the next is in
-// machine.js: each agent is handed the machine it's on.
+// An agent here is a small object (see claude.js). `locate` finds a terminal's session, `helpers`
+// its helpers' files, `filter`, `facts` and `add` read their lines, and `numbers` says what they add
+// up to. Its `context` needs `total` asked of the agent when it has `asks`, a model. Optional:
+// `reports`, `waiting` and `patience` for an agent that labels its own terminal, `setup` and
+// `install` for one with files of its own.
 
 import { agents, hc, machines, setShared, shared, terminals, watchFolder } from "herdr";
 import { claude } from "./claude.js";
@@ -34,8 +31,6 @@ const onMachine = (on, name) => (on ? `${on}/${name}` : name);
 const offline = (on) => machines().find((m) => m.name === on)?.layout === "unavailable";
 const leftBehind = (t) => (t.state === "live" && t.program?.shell ? [LABEL, TOTAL].filter((label) => t.labels?.[label]) : []);
 
-// Reading an added machine costs traffic, so only for a row in the list: an agent, or one of its
-// sub-agents.
 function hasRow(term, all) {
   for (let t = term; t; t = all.find((x) => x.address === t.parent)) {
     if (agents().some((a) => a.address === t.address)) return true;
@@ -61,9 +56,7 @@ export class Sessions {
     cx.timer.every(EVERY, (cx) => this.tick(cx));
   }
 
-  // This computer every tick, each added machine every 30 seconds, and each on a pass of its own:
-  // a slow machine holds up nothing but itself. One that's offline is left alone, so its rows keep
-  // what they had.
+  // Each machine on a pass of its own: a slow one holds up nothing but itself.
   tick(cx) {
     this.startPass(null, cx);
     const all = terminals();
@@ -127,8 +120,6 @@ export class Sessions {
     }
   }
 
-  // An agent's own files, once per `agent.setup` per machine. One that couldn't be done waits
-  // before the next try.
   setUp(machine, key, agent, cx) {
     const name = onMachine(machine.on, key);
     if (agent.setup === undefined || shared(SETUP)?.[name] === agent.setup || !due(this.tried, name, RETRY)) return;
@@ -187,9 +178,7 @@ export class Sessions {
     if (!this.current(pass)) throw new Error("replaced");
   }
 
-  // What a session comes to, or null while it has no file. Helpers add to its facts, and only
-  // those that have grown are read; one found rewritten starts the whole session over, and a
-  // helper can name more of them.
+  // One helper found rewritten starts the whole session over, and a helper can name more of them.
   async read(session, agent, pass) {
     for (;;) {
       if (!(await this.take(session, session.file, agent, pass))) return null;
@@ -251,8 +240,7 @@ export class Sessions {
     }
   }
 
-  // Changes under a session's folder make it due, so nothing is read more than once per pass
-  // however fast it's written. A folder that can't be watched is read every pass.
+  // A folder that can't be watched is read every pass.
   watch(session, cx) {
     const { folder } = session;
     if (this.folders.has(folder)) return;
@@ -269,7 +257,6 @@ export class Sessions {
     });
   }
 
-  // Once per model per machine and kept for a day; a check that failed waits before the next try.
   ask(agent, model, machine, cx) {
     const key = onMachine(machine.on, model);
     const kept = shared(TOTALS)?.[key];

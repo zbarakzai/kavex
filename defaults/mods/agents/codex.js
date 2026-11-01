@@ -1,5 +1,3 @@
-// Codex's session: the hook that says which one a terminal holds, and the numbers in its lines.
-
 import { HC_PLACES } from "./machine.js";
 import { PRICES, priced } from "./prices.js";
 
@@ -14,25 +12,21 @@ function context(used, total) {
   return { used, total, percent: 100 - Math.round((100 * (room - Math.max(0, used - BASE))) / room) };
 }
 
-// "gpt-6.1-sol" reads "GPT-6.1 Sol"; anything else stays as Codex wrote it.
 function modelName(id) {
   const [, version, name] = id.match(/^gpt-(\d+(?:\.\d+)?)(?:-([a-z]+))?$/) ?? [];
   if (!version) return id;
   return `GPT-${version}${name ? ` ${name[0].toUpperCase()}${name.slice(1)}` : ""}`;
 }
 
-// What each service tier reads from a model's prices. A missing tier is the default one.
 const TIERS = { default: (listed) => listed, fast: (listed) => listed?.fast, priority: (listed) => listed?.fast };
 
-// One response at API prices, or null if any part of it has no exact price.
 function dollars(model, tier, prompt, tokens) {
   const rates = TIERS[tier ?? "default"]?.(PRICES[model]);
   return priced(prompt > rates?.over?.tokens ? rates.over : rates, tokens);
 }
 
-// The hook runs these. Codex's trust covers the hook's definition, not what it runs, so what they
-// do can change without asking the person again; the definition below can't. They print nothing,
-// as Codex would pass it to the model, and they end well whatever happens: never in Codex's way.
+// Codex's trust covers the hook's definition, not what it runs, so these can change without asking
+// the person again. They must print nothing: Codex passes it to the model.
 const SCRIPT = `#!/bin/sh
 # Zaki's Codex hook: labels this terminal with its session file, so Zaki shows the right numbers.
 # Zaki writes this file. It does nothing outside a Zaki terminal.
@@ -79,8 +73,7 @@ const hook = (home) => ({
 
 const isObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
 
-// A hook file with Zaki's hook in it, the same text if it has it, or null for one Zaki can't
-// understand. Codex keys each hook's approval on its position, so a new group goes last.
+// Codex keys each hook's approval on its position, so a new group goes last.
 function withHook(text, ours) {
   let file;
   try {
@@ -107,8 +100,7 @@ export const codex = {
   // Goes up when what `install` puts on a machine changes.
   setup: 1,
 
-  // `files` reads and writes on the machine being set up. Script first, so the hook never points
-  // at nothing. This is all of Codex's that Zaki touches: approving the hook is the person's.
+  // Script first, so the hook never points at nothing.
   async install(files) {
     const { home, read, write, keep } = files;
     await keep(`${home}/.zaki/codex-session.sh`, SCRIPT);
@@ -121,20 +113,16 @@ export const codex = {
     return true;
   },
 
-  // What keeps a line worth parsing. Fixed strings, and more than one is a line each.
   filter: ['"type":"token_count"', '"type":"turn_context"', '"type":"thread_settings_applied"', '"type":"SubAgentActivity"', '"type":"EnteredReviewMode"', '"{\\"agent_id\\":\\"'].join("\n"),
 
   reports: true,
   waiting: { state: "waiting", say: "Run `/hooks` in Codex, trust Zaki's hook, then restart this Codex." },
 
-  // Nothing on disk ties a Codex process to a session, so its hook labels the terminal.
   locate({ label }) {
     const [, folder, id] = label?.match(SESSION_FILE) ?? [];
     return id ? { id, folder, file: label } : null;
   },
 
-  // A helper is a session of its own, on whatever day it started. Its parent's lines name it,
-  // so only a name not yet matched to a file costs a search, and no helpers cost nothing.
   async helpers({ id, folder, facts }, machine) {
     const { kids } = facts;
     const lost = [...kids.keys()].filter((kid) => kid !== id && !kids.get(kid));
@@ -148,8 +136,6 @@ export const codex = {
     return files.length ? machine.sizes(files) : [];
   },
 
-  // Running totals, as for Claude. `files` holds each file's model, tier and what it has counted,
-  // and `kids` the helpers named so far, with their files once found.
   facts: () => ({ newest: null, model: null, files: new Map(), kids: new Map(), reviewed: false, tokens: { input: 0, output: 0, cached: 0 }, cost: 0, unpriced: false }),
 
   // A file's totals can fall back to zero mid-session and don't say which model used what, so

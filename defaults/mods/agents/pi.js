@@ -1,13 +1,8 @@
-// Pi's session: the extension that says which one a terminal holds, and the numbers in its lines.
-// Pi stores a cost with every usage, so it needs no price list.
-
 import { HC_PLACES } from "./machine.js";
 
 const place = (path) => (path.startsWith("~/") ? `join(home, ${JSON.stringify(path.slice(2))})` : JSON.stringify(path));
 
-// Runs inside Pi, which loads every file in its extensions folder by itself, with nothing for the
-// person to approve. Pi started by a tool in this terminal (`pi -p`) isn't this terminal's agent.
-// It prints nothing, and a failure is only a row with no numbers: never in Pi's way.
+// Pi started by a tool in this terminal (`pi -p`) isn't this terminal's agent, hence `ctx.mode`.
 const EXTENSION = `// Zaki's Pi extension: labels this terminal with its session file and its context's total, so Zaki
 // shows the right numbers. Zaki writes this file. It does nothing outside a Zaki terminal.
 import { execFile } from "node:child_process";
@@ -66,14 +61,11 @@ export const pi = {
   // Goes up when what `install` puts on a machine changes.
   setup: 1,
 
-  // `files` reads and writes on the machine being set up. A file of its own in Pi's folder, so
-  // nothing of the person's is touched.
   async install({ home, keep }) {
     await keep(`${home}/.pi/agent/extensions/zaki-session.ts`, EXTENSION);
     return true;
   },
 
-  // What keeps a line worth parsing. Fixed strings, and more than one is a line each.
   filter: ['"cacheRead":', '"type":"compaction"', '"type":"model_change"'].join("\n"),
 
   reports: true,
@@ -88,7 +80,7 @@ export const pi = {
     return id ? { id, folder, file: label, total: Number(total) > 0 ? Number(total) : undefined } : null;
   },
 
-  // Running totals, as for Claude. `seen` is because a window reads lines twice.
+  // `seen` is because a window reads lines twice.
   facts: () => ({ seen: new Set(), model: null, used: null, counted: false, tokens: { input: 0, output: 0, cached: 0 }, cost: 0, unpriced: false }),
 
   add(facts, line) {

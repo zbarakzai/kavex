@@ -1,8 +1,5 @@
-// The machine an agent runs on, and the one place that knows how machines differ: this computer or
-// an added one, and Windows, which has no `sh`. The rest of the mod asks a machine for what it
-// wants: `home`, `read` and `write` a text file, `run` a program, `lines` of a session, the `sizes`
-// of files or of those `inside` a folder, `find` files by name, and the `processes` to try for a
-// terminal's agent. `machineOn(on)` finds out what's there.
+// The one place that knows how machines differ: this computer or an added one, and Windows, which
+// has no `sh`.
 
 import { exec, home, readTextFile, window, writeTextFile } from "herdr";
 
@@ -13,7 +10,6 @@ export const NO_FILE = 3;
 // `usual_dirs` in core_bin.rs, which has to stay in step.
 export const HC_PLACES = ["~/.local/bin/hc", "/opt/homebrew/bin/hc", "/usr/local/bin/hc", "~/.local/share/mise/shims/hc", "~/.nix-profile/bin/hc", "/run/current-system/sw/bin/hc", "~/.cargo/bin/hc"];
 
-// Whether `every` ms have passed since this last said yes for `key`.
 export function due(times, key, every) {
   if (Date.now() - (times.get(key) ?? -every) < every) return false;
   times.set(key, Date.now());
@@ -34,7 +30,6 @@ echo "$size"
 [ "$size" != "$4" ] || exit 0
 { dd if="$1" bs=${BLOCK} skip="$2" count="$5"; dd if="$1" bs=${BLOCK} skip=$(($2 + $5)) | head -n 1; } 2>/dev/null | LC_ALL=C grep -aF -- "$3"`;
 
-// What `wc -c` said about some session files, or Windows' same thing: `[{ file, size }]`.
 const sizesFrom = (stdout) => stdout.split("\n").flatMap((line) => {
   const [, size, file] = line.match(/^\s*(\d+)\s(.+\.jsonl)$/) ?? [];
   return file ? [{ file, size: Number(size) }] : [];
@@ -201,7 +196,6 @@ async function homeAway(on) {
   return { windows: code === 0, home: code === 0 ? stdout.trim() : "" };
 }
 
-// What an agent's setup works with. `keep` leaves a file that already says this alone.
 const setupFiles = (home, read, write) => ({
   home,
   read,
@@ -212,7 +206,7 @@ const setupFiles = (home, read, write) => ({
   },
 });
 
-// Null is this computer. Rejects while a machine can't be asked, for the next pass to retry.
+// Null is this computer.
 export async function machineOn(on) {
   if (!on) {
     const seen = window();
