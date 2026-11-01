@@ -97,6 +97,7 @@ jobs:
           path: *cache-paths
           key: ${{ steps.cache.outputs.cache-primary-key }}
       - name: Tests
+        id: tests
         run: |
           only=()
           if [ "$RUNNER_OS" != Linux ]; then
@@ -110,34 +111,36 @@ jobs:
           if [ "$RUNNER_OS" = Linux ]; then
             threads=(-- --test-threads 4)
           fi
-          cargo test --locked --config 'profile.dev.package."*".opt-level=0' "${only[@]}" "${threads[@]}"
+          cargo test --locked --config 'profile.dev.package."*".opt-level=0' --no-fail-fast "${only[@]}" "${threads[@]}"
       # Windows runners lack an interactive desktop. Linux uses headless Vulkan
       # in the suite above; macOS exercises the native window renderer here.
       - name: Screenshot pixels
-        if: runner.os == 'macOS'
+        if: ${{ !cancelled() && steps.tests.outcome != 'skipped' && runner.os == 'macOS' }}
         timeout-minutes: 5
         env:
           HERDR_SHOT_NATIVE_TEST: "1"
         run: cargo test --locked --config 'profile.dev.package."*".opt-level=0' --test shot_pixels
       - name: Check release packaging
-        if: matrix.platform == 'linux-x86_64'
+        if: ${{ !cancelled() && steps.tests.outcome != 'skipped' && matrix.platform == 'linux-x86_64' }}
         run: python3 -m unittest discover -s scripts -p test_distribution.py
       - name: Install Bun
-        if: matrix.platform == 'linux-x86_64'
+        if: ${{ !cancelled() && steps.tests.outcome != 'skipped' && matrix.platform == 'linux-x86_64' }}
         run: curl -fsSL https://bun.sh/install | bash -s "bun-v1.4.4"
       - name: Check documentation
-        if: matrix.platform == 'linux-x86_64'
+        if: ${{ !cancelled() && steps.tests.outcome != 'skipped' && matrix.platform == 'linux-x86_64' }}
         run: |
           ~/.bun/bin/bun test scripts/docs.test.ts
           ~/.bun/bin/bun scripts/docs.ts check
       - name: Test the mods
-        if: matrix.platform == 'linux-x86_64'
+        if: ${{ !cancelled() && steps.tests.outcome != 'skipped' && matrix.platform == 'linux-x86_64' }}
         run: |
-          ~/.bun/bin/bun test scripts/files.test.ts scripts/tab-groups.test.ts scripts/changes.test.ts scripts/look.test.ts
+          ~/.bun/bin/bun test scripts/files.test.ts scripts/markdown.test.ts scripts/tab-groups.test.ts scripts/changes.test.ts scripts/look.test.ts
           ~/.bun/bin/bun test scripts/tabs-column.test.ts
           ~/.bun/bin/bun test scripts/tab-menu.test.ts
           ~/.bun/bin/bun test scripts/settings.test.ts
           ~/.bun/bin/bun test scripts/file-menu.test.ts
+          ~/.bun/bin/bun test scripts/reader.test.ts
+          ~/.bun/bin/bun test scripts/start.test.ts
 
   # Keep the required check name stable while requiring every platform.
   test:
