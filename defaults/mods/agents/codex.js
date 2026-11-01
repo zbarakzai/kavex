@@ -117,6 +117,9 @@ export const codex = {
   filter: ['"type":"token_count"', '"type":"turn_context"', '"type":"thread_settings_applied"', '"type":"SubAgentActivity"', '"type":"EnteredReviewMode"', '"{\\"agent_id\\":\\"'].join("\n"),
 
   reports: true,
+  // Codex holds its file open, and macOS reports no write to an open file until it's closed, so
+  // only the file's size says it has grown.
+  keepsOpen: true,
   waiting: { state: "waiting", say: "Run `/hooks` in Codex, trust Zaki's hook, then restart this Codex." },
 
   locate({ label }) {

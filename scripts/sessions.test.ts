@@ -1243,6 +1243,25 @@ test("a Codex row shows its session from the terminal's label, with Codex's own 
   expect(rowPercents(draw, "t1")).toEqual(["25%"]);
 });
 
+test("a Codex keeps its file open, so its numbers arrive with no change from the watcher", async () => {
+  const { draw } = await codexRow(uuid(1), [metaOf(uuid(1)), turn()]);
+  expect(rowPercents(draw, "t1")).toEqual([]);
+  codexWrites(uuid(1), [spent(uuid(1), { input: 73600 })]);
+  await ticks();
+  expect(rowPercents(draw, "t1")).toEqual(["25%"]);
+  codexWrites(uuid(1), [spent(uuid(1), { input: 135200 })]);
+  await ticks();
+  expect(rowPercents(draw, "t1")).toEqual(["50%"]);
+});
+
+test("a Codex with nothing new costs a size check, not a read of its lines", async () => {
+  await codexRow(uuid(1), [metaOf(uuid(1)), turn(), spent(uuid(1), { input: 73600 })]);
+  await ticks();
+  const [, , , , file, , , known] = state.execs.at(-1);
+  expect(file).toBe(rollout(uuid(1)));
+  expect(known).toBe(String(statSync(file).size));
+});
+
 const HOOKS_MESSAGE = "Run `/hooks` in Codex, trust Zaki's hook, then restart this Codex.";
 const quietCodex = async (more: any = {}) => {
   const term = aCodex("t1", more);
@@ -1421,9 +1440,11 @@ test("each model's prices are the page's, short and long", async () => {
     expect([model, ...(await card(draw))]).toContain(small);
     rmSync(rollout(id));
     state.totals = {};
+    state.timers = [];
     const { draw: larger } = await codexRow(id, [turn(model), spent(id, long)]);
     expect([model, ...(await card(larger))]).toContain(big);
     rmSync(rollout(id));
+    state.timers = [];
   }
 });
 

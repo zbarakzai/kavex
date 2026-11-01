@@ -2,7 +2,7 @@
 // its helpers' files, `filter`, `facts` and `add` read their lines, and `numbers` says what they add
 // up to. Its `context` needs `total` asked of the agent when it has `asks`, a model. Optional:
 // `reports`, `waiting` and `patience` for an agent that labels its own terminal, `setup` and
-// `install` for one with files of its own.
+// `install` for one with files of its own, `keepsOpen` for one whose writes no watcher reports.
 
 import { agents, hc, machines, setShared, shared, terminals, watchFolder } from "herdr";
 import { claude } from "./claude.js";
@@ -145,7 +145,7 @@ export class Sessions {
         session.changes++;
       }
       if (agent.reports && !session?.file) return this.unreported(term, agent, cx);
-      if (!session || (session.done === session.changes && this.folders.has(session.folder))) return;
+      if (!session || (session.done === session.changes && this.folders.has(session.folder) && !agent.keepsOpen)) return;
       const { changes } = session;
       const had = JSON.stringify(session.result);
       const result = await this.read(session, agent, pass);
@@ -210,7 +210,7 @@ export class Sessions {
     for (;;) {
       const kept = session.files.get(file);
       const block = kept?.block ?? 0;
-      const { code, stdout } = await machine.lines(file, block, machine.window, agent.filter, machine.on && kept?.done ? kept.size : "");
+      const { code, stdout } = await machine.lines(file, block, machine.window, agent.filter, (machine.on || agent.keepsOpen) && kept?.done ? kept.size : "");
       this.stopIfReplaced(pass);
       if (code === NO_FILE) return false;
       const lines = stdout.split("\n");
