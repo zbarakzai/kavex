@@ -1,8 +1,6 @@
 // Codex's session: the hook that says which one a terminal holds, and the numbers in its lines.
 
-import { exec } from "herdr";
 import { PRICES, priced } from "./prices.js";
-import { sizes } from "./sizes.js";
 
 const SESSION_FILE = /^(.+[\\/]sessions)[\\/]\d{4}[\\/]\d{2}[\\/]\d{2}[\\/]rollout-[^\\/]*?([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\.jsonl$/;
 
@@ -55,7 +53,8 @@ const WINDOWS_SCRIPT = `# Zaki's Codex hook: labels this terminal with its sessi
 # Zaki writes this file. It does nothing outside a Zaki terminal.
 if (-not $env:HC_TERMINAL_ID) { exit 0 }
 try {
-  $file = ([Console]::In.ReadToEnd() | ConvertFrom-Json).transcript_path
+  $hook = New-Object IO.StreamReader([Console]::OpenStandardInput(), [Text.Encoding]::UTF8)
+  $file = ($hook.ReadToEnd() | ConvertFrom-Json).transcript_path
   if (-not $file) { exit 0 }
   $hc = (Get-Command hc -ErrorAction SilentlyContinue).Source
   foreach ($usual in @("$env:LOCALAPPDATA\\Programs\\herdr-core\\hc.exe", "$env:USERPROFILE\\.cargo\\bin\\hc.exe")) {
@@ -133,20 +132,17 @@ export const codex = {
 
   // A helper is a session of its own, on whatever day it started. Its parent's lines name it,
   // so only a name not yet matched to a file costs a search, and no helpers cost nothing.
-  async helpers({ id, folder, facts }) {
+  async helpers({ id, folder, facts }, machine) {
     const { kids } = facts;
     const lost = [...kids.keys()].filter((kid) => kid !== id && !kids.get(kid));
     if (lost.length) {
-      const { stdout } = await exec("find", [folder, ...lost.flatMap((kid, i) => [...(i ? ["-o"] : []), "-name", `*${kid}.jsonl`])]);
-      for (const file of stdout.split("\n")) {
+      for (const file of await machine.find(folder, lost.map((kid) => `${kid}.jsonl`))) {
         const kid = lost.find((one) => file.endsWith(`${one}.jsonl`));
         if (kid) kids.set(kid, file);
       }
     }
     const files = [...kids.values()].filter(Boolean);
-    if (!files.length) return [];
-    const { stdout } = await exec("sh", ["-c", 'wc -c "$@" 2>/dev/null', "sh", ...files]);
-    return sizes(stdout);
+    return files.length ? machine.sizes(files) : [];
   },
 
   // Running totals, as for Claude. `files` holds each file's model, tier and what it has counted,

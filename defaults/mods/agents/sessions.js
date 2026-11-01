@@ -4,11 +4,13 @@
 // or left out for "no price"), and `limit` asks how big its model's context is, unless `numbers`
 // knows and gives `context` itself. One that labels its own terminal is marked `reports`, says
 // what to do in `waiting`, and has `patience` if it labels at launch. One with files of its own to
-// set up has `setup`, a version, and `install`.
+// set up has `setup`, a version, and `install`. What differs from one machine to the next is in
+// machine.js: each agent is handed the machine it's on.
 
-import { exec, hc, home, readTextFile, setShared, shared, terminals, watchFolder, writeTextFile } from "herdr";
+import { agents, hc, machines, setShared, shared, terminals, watchFolder } from "herdr";
 import { claude } from "./claude.js";
 import { codex } from "./codex.js";
+import { BLOCK, machineOn } from "./machine.js";
 import { pi } from "./pi.js";
 
 const AGENTS = { claude, codex, pi };
@@ -19,22 +21,27 @@ const NONE = { state: "none" };
 const EMPTY = { state: "empty" };
 const WORKED = ["working", "done"];
 const EVERY = 2000;
+const AWAY = 30000;
 const LIMITS = "agents.limits";
 const SETUP = "agents.setup";
 const KEPT = 86400000;
 const RETRY = 600000;
 
-// A session can be 100 MB and exec's output stops at 8 MiB, so it's read in windows no bigger
-// than that, each its own script step, and after that only its end. A window starts one block
-// back, which reads again a line cut by the last window's edge or caught half written; lines
-// count once, so that's harmless. `dd` because BSD `head -c` takes five times as long.
-const BLOCK = 1048576;
-const WINDOW = 8;
-const NEW_LINES = `[ -f "$1" ] || exit 3
-wc -c < "$1" && dd if="$1" bs=${BLOCK} skip="$2" count=${WINDOW} 2>/dev/null | LC_ALL=C grep -aF -- "$3"`;
+export const hasSession = (t) => Boolean(AGENTS[t?.program?.key]);
 
-// This computer only, for now: an address with a machine in it (`vps/t7`) isn't read.
-export const hasSession = (t) => Boolean(AGENTS[t?.program?.key]) && !t.address.includes("/");
+const machineOf = (address) => (address.includes("/") ? address.split("/")[0] : null);
+const onMachine = (on, name) => (on ? `${on}/${name}` : name);
+const offline = (on) => machines().find((m) => m.name === on)?.layout === "unavailable";
+const leftBehind = (t) => (t.state === "live" && t.program?.shell ? [LABEL, LIMIT].filter((label) => t.labels?.[label]) : []);
+
+// Reading an added machine costs traffic, so only for a row in the list: an agent, or one of its
+// sub-agents.
+function hasRow(term, all) {
+  for (let t = term; t; t = all.find((x) => x.address === t.parent)) {
+    if (agents().some((a) => a.address === t.address)) return true;
+  }
+  return false;
+}
 
 export class Sessions {
   // `only`: an address, for a dropdown following its one agent.
@@ -44,63 +51,95 @@ export class Sessions {
     this.folders = new Set();
     this.asked = new Map();
     this.tried = new Map();
+    this.reading = new Map();
+    this.last = new Map();
+    this.machines = new Map();
   }
 
   start(cx) {
-    this.pass(cx);
-    cx.timer.every(EVERY, (cx) => this.pass(cx));
+    this.tick(cx);
+    cx.timer.every(EVERY, (cx) => this.tick(cx));
+  }
+
+  // This computer every tick, each added machine every 30 seconds, and each on a pass of its own:
+  // a slow machine holds up nothing but itself. One that's offline is left alone, so its rows keep
+  // what they had.
+  tick(cx) {
+    this.pass(null, cx);
+    const all = terminals();
+    const due = all.filter((t) => t.address.includes("/") && (this.follows(t, all) || (!this.only && leftBehind(t).length)));
+    for (const on of new Set(due.map((t) => machineOf(t.address)))) {
+      if (offline(on) || Date.now() - (this.last.get(on) ?? -AWAY) < AWAY) continue;
+      this.last.set(on, Date.now());
+      this.pass(on, cx);
+    }
+  }
+
+  follows(t, all) {
+    if (t.state !== "live" || !hasSession(t)) return false;
+    if (this.only) return t.address === this.only;
+    return !t.address.includes("/") || hasRow(t, all);
   }
 
   shown(address) {
     const found = this.live.get(address)?.result ?? NONE;
     if (found.state !== "ready" || found.context) return found;
     const { asked, used, ...rest } = found;
-    const total = shared(LIMITS)?.[asked]?.total;
+    const total = shared(LIMITS)?.[onMachine(machineOf(address), asked)]?.total;
     // More used than the total means the total is wrong: no percent rather than a wrong one.
     const context = total >= used ? { used, total, percent: Math.round((used / total) * 100) } : { used };
     return { ...rest, context };
   }
 
-  // A pass that's still reading is left alone. `reading` is a time because a stopped script
-  // can't clear a flag, and it names the one pass that may touch a session: one the machine
-  // slept through wakes to find itself replaced, and leaves its old lines unread.
-  pass(cx) {
-    if (Date.now() - (this.reading ?? 0) < 60000) return;
-    const run = (this.reading = Date.now());
+  // A pass that's still reading is left alone. `reading` holds a time because a stopped script
+  // can't clear a flag, and it names the one pass per machine that may touch a session: one the
+  // machine slept through wakes to find itself replaced, and leaves its old lines unread.
+  pass(on, cx) {
+    if (Date.now() - (this.reading.get(on)?.at ?? 0) < 60000) return;
+    const run = { on, at: Date.now() };
+    this.reading.set(on, run);
     cx.spawn(async (cx) => {
       const all = terminals();
-      const listed = all.filter((t) => t.state === "live" && hasSession(t) && (!this.only || t.address === this.only));
-      for (const a of this.live.keys()) if (!listed.some((t) => t.address === a)) this.live.delete(a);
-      if (!this.only) await this.tidy(all);
-      for (const term of listed) {
-        if (!this.only) this.setUp(term.program.key, AGENTS[term.program.key], cx);
-        if (this.reading === run) await this.follow(term, run, cx);
+      const here = all.filter((t) => machineOf(t.address) === on);
+      const listed = here.filter((t) => this.follows(t, all));
+      for (const a of this.live.keys()) if (machineOf(a) === on && !listed.some((t) => t.address === a)) this.live.delete(a);
+      if (!this.only) await this.tidy(here);
+      run.machine = listed.length ? await this.machine(on).catch(() => null) : null;
+      for (const term of run.machine ? listed : []) {
+        if (!this.only) this.setUp(run.machine, term.program.key, AGENTS[term.program.key], cx);
+        if (this.reading.get(on) === run && !(on && offline(on))) await this.follow(term, run, cx);
       }
-      if (this.reading === run) this.reading = 0;
+      if (this.reading.get(on) === run) this.reading.delete(on);
     });
+  }
+
+  async machine(on) {
+    if (!this.machines.has(on)) this.machines.set(on, await machineOn(on));
+    return this.machines.get(on);
   }
 
   // A label outlives the agent that set it, and the next one only sets its own on its first
   // message: back at the shell, it goes, so that one can't show the last one's numbers.
   async tidy(all) {
     for (const t of all) {
-      const left = [LABEL, LIMIT].filter((label) => t.labels?.[label]);
-      if (t.state !== "live" || !t.program?.shell || !left.length) continue;
+      const left = leftBehind(t);
+      if (!left.length) continue;
       try {
         await hc(["label", t.address, ...left.map((label) => `${label}=`)]);
       } catch {}
     }
   }
 
-  // An agent's own files, once per `agent.setup` per machine. `name` keys that, so a machine
-  // can have its own. One that couldn't be done waits before the next try.
-  setUp(name, agent, cx) {
+  // An agent's own files, once per `agent.setup` per machine. One that couldn't be done waits
+  // before the next try.
+  setUp(machine, key, agent, cx) {
     const now = Date.now();
+    const name = onMachine(machine.on, key);
     if (agent.setup === undefined || shared(SETUP)?.[name] === agent.setup) return;
     if (now - (this.tried.get(name) ?? -RETRY) < RETRY) return;
     this.tried.set(name, now);
     cx.spawn(async () => {
-      const done = await agent.install({ home: home(), read: readTextFile, write: writeTextFile }).catch(() => false);
+      const done = await agent.install(machine).catch(() => false);
       if (done) setShared(SETUP, { ...shared(SETUP), [name]: agent.setup });
     });
   }
@@ -111,8 +150,8 @@ export class Sessions {
     const agent = AGENTS[term.program.key];
     let session = this.live.get(term.address);
     try {
-      const found = await agent.locate(term, term.labels?.[LABEL], term.labels?.[LIMIT]);
-      if (this.reading !== run) return;
+      const found = await agent.locate(term, term.labels?.[LABEL], term.labels?.[LIMIT], run.machine);
+      if (this.reading.get(run.on) !== run) return;
       if (found && found.id !== session?.id) {
         session = { ...found, facts: agent.facts(), files: new Map(), changes: 1, done: 0 };
         this.live.set(term.address, session);
@@ -127,8 +166,8 @@ export class Sessions {
       const result = await this.read(session, agent, run);
       if (result) session.done = changes;
       session.result = result ?? session.result ?? EMPTY;
-      this.watch(session, cx);
-      if (session.result.state === "ready" && !this.only && agent.limit) this.ask(agent, session.result.asked, cx);
+      if (!run.on) this.watch(session, cx);
+      if (session.result.state === "ready" && !this.only && agent.limit) this.ask(agent, session.result.asked, run.machine, cx);
       if (JSON.stringify(session.result) !== had) cx.notify();
     } catch {}
   }
@@ -147,7 +186,7 @@ export class Sessions {
 
   // A pass that has been replaced stops here, before it touches anything.
   still(run) {
-    if (this.reading !== run) throw new Error("replaced");
+    if (this.reading.get(run.on) !== run) throw new Error("replaced");
   }
 
   // What a session comes to, or null while it has no file. Helpers add to its facts, and only
@@ -158,7 +197,7 @@ export class Sessions {
       if (!(await this.take(session, session.file, agent, run))) return null;
       const { facts } = session;
       for (let again = Boolean(agent.helpers); again && session.facts === facts; ) {
-        const helpers = await agent.helpers(session);
+        const helpers = await agent.helpers(session, run.machine);
         this.still(run);
         again = helpers.some(({ file }) => !session.files.has(file));
         for (const { file, size } of helpers) {
@@ -171,11 +210,16 @@ export class Sessions {
     return numbers ? { state: "ready", ...numbers } : EMPTY;
   }
 
-  // Reads a file's new lines into the session's facts, or returns false if it isn't there.
+  // Reads a file's new lines into the session's facts, or returns false if it isn't there. A
+  // window starts one block back, which reads again a line cut by the last window's edge or caught
+  // half written; lines count once, so that's harmless. After its first read, only a file's end
+  // is read, and on an added machine only if it has grown.
   async take(session, file, agent, run, helper = false) {
+    const { machine } = run;
     for (;;) {
-      const block = session.files.get(file)?.block ?? 0;
-      const { code, stdout } = await exec("sh", ["-c", NEW_LINES, "sh", file, String(block), agent.filter]);
+      const kept = session.files.get(file);
+      const block = kept?.block ?? 0;
+      const { code, stdout } = await machine.lines(file, block, machine.window, agent.filter, machine.on && kept?.done ? kept.size : "");
       this.still(run);
       if (code === 3) return false;
       const lines = stdout.split("\n");
@@ -191,10 +235,11 @@ export class Sessions {
           agent.add(session.facts, JSON.parse(lines[i]), helper, file);
         } catch {}
       }
-      const end = block + WINDOW;
+      const end = block + machine.window;
       const last = Math.floor(size / BLOCK);
-      session.files.set(file, { block: Math.max(0, Math.min(end, last) - 1), size });
-      if (end > last) return true;
+      const done = end > last;
+      session.files.set(file, { block: Math.max(0, Math.min(end, last) - 1), size, done });
+      if (done) return true;
     }
   }
 
@@ -216,15 +261,16 @@ export class Sessions {
     });
   }
 
-  // Once per model and kept for a day; a check that failed waits before the next try.
-  ask(agent, model, cx) {
+  // Once per model per machine and kept for a day; a check that failed waits before the next try.
+  ask(agent, model, machine, cx) {
     const now = Date.now();
-    const kept = shared(LIMITS)?.[model];
-    if ((kept && now - kept.at < KEPT) || now - (this.asked.get(model) ?? -RETRY) < RETRY) return;
-    this.asked.set(model, now);
+    const key = onMachine(machine.on, model);
+    const kept = shared(LIMITS)?.[key];
+    if ((kept && now - kept.at < KEPT) || now - (this.asked.get(key) ?? -RETRY) < RETRY) return;
+    this.asked.set(key, now);
     cx.spawn(async () => {
-      const total = await agent.limit(model).catch(() => null);
-      if (total) setShared(LIMITS, { ...shared(LIMITS), [model]: { total, at: Date.now() } });
+      const total = await agent.limit(model, machine).catch(() => null);
+      if (total) setShared(LIMITS, { ...shared(LIMITS), [key]: { total, at: Date.now() } });
     });
   }
 }

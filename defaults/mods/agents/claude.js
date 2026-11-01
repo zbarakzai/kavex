@@ -1,8 +1,6 @@
 // Claude Code's session: where it is, and the numbers in its lines.
 
-import { exec, home, readTextFile } from "herdr";
 import { PRICES, REGIONS, priced } from "./prices.js";
-import { sizes } from "./sizes.js";
 
 const folderName = (cwd) => cwd.replace(/[^a-zA-Z0-9]/g, "-");
 
@@ -26,22 +24,22 @@ export const claude = {
   filter: '"type":"assistant"',
 
   // Claude keeps a record per process, so agents in one folder never mix.
-  async locate(term) {
+  async locate(term, _label, _limit, machine) {
     const pid = term.foreground?.pid;
     if (!pid) return null;
-    const record = await readTextFile(`${home()}/.claude/sessions/${pid}.json`);
-    if (!record) return null;
-    const { sessionId, cwd } = JSON.parse(record);
-    if (!sessionId || !cwd) return null;
-    const folder = `${home()}/.claude/projects/${folderName(cwd)}`;
-    return { id: sessionId, folder, file: `${folder}/${sessionId}.jsonl` };
+    for (const candidate of await machine.processes(pid)) {
+      const record = await machine.read(`${machine.home}/.claude/sessions/${candidate}.json`);
+      if (!record) continue;
+      const { sessionId, cwd } = JSON.parse(record);
+      if (!sessionId || !cwd) return null;
+      const folder = `${machine.home}/.claude/projects/${folderName(cwd)}`;
+      return { id: sessionId, folder, file: `${folder}/${sessionId}.jsonl` };
+    }
+    return null;
   },
 
-  // A helper has a file of its own beside the session. One `wc` says how big they all are.
-  async helpers({ folder, id }) {
-    const { stdout } = await exec("sh", ["-c", 'wc -c "$1"/*.jsonl 2>/dev/null', "sh", `${folder}/${id}/subagents`]);
-    return sizes(stdout);
-  },
+  // A helper has a file of its own beside the session.
+  helpers: ({ folder, id }, machine) => machine.inside(`${folder}/${id}/subagents`),
 
   // Running totals: reading a session comes down to `add`, so `numbers` stays cheap however long
   // it gets. `messages` holds what each one has added so far.
@@ -72,8 +70,8 @@ export const claude = {
   numbers: (facts) => facts.newest && { model: modelName(facts.newest.model), asked: facts.newest.asked, used: facts.newest.used, tokens: { ...facts.tokens }, cost: facts.unpriced ? undefined : facts.cost },
 
   // Claude's files don't say how big a model's context is, but `/context` does, at no tokens.
-  async limit(model) {
-    const { stdout } = await exec("claude", ["-p", "/context", "--output-format", "json", "--model", model, "--no-session-persistence", "--strict-mcp-config", "--setting-sources", ""]);
+  async limit(model, machine) {
+    const { stdout } = await machine.run("claude", ["-p", "/context", "--output-format", "json", "--model", model, "--no-session-persistence", "--strict-mcp-config", "--setting-sources", ""]);
     const [, amount, unit] = stdout.match(/\*\*Tokens:\*\*\s*\S+\s*\/\s*([\d.]+)([km]?)/i) ?? [];
     return amount ? Math.round(Number(amount) * ({ k: 1e3, m: 1e6 }[unit.toLowerCase()] ?? 1)) : null;
   },

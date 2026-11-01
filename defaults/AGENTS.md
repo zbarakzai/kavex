@@ -198,13 +198,13 @@ the highlighted line shows where it will land.
   peek at it. The same click on a Markdown file opens it in the Files panel; any other
   file or URL goes to the system. Bare addresses refer to the machine of the terminal showing them;
   use `machine/address` for another machine. Names and non-live addresses aren't links.
-- **Session context**: in the agents list, a Claude Code, Codex or Pi row on this computer, and such a
+- **Session context**: in the agents list, a Claude Code, Codex or Pi row, on this computer or an added machine, and such a
   sub-agent's, shows how full its session's context is, as a small percent between the name and the
   time, orange from 90%. Clicking its logo opens a dropdown with the model running now, a context
   bar with tokens used, the total and the percent, the API cost, and input, output and cached
   tokens. It follows the session while open, and neither focuses the agent nor folds anything; the
-  chevron folds sub-agents. The numbers come from the agent's own files on this computer, read through
-  `sh`, and each agent's are its own, even with several in one folder. Context is the newest message
+  chevron folds sub-agents. The numbers come from the agent's own files on the machine it runs on, read through
+  `sh` (PowerShell on Windows), and each agent's are its own, even with several in one folder. Context is the newest message
   of the agent's own conversation, so its helpers don't count, and `/compact` lowers it with Claude's
   next message. The API cost is what the session's tokens would cost at API prices, in US dollars,
   not what anyone paid: on a subscription it's a way to judge a session, and the dropdown says so. It
@@ -215,18 +215,18 @@ the highlighted line shows where it will land.
   Bedrock) it reads "no price" and the token counts stay. `/clear` starts it over, `/compact` keeps
   it going, and a resumed session keeps it. It can read a little under Claude's own `/cost`, which
   counts some calls that never reach the session's files, and it counts tokens only, not the charge
-  per web search. The total comes from `claude -p "/context"`, which spends no tokens, once per model, and
+  per web search. The total comes from `claude -p "/context"`, which spends no tokens, once per model per machine, and
   is kept for a day in `shared("agents.limits")`; until then the dropdown shows tokens alone and the
   row shows nothing. A new agent shows no percent and "No usage yet", and an unreadable session
-  shows no percent and no error. Nothing is sent over the network and no login is read. Any other
-  agent, and one on another machine, shows no percent, and its logo acts like its row.
+  shows no percent and no error. Nothing leaves your own machines and no login is read. Any other agent
+  shows no percent, and its logo acts like its row.
 
   Codex differs in a few ways. Nothing on disk ties a running Codex to its session, so **Zaki adds a
-  hook to Codex by itself**, the first time it sees one on this computer: a new group at the end of
+  hook to Codex by itself**, the first time it sees one on a machine: a new group at the end of
   `SessionStart` in `~/.codex/hooks.json`, running `~/.zaki/codex-session.sh` (`.ps1` on Windows).
   Other hooks keep their place and their approval, a hook file that can't be understood is left
   alone, and a hook the person removes stays removed until Zaki's setup changes. **Zaki never
-  approves it**: Codex runs it only once the person trusts it in `/hooks`, once per computer, and a
+  approves it**: Codex runs it only once the person trusts it in `/hooks`, once per machine, and a
   Codex already running needs a restart. It does nothing outside a Zaki terminal. It runs when a
   session starts, which for Codex means its first message, and labels the terminal
   `zaki.session=<session file>`. So a new Codex shows no percent and "No usage yet", and one that has
@@ -239,7 +239,7 @@ the highlighted line shows where it will land.
   own prices. Cache writes read "no price": Codex gives one figure and the page prices two kinds.
 
   Pi differs too. Nothing on disk ties a running Pi to its session either, so **Zaki adds an extension
-  to Pi by itself**, the first time it sees one on this computer: `~/.pi/agent/extensions/zaki-session.ts`,
+  to Pi by itself**, the first time it sees one on a machine: `~/.pi/agent/extensions/zaki-session.ts`,
   a file of its own, so other extensions and Pi's settings stay as they are, and one the person
   removes stays removed until Zaki's setup changes. Pi loads it with nothing to approve, but a Pi
   already running needs `/reload` or a restart. It does nothing outside a Zaki terminal, or in a Pi
@@ -255,6 +255,23 @@ the highlighted line shows where it will land.
   an API key, and it covers what `/session` counts: answers, tools that call a model, summaries and
   cache warming. A usage with tokens and no cost, on a model Pi has no price for, reads "no price".
   `PI_CODING_AGENT_DIR` isn't followed, so a Pi using it stays at `–`.
+
+  On an added machine everything above happens on that machine, under its home: its sessions are
+  read with `exec { on }`, `/context` runs there once per model (`<machine>/<model>` in
+  `shared("agents.limits")`), and the hook and the extension go in through `hc file write --on`, once
+  per machine (`<machine>/codex` in `shared("agents.setup")`), so its Codex is approved there, once. A
+  session can't be watched from here, so a row and its dropdown refresh every 30 seconds, only while
+  the row is in the list, and an idle session costs one small command. A machine going offline
+  (`machines()` says `unavailable`) keeps its rows and last numbers, and catches up when it's back.
+  One with no `hc` where the hook looks shows `–`, as for any Codex that hasn't reported; the hook
+  and the extension look on PATH, then in the folders Zaki itself looks in.
+
+  On Windows, here or as an added machine, there's no `sh`, so sessions are read by a PowerShell
+  script that takes one window of a file at a time, as on the others. A terminal's foreground there is
+  the program it started, usually a shell, so Claude's record is looked for among the processes under
+  it, once every 30 seconds. `claude -p "/context"` runs through `cmd`, which also finds an npm
+  `claude.cmd`. Anything that fails there, PowerShell missing or locked down included, shows no percent
+  and no error.
 - **Agent navigation order** belongs to the mods. A mod displaying agents calls
   `setAgentOrder(list.map(a => a.address))` on render so `agent.next` /
   `agent.prev` follow its list.

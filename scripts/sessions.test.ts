@@ -1,7 +1,7 @@
 import { test, expect, mock, beforeEach, afterAll, setSystemTime, spyOn } from "bun:test";
-import { appendFileSync, chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { appendFileSync, chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, join, relative } from "node:path";
 
 // The real agents mod with recording fakes of the app. Session files are real files in a
 // scratch home and `sh` really runs on them: what a machine gives the mod, and what a person sees.
@@ -35,6 +35,99 @@ const colors = { background: theme.background, ...theme.colors, ...Object.fromEn
 const EXEC_OUTPUT = 8 * 1024 * 1024;
 let state: any;
 
+// An added machine: a home of its own, reached only through `on`. A lost one fails at once, as a
+// lost line does, and a stuck one doesn't answer until told to.
+const reachable = async (on: string) => {
+  const machine = state.away[on];
+  if (!machine) throw new Error(`no machine ${on}`);
+  if (machine.offline) throw new Error(`lost the line to ${on} during the call`);
+  if (machine.stuck) await machine.stuck;
+};
+
+// A Windows machine, as far as the mod can tell: no `sh`, paths under `C:\`, and programs that say
+// what the real ones would. PowerShell itself never runs here: the scripts are only recognised, and
+// these answers are what they should print, so this tests the mod and not the scripts.
+const BLOCK = 1048576;
+const isWindows = (on: string | null) => (on ? state.away[on]?.windows : state.platform === "windows");
+const onDisk = (path: string) => (state.win && path.startsWith(state.win.home) ? join(state.win.root, path.slice(state.win.home.length).replaceAll("\\", "/")) : path);
+
+// A script's text and its arguments, by PowerShell's rules: any single quote ends a string, smart
+// ones too, and two in a row are one. Anything else after the script would run as code.
+const SINGLE = "'\u2018\u2019\u201a\u201b";
+function powershellCall(command: string) {
+  let at = 0, depth = 0, end = -1;
+  const quoted = () => {
+    let text = "";
+    for (at++; at < command.length; at++) {
+      if (!SINGLE.includes(command[at])) text += command[at];
+      else if (SINGLE.includes(command[at + 1] ?? " ")) text += command[++at];
+      else return at++, text;
+    }
+    throw new Error("a string never ended");
+  };
+  while (at < command.length && end < 0) {
+    if (SINGLE.includes(command[at])) { quoted(); continue; }
+    if (command[at] === "{") depth++;
+    if (command[at] === "}" && --depth === 0) end = at;
+    at++;
+  }
+  const given: string[] = [];
+  while (at < command.length) {
+    if (command[at] === " ") at++;
+    else if (SINGLE.includes(command[at])) given.push(quoted());
+    else throw new Error(`this would run as code: ${command.slice(at)}`);
+  }
+  return { script: command.slice(0, end), given };
+}
+
+const walk = (folder: string): string[] => (existsSync(folder) ? readdirSync(folder, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(join(folder, e.name)) : [join(folder, e.name)])) : []);
+const asWindows = (path: string) => `${state.win.home}\\${relative(state.win.root, path).replaceAll("/", "\\")}`;
+const printed = (stdout: string) => ({ code: 0, stdout, stderr: "" });
+
+function powershell(script: string, [a, b, c, d, e]: string[]) {
+  if (script.includes("say $HOME")) return printed(`${state.win.home}\n`);
+  if (script.includes("Win32_Process")) return printed(state.win.processes.map(([pid, parent]: number[]) => `${pid} ${parent}\n`).join(""));
+  if (script.includes("-Recurse")) return printed(walk(onDisk(a)).filter((path) => path.endsWith(".jsonl")).map((path) => `${asWindows(path)}\n`).join(""));
+  if (script.includes("Get-ChildItem")) return printed(walk(onDisk(a)).filter((path) => path.endsWith(".jsonl")).map((path) => `${statSync(path).size} ${asWindows(path)}\n`).join(""));
+  if (script.includes("Get-Item")) return printed(a.split("\n").filter((path) => existsSync(onDisk(path))).map((path) => `${statSync(onDisk(path)).size} ${path}\n`).join(""));
+  if (script.includes("hc file write")) {
+    state.fed.push([b, c]);
+    const path = onDisk(c);
+    if (!path.startsWith(`${home}/`)) throw new Error(`outside the scratch: ${path}`);
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, `${a}\r\n`);
+    return printed("");
+  }
+  if (!script.includes("[IO.File]::Open(")) throw new Error(`no such script here: ${script}`);
+  if (!existsSync(onDisk(a))) return { code: 3, stdout: "", stderr: "" };
+  const all = readFileSync(onDisk(a));
+  if (String(all.length) === d) return printed(`${all.length}\n`);
+  const window = all.subarray(Number(b) * BLOCK, (Number(b) + Number(e)) * BLOCK).toString("latin1");
+  const kept = window.split("\n").filter((line) => c.split("\n").some((needle) => line.includes(needle)));
+  return printed(Buffer.from(`${all.length}\n${kept.map((line) => `${line}\n`).join("")}`, "latin1").toString("utf8"));
+}
+
+function windowsExec(cmd: string, args: string[], on: string | null) {
+  if (cmd === "cmd") {
+    if (args.slice(0, 3).join(" ") !== "/d /c claude") throw new Error(`cannot start ${args.join(" ")}`);
+    return state.claude(args.slice(3), on);
+  }
+  if (cmd !== "powershell" || state.noPowershell) throw new Error(`cannot start ${cmd}: program not found`);
+  const { script, given } = powershellCall(args.at(-1)!);
+  return state.powershell?.(script) ?? powershell(script, given);
+}
+
+// Stands in for `hc` in everything `exec` runs, so no test can reach a real one. It does what the
+// real `hc file write --on` does (makes folders, takes stdin as the file), inside the scratch only.
+const fakeBin = mkdtempSync(join(tmpdir(), "zaki-hc-"));
+afterAll(() => rmSync(fakeBin, { recursive: true, force: true }));
+writeFileSync(join(fakeBin, "hc"), `#!/bin/sh
+[ "$1 $2 $3" = "file write --on" ] || exit 9
+case "$5" in "${home}"/*) ;; *) exit 9 ;; esac
+mkdir -p "$(dirname "$5")" && cat > "$5"
+`);
+chmodSync(join(fakeBin, "hc"), 0o755);
+
 mock.module("gpui-kit", () => ({ View: class {}, div: make, svg: make, image: make }));
 mock.module("gpui-base", () => ({ h_flex: make, v_flex: make }));
 mock.module("herdr", () => ({
@@ -50,22 +143,28 @@ mock.module("herdr", () => ({
   openOverlay: (o: any) => (state.opened.push(o), "overlay"),
   closeOverlay: (id: string) => void state.closed.push(id),
   props: () => state.props,
-  window: () => ({ platform: "macos" }),
+  window: () => (state.noWindow ? null : { platform: state.platform }),
+  machines: () => [{ name: null, layout: "ready" }, ...Object.entries(state.away).map(([name, m]: any) => ({ name, layout: m.offline ? "unavailable" : "ready" }))],
   layout: () => state.layout,
   home: () => state.home ?? home,
-  readTextFile: async (path: string) => {
+  readTextFile: async (path: string, options?: { on?: string | null }) => {
+    const on = options?.on ?? null;
     state.reads.push(path);
+    state.readOn.push(on);
+    state.onRead?.(path);
     if (state.brokenFiles) throw new Error("no such thing");
-    try { return readFileSync(path, "utf8"); } catch { return null; }
+    if (on) await reachable(on);
+    try { return readFileSync(onDisk(path), "utf8"); } catch { return null; }
   },
   // Refuses a changed file as the real one does, and anything outside the scratch home.
-  writeTextFile: async (path: string, text: string, expected: string | null) => {
+  writeTextFile: async (shown: string, text: string, expected: string | null) => {
+    const path = onDisk(shown);
     if (!path.startsWith(`${home}/`)) throw new Error(`outside the scratch home: ${path}`);
     if (state.brokenWrites) throw new Error("can't write");
     if ((existsSync(path) ? readFileSync(path, "utf8") : null) !== expected) throw new Error("The file changed while saving.");
     mkdirSync(dirname(path), { recursive: true });
     writeFileSync(path, text);
-    state.written.push(path);
+    state.written.push(shown);
     return null;
   },
   hc: async (args: string[]) => {
@@ -79,13 +178,20 @@ mock.module("herdr", () => ({
     state.parked++;
     return new Promise((resolve) => state.watchers.push((paths: string[]) => { state.parked--; resolve(paths); }));
   },
-  exec: async (cmd: string, args: string[]) => {
+  exec: async (cmd: string, args: string[] = [], options?: { on?: string | null }) => {
+    const on = options?.on ?? null;
     state.execs.push([cmd, ...args]);
-    if (cmd === "claude") return state.claude(args);
+    state.execOn.push(on);
+    if (on) await reachable(on);
+    if (cmd === "claude" && !isWindows(on)) return state.claude(args, on);
     if (state.brokenExec) throw new Error("cannot run");
-    const r = Bun.spawnSync([cmd, ...args], { env: { ...process.env, HOME: home } });
+    if (on && cmd === "sh" && state.away[on].gitSh) return printed("MINGW64_NT-10.0-26100\n/c/Users/me");
+    if (isWindows(on)) return windowsExec(cmd, args, on);
+    const r = Bun.spawnSync([cmd, ...args], { env: { ...process.env, PATH: `${fakeBin}:${process.env.PATH}`, HOME: on ? state.away[on].home : home } });
     const stdout = r.stdout.toString();
     state.outputs.push(stdout.length);
+    // The app reads `hc exec --json` through the same 8 MiB cap, and that's base64.
+    if (on && (stdout.length * 4) / 3 > EXEC_OUTPUT) throw new Error("hc exec: cut off");
     if (state.asleep) await state.asleep;
     if (args.at(-1)?.endsWith("/subagents")) await state.listing;
     return { code: r.exitCode, stdout: stdout.slice(0, EXEC_OUTPUT), stderr: r.stderr.toString() };
@@ -129,12 +235,12 @@ const running = (address: string, pid: number | null, program: any = CLAUDE, mor
 const listed = (term: any) => ({ address: term.address, pane: `p-${term.address}`, space: "s", space_name: "one", tab: "tb", tab_index: 1, status: "idle", program: term.program, seq: 1, focused: false });
 
 const folderOf = (cwd: string) => cwd.replace(/[^a-zA-Z0-9]/g, "-");
-const recordOf = (pid: number, sessionId: string, cwd = "/work/project") => {
-  const path = join(home, ".claude", "sessions", `${pid}.json`);
+const recordOf = (pid: number, sessionId: string, cwd = "/work/project", at = home) => {
+  const path = join(at, ".claude", "sessions", `${pid}.json`);
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, JSON.stringify({ pid, sessionId, cwd, startedAt: 1, version: "2.1.316", kind: "interactive", entrypoint: "cli", status: "idle" }));
 };
-const fileOf = (sessionId: string, cwd = "/work/project") => join(home, ".claude", "projects", folderOf(cwd), `${sessionId}.jsonl`);
+const fileOf = (sessionId: string, cwd = "/work/project", at = home) => join(at, ".claude", "projects", folderOf(cwd), `${sessionId}.jsonl`);
 
 // One assistant line as Claude writes it, with made-up words.
 type Said = { id: string; input?: number; read?: number; write?: number; write5m?: number; output?: number; model?: string; side?: boolean; text?: string; speed?: string; geo?: string };
@@ -147,9 +253,9 @@ const said = ({ id, input = 0, read = 0, write = 0, write5m = 0, output = 0, mod
     },
     requestId: "r", requestedModel: model, type: "assistant", uuid: "u", timestamp: "2026-11-01T10:00:00.000Z", cwd: "/work/project", sessionId: "s", version: "2.1.316",
   });
-const writes = (sessionId: string, lines: string[], cwd = "/work/project") => {
-  mkdirSync(dirname(fileOf(sessionId, cwd)), { recursive: true });
-  appendFileSync(fileOf(sessionId, cwd), lines.map((l) => `${l}\n`).join(""));
+const writes = (sessionId: string, lines: string[], cwd = "/work/project", at = home) => {
+  mkdirSync(dirname(fileOf(sessionId, cwd, at)), { recursive: true });
+  appendFileSync(fileOf(sessionId, cwd, at), lines.map((l) => `${l}\n`).join(""));
 };
 
 const contextReply = (tokens: string) => JSON.stringify({ type: "result", subtype: "success", is_error: false, total_cost_usd: 0, local_command: "context", result: `## Context Usage\n\n**Model:** claude-opus-5-5  \n**Tokens:** ${tokens}\n\n### Estimated usage by category\n` });
@@ -164,10 +270,10 @@ const open = async () => {
 const shows = (draw: () => El, address: string) => words(byId(draw(), `ag-${address}`)!);
 
 beforeEach(() => {
-  for (const folder of [".claude", ".codex", ".zaki", ".pi"]) rmSync(join(home, folder), { recursive: true, force: true });
+  for (const folder of [".claude", ".codex", ".zaki", ".pi", "machines"]) rmSync(join(home, folder), { recursive: true, force: true });
   state = {
-    agents: [], terminals: [], ran: [], shared: {}, opened: [], closed: [], props: {}, layout: null,
-    reads: [], watched: [], watchers: [], execs: [], running: 0, parked: 0, timers: [], notified: 0, stopped: 0,
+    agents: [], terminals: [], ran: [], shared: {}, opened: [], closed: [], props: {}, layout: null, platform: "macos", away: {}, fed: [],
+    reads: [], readOn: [], watched: [], watchers: [], execs: [], execOn: [], running: 0, parked: 0, timers: [], notified: 0, stopped: 0,
     outputs: [], brokenFiles: false, brokenExec: false, brokenWatch: false, brokenWrites: false, brokenHc: false,
     written: [], hc: [], totals: {}, ordinal: 0,
     claude: () => ({ code: 0, stdout: contextReply("13.7k / 1m (1%)"), stderr: "" }),
@@ -597,18 +703,6 @@ test("the collapsed rail shows no percent", async () => {
   expect(percents(draw())).toEqual([]);
 });
 
-test("a machine's agents read nothing here, and their logos are part of the row", async () => {
-  const term = running("vps/t1", 101);
-  state.terminals = [term];
-  state.agents = [listed(term)];
-  recordOf(101, "one");
-  writes("one", [said({ id: "m1", read: 100000 })]);
-  const { draw } = await open();
-  await ticks();
-  expect(state.reads).toEqual([]);
-  expect(byId(draw(), "logo-vps/t1")?.calls.some(([k]) => k === "on_click") ?? false).toBe(false);
-});
-
 test("every color the row and the dropdown use comes from the theme", async () => {
   const { draw } = await one([said({ id: "m1", read: 950000 })]);
   clicks(byId(draw(), "logo-t1")!);
@@ -617,7 +711,7 @@ test("every color the row and the dropdown use comes from the theme", async () =
   for (const e of [...all(root), ...all(byId(draw(), "ag-t1")!)]) {
     for (const [k, a] of e.calls) if (["text_color", "bg", "border_color"].includes(k) && a[0] !== undefined) expect(named.has(a[0])).toBe(true);
   }
-  for (const file of ["main.js", "sessions.js", "claude.js", "codex.js", "pi.js", "sizes.js", "dropdown.js", "prices.js"]) {
+  for (const file of ["main.js", "sessions.js", "machine.js", "claude.js", "codex.js", "pi.js", "dropdown.js", "prices.js"]) {
     expect(readFileSync(new URL(`../defaults/mods/agents/${file}`, import.meta.url), "utf8")).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
   }
 });
@@ -743,8 +837,8 @@ test("a session of nothing but messages, far past what exec can carry in one go,
 }, 30000);
 
 // What the list has worked out as it went, drawn by a dropdown that never reads for itself.
-const known = (draw: () => El) => {
-  clicks(byId(draw(), "logo-t1")!);
+const known = (draw: () => El, address = "t1") => {
+  clicks(byId(draw(), `logo-${address}`)!);
   const list = state.props;
   state.props = { ...state.opened.at(-1).props, overlay: "ov" };
   const view: any = new Agents();
@@ -1054,7 +1148,7 @@ test("no network, no login: all a pass touches is the session and Claude's own /
   expect([...new Set(state.execs.map(([cmd]: string[]) => cmd))].sort()).toEqual(["claude", "sh"]);
   const touched = [...state.reads, ...state.execs.flat()].join("\n");
   expect(touched).not.toMatch(/credential|keychain|oauth|\.netrc|security/i);
-  for (const file of ["main.js", "sessions.js", "claude.js", "codex.js", "pi.js", "sizes.js", "dropdown.js", "prices.js"]) {
+  for (const file of ["main.js", "sessions.js", "machine.js", "claude.js", "codex.js", "pi.js", "dropdown.js", "prices.js"]) {
     expect(readFileSync(new URL(`../defaults/mods/agents/${file}`, import.meta.url), "utf8")).not.toMatch(/\bfetch\(|WebSocket|https?:/);
   }
 });
@@ -1062,9 +1156,9 @@ test("no network, no login: all a pass touches is the session and Claude's own /
 // Codex, from here on. Lines have the keys real session files have, with made-up words.
 const CODEX = { key: "codex", name: "Codex", icon: "icons/codex.svg", tint: false, tile: null, color: null, agent: true, shell: false };
 const SHELL = { key: "shell", name: "Shell", icon: null, tint: false, tile: null, color: null, agent: false, shell: true };
-const sessionsRoot = () => join(home, ".codex", "sessions");
+const sessionsRoot = (at = home) => join(at, ".codex", "sessions");
 const uuid = (n: number) => `01a19000-0000-7000-8000-${String(n).padStart(12, "0")}`;
-const rollout = (id: string, day = "01") => join(sessionsRoot(), "2026", "11", day, `rollout-2026-11-${day}T10-00-00-${id}.jsonl`);
+const rollout = (id: string, day = "01", at = home) => join(sessionsRoot(at), "2026", "11", day, `rollout-2026-11-${day}T10-00-00-${id}.jsonl`);
 const labelled = (id: string, day?: string) => ({ "zaki.session": rollout(id, day) });
 const aCodex = (address: string, more: any = {}) => running(address, 201, CODEX, { foreground: { pid: 201, name: "codex", argv: ["codex"], cwd: "/work/project" }, ...more });
 
@@ -1086,9 +1180,9 @@ const spent = (id: string, used: Used) => {
   return tokenCount({ ...total }, last, used.window === undefined ? 258400 : used.window);
 };
 
-const codexWrites = (id: string, lines: string[], day?: string) => {
-  mkdirSync(dirname(rollout(id, day)), { recursive: true });
-  appendFileSync(rollout(id, day), lines.map((l) => `${l}\n`).join(""));
+const codexWrites = (id: string, lines: string[], day?: string, at = home) => {
+  mkdirSync(dirname(rollout(id, day, at)), { recursive: true });
+  appendFileSync(rollout(id, day, at), lines.map((l) => `${l}\n`).join(""));
 };
 const codexRow = async (id: string, lines: string[], address = "t1") => {
   const term = aCodex(address, { labels: labelled(id) });
@@ -1555,15 +1649,6 @@ test("with no Codex in sight nothing is set up", async () => {
   expect(state.shared["agents.setup"]).toBeUndefined();
 });
 
-test("a Codex on another machine sets up nothing here", async () => {
-  const term = aCodex("vps/t1");
-  state.terminals = [term];
-  state.agents = [listed(term)];
-  await open();
-  await ticks();
-  expect(state.written).toEqual([]);
-});
-
 test("an empty hook file, or one that's only an empty object, takes the hook", async () => {
   for (const text of ["", "  \n", "{}", '{"hooks":{}}', '{"hooks":{"SessionStart":[]}}']) {
     hooksFile(text);
@@ -1910,9 +1995,9 @@ test("no network, no login, and Codex's own files only read: all a pass touches 
 // Pi, from here on. Lines follow its session format (docs/session-format.md, v1.4.0), with made-up
 // words: no real Pi session exists on the machine these were written on.
 const PI = { key: "pi", name: "Pi", icon: "icons/pi.svg", tint: true, tile: null, color: null, agent: true, shell: false };
-const piFolder = (cwd = "/work/project") => join(home, ".pi", "agent", "sessions", `--${cwd.slice(1).replace(/\//g, "-")}--`);
+const piFolder = (cwd = "/work/project", at = home) => join(at, ".pi", "agent", "sessions", `--${cwd.slice(1).replace(/\//g, "-")}--`);
 const piId = (n: number) => `019c0000-0000-7000-8000-${String(n).padStart(12, "0")}`;
-const piFile = (id: string, cwd?: string) => join(piFolder(cwd), `2026-11-01T10-00-00-000Z_${id}.jsonl`);
+const piFile = (id: string, cwd?: string, at = home) => join(piFolder(cwd, at), `2026-11-01T10-00-00-000Z_${id}.jsonl`);
 const piLabels = (id: string, limit: number | null = 200000, cwd?: string) => ({ "zaki.session": piFile(id, cwd), ...(limit ? { "zaki.limit": String(limit) } : {}) });
 const aPi = (address: string, more: any = {}) => running(address, 301, PI, { foreground: { pid: 301, name: "pi", argv: ["pi"], cwd: "/work/project" }, ...more });
 
@@ -1927,9 +2012,9 @@ const piUsage = ({ input = 0, output = 0, read = 0, write = 0, total, cost = 0.0
 const piSaid = ({ model = "claude-opus-5-5", stop = "stop", text = "made up", ...used }: PiUsed & { model?: string; stop?: string; text?: string }) =>
   entry("message", { message: { role: "assistant", content: [{ type: "text", text }], api: "anthropic-messages", provider: "anthropic", model, usage: piUsage(used), stopReason: stop, timestamp: 1 } });
 
-const piWrites = (id: string, lines: string[], cwd?: string) => {
-  mkdirSync(dirname(piFile(id, cwd)), { recursive: true });
-  appendFileSync(piFile(id, cwd), lines.map((l) => `${l}\n`).join(""));
+const piWrites = (id: string, lines: string[], cwd?: string, at = home) => {
+  mkdirSync(dirname(piFile(id, cwd, at)), { recursive: true });
+  appendFileSync(piFile(id, cwd, at), lines.map((l) => `${l}\n`).join(""));
 };
 const piRow = async (id: string, lines: string[], limit: number | null = 200000) => {
   if (lines.length) piWrites(id, lines);
@@ -2283,16 +2368,9 @@ test("the extension goes in when Zaki first sees Pi, and other extensions and Pi
   expect(state.shared["agents.setup"]).toEqual({ pi: 1 });
 });
 
-test("with no Pi in sight no extension goes in, and a Pi on another machine adds none here", async () => {
+test("with no Pi in sight no extension goes in", async () => {
   await quietCodex();
   await settle();
-  expect(existsSync(extensionPath())).toBe(false);
-  const term = aPi("vps/t1");
-  state.terminals = [term];
-  state.agents = [listed(term)];
-  state.shared = {};
-  await open();
-  await ticks();
   expect(existsSync(extensionPath())).toBe(false);
 });
 
@@ -2543,3 +2621,688 @@ test("a session that hasn't changed isn't read again, whatever its limit label s
     rmSync(piFile(piId(1)));
   }
 });
+
+// Added machines. Each has a home of its own in the scratch, and is reached only through `on`.
+const addMachine = (name = "vps", more: any = {}) => {
+  const at = join(home, "machines", name);
+  mkdirSync(at, { recursive: true });
+  state.away[name] = { home: at, ...more };
+  return at;
+};
+const claudeThere = async (lines: string[], address = "vps/t1") => {
+  const at = addMachine(address.split("/")[0]);
+  const term = running(address, 101);
+  state.terminals = [term];
+  state.agents = [listed(term)];
+  recordOf(101, "one", undefined, at);
+  writes("one", lines, undefined, at);
+  const list = await open();
+  await ticks();
+  return { ...list, at };
+};
+
+test("a Claude on an added machine shows its percent and dropdown, read there and nowhere else", async () => {
+  recordOf(101, "not-this-one");
+  writes("not-this-one", [said({ id: "here", read: 900000 })]);
+  const { draw } = await claudeThere([said({ id: "m1", input: 5, read: 60000, write: 10000, output: 900 })]);
+  expect(rowPercents(draw, "vps/t1")).toEqual(["7%"]);
+  clicks(byId(draw(), "logo-vps/t1")!);
+  expect(state.stopped).toBe(1);
+  const seen = words((await dropdown()).draw());
+  expect(seen).toContain("Claude Opus 5.5");
+  expect(seen).toContain("70k / 1M");
+  expect(state.execOn.filter((on: string | null) => on !== "vps")).toEqual([]);
+  expect(state.readOn.filter((on: string | null) => on !== "vps")).toEqual([]);
+  expect(state.watched).toEqual([]);
+});
+
+test("an added machine is read every 30 seconds, only while its row is listed", async () => {
+  const { draw, at } = await claudeThere([said({ id: "m1", read: 100000 })]);
+  writes("one", [said({ id: "m2", read: 200000 })], undefined, at);
+  state.execs = [];
+  await ticks();
+  await later(29000);
+  expect(realReads()).toBe(0);
+  expect(rowPercents(draw, "vps/t1")).toEqual(["10%"]);
+  await later(1000);
+  expect(rowPercents(draw, "vps/t1")).toEqual(["20%"]);
+  expect(realReads()).toBe(1);
+
+  state.agents = [];
+  state.execs = [];
+  state.reads = [];
+  await later(30000);
+  expect(state.execs).toEqual([]);
+  expect(state.reads).toEqual([]);
+  setSystemTime();
+});
+
+test("an added machine's sub-agent has a row, and a terminal with no row there is left unread", async () => {
+  const at = addMachine();
+  const parent = running("vps/t1", 101), kid = running("vps/t1b", 102, CLAUDE, { parent: "vps/t1" }), stray = running("vps/t9", 103);
+  state.terminals = [parent, kid, stray];
+  state.agents = [listed(parent)];
+  recordOf(101, "one", undefined, at);
+  recordOf(102, "two", undefined, at);
+  recordOf(103, "three", undefined, at);
+  writes("one", [said({ id: "m1", read: 100000 })], undefined, at);
+  writes("two", [said({ id: "m2", read: 250000 })], undefined, at);
+  const { draw } = await open();
+  await ticks();
+  expect(percents(byId(draw(), "sub-vps/t1b")!)).toEqual(["25%"]);
+  expect(state.reads.filter((path: string) => path.endsWith("103.json"))).toEqual([]);
+});
+
+test("a dropdown on an added machine's agent stays live, every 30 seconds", async () => {
+  const { draw, at } = await claudeThere([said({ id: "m1", read: 100000 })]);
+  clicks(byId(draw(), "logo-vps/t1")!);
+  const popup = await dropdown();
+  expect(words(popup.draw())).toContain("100k / 1M");
+  writes("one", [said({ id: "m2", read: 200000 })], undefined, at);
+  await later(30000);
+  expect(words(popup.draw())).toContain("200k / 1M");
+  setSystemTime();
+});
+
+test("an idle session on an added machine sends nothing but its size", async () => {
+  const { at } = await claudeThere([said({ id: "m1", read: 100000, text: "x".repeat(50000) })]);
+  state.outputs = [];
+  await later(30000);
+  await later(30000);
+  expect(realReads()).toBe(3);
+  expect(Math.max(...state.outputs)).toBeLessThan(100);
+  writes("one", [said({ id: "m2", read: 100000 })], undefined, at);
+  state.outputs = [];
+  await later(30000);
+  expect(Math.max(...state.outputs)).toBeGreaterThan(50000);
+  setSystemTime();
+});
+
+test("Claude's /context runs on the agent's machine, once per model per machine", async () => {
+  const seen: (string | null)[] = [];
+  state.claude = (_args: string[], on: string | null) => {
+    seen.push(on);
+    return { code: 0, stdout: contextReply(on === "big" ? "1k / 1m (0%)" : "1k / 200k (0%)"), stderr: "" };
+  };
+  const big = addMachine("big"), small = addMachine("small");
+  const a = running("big/t1", 101), b = running("small/t1", 101), c = running("big/t2", 102);
+  state.terminals = [a, b, c];
+  state.agents = [a, b, c].map(listed);
+  recordOf(101, "one", undefined, big);
+  recordOf(102, "two", undefined, big);
+  recordOf(101, "one", undefined, small);
+  writes("one", [said({ id: "m1", read: 100000 })], undefined, big);
+  writes("two", [said({ id: "m2", read: 300000 })], undefined, big);
+  writes("one", [said({ id: "m1", read: 100000 })], undefined, small);
+  const { draw } = await open();
+  await ticks();
+  await later(30000);
+  expect(rowPercents(draw, "big/t1")).toEqual(["10%"]);
+  expect(rowPercents(draw, "big/t2")).toEqual(["30%"]);
+  expect(rowPercents(draw, "small/t1")).toEqual(["50%"]);
+  expect(seen.sort()).toEqual(["big", "small"]);
+  setSystemTime();
+});
+
+test("Codex and Pi on an added machine follow their labels there, helpers included", async () => {
+  const at = addMachine();
+  const main = uuid(1), kid = uuid(2);
+  codexWrites(main, [turn(), started(kid), spent(main, { input: 73600 })], undefined, at);
+  codexWrites(kid, [turn(), spent(kid, { input: 1000, output: 5 })], "02", at);
+  piWrites(piId(1), [piSaid({ input: 50000, cost: 0.5 })], undefined, at);
+  const codexTerm = aCodex("vps/t1", { labels: { "zaki.session": rollout(main, undefined, at) } });
+  const piTerm = aPi("vps/t2", { labels: { "zaki.session": piFile(piId(1), undefined, at), "zaki.limit": "200000" } });
+  state.terminals = [codexTerm, piTerm];
+  state.agents = [listed(codexTerm), listed(piTerm)];
+  const { draw } = await open();
+  await ticks();
+  expect(rowPercents(draw, "vps/t1")).toEqual(["25%"]);
+  expect(rowPercents(draw, "vps/t2")).toEqual(["25%"]);
+  clicks(byId(draw(), "logo-vps/t1")!);
+  expect(words((await dropdown()).draw())).toContain("in 74.6k · out 5 · cached 0");
+  const here = state.execs.filter((_: string[], i: number) => state.execOn[i] === null);
+  expect(here.filter((args: string[]) => !args.join(" ").includes("hc file write"))).toEqual([]);
+  expect(state.watched).toEqual([]);
+});
+
+const thereHooks = (at: string) => join(at, ".codex", "hooks.json");
+const codexThere = async (more: any = {}) => {
+  const term = aCodex("vps/t1", more);
+  state.terminals = [term];
+  state.agents = [listed(term)];
+  const list = await open();
+  await ticks();
+  await settle();
+  return list;
+};
+
+test("the Codex hook goes in on the agent's machine, under its home, and nothing changes here", async () => {
+  const at = addMachine();
+  await codexThere();
+  const [group] = JSON.parse(readFileSync(thereHooks(at), "utf8")).hooks.SessionStart;
+  expect(group.hooks[0].command).toBe(`sh '${at}/.zaki/codex-session.sh'`);
+  expect(group.hooks[0].commandWindows).toContain(`${at}/.zaki/codex-session.ps1`);
+  expect(readFileSync(join(at, ".zaki", "codex-session.sh"), "utf8")).toStartWith("#!/bin/sh");
+  expect(state.shared["agents.setup"]).toEqual({ "vps/codex": 1 });
+  expect(state.written).toEqual([]);
+  expect(existsSync(hooksPath())).toBe(false);
+});
+
+test("hooks already on an added machine keep their place, and a second run changes nothing", async () => {
+  const at = addMachine();
+  mkdirSync(join(at, ".codex"), { recursive: true });
+  writeFileSync(thereHooks(at), JSON.stringify({ hooks: { SessionStart: [oldHook] }, other: 1 }));
+  await codexThere();
+  const text = readFileSync(thereHooks(at), "utf8");
+  const file = JSON.parse(text);
+  expect(file.other).toBe(1);
+  expect(file.hooks.SessionStart[0]).toEqual(oldHook);
+  expect(file.hooks.SessionStart).toHaveLength(2);
+
+  state.shared = {};
+  state.execs = [];
+  await codexThere();
+  expect(readFileSync(thereHooks(at), "utf8")).toBe(text);
+  expect(state.execs.filter((args: string[]) => args.join(" ").includes("hc file write"))).toEqual([]);
+});
+
+test("a hook file on an added machine that can't be understood is left alone, and the row stays at a dash", async () => {
+  const at = addMachine();
+  mkdirSync(join(at, ".codex"), { recursive: true });
+  writeFileSync(thereHooks(at), "{ not json");
+  const { draw } = await codexThere({ status: "working" });
+  expect(readFileSync(thereHooks(at), "utf8")).toBe("{ not json");
+  expect(shows(draw, "vps/t1")).toContain("–");
+  expect(state.shared["agents.setup"]).toBeUndefined();
+});
+
+test("a hook file changed on an added machine just before the write is left as it is", async () => {
+  const at = addMachine();
+  let seen = 0;
+  state.onRead = (path: string) => {
+    if (!path.endsWith("hooks.json") || ++seen !== 2) return;
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, "{}\n");
+  };
+  await codexThere();
+  expect(readFileSync(thereHooks(at), "utf8")).toBe("{}\n");
+  expect(state.shared["agents.setup"]).toBeUndefined();
+});
+
+test("Zaki never writes Codex's approval on an added machine, so each machine asks the person once", async () => {
+  const at = addMachine();
+  const config = '[features]\nhooks = true\n';
+  mkdirSync(join(at, ".codex"), { recursive: true });
+  writeFileSync(join(at, ".codex", "config.toml"), config);
+  await codexThere();
+  expect(readFileSync(join(at, ".codex", "config.toml"), "utf8")).toBe(config);
+  expect(state.reads.filter((path: string) => path.endsWith("config.toml"))).toEqual([]);
+  const wrote = state.execs.filter((args: string[]) => args.join(" ").includes("hc file write")).map((args: string[]) => args.at(-1));
+  expect(wrote.sort()).toEqual([thereHooks(at), join(at, ".zaki", "codex-session.ps1"), join(at, ".zaki", "codex-session.sh")].sort());
+});
+
+test("setup on one added machine says nothing about another", async () => {
+  const one = addMachine("one"), two = addMachine("two");
+  const a = aCodex("one/t1"), b = aCodex("two/t1");
+  state.terminals = [a, b];
+  state.agents = [listed(a), listed(b)];
+  await open();
+  await ticks();
+  await settle();
+  expect(existsSync(thereHooks(one))).toBe(true);
+  expect(existsSync(thereHooks(two))).toBe(true);
+  expect(state.shared["agents.setup"]).toEqual({ "one/codex": 1, "two/codex": 1 });
+});
+
+test("Pi's extension goes in on the agent's machine, folders and all", async () => {
+  const at = addMachine();
+  const term = aPi("vps/t1");
+  state.terminals = [term];
+  state.agents = [listed(term)];
+  await open();
+  await ticks();
+  await settle();
+  expect(readFileSync(join(at, ".pi", "agent", "extensions", "zaki-session.ts"), "utf8")).toContain("HC_TERMINAL_ID");
+  expect(state.shared["agents.setup"]).toEqual({ "vps/pi": 1 });
+  expect(existsSync(extensionPath())).toBe(false);
+});
+
+test("a failed write on an added machine sets nothing up, and tries again later", async () => {
+  const at = addMachine();
+  const real = readFileSync(join(fakeBin, "hc"), "utf8");
+  writeFileSync(join(fakeBin, "hc"), "#!/bin/sh\nexit 1\n");
+  const { draw } = await codexThere({ status: "working" });
+  writeFileSync(join(fakeBin, "hc"), real);
+  expect(state.shared["agents.setup"]).toBeUndefined();
+  expect(shows(draw, "vps/t1")).toContain("–");
+  await later(600000);
+  await settle();
+  expect(state.shared["agents.setup"]).toEqual({ "vps/codex": 1 });
+  expect(existsSync(thereHooks(at))).toBe(true);
+  setSystemTime();
+});
+
+test("a Codex whose machine has no hc where the hook looks stays at a dash, never someone else's numbers", async () => {
+  const at = addMachine();
+  codexWrites(uuid(1), [turn(), spent(uuid(1), { input: 100000 })], undefined, at);
+  const { draw } = await codexThere({ status: "working" });
+  expect(rowPercents(draw, "vps/t1")).toEqual([]);
+  expect(shows(draw, "vps/t1")).toContain("–");
+  clicks(byId(draw(), "logo-vps/t1")!);
+  expect(words((await dropdown()).draw())).toContain(HOOKS_MESSAGE);
+});
+
+test("a label pointing nowhere on an added machine shows no number", async () => {
+  const at = addMachine();
+  const { draw } = await codexThere({ labels: { "zaki.session": rollout(uuid(9), undefined, at) } });
+  expect(rowPercents(draw, "vps/t1")).toEqual([]);
+});
+
+test("a terminal back at its shell on an added machine loses its label, by its full address", async () => {
+  addMachine();
+  const shell = running("vps/t1", 101, SHELL, { labels: labelled(uuid(1)) });
+  state.terminals = [shell];
+  await open();
+  await ticks();
+  expect(state.hc).toEqual([["label", "vps/t1", "zaki.session="]]);
+});
+
+// What a machine's terminals look like with its line down: still listed, as the core keeps them.
+const goesOffline = (name = "vps") => { state.away[name].offline = true; };
+
+test("a machine going offline keeps its numbers, reads nothing, and its rows don't flicker", async () => {
+  const { draw, at } = await claudeThere([said({ id: "m1", read: 100000, output: 7 })]);
+  clicks(byId(draw(), "logo-vps/t1")!);
+  const before = words((await dropdown()).draw());
+  goesOffline();
+  state.execs = [];
+  state.reads = [];
+  state.notified = 0;
+  for (let i = 0; i < 4; i++) await later(30000);
+  expect(state.execs).toEqual([]);
+  expect(state.reads).toEqual([]);
+  expect(state.notified).toBe(0);
+  expect(rowPercents(draw, "vps/t1")).toEqual(["10%"]);
+  expect(known(draw, "vps/t1")).toEqual(before);
+
+  state.away.vps.offline = false;
+  writes("one", [said({ id: "m2", read: 200000 })], undefined, at);
+  await later(2000);
+  expect(rowPercents(draw, "vps/t1")).toEqual(["20%"]);
+  setSystemTime();
+});
+
+test("a line lost in the middle of a read keeps the last numbers and the place in the file", async () => {
+  const { draw, at } = await claudeThere([said({ id: "m1", read: 100000 })]);
+  writes("one", [said({ id: "m2", read: 200000, output: 9 })], undefined, at);
+  for (const broken of ["brokenExec", "brokenFiles"]) {
+    state[broken] = true;
+    await later(30000);
+    expect(rowPercents(draw, "vps/t1")).toEqual(["10%"]);
+    state[broken] = false;
+  }
+  await later(30000);
+  expect(rowPercents(draw, "vps/t1")).toEqual(["20%"]);
+  expect(known(draw, "vps/t1")).toContain("in 0 · out 9 · cached 300k");
+  setSystemTime();
+});
+
+test("a machine that can't be reached at first shows nothing, and picks up when it can", async () => {
+  const at = addMachine("vps", { offline: true });
+  const term = running("vps/t1", 101);
+  state.terminals = [term];
+  state.agents = [listed(term)];
+  recordOf(101, "one", undefined, at);
+  writes("one", [said({ id: "m1", read: 100000 })], undefined, at);
+  const { draw } = await open();
+  await ticks();
+  expect(rowPercents(draw, "vps/t1")).toEqual([]);
+  expect(state.execs).toEqual([]);
+  state.away.vps.offline = false;
+  await ticks();
+  expect(rowPercents(draw, "vps/t1")).toEqual(["10%"]);
+});
+
+test("a machine connecting but not answering holds up nothing here", async () => {
+  let free: () => void = () => {};
+  const at = addMachine("vps", { stuck: new Promise<void>((resolve) => { free = resolve; }) });
+  const there = running("vps/t1", 101), here = running("t2", 102);
+  state.terminals = [there, here];
+  state.agents = [listed(there), listed(here)];
+  recordOf(101, "one", undefined, at);
+  writes("one", [said({ id: "m1", read: 100000 })], undefined, at);
+  recordOf(102, "two");
+  writes("two", [said({ id: "m2", read: 300000 })]);
+  state.parked += 1;
+  const { draw } = await open();
+  await ticks();
+  expect(rowPercents(draw, "t2")).toEqual(["30%"]);
+  expect(rowPercents(draw, "vps/t1")).toEqual([]);
+  state.parked -= 1;
+  state.away.vps.stuck = null;
+  free();
+  await settle();
+  await later(30000);
+  expect(rowPercents(draw, "vps/t1")).toEqual(["10%"]);
+  setSystemTime();
+});
+
+// Windows. A pseudo console has no foreground group, so a terminal's foreground is always the
+// program it started: the shell, for an agent started in one.
+const WINDOWS_CWD = "C:\\work\\project";
+const onWindows = (shown = "C:\\Users\\me") => {
+  const root = join(home, "machines", "windows");
+  mkdirSync(root, { recursive: true });
+  state.win = { home: shown, root, processes: [] };
+  state.platform = "windows";
+  state.home = shown;
+  return root;
+};
+const claudeOnWindows = async (lines: string[]) => {
+  const root = onWindows();
+  const term = running("t1", 900, CLAUDE, { foreground: { pid: 900, name: "powershell.exe", argv: ["powershell.exe"], cwd: WINDOWS_CWD } });
+  state.terminals = [term];
+  state.agents = [listed(term)];
+  state.win.processes = [[4, 0], [900, 4], [901, 900], [902, 901], [700, 4], [701, 700]];
+  recordOf(902, "one", WINDOWS_CWD, root);
+  recordOf(701, "other", WINDOWS_CWD, root);
+  writes("one", lines, WINDOWS_CWD, root);
+  writes("other", [said({ id: "x", read: 900000 })], WINDOWS_CWD, root);
+  const list = await open();
+  await ticks();
+  return { ...list, root };
+};
+const noShell = () => expect(state.execs.filter(([cmd]: string[]) => cmd !== "powershell" && cmd !== "cmd")).toEqual([]);
+
+test("a Claude on Windows is found under the shell its terminal started, and only that one", async () => {
+  const { draw } = await claudeOnWindows([said({ id: "m1", input: 5, read: 60000, write: 10000, output: 900 })]);
+  expect(rowPercents(draw, "t1")).toEqual(["7%"]);
+  clicks(byId(draw(), "logo-t1")!);
+  const seen = words((await dropdown()).draw());
+  expect(seen).toContain("Claude Opus 5.5");
+  expect(seen).toContain("70k / 1M");
+  noShell();
+});
+
+test("a machine that stops answering doesn't take every row there down with it", async () => {
+  const at = addMachine();
+  const a = running("vps/t1", 101), b = running("vps/t2", 102);
+  state.terminals = [a, b];
+  state.agents = [listed(a), listed(b)];
+  recordOf(101, "one", undefined, at);
+  recordOf(102, "two", undefined, at);
+  writes("one", [said({ id: "m1", read: 100000 })], undefined, at);
+  writes("two", [said({ id: "m2", read: 300000 })], undefined, at);
+  const { draw } = await open();
+  await ticks();
+  goesOffline();
+  await later(30000);
+  expect(rowPercents(draw, "vps/t1")).toEqual(["10%"]);
+  expect(rowPercents(draw, "vps/t2")).toEqual(["30%"]);
+  setSystemTime();
+});
+
+const walks = () => state.execs.filter(([, ...args]: string[]) => args.join(" ").includes("Win32_Process")).length;
+
+test("looking for a Claude under its shell costs one look every 30 seconds, not one a tick", async () => {
+  const { root } = await claudeOnWindows([said({ id: "m1", read: 100000 })]);
+  await ticks();
+  await ticks();
+  expect(walks()).toBe(1);
+  await later(30000);
+  expect(walks()).toBe(2);
+  setSystemTime();
+  expect(root).toBeTruthy();
+});
+
+test("two Claudes in one folder on Windows never show each other's numbers", async () => {
+  const root = onWindows();
+  const shell = (pid: number) => ({ foreground: { pid, name: "powershell.exe", argv: ["powershell.exe"], cwd: WINDOWS_CWD } });
+  const a = running("t1", 900, CLAUDE, shell(900)), b = running("t2", 800, CLAUDE, shell(800));
+  state.terminals = [a, b];
+  state.agents = [listed(a), listed(b)];
+  state.win.processes = [[900, 4], [901, 900], [800, 4], [801, 800]];
+  recordOf(901, "one", WINDOWS_CWD, root);
+  recordOf(801, "two", WINDOWS_CWD, root);
+  writes("one", [said({ id: "m1", read: 100000 })], WINDOWS_CWD, root);
+  writes("two", [said({ id: "m2", read: 300000 })], WINDOWS_CWD, root);
+  const { draw } = await open();
+  await ticks();
+  expect(rowPercents(draw, "t1")).toEqual(["10%"]);
+  expect(rowPercents(draw, "t2")).toEqual(["30%"]);
+});
+
+test("a Claude that was started by the terminal itself, with no shell, is found too", async () => {
+  const root = onWindows();
+  const term = running("t1", 901, CLAUDE, { foreground: { pid: 901, name: "claude.exe", argv: ["claude"], cwd: WINDOWS_CWD } });
+  state.terminals = [term];
+  state.agents = [listed(term)];
+  state.win.processes = [[901, 4]];
+  recordOf(901, "one", WINDOWS_CWD, root);
+  writes("one", [said({ id: "m1", read: 100000 })], WINDOWS_CWD, root);
+  const { draw } = await open();
+  await ticks();
+  expect(rowPercents(draw, "t1")).toEqual(["10%"]);
+});
+
+test("Claude's helpers on Windows count in the cost and the tokens, from their own folder", async () => {
+  const { draw, root } = await claudeOnWindows([said({ id: "m1", input: 1000, read: 100000, output: 10 })]);
+  const helper = join(fileOf("one", WINDOWS_CWD, root).replace(/\.jsonl$/, ""), "subagents", "agent-a.jsonl");
+  mkdirSync(dirname(helper), { recursive: true });
+  writeFileSync(helper, `${said({ id: "h1", input: 500, output: 20 })}\n`);
+  writes("one", [said({ id: "m2", input: 1000, read: 100000, output: 10 })], WINDOWS_CWD, root);
+  changed(fileOf("one", WINDOWS_CWD, root));
+  await ticks();
+  expect(known(draw)).toContain("in 2.5k · out 40 · cached 200k");
+  noShell();
+});
+
+const inWindows = (root: string, path: string) => `${state.win.home}\\${relative(root, path).replaceAll("/", "\\")}`;
+
+test("a Codex on Windows follows a label with backslashes, finds its helpers, and asks no `find`", async () => {
+  const root = onWindows();
+  const main = uuid(1), kid = uuid(2);
+  codexWrites(main, [turn(), started(kid), spent(main, { input: 73600 })], undefined, root);
+  codexWrites(kid, [turn(), spent(kid, { input: 1000, output: 5 })], "02", root);
+  const term = aCodex("t1", { labels: { "zaki.session": inWindows(root, rollout(main, undefined, root)) } });
+  state.terminals = [term];
+  state.agents = [listed(term)];
+  const { draw } = await open();
+  await ticks();
+  expect(rowPercents(draw, "t1")).toEqual(["25%"]);
+  expect(known(draw)).toContain("in 74.6k · out 5 · cached 0");
+  noShell();
+});
+
+test("the hook goes in on Windows with its Windows command, under the Windows home", async () => {
+  const root = onWindows();
+  const term = aCodex("t1");
+  state.terminals = [term];
+  state.agents = [listed(term)];
+  await open();
+  await ticks();
+  await settle();
+  const [{ hooks: [hook] }] = JSON.parse(readFileSync(join(root, ".codex", "hooks.json"), "utf8")).hooks.SessionStart;
+  expect(hook.commandWindows).toBe('powershell -NoProfile -ExecutionPolicy Bypass -File "C:\\Users\\me/.zaki/codex-session.ps1"');
+  expect(hook.command).toBe("sh 'C:\\Users\\me/.zaki/codex-session.sh'");
+  expect(readFileSync(join(root, ".zaki", "codex-session.ps1"), "utf8")).toContain("HC_TERMINAL_ID");
+  expect(state.shared["agents.setup"]).toEqual({ codex: 1 });
+});
+
+test("a Pi on Windows follows its label, and its extension goes in under the Windows home", async () => {
+  const root = onWindows();
+  piWrites(piId(1), [piSaid({ input: 50000, cost: 0.5 })], undefined, root);
+  const term = aPi("t1", { labels: { "zaki.session": inWindows(root, piFile(piId(1), undefined, root)), "zaki.limit": "200000" } });
+  state.terminals = [term];
+  state.agents = [listed(term)];
+  const { draw } = await open();
+  await ticks();
+  await settle();
+  expect(rowPercents(draw, "t1")).toEqual(["25%"]);
+  expect(existsSync(join(root, ".pi", "agent", "extensions", "zaki-session.ts"))).toBe(true);
+  noShell();
+});
+
+test("a quote in a path stays in its string, smart ones too, even from a label", async () => {
+  const root = onWindows("C:\\Users\\o'neil");
+  for (const odd of ["it's", "it’s", "it‘s"]) {
+    const path = join(root, odd, "session.jsonl");
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, `${piSaid({ input: 50000, cost: 0.5 })}\n`);
+    const term = aPi("t1", { labels: { "zaki.session": `C:\\Users\\o'neil\\${odd}\\session.jsonl`, "zaki.limit": "200000" } });
+    state.terminals = [term];
+    state.agents = [listed(term)];
+    const { draw } = await open();
+    await ticks();
+    expect(rowPercents(draw, "t1")).toEqual(["25%"]);
+  }
+});
+
+test("nothing in a label can run as code on Windows", async () => {
+  onWindows();
+  const term = aPi("t1", { labels: { "zaki.session": "C:\\x'; Remove-Item C:\\y; 'z.jsonl", "zaki.limit": "200000" } });
+  state.terminals = [term];
+  state.agents = [listed(term)];
+  const seen: string[] = [];
+  state.powershell = (script: string) => { seen.push(script); return null; };
+  await open();
+  await ticks();
+  const reads = state.execs.filter(([cmd]: string[]) => cmd === "powershell").map((args: string[]) => powershellCall(args.at(-1)!));
+  expect(reads.length).toBeGreaterThan(0);
+  for (const { script, given } of reads) {
+    expect(script).not.toContain("Remove-Item");
+    expect(given[0]).toBe("C:\\x'; Remove-Item C:\\y; 'z.jsonl");
+  }
+});
+
+test("Windows failures show no percent and no error, whatever went wrong", async () => {
+  const failures: [string, (root: string) => void][] = [
+    ["no PowerShell", () => { state.noPowershell = true; }],
+    ["PowerShell refusing the script", () => { state.powershell = () => ({ code: 1, stdout: "", stderr: "not allowed" }); }],
+    ["a read that dies after its first line", () => { state.powershell = (script: string) => (script.includes("[IO.File]::Open(") ? { code: 4, stdout: `5000\n${said({ id: "m1", read: 100000 })}\n`, stderr: "" } : null); }],
+    ["output that makes no sense", () => { state.powershell = (script: string) => (script.includes("[IO.File]::Open(") ? { code: 0, stdout: "banner\nmore\n", stderr: "" } : null); }],
+    ["no way to see processes", () => { state.powershell = (script: string) => (script.includes("Win32_Process") ? { code: 1, stdout: "", stderr: "" } : null); }],
+    ["exec itself failing", () => { state.brokenExec = true; }],
+  ];
+  for (const [what, breaks] of failures) {
+    const root = onWindows();
+    breaks(root);
+    const term = running("t1", 900);
+    state.terminals = [term];
+    state.agents = [listed(term)];
+    state.win.processes = [[900, 4], [901, 900]];
+    rmSync(join(root, ".claude"), { recursive: true, force: true });
+    recordOf(901, "one", WINDOWS_CWD, root);
+    writes("one", [said({ id: "m1", read: 100000 })], WINDOWS_CWD, root);
+    const { draw } = await open();
+    await ticks();
+    expect([what, rowPercents(draw, "t1")]).toEqual([what, []]);
+    state.noPowershell = state.brokenExec = false;
+    state.powershell = undefined;
+  }
+});
+
+test("a Windows read that dies part way leaves the numbers as they were, and nothing half counted", async () => {
+  const { draw, root } = await claudeOnWindows([said({ id: "m1", read: 100000, output: 5 })]);
+  writes("one", [said({ id: "m2", read: 200000, output: 7 })], WINDOWS_CWD, root);
+  state.powershell = (script: string) => (script.includes("[IO.File]::Open(") ? { code: 4, stdout: `99999\n${said({ id: "m2", read: 900000, output: 900 })}\n`, stderr: "" } : null);
+  changed(fileOf("one", WINDOWS_CWD, root));
+  await ticks();
+  expect(rowPercents(draw, "t1")).toEqual(["10%"]);
+  state.powershell = undefined;
+  await ticks();
+  expect(rowPercents(draw, "t1")).toEqual(["20%"]);
+  expect(known(draw)).toContain("in 0 · out 12 · cached 300k");
+});
+
+test("a model name cmd could take for its own is never handed to it", async () => {
+  await claudeOnWindows([said({ id: "m1", read: 100000, model: "claude-x & calc" })]);
+  expect(state.execs.filter(([cmd]: string[]) => cmd === "cmd")).toEqual([]);
+});
+
+test("Claude's /context runs through cmd on Windows, which finds an npm claude.cmd too", async () => {
+  const args: string[][] = [];
+  state.claude = (given: string[]) => (args.push(given), { code: 0, stdout: contextReply("1k / 1m (0%)"), stderr: "" });
+  await claudeOnWindows([said({ id: "m1", read: 100000 })]);
+  expect(args[0].slice(0, 2)).toEqual(["-p", "/context"]);
+  expect(args[0].at(-1)).toBe("");
+});
+
+test("an added Windows machine is told by having no sh, and its home and session come from there", async () => {
+  const root = join(home, "machines", "win");
+  mkdirSync(root, { recursive: true });
+  addMachine("win", { windows: true });
+  state.win = { home: "C:\\Users\\me", root, processes: [[900, 4], [901, 900]] };
+  const term = running("win/t1", 900);
+  state.terminals = [term];
+  state.agents = [listed(term)];
+  recordOf(901, "one", WINDOWS_CWD, root);
+  writes("one", [said({ id: "m1", read: 100000 })], WINDOWS_CWD, root);
+  const { draw } = await open();
+  await ticks();
+  expect(rowPercents(draw, "win/t1")).toEqual(["10%"]);
+  expect(state.execOn.filter((on: string | null) => on !== "win")).toEqual([]);
+});
+
+test("an added Windows machine with Git's sh is still Windows", async () => {
+  const root = addMachine("win", { windows: true, gitSh: true });
+  state.win = { home: "C:\\Users\\me", root, processes: [[900, 4], [901, 900]] };
+  const term = running("win/t1", 900);
+  state.terminals = [term];
+  state.agents = [listed(term)];
+  recordOf(901, "one", WINDOWS_CWD, root);
+  writes("one", [said({ id: "m1", read: 100000 })], WINDOWS_CWD, root);
+  const { draw } = await open();
+  await ticks();
+  expect(rowPercents(draw, "win/t1")).toEqual(["10%"]);
+});
+
+test("from Windows, a Linux machine is still read with sh, and files reach it through hc", async () => {
+  const root = onWindows();
+  const at = addMachine();
+  const term = aCodex("vps/t1");
+  state.terminals = [term];
+  state.agents = [listed(term)];
+  await open();
+  await ticks();
+  await settle();
+  expect(state.fed.map(([on]: string[]) => on)).toEqual(["vps", "vps", "vps"]);
+  expect(JSON.parse(readFileSync(thereHooks(at), "utf8")).hooks.SessionStart).toHaveLength(1);
+  expect(state.execOn.filter((_: unknown, i: number) => state.execs[i][0] === "sh")).toEqual(["vps"]);
+  expect(existsSync(join(root, ".codex"))).toBe(false);
+});
+
+test("Linux reads with sh, as a Mac does, and asks PowerShell nothing", async () => {
+  state.platform = "linux";
+  const { draw } = await one([said({ id: "m1", input: 5, read: 60000, write: 10000, output: 900 })]);
+  expect(rowPercents(draw, "t1")).toEqual(["7%"]);
+  expect(realReads()).toBeGreaterThan(0);
+  expect(state.execs.filter(([cmd]: string[]) => cmd === "powershell" || cmd === "cmd")).toEqual([]);
+});
+
+test("before the window is known nothing is guessed, and the next tick reads", async () => {
+  const term = running("t1", 101);
+  state.terminals = [term];
+  state.agents = [listed(term)];
+  state.noWindow = true;
+  recordOf(101, "one");
+  writes("one", [said({ id: "m1", read: 100000 })]);
+  const { draw } = await open();
+  expect(state.execs).toEqual([]);
+  state.noWindow = false;
+  await ticks();
+  expect(rowPercents(draw, "t1")).toEqual(["10%"]);
+});
+
+test("a Pi session with more kept lines than an added machine's output can carry reads whole", async () => {
+  const at = addMachine();
+  const count = 900;
+  piWrites(piId(1), Array.from({ length: count }, () => piSaid({ input: 100, cost: 0.01, text: "x".repeat(20000) })), undefined, at);
+  const term = aPi("vps/t1", { labels: { "zaki.session": piFile(piId(1), undefined, at), "zaki.limit": "200000" } });
+  state.terminals = [term];
+  state.agents = [listed(term)];
+  const { draw } = await open();
+  await ticks();
+  clicks(byId(draw(), "logo-vps/t1")!);
+  expect(words((await dropdown()).draw())).toContain(`in ${count / 10}k · out 0 · cached 0`);
+}, 30000);
