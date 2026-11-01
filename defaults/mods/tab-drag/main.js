@@ -1,6 +1,6 @@
 // Carries a tab drag past the bar: a clear layer over the whole window, open while a tab
 // is carried, so the pointer can wander and the terminals under it stay out of it. The
-// tab bar does everything else. It closes itself: a layer nobody can click through must
+// tab bar or Tabs column does everything else. It closes itself: a layer nobody can click through must
 // never outlive the press, whatever became of the bar.
 
 import { View, div } from "gpui-kit";
@@ -18,12 +18,17 @@ export default class TabDrag extends View {
     });
   }
 
+  // The bar, or the column: whichever picked the tab up.
+  to() {
+    return props()?.to ?? "tabs";
+  }
+
   // Only the newest place matters, and the bar asks for it when it's ready. Queued instead,
   // every place would replay in turn, and a tab held longer would fall further behind.
   send() {
     if (this.busy || !this.at) return;
     this.busy = true;
-    run(`tabs.drag:${this.at.x},${this.at.y}`);
+    run(`${this.to()}.drag:${this.at.x},${this.at.y}`);
     this.at = null;
   }
 
@@ -31,7 +36,7 @@ export default class TabDrag extends View {
   release(e, cx) {
     this.at = null;
     this.busy = true;
-    run(`tabs.drop:${e.position.x},${e.position.y}`);
+    run(`${this.to()}.drop:${e.position.x},${e.position.y}`);
     cx.timer.after(150, () => closeOverlay(props().overlay));
   }
 

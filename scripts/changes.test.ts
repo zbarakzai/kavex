@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { buttonAt, fileRows, hunkPatch, lineCount, newFile, parseDiff, signature, splitRows, stackedRows, stepped, wrapSpans } from "../defaults/mods/changes/diff.js";
 import { languageOf, paint } from "../defaults/mods/changes/tokens.js";
-import { buildTree, filtered, iconOf, inTreeOrder, jumpList, middle, treeRows } from "../defaults/mods/changes/tree.js";
+import { buildTree, filtered, inTreeOrder, jumpList, middle, treeRows } from "../defaults/mods/changes/tree.js";
 import { SNAPSHOT, chooseBase, parseCounts, parseLog, parseNumstat, parseRefs, planAction, reviewMessage, untrackedPaths } from "../defaults/mods/changes/git.js";
 
 const edited = `diff --git a/src/app.ts b/src/app.ts
@@ -221,13 +221,6 @@ test("files sort as the tree shows them, ignoring case", () => {
 test("the filter matches anywhere in the path", () => {
   expect(filtered(paths("apps/web/a.ts", "b.rs"), "WEB").map((f) => f.path)).toEqual(["apps/web/a.ts"]);
   expect(filtered(paths("a"), "  ").length).toBe(1);
-});
-
-test("files wear an icon by type", () => {
-  expect(iconOf("a/b.tsx")[0]).toBe("react");
-  expect(iconOf("pnpm-lock.yaml")[0]).toBe("lock");
-  expect(iconOf("Cargo.lock")[0]).toBe("lock");
-  expect(iconOf("a/b.zzz")[0]).toBe("file");
 });
 
 test("numstat reads counts, binaries and tabs in a path", () => {

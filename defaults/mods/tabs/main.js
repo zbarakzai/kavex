@@ -1,7 +1,8 @@
 import { View, div, svg, image } from "gpui-kit";
 import { h_flex } from "gpui-base";
-import { spaces, panes, machines, run, openOverlay, closeOverlay, theme, window, shared, setShared, layout, settings, nextCommand } from "herdr";
-import { GAP, MARK, away, colorOf, gathered, groupOf, home, hue, landed, moves, nearest, pruned, runs, slots, stepped } from "./groups.js";
+import { spaces, panes, terminals, machines, run, openOverlay, closeOverlay, theme, window, shared, setShared, layout, settings, nextCommand, home as homeFolder } from "herdr";
+import { GAP, INNER, away, clicked, gathered, groupOf, home, labeled, landed, moves, nearest, pruned, runs, slots, stepped } from "./groups.js";
+import { look, groupHue, spaced, MONO } from "./look.js";
 
 function find(node, id) {
   if (node?.id === id) return node;
@@ -15,7 +16,7 @@ function find(node, id) {
 const tabState = () => ({ groups: shared("tab.groups") ?? {}, colors: shared("tab.colors") ?? {}, folders: shared("tab.folders") ?? [] });
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const machineOf = (id) => (id.includes("/") ? id.split("/")[0] : null);
-const LIGHTS = 8;
+const TOP = 5, CHIP = 34; // the bar's top padding, which levels it with the window buttons, and a chip's height
 // How a dragged tab moves. Native springs: `response` in ms, 1 `damping` has no overshoot.
 const SLIDE = { response: 150, damping: 1 }; // room opening and shutting: slower, and rooms pile up on a quick back and forth
 const HELD = { response: 0 }; // stuck to the pointer: any spring here trails it, by 47 px on a fast whip
@@ -24,8 +25,8 @@ const SETTLE_MS = 170; // until it's there from across the bar, and the order ca
 const START = 4; // px of travel before a press is a drag
 const FAR = 90; // px off the bar where a drag lets go of its target and heads home
 const EDGE = 16; // px from the strip's ends that mean its first and last place: it can't be scrolled mid-drag
-// Labels are ink on the hue, like label tape: white is too faint on these at this size.
-const TAG_INK = "#0e1116";
+// A tab's status word: agents() and tabs fold a program's "error" into blocked, terminals() keeps it.
+const failed = (c, ps, words) => (ps.some((p) => p.tab === c.id && words.get(p.terminal) === "error") ? "failed" : c.status);
 
 // How a tab shows: the agent in it, else its first pane's program.
 function shows(c, ps) {
@@ -40,7 +41,7 @@ export default class Tabs extends View {
     this.drag = null;
     this.drags = 0;
     this.widths = {}; // measured, so a drag can lay the bar out ahead of the pointer
-    this.selected = new Set();
+    this.landed = new Set(JSON.parse(localStorage.getItem("labeled") ?? "[]")); // terminals a label has already put in a group
     this.away = new Set(); // the tabs a fold put away at the last look
     this.hold = 0; // until our own moves land, a split group isn't one to mend
     this.panels = JSON.parse(localStorage.getItem("panels") ?? "{}");
@@ -65,7 +66,7 @@ export default class Tabs extends View {
     }
     const space = spaces().find((p) => p.active), shown = space?.tabs.find((c) => c.active);
     if (!shown) return;
-    const { groups, colors } = tabState(), own = groupOf(groups, shown.id), picked = this.picked(space);
+    const { groups } = tabState(), own = groupOf(groups, shown.id), picked = this.picked(space);
     if (name === "group") {
       if (own && picked.length === 1) this.menu({ group: own }, "dialog");
       else this.group(picked, "dialog");
@@ -73,18 +74,15 @@ export default class Tabs extends View {
     else if (name === "ungroup" && own) {
       const { [own]: _, ...rest } = groups;
       setShared("tab.groups", rest);
-    } else if (name === "color") {
-      const hues = Object.keys(MARK);
-      setShared("tab.colors", { ...colors, [shown.id]: hues[hues.indexOf(colors[shown.id]) + 1] ?? "none" });
     }
   }
 
   // Shared state says how tabs should stand, whoever changed it; this makes it so.
-  reconcile(space, { groups, colors }) {
+  reconcile(space, { groups, colors }, ps) {
     const ready = (m) => machines().some((k) => k.name === m && k.layout === "ready");
     const known = new Set(spaces().flatMap((p) => p.tabs.map((c) => c.id)));
     const kept = (id) => known.has(id) || !ready(machineOf(id));
-    let next = pruned(groups, kept);
+    let next = this.byLabel(pruned(groups, kept), space, ps);
     // A tab opened from a group's menu joins it.
     const fresh = this.seen && space.tabs.find((c) => !this.seen.has(c.id));
     const adopting = fresh && Object.keys(next).find((id) => next[id].adopt);
@@ -97,7 +95,7 @@ export default class Tabs extends View {
     const paints = Object.fromEntries(Object.entries(colors).filter(([id]) => kept(id)));
     if (!same(paints, colors)) setShared("tab.colors", paints);
     const order = space.tabs.map((c) => c.id);
-    if (ready(space.machine) && !this.drag && Date.now() > this.hold) for (const m of moves(order, gathered(order, next))) run("tab.move", m);
+    if (ready(space.machine) && !this.drag && Date.now() > Math.max(this.hold, shared("tabs.hold") ?? 0)) for (const m of moves(order, gathered(order, next))) run("tab.move", m);
     // Unfolded or left its group: back. A tab settled for any other reason stays settled.
     const out = away(space.tabs, next);
     for (const c of space.tabs) {
@@ -107,9 +105,24 @@ export default class Tabs extends View {
     this.away = out;
   }
 
-  // What an action is for: the selected tabs and the shown one, or just the shown one.
+  // A terminal started with the label `zaki.group=<name>` lands in that group, once: after
+  // that where its tab sits is the person's to change.
+  byLabel(groups, space, ps) {
+    let next = groups;
+    for (const k of terminals()) {
+      const name = k.labels?.["zaki.group"], tab = name && ps.find((p) => p.terminal === k.address)?.tab;
+      if (!tab || this.landed.has(k.address) || !space.tabs.some((c) => c.id === tab)) continue;
+      next = labeled(next, tab, name, ["blue", "violet", "teal"], `g${Date.now().toString(36)}${this.landed.size}`);
+      this.landed.add(k.address);
+      localStorage.setItem("labeled", JSON.stringify([...this.landed]));
+    }
+    return next;
+  }
+
+  // What an action is for: the picked tabs and the shown one, or just the shown one.
   picked(space) {
-    return space.tabs.filter((c) => c.active || this.selected.has(c.id)).map((c) => c.id);
+    const picks = shared("tabs.picked") ?? [];
+    return space.tabs.filter((c) => c.active || picks.includes(c.id)).map((c) => c.id);
   }
 
   menu(p, kind = "popup") {
@@ -117,7 +130,7 @@ export default class Tabs extends View {
   }
 
   group(tabs, kind) {
-    this.selected.clear();
+    setShared("tabs.picked", []);
     this.menu({ tabs, make: true, space: spaces().find((p) => p.active)?.id }, kind);
   }
 
@@ -158,8 +171,8 @@ export default class Tabs extends View {
     const list = slots(bar, moving, width, this.away);
     if (list.length < 2) return;
     this.press = null;
-    const ids = moving.tabs ?? [], inset = moving.group ? 6 : 0;
-    const size = moving.group ? width(`tray:${moving.group}`) + 4 : ids.reduce((sum, id) => sum + width(id) + GAP, -GAP);
+    const ids = moving.tabs ?? [], inset = moving.group ? 3 : 0;
+    const size = moving.group ? width(`tray:${moving.group}`) : ids.reduce((sum, id) => sum + width(id) + GAP, -GAP);
     const ahead = ids.slice(0, ids.indexOf(anchor)).reduce((sum, id) => sum + width(id) + GAP, 0);
     const start = home(list, order, s.groups, moving);
     this.drag = {
@@ -236,42 +249,43 @@ export default class Tabs extends View {
 
   // What's being carried, lifted off the bar. It heads for its place when let go.
   ghost(v) {
-    const d = this.drag, { space, s, t } = v;
-    const height = d.moving.group ? 35 : 29, rest = ((this.barH ?? 41) - height) / 2;
+    const d = this.drag, { space, s, k: t } = v;
+    const rest = TOP;
     const left = this.rootX + this.padding, right = left + this.stripW;
     const x = d.landing ? d.slot.x + d.stripX : Math.max(left, Math.min(d.x - d.grab, right - d.size));
-    return h_flex().id(`ghost-${d.n}`).absolute().left(x - this.rootX).top(d.lifted && !d.landing ? rest - 2 : rest).gap(GAP).rounded(9).shadow_md()
+    return h_flex().id(`ghost-${d.n}`).absolute().left(x - this.rootX).top(d.lifted && !d.landing ? rest - 2 : rest).gap(GAP).rounded(11).shadow_md()
       .opacity(d.landing && d.slot.fold ? 0 : d.far ? 0.5 : 1)
       .spring("left", d.landing ? SETTLE : HELD).spring("top", SETTLE).transition("opacity", 140)
       .when(Boolean(d.moving.group), (el) => el.child(this.tray(runs(space.tabs, s.groups).find((r) => r.group === d.moving.group), v)))
-      .when(Boolean(d.moving.tabs), (el) => el.children(space.tabs.filter((c) => d.moving.tabs.includes(c.id)).map((c) => this.pill(c, v, null, t.raised))));
+      .when(Boolean(d.moving.tabs), (el) => el.children(space.tabs.filter((c) => d.moving.tabs.includes(c.id)).map((c) => this.pill(c, v, false, t.raised))));
   }
 
-  // Command-click (Ctrl elsewhere) picks tabs one by one, Shift-click a range from the shown one.
   click(c, e, v) {
     const { shift, platform, control } = e.modifiers;
-    const tabs = v.space.tabs, at = tabs.findIndex((x) => x.active), to = tabs.indexOf(c);
-    if (shift) for (const x of tabs.slice(Math.min(at, to), Math.max(at, to) + 1)) this.selected.add(x.id);
-    else if (window()?.platform === "macos" ? platform : control) this.selected.delete(c.id) || this.selected.add(c.id);
-    else {
-      this.selected.clear();
-      run("tab.select", { id: c.id });
-    }
+    const picks = clicked(v.space.tabs, c, { shift, picking: window()?.platform === "macos" ? platform : control }, shared("tabs.picked") ?? []);
+    setShared("tabs.picked", picks ?? []);
+    if (!picks) run("tab.select", { id: c.id });
+  }
+
+  // An agent wears its own icon, anything else the terminal icon.
+  glyph(program, k, on) {
+    if (program?.agent && program.icon) return program.tint ? svg(program.icon).size(14).flex_none().text_color(k.muted) : image(program.icon).size(14).flex_none();
+    return svg("mods/workspace-chrome/icons/terminal.svg").size(14).flex_none().text_color(on ? k.accent : k.label);
   }
 
   pill(c, v, tray, lifted) {
-    const { t, space, s } = v;
+    const { k, space } = v;
     const { program, cwd, name } = shows(c, v.ps);
-    const color = colorOf(c.id, s, cwd, space.machine);
-    const mine = s.colors[c.id] === "none" ? null : s.colors[c.id];
-    const tint = hue(mine) ?? tray ?? hue(color), wash = tray ? hue(mine) : tint;
     const picked = v.picked.length > 1 && v.picked.includes(c.id);
-    const stop = (_e, cx) => cx.stop_propagation();
-    return this.measured(h_flex().id(`tab-${c.id}`), c.id).relative().h(tray ? 27 : 29).px(10).gap(7).rounded(7).items_center().flex_none().text_size(12.8)
-      .border(1).border_color(picked ? t.accent : c.active || lifted ? (tint ? `${tint}99` : t.border) : "#00000000")
-      .bg(lifted ?? (c.active ? (wash ? `${wash}40` : t.raised) : wash ? `${wash}24` : tray ? "#00000000" : t.chrome))
-      .text_color(c.active || lifted ? t.foreground : t.muted)
-      .hover(el => el.bg(tint ? `${tint}38` : t.hover))
+    const stop = (_e, cx) => cx.stop_propagation(), shown = c.active || lifted;
+    const dot = k.status[failed(c, v.ps, v.words)]?.dot;
+    return this.measured(h_flex().id(`tab-${c.id}`), c.id).relative().h(tray ? 28 : CHIP).flex_none().items_center().rounded(tray ? 9 : 11).text_size(13.5)
+      .when(c.active, (el) => el.pl(11).pr(6).gap(7)).when(!c.active, (el) => el.px(tray ? 8 : 10).gap(6))
+      .when(/^\d+$/.test(name), (el) => el.font_family(MONO).text_size(12))
+      .border(1).border_color(picked ? k.accent : shown ? k.chip_active_ring : "#00000000")
+      .when(Boolean(shown), (el) => el.bg(lifted ?? k.chip_active))
+      .text_color(shown ? k.foreground : k.muted)
+      .when(!shown, (el) => el.hover((s) => s.bg(k.hover)))
       .on_mouse_down("left", (e, cx) => {
         cx.stop_propagation();
         this.pressed(e, { tabs: picked ? v.picked : [c.id] }, c.id);
@@ -280,53 +294,75 @@ export default class Tabs extends View {
       .on_mouse_up("left", (e, cx) => this.up(cx, () => this.click(c, e, v)))
       .on_mouse_down("right", (_e, cx) => {
         cx.stop_propagation();
-        this.menu({ tabs: picked ? v.picked : [c.id], space: space.id, machine: space.machine, color: tray ? mine : color, cwd });
+        this.menu({ tabs: picked ? v.picked : [c.id], space: space.id, machine: space.machine, cwd });
       })
-      .when(Boolean(program?.icon), el => el.child(program.tint ? svg(program.icon).size(14).text_color(t.muted) : image(program.icon).size(14)))
+      .child(this.glyph(program, k, c.active))
       .child(div().max_w(170).truncate().child(c.zoomed ? `${name} Z` : name))
-      .when(c.status === "working", el => el.child(svg("mods/workspace-chrome/spinner.svg").size(12).flex_none().text_color(t.working).spin(900)))
-      .when(c.status === "blocked" || c.status === "done", el => el.child(div().size(6).rounded(3).bg(t[c.status])))
-      .when(c.active, el => el.child(div().id(`close-${c.id}`).text_color(t.dim).on_mouse_down("left", stop).on_click((_e, cx) => { cx.stop_propagation(); run("tab.close", { id: c.id }); }).child(svg("mods/pane/close.svg").size(12))));
+      .when(Boolean(dot), (el) => el.child(div().size(6).rounded(3).flex_none().bg(dot)))
+      .when(c.active, (el) => el.child(h_flex().id(`close-${c.id}`).size(20).flex_none().items_center().justify_center().rounded(6).text_color(k.label).hover((s) => s.bg(k.hover_strong).text_color(k.foreground))
+        .on_mouse_down("left", stop).on_click((_e, cx) => { cx.stop_propagation(); run("tab.close", { id: c.id }); }).child(svg("mods/workspace-chrome/icons/close.svg").size(12))));
   }
 
-  // A group's label: click folds, drag moves the whole group, right-click edits it.
-  tag(id, g, tint, count, v) {
-    const { t, s } = v;
+  // A group's name: click folds, drag moves the whole group, right-click edits it.
+  tag(id, g, hue, tabs, v) {
+    const { k, s } = v;
     const joining = this.drag?.slot.fold && this.drag.slot.group === id;
-    return this.measured(h_flex().id(`tag-${id}`), `tag:${id}`).h(27).px(9).flex_none().items_center().rounded(7).text_size(12).font_semibold()
-      .border(1).border_color(joining ? t.foreground : tint).bg(tint).text_color(TAG_INK)
-      .hover(el => el.opacity(0.88)).tooltip(g.folded ? "Unfold" : "Fold")
+    const needs = tabs.some((c) => c.status === "blocked");
+    return this.measured(h_flex().id(`tag-${id}`), `tag:${id}`).h(28).pl(9).pr(8).gap(6).flex_none().items_center().rounded(9).text_size(13).font_semibold()
+      .border(1).border_color(joining ? k.foreground : "#00000000").text_color(hue.text)
+      .hover((el) => el.opacity(0.88))
       .on_mouse_down("left", (e, cx) => { cx.stop_propagation(); this.pressed(e, { group: id }, `before:${id}`); })
       .on_mouse_down("right", (_e, cx) => { cx.stop_propagation(); this.menu({ group: id }); })
       .on_mouse_up("left", (_e, cx) => this.up(cx, () => this.fold(id, s.groups)))
-      .child(div().max_w(150).truncate().child(g.name || String(count)));
-  }
-
-  // One light for each tab in the fold, a rack's worth of what's going on inside.
-  lights(id, hidden, tint, v) {
-    const { t, s, ps } = v;
-    const more = hidden.length - LIGHTS;
-    const joining = this.drag?.slot.fold && this.drag.slot.group === id;
-    return this.measured(h_flex().id(`lights-${id}`), `lights:${id}`).h_full().px(6).gap(4).flex_none().items_center().rounded(6).text_size(11).text_color(t.muted)
-      .tooltip(hidden.map((c) => shows(c, ps).name).join(", "))
-      .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
-      .on_click(() => this.fold(id, s.groups))
-      .children(hidden.slice(0, LIGHTS).map((c) => div().size(6).rounded(3).flex_none().bg(c.status === "working" ? t.working : `${hue(s.colors[c.id]) ?? tint}80`)
-        .when(c.status === "working", el => el.loop("opacity", { from: 0.3, to: 1, period: 1400 }))))
-      .when(more > 0, el => el.child(`+${more}`))
-      .when(joining, el => el.child(div().size(6).rounded(3).flex_none().bg(tint)));
+      .child(div().max_w(150).truncate().child(g.name || String(tabs.length)))
+      .when(Boolean(g.folded), (el) => el.child(div().font_family(MONO).text_size(11).font_normal().text_color(k.text_faint).child(String(tabs.length)))
+        .when(needs, (el) => el.child(div().size(7).rounded(4).flex_none().bg(k.accent))));
   }
 
   tray({ group: id, tabs }, v) {
-    const { t, s } = v;
-    const g = s.groups[id], tint = hue(g.color) ?? t.accent;
+    const { k, s } = v;
+    const g = s.groups[id], hue = groupHue(k, g.color);
     const hidden = tabs.filter((c) => this.away.has(c.id));
     const out = tabs.filter((c) => !this.away.has(c.id) && !this.drag?.moving.tabs?.includes(c.id)), inside = `in:${id}`;
-    return this.measured(h_flex().id(`group-${id}`), `tray:${id}`).h(35).mx(2).p(3).gap(3).flex_none().items_center().rounded(10)
-      .bg(`${tint}14`).border(1).border_color(`${tint}38`)
-      .child(this.roomed(this.tag(id, g, tint, tabs.length, v), null, !hidden.length && !out.length ? inside : null))
-      .when(hidden.length > 0, el => el.child(this.roomed(this.lights(id, hidden, tint, v), null, !out.length ? inside : null)))
-      .children(out.map((c) => this.roomed(this.pill(c, v, tint), c.id, c === out.at(-1) ? inside : null)));
+    return this.measured(h_flex().id(`group-${id}`), `tray:${id}`).h(CHIP).p(2).gap(INNER).flex_none().items_center().rounded(13)
+      .bg(hue.tint).border(1).border_color(hue.ring)
+      .child(this.roomed(this.tag(id, g, hue, tabs, v), null, !out.length && !hidden.length ? inside : null))
+      .children(out.map((c) => this.roomed(this.pill(c, v, true), c.id, c === out.at(-1) ? inside : null)));
+  }
+
+  // Where the tabs sit is one setting, shared with Settings: the switch and its row are one value.
+  placement(k) {
+    const now = shared("tabs.placement") === "right" ? "right" : "top";
+    const radio = (value, icon) => h_flex().id(`place-${value}`).size(26).flex_none().items_center().justify_center().rounded(13)
+      .text_color(now === value ? k.foreground : k.label).when(now === value, (el) => el.bg(k.pill_selected))
+      .when(now !== value, (el) => el.hover((s) => s.bg(k.hover_strong).text_color(k.foreground)))
+      .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
+      .on_click(() => setShared("tabs.placement", value))
+      .child(svg(`mods/workspace-chrome/icons/${icon}.svg`).size(14));
+    return h_flex().id("placement").flex_none().gap(2).p(3).items_center().rounded(999).bg(k.pill).border_1().border_color(k.pill_ring)
+      .child(radio("top", "tabs-top")).child(radio("right", "tabs-right"));
+  }
+
+  // One chip, when the tabs are in their column: the shown tab and where it is.
+  current(shown, v) {
+    const { k } = v, c = shown.find((x) => x.active);
+    if (!c) return div().flex_1();
+    const { program, cwd, name } = shows(c, v.ps), home = homeFolder();
+    const path = cwd ? (cwd.startsWith(home) ? `~${cwd.slice(home.length)}` : cwd).toUpperCase() : "";
+    return h_flex().flex_1().min_w(0).items_center().child(h_flex().id("tab-current").h(CHIP).pl(11).pr(12).gap(7).min_w(0).items_center().rounded(11).overflow_hidden()
+      .bg(k.chip_active).border_1().border_color(k.chip_active_ring).text_size(13.5).text_color(k.foreground)
+      .child(this.glyph(program, k, true)).child(div().flex_none().child(name))
+      .when(Boolean(path), (el) => el.child(spaced(path.slice(-46), 10.5, 0.06).text_color(k.label))));
+  }
+
+  // The column shows while tabs sit there and no other side panel is open.
+  syncColumn(root, panel) {
+    const column = find(root, "tabs-column");
+    if (!column) return;
+    const want = shared("tabs.placement") === "right" && (!panel || Boolean(panel.hidden));
+    if (want === this.column || want !== Boolean(column.hidden)) { this.column = want; return; }
+    this.column = want;
+    run(want ? "layout.show" : "layout.hide", { id: "tabs-column" });
   }
 
   // The side panel is remembered per space: switching shows that space's choice
@@ -358,55 +394,58 @@ export default class Tabs extends View {
   }
 
   render() {
-    const t = theme();
+    const t = theme(), k = look(t);
     const space = spaces().find(p => p.active);
     const shown = space?.tabs ?? [];
     const s = tabState();
-    if (space) this.reconcile(space, s);
-    const v = { t, s, ps: panes(), space, order: shown.map((c) => c.id), picked: space ? this.picked(space) : [] };
+    const ps = panes();
+    if (space) this.reconcile(space, s, ps);
+    const v = { t, k, s, ps, words: new Map(terminals().map((x) => [x.address, x.status])), space, order: shown.map((c) => c.id), picked: space ? this.picked(space) : [] };
     if (this.drag?.next && same(v.order, this.drag.next)) this.drag = null;
     const d = this.drag;
     const bar = runs(shown, s.groups).filter((r) => !d || (r.group ? r.group !== d.moving.group : !d.moving.tabs?.includes(r.tab.id)));
     const stop = (_e, cx) => cx.stop_propagation();
-    const button = (id, label, action) => div().id(id).size(26).flex_none().flex().items_center().justify_center().rounded(6).text_color(t.dim).hover(s => s.bg(t.hover).text_color(t.foreground))
+    const button = (id, label, action) => div().id(id).size(26).flex_none().flex().items_center().justify_center().rounded(8).text_color(k.muted).hover(s => s.bg(k.hover_strong).text_color(k.foreground))
       .on_mouse_down("left", stop).on_click(action).child(label);
     const root = layout(), sidebar = find(root, "sidebar"), w = window();
     // Old saved rails and a dragged-narrow sidebar can be smaller than the window buttons.
     const lightsPadding = w?.platform === "macos" && w.titlebar === "none" && !w.fullscreen && root?.traffic_lights
-      ? Math.max(10, (root.traffic_lights[0] + 64) / settings().zoom - (sidebar?.hidden ? 0 : sidebar?.size?.px ?? 0))
-      : 10;
+      ? Math.max(6, (root.traffic_lights[0] + 64) / settings().zoom - (sidebar?.hidden ? 0 : sidebar?.size?.px ?? 0))
+      : 6;
     this.padding = lightsPadding;
     const panel = find(root, "panel"), body = find(root, "panel-body");
     const enabled = shared("workspace.panels") ?? ["files", "changes"];
     this.syncPanel(space, panel, body, enabled);
-    const panelButton = (id, label, icon) => {
-      const on = panel && !panel.hidden && body?.active === id;
-      return h_flex().id(`panel-${id}`).h(26).px(8).gap(5).flex_none().items_center().rounded(6)
-        .text_size(12).bg(on ? t.selected : t.chrome).text_color(on ? t.foreground : t.muted)
-        .hover(s => s.bg(t.hover)).on_mouse_down("left", stop)
-        .on_click(() => {
-          if (on) run("layout.hide", { id: "panel" });
-          else { run("layout.select", { stack: "panel-body", child: id }); run("layout.show", { id: "panel" }); }
-        }).child(svg(icon).size(14)).child(label);
-    };
-    return h_flex().id("tabs").relative().size_full().min_w(0).px(10).pl(lightsPadding).gap(3).items_center().bg(t.chrome).border_b(1).border_color(t.border)
-      .on_size_change((size) => { this.barH = size.height / settings().zoom; })
+    this.syncColumn(root, panel);
+    const right = shared("tabs.placement") === "right";
+    const open = panel && !panel.hidden;
+    const folder = h_flex().id("panel-toggle").size(CHIP).flex_none().items_center().justify_center().rounded(10)
+      .text_color(open ? k.foreground : k.muted).when(open, (el) => el.bg(k.card_border)).when(!open, (el) => el.hover((s) => s.bg(k.hover_strong).text_color(k.foreground)))
+      .on_mouse_down("left", stop)
+      .on_click(() => {
+        if (open) return run("layout.hide", { id: "panel" });
+        if (!enabled.includes(body?.active)) run("layout.select", { stack: "panel-body", child: enabled[0] });
+        run("layout.show", { id: "panel" });
+      }).child(svg("mods/workspace-chrome/icons/folder.svg").size(15));
+    const strip = h_flex().id("tab-scroll").flex_1().min_w(0).h_full().items_center().gap(GAP).overflow_x_scroll()
+      .on_size_change((size) => { this.stripW = size.width / settings().zoom; })
+      .children(bar.map((r, i) => this.roomed(r.group ? this.tray(r, v) : this.pill(r.tab, v), r.group ? `before:${r.group}` : r.tab.id, i === bar.length - 1 ? "end" : null)));
+    return h_flex().id("tabs").relative().size_full().min_w(0).pl(lightsPadding).pr(6).pt(TOP).gap(GAP).items_center()
       .on_mouse_move((e, cx) => this.moved(e, v, cx))
       .on_mouse_up("left", (_e, cx) => this.up(cx))
       .on_hover((on) => { if (!on) this.press = null; })
       .on_scroll_wheel((e) => this.wheel(e, v))
-      .child(h_flex().id("tab-scroll").flex_1().min_w(0).h_full().items_center().gap(3).overflow_x_scrollbar()
-        .on_size_change((size) => { this.stripW = size.width / settings().zoom; })
-        .children(bar.map((r, i) => this.roomed(r.group ? this.tray(r, v) : this.pill(r.tab, v), r.group ? `before:${r.group}` : r.tab.id, i === bar.length - 1 ? "end" : null))))
-      .when(v.picked.length > 1, el => el.child(h_flex().id("group-picked").h(26).px(9).flex_none().items_center().rounded(6)
-        .border(1).border_color(t.accent).text_size(12).text_color(t.foreground).hover(s => s.bg(t.hover))
+      .child(right ? this.current(shown, v) : strip)
+      .when(!right && v.picked.length > 1, el => el.child(h_flex().id("group-picked").h(CHIP).px(10).flex_none().items_center().rounded(11)
+        .border(1).border_color(k.accent).text_size(13.5).text_color(k.foreground).hover(s => s.bg(k.hover))
         .on_mouse_down("left", stop).on_click(() => this.group(v.picked)).child(`Group ${v.picked.length} tabs`)))
-      .child(button("tab-new", "+", () => openOverlay({ mod: "new-menu", kind: "popup", width: 250, height: 512 })))
-      .when(enabled.includes("files"), el => el.child(panelButton("files", "Files", "mods/files/file.svg")))
-      .when(enabled.includes("changes"), el => el.child(panelButton("changes", "Changes", "mods/changes/changes.svg")))
-      .when(w?.buttons, el => el.child(button("minimize", w.platform === "windows" ? svg("mods/tabs/win-min.svg").size(16) : "−", () => run("window.minimize")))
-        .child(button("maximize", w.platform === "windows" ? svg(`mods/tabs/${w.maximized ? "win-restore" : "win-max"}.svg`).size(16) : "□", () => run("window.maximize")))
-        .child(button("close-window", w.platform === "windows" ? svg("mods/tabs/win-close.svg").size(16) : svg("mods/pane/close.svg").size(13), () => run("window.close"))))
+      .when(!right, (el) => el.child(h_flex().id("tab-new").size(28).flex_none().items_center().justify_center().rounded(8).text_color(k.muted).hover(s => s.bg(k.hover_strong).text_color(k.foreground))
+        .on_mouse_down("left", stop).on_click(() => openOverlay({ mod: "new-menu", kind: "popup", width: 250, height: 512 })).child(svg("mods/workspace-chrome/icons/plus.svg").size(14))))
+      .child(this.placement(k))
+      .when(enabled.length > 0, (el) => el.child(folder))
+      .when(w?.buttons, el => el.child(button("minimize", w.platform === "windows" ? svg("mods/workspace-chrome/icons/win-minimize.svg").size(16) : "−", () => run("window.minimize")))
+        .child(button("maximize", w.platform === "windows" ? svg(`mods/workspace-chrome/icons/${w.maximized ? "win-restore" : "win-maximize"}.svg`).size(16) : "□", () => run("window.maximize")))
+        .child(button("close-window", w.platform === "windows" ? svg("mods/workspace-chrome/icons/win-close.svg").size(16) : svg("mods/workspace-chrome/icons/close.svg").size(13), () => run("window.close"))))
       .when(Boolean(d), el => el.child(this.ghost(v)));
   }
 }

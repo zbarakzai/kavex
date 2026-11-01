@@ -1,4 +1,4 @@
-import { View, div, image } from "gpui-kit";
+import { View, div, image, svg } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input, TextareaState, Textarea } from "gpui-base";
 import { theme, props, closeOverlay, feedbackPreview, feedbackPasteImage, feedbackPickImages, feedbackAttachImages, feedbackClearImages, sendFeedback } from "herdr";
 
@@ -50,7 +50,7 @@ export default class Feedback extends View {
       .child(image(path).h(72))
       .child(div().id(`shot-x-${i}`).absolute().top(4).right(4).size(20).rounded(10).bg(t.raised).text_color(t.foreground)
         .flex().items_center().justify_center().text_size(12).cursor_pointer()
-        .on_click((_e, cx) => { this.shots.splice(i, 1); this.error = null; cx.notify(); }).child("×"));
+        .on_click((_e, cx) => { this.shots.splice(i, 1); this.error = null; cx.notify(); }).child(svg("mods/workspace-chrome/icons/close.svg").size(12)));
     return h_flex().w_full().gap(8).items_center()
       .children(this.shots.map(thumb))
       .when(this.shots.length < MAX_SHOTS, (el) => el.child(this.button(t, "feedback-add", "Add screenshot", (_e, cx) => this.pick(cx))));

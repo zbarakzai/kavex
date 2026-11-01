@@ -319,12 +319,12 @@ fn windows_tab_buttons_use_matching_vector_icons(cx: &mut TestAppContext) {
             values.insert("window".into(), json!({"platform":platform,"buttons":true,"maximized":maximized}));
             let tree = describe_with_values(cx, &staged, "mods/tabs", values, None).unwrap();
             if platform == "windows" {
-                for icon in ["win-min.svg", if maximized { "win-restore.svg" } else { "win-max.svg" }, "win-close.svg"] {
+                for icon in ["win-minimize.svg", if maximized { "win-restore.svg" } else { "win-maximize.svg" }, "win-close.svg"] {
                     assert!(tree.contains(icon), "missing {icon}: {tree}");
                 }
             } else {
-                assert!(!tree.contains("mods/tabs/win-"), "{tree}");
-                assert!(tree.contains("mods/pane/close.svg"), "{tree}");
+                assert!(!tree.contains("mods/workspace-chrome/icons/win-"), "{tree}");
+                assert!(tree.contains("mods/workspace-chrome/icons/close.svg"), "{tree}");
             }
         }
     }

@@ -67,7 +67,7 @@ terminal was created, not that its program started correctly. If it exits
 with a nonzero code within two seconds, the window shows an error toast with
 the exit code and last output lines.
 
-A terminal started with hc opts into the window with `zaki.space=<id>`.
+A terminal started with hc opts into the window with `zaki.space=<id>`. Add `zaki.group=<name>` to land its tab in that tab group, made if it's new.
 `zaki.tab=<id>` chooses its tab; without it, Zaki creates a tab in that space.
 Unlabeled workers stay hidden. Do not add labels just to run a background
 worker. Use app commands when the

@@ -2,16 +2,16 @@
 
 import { View, div, svg, image } from "gpui-kit";
 import { v_flex, h_flex, Scrollbar, InputState, Input } from "gpui-base";
-import { hc, run, theme, themes, fonts, updates, telemetry, settings, layouts, shared, appHome, readTextFile, writeTextFile, playSound, props, closeOverlay } from "herdr";
+import { hc, run, theme, themes, fonts, updates, telemetry, settings, layouts, shared, setShared, appHome, readTextFile, writeTextFile, playSound, props, closeOverlay } from "herdr";
 
-const I = (name) => `frame/settings/${name}.svg`;
+const I = (name) => `mods/workspace-chrome/icons/${name}.svg`;
 
 const SECTIONS = [
-  { id: "look", title: "Look", icon: "palette" },
-  { id: "machines", title: "Machines", icon: "server" },
-  { id: "alerts", title: "Alerts", icon: "bell" },
-  { id: "updates", title: "Updates", icon: "refresh" },
-  { id: "privacy", title: "Privacy", icon: "shield" },
+  { id: "look", title: "Look", icon: "look" },
+  { id: "machines", title: "Machines", icon: "machine" },
+  { id: "alerts", title: "Alerts", icon: "alerts" },
+  { id: "updates", title: "Updates", icon: "updates" },
+  { id: "privacy", title: "Privacy", icon: "privacy" },
 ];
 
 const LOOKS = { main: "Zaki", terminals: "Terminals", win98: "Zaki 98" };
@@ -22,7 +22,7 @@ const APPEARANCES = [
 ];
 
 // What the app uses when settings.json names no font (settings.rs).
-const DEFAULT_FONT = "JetBrains Mono";
+const DEFAULT_FONT = "Geist Mono";
 const DEFAULT_UI_FONT = "Geist";
 
 export default class Settings extends View {
@@ -296,6 +296,33 @@ export default class Settings extends View {
       );
   }
 
+  // The same value as the tab bar's switch: each shows what the other sets.
+  tabsPicker(t) {
+    const now = shared("tabs.placement") === "right" ? "right" : "top";
+    return h_flex()
+      .p(2)
+      .gap(2)
+      .rounded(8)
+      .border_1()
+      .border_color(t.border)
+      .bg(t.background)
+      .children(
+        [["top", "On top"], ["right", "On the right"]].map(([value, label]) =>
+          div()
+            .id(`st-tabs-${value}`)
+            .px(12)
+            .py(4)
+            .rounded(6)
+            .text_size(13)
+            .cursor_pointer()
+            .when(now === value, (el) => el.bg(t.raised).text_color(t.foreground).border_1().border_color(t.border))
+            .when(now !== value, (el) => el.text_color(t.muted).hover((s) => s.text_color(t.foreground)))
+            .on_click(() => setShared("tabs.placement", value))
+            .child(label),
+        ),
+      );
+  }
+
   appearancePicker(t, cx) {
     const now = this.person.appearance ?? null;
     return h_flex()
@@ -481,6 +508,7 @@ export default class Settings extends View {
       .w_full()
       .child(this.heading(t, "Layout"))
       .child(this.layoutPicker(t, cx))
+      .when(shared("layout") === "main", (el) => el.child(div().h(10)).child(this.row(t, "Tabs", "A bar on top, or a column on the right.", this.tabsPicker(t))))
       .child(div().h(18))
       .child(this.heading(t, "Theme"))
       .child(this.row(t, "Appearance", "Light or dark, or as your system is now.", this.appearancePicker(t, cx)))
@@ -579,10 +607,10 @@ export default class Settings extends View {
     const busy = this.machineBusy[m.name];
     const edit = this.machineEdit?.machine === m.name ? this.machineEdit : null;
     const state = String(m.state ?? "unknown").replace(/[_-]/g, " ");
-    const color = ["connected", "online"].includes(m.state) ? t.ansi2 : ["connecting", "reconnecting"].includes(m.state) ? t.working : t.blocked;
+    const color = ["connected", "online"].includes(m.state) ? t.ansi2 : ["connecting", "reconnecting"].includes(m.state) ? t.working : (t.failed ?? t.blocked);
     const result = this.machineResults[m.name];
     const controls = h_flex().gap(6).items_center();
-    if (busy) controls.child(svg("mods/workspace-chrome/spinner.svg").size(12).text_color(t.working).spin(900)).child(div().text_size(12).text_color(t.muted).child(busy === "update" ? "Updating…" : busy === "rename" ? "Renaming…" : "Removing…"));
+    if (busy) controls.child(svg(I("spinner")).size(12).text_color(t.working).spin(900)).child(div().text_size(12).text_color(t.muted).child(busy === "update" ? "Updating…" : busy === "rename" ? "Renaming…" : "Removing…"));
     else {
       if (this.olderCore(m.version, localVersion)) controls.child(this.button(t, `st-m-update-${m.name}`, "Update", (_e, cx) => this.machineAction(m.name, "update", cx)));
       for (const [action, label] of [["rename", "Rename"], ["rm", "Remove"]]) {
@@ -617,7 +645,7 @@ export default class Settings extends View {
           .child(Input.new(this.renameInput).flex_1().min_w(0).h(32).px(10).rounded(7).border_1().border_color(this.renameFocused ? t.accent : t.input).bg(t.background).text_size(13).text_color(t.foreground))
           .child(cancel).child(this.button(t, `st-m-save-${m.name}`, "Save", (_e, cx) => this.machineAction(m.name, "rename", cx, edit.name)))));
     }
-    if (result) row.child(div().text_size(12.5).text_color(result.ok ? t.ansi2 : t.blocked).child(result.message));
+    if (result) row.child(div().text_size(12.5).text_color(result.ok ? t.ansi2 : (t.failed ?? t.blocked)).child(result.message));
     return row;
   }
 
@@ -628,9 +656,9 @@ export default class Settings extends View {
       .child(div().pb(8).text_size(12.5).line_height("18px").text_color(t.dim).child("Your computers, reached over ssh. Their terminals keep running when you disconnect."))
       .child(this.row(t, "This computer", `Connected · ${version ? `hc ${version}` : "hc version unknown"}`, div().w(7).h(7).rounded(4).bg(t.ansi2)))
       .children((this.machineList ?? []).map((m) => this.machineRow(t, m, version)))
-      .when(this.machineList === null && !this.machineError, (el) => el.child(h_flex().py(14).gap(8).items_center().child(svg("mods/workspace-chrome/spinner.svg").size(12).text_color(t.working).spin(900)).child(div().text_size(12.5).text_color(t.dim).child("Reading machines…"))))
+      .when(this.machineList === null && !this.machineError, (el) => el.child(h_flex().py(14).gap(8).items_center().child(svg(I("spinner")).size(12).text_color(t.working).spin(900)).child(div().text_size(12.5).text_color(t.dim).child("Reading machines…"))))
       .when(this.machineList?.length === 0, (el) => el.child(div().py(14).text_size(12.5).text_color(t.dim).child("No other machines yet.")))
-      .when(Boolean(this.machineError), (el) => el.child(div().py(10).text_size(12.5).text_color(t.blocked).child(this.machineError)))
+      .when(Boolean(this.machineError), (el) => el.child(div().py(10).text_size(12.5).text_color(t.failed ?? t.blocked).child(this.machineError)))
       .when(Boolean(this.machineNotice), (el) => el.child(div().py(10).text_size(12.5).text_color(t.ansi2).child(this.machineNotice)))
       .child(h_flex().pt(16).child(this.button(t, "st-m-add", "Add a machine", () => run("mod.open", { name: "machine-add" }))));
   }

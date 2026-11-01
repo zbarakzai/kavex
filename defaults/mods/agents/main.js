@@ -3,7 +3,8 @@
 
 import { View, div, image, svg } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
-import { agents, terminals, panes, focused, spaces, run, theme, shared, setShared, setAgentOrder, openOverlay, closeOverlay, props, window, layout } from "herdr";
+import { agents, terminals, focused, spaces, run, theme, shared, setShared, setAgentOrder, openOverlay, closeOverlay, props, window, layout } from "herdr";
+import { look, badge, sectionLabel, MONO } from "./look.js";
 
 function find(node, id) {
   if (node?.id === id) return node;
@@ -23,36 +24,23 @@ function toggleSidebar() {
   if (!narrow()) setShared("sidebar.width", width);
   // Mods edited before the rail went by width still read the flag.
   setShared("sidebar.collapsed", !narrow());
-  run("layout.resize", { id: "sidebar", px: narrow() ? (shared("sidebar.width") ?? 268) : window()?.platform === "macos" ? 76 : 44 });
+  run("layout.resize", { id: "sidebar", px: narrow() ? (shared("sidebar.width") ?? 230) : window()?.platform === "macos" ? 76 : 44 });
 }
 
-const clean = (s) => (s ?? "").replace(/^[^\p{L}\p{N}]+/u, "").trim();
-
-function lead(tab, all = panes()) {
-  const mine = all.filter(p => p.tab === tab.id && p.terminal);
-  return mine.find(p => p.program?.agent) ?? mine.find(p => p.focused) ?? mine[0];
-}
-
-function title(tab, l) {
-  const prog = l?.program?.name;
-  const live = clean(l?.title);
-  const telling = live && live !== prog && !/^[~/]|^[A-Za-z]:\\/.test(live) && !live.includes("@") && live.toLowerCase() !== l?.program?.key;
-  return tab.name === prog && telling ? live : tab.name;
-}
-const RANK = { blocked: 4, done: 3, working: 2, idle: 1 };
-// A sub-agent without a pane isn't in agents(): its raw word, error counting as
-// blocked. It's never done: it reports to its parent, and the parent's done is the news.
+const RANK = { failed: 4, blocked: 4, done: 3, working: 2, idle: 1 };
+// agents() folds a program's own "error" into blocked; terminals() still has the word.
+const failed = (a, words) => (words.get(a.address) === "error" ? "failed" : a.status);
+// A sub-agent without a pane isn't in agents(): its raw word. It's never done: it reports
+// to its parent, and the parent's done is the news.
 const kidStatus = (k, listed) => {
   const s = listed.get(k.address) ?? k.status;
-  return s === "error" ? "blocked" : s === "done" ? "idle" : s;
+  return s === "error" ? "failed" : s === "done" ? "idle" : s;
 };
 const SORTS = [
-  { id: "priority", label: "Priority", icon: "clock" },
+  { id: "priority", label: "Priority", icon: "sort-priority" },
   { id: "grouped", label: "Grouped by space", icon: "layers" },
 ];
 const sortOf = () => SORTS.find((s) => s.id === shared("agents.sort")) ?? SORTS[0];
-const SECTION = { 4: "Needs you", 3: "Done", 2: "Working", 1: "Idle" };
-const SECTION_STATUS = { 4: "blocked", 3: "done", 2: "working" };
 
 function duration(ms) {
   const m = Math.floor(ms / 60000);
@@ -64,9 +52,11 @@ function duration(ms) {
 
 // The agent's icon from the app's program table: a one-color glyph or a picture.
 function icon(p, size, color) {
-  if (!p?.icon) return null;
+  if (!p?.icon) return svg("mods/workspace-chrome/icons/terminal.svg").size(size).flex_none().text_color(color);
   return p.tint ? svg(p.icon).size(size).flex_none().text_color(color) : image(p.icon).w(size).h(size).flex_none();
 }
+
+const tile = (p, size, k) => h_flex().size(size).flex_none().items_center().justify_center().rounded(6).bg(p?.tile ?? k.tile).child(icon(p, size - 8, p?.color ?? k.foreground));
 
 export default class Agents extends View {
   init(_props, cx) {
@@ -149,9 +139,9 @@ export default class Agents extends View {
           setShared("agents.sort", s.id);
           closeOverlay(props().overlay);
         })
-        .child(svg(`mods/workspace-chrome/${s.icon}.svg`).size(14).flex_none().text_color(t.muted))
+        .child(svg(`mods/workspace-chrome/icons/${s.icon}.svg`).size(14).flex_none().text_color(t.muted))
         .child(div().flex_1().child(s.label))
-        .when(s.id === on, (el) => el.child(svg("mods/workspace-chrome/check.svg").size(14).flex_none().text_color(t.foreground)))));
+        .when(s.id === on, (el) => el.child(svg("mods/workspace-chrome/icons/check.svg").size(14).flex_none().text_color(t.foreground)))));
   }
 
   peek(addr) {
@@ -170,16 +160,15 @@ export default class Agents extends View {
     });
   }
 
-  subRow(t, s, shown, compact) {
+  subRow(t, s, shown) {
     const k = s.t;
     const st = kidStatus(k, this.listed);
-    const pic = icon(k.program, 14, t.foreground);
     const on = k.address === shown;
     return h_flex()
       .id(`sub-${k.address}`)
       .pl(39)
       .pr(8)
-      .rounded(8)
+      .rounded(9)
       .h(26)
       .flex_none()
       .gap(0)
@@ -191,20 +180,16 @@ export default class Agents extends View {
       .children(s.lines.map(l => div().self_start().mt(-4).w(9).h(17).mr(4).flex_none()
         .when(Boolean(l), el => el.border_l(1.5).border_color(t.input))
         .when(l === "└" || l === "├", el => el.border_b(1.5).rounded_bl(6))))
-      .when(Boolean(pic), el => el.child(div().mr(8).child(pic)))
+      .child(div().mr(8).child(icon(k.program, 14, t.foreground)))
       .child(div().flex_1().truncate().text_color(on ? t.foreground : t.muted).child(k.name || k.template || k.program?.name || k.address))
-      .child(this.status(t, { status: st }, compact));
+      .child(this.status(t, { status: st }));
   }
 
-  // compact: a ! for blocked where a header already says "Needs you".
+  // compact: the status's dot, where a row has no room for its badge.
   status(t, a, compact = false) {
-    const color = t[a.status] ?? t.dim;
-    if (a.status === "working") return svg("mods/workspace-chrome/spinner.svg").size(12).mx(1).flex_none().text_color(t.working).spin(900);
-    if (a.status === "blocked" && compact) return div().size(14).flex_none().rounded(4).bg(t.blocked + "26").text_size(10.5).font_bold().text_color(t.blocked).flex().items_center().justify_center().child("!");
-    if (a.status === "blocked") return div().flex_none().px(6).h(18).rounded(5).bg(t.blocked + "26").text_size(10.5).font_semibold().text_color(t.blocked).flex().items_center().child("Needs you");
-    // Idle: a ring; done: a dot.
-    if (a.status === "idle") return div().size(7).mx(3).flex_none().rounded(4).border(1.5).border_color(t.idle ?? t.dim);
-    return div().size(7).mx(3).flex_none().rounded(4).bg(a.status === "done" ? color : t.dim + "00");
+    const k = look(t);
+    if (compact) return div().size(6).mx(1).flex_none().rounded(3).bg((k.status[a.status] ?? k.status.idle).dot);
+    return badge(k, a.status);
   }
 
   render(cx) {
@@ -214,7 +199,7 @@ export default class Agents extends View {
     const sort = sortOf();
     let list = agents();
     this.listed = new Map(list.map((a) => [a.address, a.status]));
-    const all = terminals();
+    const all = terminals(), words = new Map(all.map((k) => [k.address, k.status])), k = look(t);
     const shown = focused()?.agent;
     const now = Date.now();
     this.track(list, now);
@@ -233,7 +218,7 @@ export default class Agents extends View {
       const subs = collapsed ? [] : this.tree(all, a.address);
       const r = row(a, i, subs);
       if (this.folded.has(a.address)) return [r];
-      return [r, ...subs.map((s) => this.subRow(t, s, shown, byPriority))];
+      return [r, ...subs.map((s) => this.subRow(t, s, shown))];
     };
 
     // The fold chevron; folded, the count too, colored by the most urgent one.
@@ -258,28 +243,14 @@ export default class Agents extends View {
           open ? this.folded.add(a.address) : this.folded.delete(a.address);
           cx.notify();
         })
-        .child(svg(`mods/workspace-chrome/chevron-${open ? "down" : "right"}.svg`).size(11).flex_none())
+        .child(svg(`mods/workspace-chrome/icons/chevron-${open ? "down" : "right"}.svg`).size(11).flex_none())
         .when(!open, (el) => el.child(String(subs.length)));
     };
 
-    // A row reads "space \u00b7 detail": the detail is a tab someone named or the
-    // agent's own title, never an automatic tab number unless two rows would
-    // otherwise read the same.
-    const tabs = spaces().flatMap(s => s.tabs);
-    const label = (a) => {
-      const tab = tabs.find(tab => tab.id === a.tab);
-      return tab ? title(tab, lead(tab)) : a.title || a.program?.name || "";
-    };
-    const detail = new Map(list.map(a => [a.address, /^\d+$/.test(label(a)) ? null : label(a)]));
-    const seen = {};
-    for (const a of list) { const k = `${a.space_name}\u0000${detail.get(a.address) ?? ""}`; seen[k] = (seen[k] ?? 0) + 1; }
-    for (const a of list) {
-      if (detail.get(a.address) == null && seen[`${a.space_name}\u0000`] > 1) detail.set(a.address, label(a));
-    }
+    const inSpace = new Map(spaces().map((p) => [p.id, p.tabs.length]));
+    const several = (a) => (inSpace.get(a.space) ?? 1) > 1;
 
     const row = (a, i, subs = []) => {
-      const pic = icon(a.program, 16, t.foreground);
-      const more = detail.get(a.address);
       // An agent on another machine (`vps/t7`) says which.
       const machine = a.address.includes("/") ? a.address.split("/")[0] : null;
       if (collapsed) {
@@ -293,10 +264,9 @@ export default class Agents extends View {
           .hover((s) => s.bg(t.hover))
           .on_click(() => run("pane.focus", { pane: a.pane }))
           .child(div().flex_1().min_w(0).whitespace_nowrap().text_right().text_color(t.muted).child(String(i + 1)))
-          .child(h_flex().w(14).flex_none().items_center().justify_center().child(this.status(t, a, true)));
+          .child(h_flex().w(14).flex_none().items_center().justify_center().child(this.status(t, { status: failed(a, words) }, true)));
       }
       const when = this.since(a);
-      const idle = a.status === "idle" && !a.focused;
       const isPinned = this.pins.includes(a.address);
       const pin = div()
         .id(`pin-${a.address}`)
@@ -314,17 +284,13 @@ export default class Agents extends View {
           this.hovered = null;
           cx.notify();
         })
-        .child(svg(`mods/workspace-chrome/${isPinned ? "pin-off" : "pin"}.svg`).size(13));
-      // Under a space header the space goes without saying; an automatic tab number says nothing.
-      // Without a space header above (priority, pinned) the row names its space.
-      const full = byPriority || isPinned;
-      const name = full ? a.space_name || label(a) : more ?? (/^\d+$/.test(label(a)) ? a.program?.name || label(a) : label(a));
+        .child(svg(`mods/workspace-chrome/icons/${isPinned ? "unpin" : "pin"}.svg`).size(13));
       return h_flex()
         .id(`ag-${a.address}`)
         .px(8)
-        .h(30)
+        .h(31)
         .flex_none()
-        .rounded(8)
+        .rounded(9)
         .items_center()
         .gap(9)
         .when(a.focused, (el) => el.bg(t.selected))
@@ -336,30 +302,29 @@ export default class Agents extends View {
           cx.notify();
         })
         .on_click(() => run("pane.focus", { pane: a.pane }))
-        .when(Boolean(pic), el => el.child(div().id(`agent-fold-${a.address}`)
+        .child(div().id(`agent-fold-${a.address}`)
           .when(subs.length > 0, el => el.on_click((_e, cx) => {
             cx.stop_propagation();
             this.folded.has(a.address) ? this.folded.delete(a.address) : this.folded.add(a.address);
             cx.notify();
-          })).child(pic)))
-        .child(h_flex().flex_1().min_w(0).gap(5).items_center()
-          .child(div().min_w(0).max_w(full && more ? 120 : 200).truncate().text_color(idle ? t.muted : t.foreground).child(name))
-          .when(full && Boolean(more), el => el.child(div().flex_1().min_w(0).truncate().text_color(t.dim).child(`\u00b7 ${more}`))))
-        .when(Boolean(machine), el => el.child(div().text_size(10).text_color(t.dim).child(machine)))
+          })).child(tile(a.program, 22, k)))
+        .child(h_flex().flex_1().min_w(0).gap(4).items_center()
+          .child(div().min_w(0).truncate().child(a.space_name || a.program?.name || ""))
+          .when(several(a), el => el.child(div().flex_none().text_color(k.label).child(`\u00b7 ${a.tab_index}`))))
+        .when(Boolean(machine), el => el.child(div().text_size(10).text_color(k.label).child(machine)))
         .when(subs.length > 0, el => el.child(fold(a, subs)))
         .when(this.hovered === a.address, el => el.child(pin))
-        .when(this.hovered !== a.address && Boolean(when), el => el.child(div().flex_none().text_size(11).text_color(t.dim).child(duration(now - when))))
-        .child(this.status(t, a, byPriority && !isPinned));
+        .when(this.hovered !== a.address && Boolean(when), el => el.child(div().flex_none().font_family(MONO).text_size(10).text_color(k.label).child(duration(now - when))))
+        .child(this.status(t, { status: failed(a, words) }));
     };
 
-    // Groups in list order: spaces (grouped) or priority sections. Agents of a
-    // space are next to each other in agents(), so neighbours make a group.
-    const groups = pinned.length ? [{ id: "pinned", label: "Pinned", status: null, members: pinned }] : [];
+    // Grouped: agents of a space are next to each other in agents(), so neighbours make a
+    // group. By priority the list needs no headers: each row's badge says where it stands.
+    const groups = pinned.length ? [{ id: "pinned", label: "Pinned", members: pinned }] : [];
     for (const a of rest) {
-      const r = rankOf(a) || RANK.idle;
-      const id = byPriority ? `sec-${r}` : `sp-${a.space}`;
+      const id = byPriority ? "rest" : `sp-${a.space}`;
       if (groups.at(-1)?.id === id) groups.at(-1).members.push(a);
-      else groups.push({ id, label: byPriority ? SECTION[r] : a.space_name || "", status: byPriority ? SECTION_STATUS[r] : null, members: [a] });
+      else groups.push({ id, label: byPriority ? null : a.space_name || "", members: [a] });
     }
 
     // A group's header; it folds the group. Folded, it says how many and the most urgent state.
@@ -382,67 +347,51 @@ export default class Agents extends View {
           open ? this.folded.add(g.id) : this.folded.delete(g.id);
           cx.notify();
         })
-        .child(div().truncate().text_color(t[g.status] ?? t.dim).child(g.label))
-        .when(byPriority || !open, (el) => el.child(div().text_color(t.dim).child(String(g.members.length))))
+        .child(div().truncate().text_color(t.dim).child(g.label))
+        .when(!open, (el) => el.child(div().text_color(t.dim).child(String(g.members.length))))
         .child(div().flex_1())
         .when(!open, (el) => el
-          .when(!byPriority && top && top !== "idle", (el) => el.child(this.status(t, { status: top }, true)))
-          .child(svg("mods/workspace-chrome/chevron-right.svg").size(11).flex_none().text_color(t.dim)));
+          .when(top && top !== "idle", (el) => el.child(this.status(t, { status: top }, true)))
+          .child(svg("mods/workspace-chrome/icons/chevron-right.svg").size(11).flex_none().text_color(t.dim)));
     };
     const rows = collapsed
       ? list.flatMap(withKids)
-      : groups.flatMap((g) => [header(g), ...(this.folded.has(g.id) ? [] : g.members.flatMap(withKids))]);
+      : groups.flatMap((g) => [...(g.label === null ? [] : [header(g)]), ...(this.folded.has(g.id) ? [] : g.members.flatMap(withKids))]);
 
     return v_flex()
       .size_full()
       .min_h(0)
-      .bg(t.chrome)
-      .border_t(1)
-      .border_color(t.border)
       .text_size(13)
       .when(!collapsed, (el) =>
         el.child(
           h_flex()
-            .px(16)
-            .h(41)
-            .pt(14)
-            .pb(5)
+            .mt(22)
+            .mb(4)
+            .pl(10)
+            .pr(8)
+            .h(14)
             .flex_none()
             .items_center()
             .justify_between()
-            .child(div().text_size(11.5).font_medium().text_color(t.dim).child("Agents"))
+            .child(sectionLabel(k, "AGENTS"))
             .child(
               div()
                 .id("ag-sort")
-                .text_size(11)
-                .text_color(t.dim)
+                .text_color(k.label)
                 .hover((s) => s.text_color(t.foreground))
                 .on_click(() => openOverlay({ mod: "agents", kind: "popup", width: 200, height: 140, props: { sortMenu: true } }))
                 .tooltip(`Sort agents: ${sort.label}`)
-                .child(svg(`mods/workspace-chrome/${sort.icon}.svg`).size(14)),
+                .child(svg(`mods/workspace-chrome/icons/${sort.icon}.svg`).size(14)),
             ),
         ),
       )
       .when(list.length === 0 && !collapsed, (el) =>
-        el.child(div().px(12).text_size(12).text_color(t.dim).child("No agent status yet. Agents show up here when they report their status. Older versions and agents inside tmux may not.")),
+        el.child(div().px(10).text_size(12).text_color(k.label).child("No agent status yet. Agents show up here when they report their status. Older versions and agents inside tmux may not.")),
       )
-      .child(v_flex().id("ag-list").flex_1().min_h(0).px(collapsed ? 0 : 8).overflow_y_scrollbar().mode("always").children(rows))
-      .child(
-        h_flex()
-          .h(28)
-          .px(12)
-          .items_center()
-          .justify_end()
-          .when(collapsed, (el) => el.justify_center().px(0))
-          .child(
-            div()
-              .id("collapse")
-              .text_size(13)
-              .text_color(t.dim)
-              .hover((s) => s.text_color(t.foreground))
-              .on_click(toggleSidebar)
-              .child(collapsed ? "»" : ""),
-          ),
+      .child(v_flex().id("ag-list").flex_1().min_h(0).overflow_y_scrollbar().mode("always").children(rows))
+      .when(collapsed, (el) =>
+        el.child(h_flex().h(28).items_center().justify_center()
+          .child(div().id("collapse").text_size(13).text_color(t.dim).hover((s) => s.text_color(t.foreground)).on_click(toggleSidebar).child(svg("mods/workspace-chrome/icons/sidebar.svg").size(15)))),
       );
   }
 }

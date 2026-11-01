@@ -106,7 +106,7 @@ export default class Picker extends View {
   }
 
   glyph(t, st) {
-    if (st === "working") return svg("mods/workspace-chrome/spinner.svg").size(12).flex_none().text_color(t.working).spin(900);
+    if (st === "working") return svg("mods/workspace-chrome/icons/spinner.svg").size(12).flex_none().text_color(t.working).spin(900);
     return div().w(12).flex_none().text_color(t[st] ?? t.dim).child(st === "idle" ? "○" : st ? "●" : "·");
   }
 
@@ -168,7 +168,7 @@ export default class Picker extends View {
           .when(on, (el) => el.bg(t.hover))
           .hover((s) => s.bg(t.hover))
           .on_click(() => this.go(r))
-          .child(div().w(12).child("+"))
+          .child(svg("mods/workspace-chrome/icons/plus.svg").size(12).flex_none())
           .child(label);
       }
       const who = r.mine.map((a) => a.program?.name ?? "agent").join(" · ");
@@ -218,7 +218,7 @@ export default class Picker extends View {
       .child(h_flex().items_center().child(div().flex_1().text_size(15).font_semibold().text_color(t.foreground).child("Go to…")).child(div().text_size(11).text_color(t.dim).child("Esc")))
       .child(
         h_flex().h(36).flex_none().px(10).gap(8).items_center().rounded(9).border_1().border_color(t.accent).bg(t.background)
-          .child(svg("mods/workspace-chrome/search.svg").size(15).text_color(t.dim))
+          .child(svg("mods/workspace-chrome/icons/search.svg").size(15).text_color(t.dim))
           .child(Input.new(this.input).flex_1().h_full().text_size(12.8).text_color(t.foreground)),
       )
       .child(v_flex().h(Math.min(320, 6 + rows.reduce((h, r) => h + (r.kind === "head" ? 29 : r.kind === "earlier" ? 35 : r.kind === "new" ? 36 : 32), 0))).min_h(0).flex_shrink(1).pb(6).overflow_y_scrollbar().children(rows.map(row)));

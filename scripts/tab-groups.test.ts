@@ -1,6 +1,6 @@
 import { test, expect } from "bun:test";
 import { readFile } from "node:fs/promises";
-import { GAP, away, colorOf, gathered, groupOf, home, landed, moves, nearest, pruned, runs, slots, stepped } from "../defaults/mods/tabs/groups.js";
+import { COLUMN, GAP, INNER, away, clicked, columnHome, columnRuns, columnSlots, columnStops, gathered, groupOf, home, labeled, landed, moves, nearest, nearestY, pruned, runs, sectionHeight, shownIn, slots, stepped } from "../defaults/mods/tabs/groups.js";
 
 const blank = { groups: {}, colors: {}, folders: [] };
 const auth = { auth: { name: "auth", color: "ansi4", folded: false, tabs: ["b", "c"] } };
@@ -14,31 +14,6 @@ function apply(order: string[], calls: { id: string; index: number }[]) {
   }
   return now;
 }
-
-test("a tab wears its own color, else its group's, else its deepest folder's", () => {
-  const folders = [{ machine: null, folder: "/code", color: "ansi1" }, { machine: null, folder: "/code/zaki", color: "ansi2" }];
-  expect(colorOf("a", { ...blank, folders }, "/code/zaki/src", null)).toBe("ansi2");
-  expect(colorOf("a", { ...blank, folders, colors: { a: "ansi3" } }, "/code/zaki", null)).toBe("ansi3");
-  expect(colorOf("b", { groups: auth, colors: { b: "ansi3" }, folders }, "/code/zaki", null)).toBe("ansi3");
-  expect(colorOf("b", { groups: auth, colors: {}, folders }, "/code/zaki", null)).toBe("ansi4");
-});
-
-test("no color on a grouped tab means its group's color", () => {
-  expect(colorOf("b", { groups: auth, colors: { b: "none" }, folders: [] }, null, null)).toBe("ansi4");
-});
-
-test("no color beats a colored folder", () => {
-  const folders = [{ machine: null, folder: "/code", color: "ansi1" }];
-  expect(colorOf("a", { ...blank, folders, colors: { a: "none" } }, "/code", null)).toBeNull();
-});
-
-test("a folder's color needs its machine and a whole folder name", () => {
-  const folders = [{ machine: "vps", folder: "/code", color: "ansi1" }];
-  expect(colorOf("a", { ...blank, folders }, "/code", null)).toBeNull();
-  expect(colorOf("a", { ...blank, folders }, "/code", "vps")).toBe("ansi1");
-  expect(colorOf("a", { ...blank, folders }, "/code-old", "vps")).toBeNull();
-  expect(colorOf("a", { ...blank, folders: [{ machine: null, folder: "C:\\code", color: "ansi1" }] }, "C:\\code\\zaki", null)).toBe("ansi1");
-});
 
 test("the bar shows a group's tabs as one run", () => {
   const tabs = ["a", "b", "c", "d"].map((id) => ({ id }));
@@ -67,7 +42,7 @@ test("moves turn one order into another, and repeating them changes nothing", ()
   expect(moves(to, to)).toEqual([]);
 });
 
-test("a fold keeps out the shown tab and any tab that needs the person", () => {
+test("a fold keeps out only the shown tab", () => {
   const groups = { g: { name: "", color: "ansi4", folded: true, tabs: ["a", "b", "c", "d", "e"] } };
   const tabs = [
     { id: "a", active: true, status: null },
@@ -77,7 +52,7 @@ test("a fold keeps out the shown tab and any tab that needs the person", () => {
     { id: "e", active: false, status: null },
     { id: "f", active: false, status: null },
   ];
-  expect([...away(tabs, groups)]).toEqual(["d", "e"]);
+  expect([...away(tabs, groups)]).toEqual(["b", "c", "d", "e"]);
   expect([...away(tabs, { g: { ...groups.g, folded: false } })]).toEqual([]);
 });
 
@@ -96,7 +71,7 @@ test("a mouse wheel steps through tabs and stops at the ends", () => {
 // a | [tag b c] | d, every tab 100 wide, every tag 50.
 const tabs = ["a", "b", "c", "d"].map((id) => ({ id }));
 const bar = runs(tabs, auth);
-const width = (key: string) => (key.startsWith("tag:") ? 50 : key.startsWith("lights:") ? 20 : 100);
+const width = (key: string) => (key.startsWith("tag:") ? 50 : 100);
 const none = new Set<string>();
 const at = (list: ReturnType<typeof slots>, key: string) => list.find((s) => s.key === key)!;
 
@@ -105,10 +80,10 @@ test("slots sit where the bar draws things, with what's moving taken out", () =>
   expect(list.map((s) => s.key)).toEqual(["a", "before:auth", "b", "c", "in:auth", "end"]);
   const tray = 100 + GAP;
   expect(at(list, "before:auth").x).toBe(tray);
-  expect(at(list, "b").x).toBe(tray + 6 + 50 + GAP);
-  expect(at(list, "c").x).toBe(tray + 6 + 50 + GAP + 100 + GAP);
-  expect(at(list, "in:auth").x).toBe(tray + 6 + 50 + GAP + 2 * (100 + GAP));
-  expect(at(list, "end").x).toBe(tray + 6 + 50 + 2 * (GAP + 100) + 6 + GAP);
+  expect(at(list, "b").x).toBe(tray + 3 + 50 + INNER);
+  expect(at(list, "c").x).toBe(tray + 3 + 50 + INNER + 100 + INNER);
+  expect(at(list, "in:auth").x).toBe(tray + 3 + 50 + INNER + 2 * (100 + INNER));
+  expect(at(list, "end").x).toBe(tray + 3 + 50 + 2 * (INNER + 100) + 3 + GAP);
   expect(list.map((s) => s.at)).toEqual([0, 1, 1, 2, 3, 3]);
   expect(list.map((s) => s.group)).toEqual([null, null, "auth", "auth", "auth", null]);
 });
@@ -122,8 +97,8 @@ test("a dragged group only has slots beside other groups", () => {
 test("a fold takes a tab on its tag, and keeps slots for tabs out of it", () => {
   const list = slots(bar, { tabs: ["a"] }, width, new Set(["b"]));
   expect(list.map((s) => s.key)).toEqual(["before:auth", "fold:auth", "c", "in:auth", "d", "end"]);
-  expect(at(list, "fold:auth")).toMatchObject({ fold: true, at: 0, group: "auth", x: 6 });
-  expect(at(list, "c")).toMatchObject({ x: 6 + 50 + GAP + 20 + GAP, at: 1, group: "auth" });
+  expect(at(list, "fold:auth")).toMatchObject({ fold: true, at: 0, group: "auth", x: 3 });
+  expect(at(list, "c")).toMatchObject({ x: 3 + 50 + INNER, at: 1, group: "auth" });
   const shut = slots(bar, { tabs: ["a"] }, width, new Set(["b", "c"]));
   expect(shut.map((s) => s.key)).toEqual(["before:auth", "fold:auth", "d", "end"]);
 });
@@ -205,7 +180,7 @@ const layer = await readFile(new URL("../defaults/mods/tab-drag/main.js", import
 const send = layer.slice(layer.indexOf("  send() {"), layer.indexOf("  // The bar closes this"));
 function dragLayer() {
   const sent: string[] = [];
-  const object = new Function("run", `return { busy: false, at: null, ${send} };`)((c: string) => sent.push(c));
+  const object = new Function("run", `return { busy: false, at: null, to: () => "tabs", ${send} };`)((c: string) => sent.push(c));
   const move = (x: number) => { object.at = { x, y: 0 }; object.send(); };
   const ready = () => { object.busy = false; object.send(); };
   return { sent, move, ready };
@@ -227,4 +202,155 @@ test("the layer stops asking when there's nothing new to say", () => {
   expect(sent).toEqual(["tabs.drag:1,0"]);
   move(2);
   expect(sent).toEqual(["tabs.drag:1,0", "tabs.drag:2,0"]);
+});
+
+// The column: two loose tabs round a two-tab group, a folded group, then one more loose tab.
+const col = ["a", "b", "c", "d", "e", "f", "g"].map((id) => ({ id, active: id === "a", status: null }));
+const cg = { one: { name: "one", color: "blue", folded: false, tabs: ["c", "d"] }, two: { name: "two", color: "teal", folded: true, tabs: ["e", "f"] } };
+const ids = (list: { id: string }[]) => list.map((c) => c.id);
+const key = (list: { key: string }[], k: string) => list.find((s) => s.key === k) as any;
+const orderIds = col.map((c) => c.id);
+
+test("the column lists loose tabs first, then one section per group in tab order", () => {
+  const { loose, sections } = columnRuns(col, cg);
+  expect(ids(loose)).toEqual(["a", "b", "g"]);
+  expect(sections.map((c) => c.group)).toEqual(["one", "two"]);
+});
+
+test("column slots sit where the rows draw", () => {
+  const list = columnSlots(col, cg, {});
+  const { gap, row, rowGap, head, inRow } = COLUMN;
+  expect(key(list, "b").y).toBe(row + rowGap);
+  const section = 3 * row + 2 * rowGap + gap;
+  expect(key(list, "before:one").y).toBe(section);
+  expect(key(list, "d").y).toBe(section + head + rowGap + inRow + rowGap);
+  expect(key(list, "before:two").y).toBe(section + sectionHeight(cg.one, ["c", "d"].map((id) => col.find((c) => c.id === id))) + gap);
+});
+
+test("the spec's sizes", () => {
+  expect(COLUMN).toEqual({ row: 32, inRow: 30, head: 30, rowGap: 2, gap: 14 });
+});
+
+test("a drop line sits in the gap: 2px between rows, the middle between sections", () => {
+  const list = columnSlots(col, cg, { tabs: ["a"] }), { row, inRow, head, rowGap, gap } = COLUMN;
+  expect(key(list, "g").line).toBe(key(list, "g").y - rowGap);
+  expect(key(list, "loose-end").line).toBe(2 * row + rowGap);
+  expect(key(list, "d").line).toBe(key(list, "c").y + inRow);
+  expect(key(list, "in:one").line).toBe(key(list, "d").y + inRow);
+  expect(key(list, "fold:two").line).toBe(key(list, "fold:two").y + head);
+  const moving = { group: "two" }, groupsOnly = columnSlots(col, cg, moving);
+  expect(key(groupsOnly, "before:one").line).toBe(key(groupsOnly, "before:one").y - (gap + rowGap) / 2);
+});
+
+test("a tab with nothing loose above it doesn't shift the list when picked up", () => {
+  const tabs = ["c", "d", "e"].map((id) => ({ id, active: id === "c", status: null }));
+  const groups = { one: { name: "one", color: "blue", folded: false, tabs: ["c", "d", "e"] } };
+  expect(key(columnSlots(tabs, groups, { tabs: ["e"] }), "c").y).toBe(key(columnSlots(tabs, groups, {}), "c").y);
+});
+
+test("a folded group shows the shown tab, and only that", () => {
+  const tabs = col.map((c) => ({ ...c, active: c.id === "e" }));
+  expect(ids(shownIn(cg.two, tabs.filter((c) => cg.two.tabs.includes(c.id))))).toEqual(["e"]);
+  expect(key(columnSlots(tabs, cg, {}), "fold:two")).toMatchObject({ fold: true, group: "two" });
+});
+
+test("the shown tab of a folded group can be found and carried off", () => {
+  const tabs = col.map((c) => ({ ...c, active: c.id === "e" }));
+  const { head, rowGap } = COLUMN, all = columnSlots(tabs, cg, {});
+  expect(key(all, "e").y).toBe(key(all, "fold:two").y + head + rowGap);
+  const moving = { tabs: ["e"] }, list = columnSlots(tabs, cg, moving);
+  expect(key(list, "e")).toBeUndefined();
+  expect(columnHome(list, tabs, cg, moving).key).toBe("fold:two");
+});
+
+test("the keyboard stops on every row shown and every group's name, top to bottom", () => {
+  expect(columnStops(col, cg)).toEqual(["a", "b", "g", "group:one", "c", "d", "group:two"]);
+  const tabs = col.map((c) => ({ ...c, active: c.id === "f" }));
+  expect(columnStops(tabs, cg)).toEqual(["a", "b", "g", "group:one", "c", "d", "group:two", "f"]);
+});
+
+test("reordering loose tabs keeps them loose and in that order", () => {
+  const moving = { tabs: ["g"] }, list = columnSlots(col, cg, moving);
+  const r = landed(orderIds, cg, moving, key(list, "b"));
+  expect(columnRuns(r!.order.map((id) => ({ id, active: false })), r!.groups).loose.map((c) => c.id)).toEqual(["a", "g", "b"]);
+});
+
+test("a loose tab dropped between a group's rows joins it there", () => {
+  const moving = { tabs: ["a"] }, list = columnSlots(col, cg, moving);
+  const r = landed(orderIds, cg, moving, key(list, "d"));
+  expect(r!.groups.one.tabs.sort()).toEqual(["a", "c", "d"]);
+  expect(r!.order.indexOf("a")).toBeLessThan(r!.order.indexOf("d"));
+  expect(gathered(r!.order, r!.groups)).toEqual(r!.order);
+});
+
+test("a tab dropped at the end of a section joins it last", () => {
+  const moving = { tabs: ["g"] }, r = landed(orderIds, cg, moving, key(columnSlots(col, cg, moving), "in:one"));
+  expect(r!.groups.one.tabs).toEqual(["c", "d", "g"]);
+  expect(r!.order.indexOf("g")).toBe(r!.order.indexOf("d") + 1);
+});
+
+test("a tab dropped on a folded section joins it", () => {
+  const moving = { tabs: ["a"] }, r = landed(orderIds, cg, moving, key(columnSlots(col, cg, moving), "fold:two"));
+  expect(r!.groups.two.tabs).toContain("a");
+});
+
+test("a group's tab dropped among the loose tabs leaves the group", () => {
+  const moving = { tabs: ["c"] }, r = landed(orderIds, cg, moving, key(columnSlots(col, cg, moving), "loose-end"));
+  expect(r!.groups.one.tabs).toEqual(["d"]);
+  expect(columnRuns(r!.order.map((id) => ({ id, active: false })), r!.groups).loose.at(-1)!.id).toBe("c");
+});
+
+test("the only tab of a group can be carried off, and its section keeps a place to come back", () => {
+  const groups = { solo: { name: "solo", color: "blue", folded: false, tabs: ["c"] } };
+  const moving = { tabs: ["c"] }, list = columnSlots(col, groups, moving);
+  expect(key(list, "in:solo")).toBeTruthy();
+  expect(columnHome(list, col, groups, moving).key).toBe("in:solo");
+  expect(landed(orderIds, groups, moving, key(list, "loose-end"))!.groups).toEqual({});
+});
+
+test("a group only lands between sections, and moves whole", () => {
+  const moving = { group: "two" }, list = columnSlots(col, cg, moving);
+  expect(list.map((s) => s.key)).toEqual(["before:one", "end"]);
+  const r = landed(orderIds, cg, moving, key(list, "before:one"));
+  expect(columnRuns(r!.order.map((id) => ({ id, active: false })), r!.groups).sections.map((c) => c.group)).toEqual(["two", "one"]);
+});
+
+test("a column drag starts where it is, and setting it down there is no move", () => {
+  for (const moving of [{ tabs: ["a"] }, { tabs: ["b"] }, { tabs: ["g"] }, { tabs: ["c"] }, { tabs: ["d"] }, { tabs: ["e"] }, { group: "one" }, { group: "two" }]) {
+    const list = columnSlots(col, cg, moving);
+    expect(columnHome(list, col, cg, moving)).toBeTruthy();
+  }
+  const moving = { tabs: ["b"] };
+  expect(columnHome(columnSlots(col, cg, moving), col, cg, moving).key).toBe("g");
+});
+
+test("several picked tabs carry together, in tab order", () => {
+  const moving = { tabs: ["a", "g"] }, list = columnSlots(col, cg, moving);
+  const r = landed(orderIds, cg, moving, key(list, "in:one"));
+  expect(r!.groups.one.tabs).toEqual(["c", "d", "a", "g"]);
+});
+
+test("the nearest place wins in the column too", () => {
+  const list = columnSlots(col, cg, { tabs: ["a"] });
+  expect(nearestY(list, key(list, "d").y + 3).key).toBe("d");
+});
+
+test("a click shows, Command picks one by one, Shift picks a range", () => {
+  const tabs = ["a", "b", "c", "d"].map((id) => ({ id, active: id === "b" })), c = tabs[3];
+  expect(clicked(tabs, c, { shift: false, picking: false }, ["a"])).toBeNull();
+  expect(clicked(tabs, c, { shift: false, picking: true }, ["a"])).toEqual(["a", "d"]);
+  expect(clicked(tabs, c, { shift: false, picking: true }, ["a", "d"])).toEqual(["a"]);
+  expect(clicked(tabs, c, { shift: true, picking: false }, [])).toEqual(["b", "c", "d"]);
+});
+
+test("a label puts a tab in its group, makes one if needed, and moves it from another", () => {
+  const colors = ["blue", "violet", "teal"];
+  const made = labeled({}, "a", "sweep", colors, "g1");
+  expect(made).toEqual({ g1: { name: "sweep", color: "blue", folded: false, tabs: ["a"] } });
+  const joined = labeled(made, "b", "sweep", colors, "g2");
+  expect(joined.g1.tabs).toEqual(["a", "b"]);
+  expect(labeled(joined, "b", "sweep", colors, "g3")).toBe(joined);
+  const moved = labeled(joined, "b", "checks", colors, "g4");
+  expect(moved.g1.tabs).toEqual(["a"]);
+  expect(moved.g4).toMatchObject({ name: "checks", color: "violet", tabs: ["b"] });
 });

@@ -331,8 +331,8 @@ export default class Worktree extends View {
       .text_size(13)
       .child(div().font_semibold().text_color(t.foreground).child(title))
       .child(div().text_color(t.muted).child(detail))
-      .when(remove && this.dirty, (el) => el.child(div().text_color(t.blocked).child("It has uncommitted changes: they will be lost.")))
-      .when(remove && this.unpushed.length > 0, (el) => el.child(div().text_color(t.blocked).child(`Submodule ${this.unpushed.join(", ")} has commits that aren't pushed anywhere: they will be lost.`)))
+      .when(remove && this.dirty, (el) => el.child(div().text_color(t.failed ?? t.blocked).child("It has uncommitted changes: they will be lost.")))
+      .when(remove && this.unpushed.length > 0, (el) => el.child(div().text_color(t.failed ?? t.blocked).child(`Submodule ${this.unpushed.join(", ")} has commits that aren't pushed anywhere: they will be lost.`)))
       .when(!remove && !blocked, (el) =>
         el.child(
           Input.new(this.input)
@@ -346,7 +346,7 @@ export default class Worktree extends View {
             .text_color(t.foreground),
         ),
       )
-      .when(Boolean(this.error), (el) => el.child(div().text_color(t.blocked).child(this.error)))
+      .when(Boolean(this.error), (el) => el.child(div().text_color(t.failed ?? t.blocked).child(this.error)))
       .child(div().flex_1())
       .child(
         h_flex()

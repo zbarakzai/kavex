@@ -3,32 +3,34 @@
 // git.js hold the logic; this file runs git and draws.
 import { View, div, svg } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input, Scrollbar, v_virtual_list, VirtualListScrollHandle, Popover, HoverCard } from "gpui-base";
-import { spaces, panes, focused, agents, exec, hc, appHome, readTextFile, watchFolder, theme, settings, run, openOverlay, notify, nextCommand, layout, window, props } from "herdr";
+import { spaces, panes, focused, agents, exec, hc, appHome, readTextFile, watchFolder, theme, run, openOverlay, notify, nextCommand, layout, window, props } from "herdr";
 import * as fs from "fs/promises";
 import { MOST_ROWS, buttonAt, fileRows, hunkPatch, lineCount, newFile, parseDiff, signature, splitRows, stackedRows, stepped, wrapSpans } from "./diff.js";
 import { languageOf, painter } from "./tokens.js";
-import { buildTree, filtered, iconOf, inTreeOrder, jumpList, middle, treeRows } from "./tree.js";
+import { look, panelHeader, spaced, typeTag, MONO } from "./look.js";
+import { buildTree, filtered, inTreeOrder, jumpList, middle, treeRows } from "./tree.js";
 import { DIFF, READ, SNAPSHOT, chooseBase, parseCounts, parseLog, parseNumstat, parseRefs, planAction, reviewMessage, untrackedPaths } from "./git.js";
 
 const SCOPES = [["unstaged", "Unstaged"], ["staged", "Staged"], ["commit", "Commit"], ["branch", "Branch"], ["turn", "Last turn"]];
 const NOTHING = { unstaged: "No unstaged changes", staged: "Nothing staged", commit: "This commit changes no files", branch: "No changes on this branch", turn: "That turn changed nothing" };
 const COLORS = { keyword: "ansi5", string: "ansi2", comment: "dim", function: "ansi4", type: "ansi3", number: "ansi1", literal: "ansi6", key: "ansi4" };
 
-const LINE = 21, BAR = 4, GUTTER = 46, SEAM = 2, CODE_AT = BAR + GUTTER + SEAM, CODE_LEFT = 7, CODE_RIGHT = 12, CHAR = 7.2;
+const LINE = 23, GUTTER = 48, MARKER = 18, CODE_RIGHT = 16, CHAR = 6.9;
 // A tile of stripes: its repeat divides LINE, so the lines run on from row to row.
 const STRIPES = 140;
-const FILE_ROW = 42, FILE_BUTTON = 26, FILE_GAP = 2, GAP_ROW = 34, NOTE_ROW = 40, COMMENT_TOP = 46, COMMENT_LINE = 18, TREE_ROW = 29, TREE_WIDTH = 300;
+const FILE_ROW = 40, FILE_BUTTON = 28, FILE_GAP = 2, FILE_END = 8, GAP_ROW = 38, NOTE_ROW = 40, COMMENT_TOP = 46, COMMENT_LINE = 18, TREE_ROW = 28, TREE_WIDTH = 240;
 // The hunk buttons stay clear of the scrollbar, which takes presses along that edge.
-const WIDE = 640, SPLITS_AT = 460, TREE_MIN = 140, TREE_STATS_AT = 190, HUNK_BUTTONS = 138, HUNK_MARGIN = 16, FULL_PANEL = 900;
+const SPLITS_AT = 400, TREE_MIN = 140, TREE_STATS_AT = 190, HUNK_BUTTONS = 138, HUNK_MARGIN = 16, PANEL_MIN = 680;
 // Codex's tree moves on a spring of 0.5 s and 0.1 bounce: this is that spring as a period and a damping.
 const TREE_SPRING = { response: 370, damping: 0.9 }, TREE_SNAP = { response: 0 }, TREE_SETTLE = 650, TIP_DELAY = 300;
-const JUMP_WIDTH = 360, JUMP_ROW = 29, JUMP_ROWS = 10, UI_CHAR = 7;
+const JUMP_WIDTH = 360, JUMP_ROW = 28, JUMP_ROWS = 10, UI_CHAR = 7;
 // Past either, one file shows at a time. Codex allows 9,000 lines; a long list is slower to lay out here.
 const MOST_LINES = 6000, MOST_FILES = 128, MOST_LISTED = 2000, MOST_UNTRACKED = 300, EXEC_LIMIT = 8 << 20, STUCK = 45000;
 
 const commas = (n) => String(n).replace(/\B(?=(\d{3})+$)/g, ",");
 const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
-const icon = (name, size = 16) => svg(`mods/changes/icons/${name}.svg`).size(size).flex_none();
+const minus = "\u2212";
+const icon = (name, size = 16) => svg(`mods/workspace-chrome/icons/${name}.svg`).size(size).flex_none();
 const store = (name, fallback) => { try { return JSON.parse(localStorage.getItem(name) ?? "null") ?? fallback; } catch { return fallback; } };
 const keep = (name, value) => localStorage.setItem(name, JSON.stringify(value));
 const findNode = (node, id) => { if (!node || typeof node !== "object") return null; if (node.id === id) return node; for (const child of node.children ?? []) { const hit = findNode(child, id); if (hit) return hit; } return null; };
@@ -52,10 +54,10 @@ export default class Changes extends View {
     const view = store("view", {});
     this.scope = view.scope ?? "unstaged"; this.wrap = Boolean(view.wrap); this.tight = Boolean(view.tight);
     this.split = Boolean(view.split); this.showTree = view.tree !== false; this.unfold = Boolean(view.unfold);
-    this.width = 368; this.scrollX = 0; this.gen = 0; this.treeTurn = 0;
+    this.width = PANEL_MIN; this.scrollX = 0; this.gen = 0; this.treeTurn = 0;
     this.files = []; this.rows = []; this.sizes = []; this.byId = new Map(); this.lines = [];
     this.gaps = new Map(); this.shutDirs = new Set(); this.shut = new Set(); this.comments = []; this.viewed = {};
-    this.statuses = {}; this.turns = store("turns", {}); this.refs = []; this.commits = [];
+    this.statuses = {}; this.turns = store("turns", {}); this.refs = []; this.commits = []; this.branches = []; this.staged = 0;
     this.job = null; this.spans = new Map();
     this.handle = cx.focus_handle();
     this.scroll = VirtualListScrollHandle.new(); this.treeScroll = VirtualListScrollHandle.new(); this.jumpScroll = VirtualListScrollHandle.new();
@@ -72,7 +74,7 @@ export default class Changes extends View {
     this.input.on("blur", (_e, cx) => { this.typing = false; cx.notify(); });
 
     this.filter = "";
-    this.filterInput = InputState.new({ placeholder: "Filter files…" });
+    this.filterInput = InputState.new({ placeholder: "Filter files" });
     this.filterInput.on("change", (_e, cx) => { this.filter = this.filterInput.value(); this.buildTree(); cx.notify(); });
     this.baseFilter = "";
     this.baseInput = InputState.new({ placeholder: "Find a branch…" });
@@ -168,6 +170,7 @@ export default class Changes extends View {
         const branch = await git(["branch", "--show-current"]);
         this.hasHead = head.code === 0; this.head = head.stdout.trim();
         this.branch = branch.stdout.trim() || this.head.slice(0, 7) || "HEAD";
+        this.staged = (await git(["diff", "--cached", "--name-only", "-z"])).stdout.split("\0").filter(Boolean).length;
         const spec = await this.resolve(git, root, on);
         if (!current()) return;
         if (spec.empty) { this.spec = null; this.clear(spec.empty); return; }
@@ -351,12 +354,13 @@ export default class Changes extends View {
 
   treeShown() { return this.showTree && this.files.length > 0; }
   treeWidth() { return Math.max(TREE_MIN, Math.min(TREE_WIDTH, Math.round(this.width * 0.36))); }
-  diffWidth() { return Math.max(120, this.width - (this.treeShown() ? this.treeWidth() : 0) - 2); }
+  // The panel less its 8 px margins and the card's border, and the tree and the gap beside it.
+  diffWidth() { return Math.max(120, this.width - 18 - (this.treeShown() ? this.treeWidth() + 8 : 0)); }
   canSplit() { return this.diffWidth() >= SPLITS_AT; }
   splitting() { return this.split && this.canSplit(); }
-  codeWidth() { return (this.splitting() ? (this.diffWidth() - SEAM) / 2 : this.diffWidth()) - CODE_AT; }
+  codeWidth() { return (this.splitting() ? this.diffWidth() / 2 : this.diffWidth()) - GUTTER - MARKER; }
   columns() {
-    return Math.max(10, Math.floor((this.codeWidth() - CODE_LEFT - CODE_RIGHT) / CHAR));
+    return Math.max(10, Math.floor((this.codeWidth() - CODE_RIGHT) / CHAR));
   }
 
   heightOf(row, columns) {
@@ -440,7 +444,7 @@ export default class Changes extends View {
   }
 
   clampScroll() {
-    this.maxScroll = Math.max(0, this.longest * CHAR + CODE_LEFT + CODE_RIGHT - this.codeWidth());
+    this.maxScroll = Math.max(0, this.longest * CHAR + CODE_RIGHT - this.codeWidth());
     this.scrollX = Math.min(this.scrollX, this.maxScroll);
   }
 
@@ -804,22 +808,20 @@ export default class Changes extends View {
     const target = row.kind === "pair" ? (right ? row.right : row.left) : row;
     if (!target) return;
     if (press.meta && !this.on) return this.openInEditor(target.path, target.new ?? target.old, cx);
-    if ((right ? press.x - half : press.x) <= BAR + GUTTER) this.startComment(target, cx);
+    if ((right ? press.x - half : press.x) <= GUTTER) this.startComment(target, cx);
   }
 
   // Its buttons, right to left: the row can't hold handlers, so a press is matched by place.
   fileButtons(file) {
-    const state = this.gaps.get(file.path), viewed = this.isViewed(file), wide = this.diffWidth() >= SPLITS_AT;
     return [
-      { id: "more", name: "more", tip: "File options", action: (cx, press, end) => { this.rowMenu = { path: file.path, x: end, y: press.y + 10 }; this.menu = "row"; cx.notify(); } },
-      ...(wide && file.hunks.length ? [{ id: "whole", name: "code", tip: state?.all ? "Show only the changes" : "Show the whole file", on: Boolean(state?.all), action: (cx) => this.toggleWhole(file, cx) }] : []),
-      ...(wide && !this.on ? [{ id: "open", name: "external", tip: "Open in editor", action: (cx) => this.openInEditor(file.path, null, cx) }] : []),
-      ...(wide ? [{ id: "viewed", name: viewed ? "eye-off" : "eye", tip: viewed ? "Mark as unviewed" : "Mark as viewed", on: viewed, action: (cx) => this.toggleViewed(file, cx) }] : []),
+      { name: "chevron-right", action: (cx) => this.stepFile(1, cx) },
+      { name: "chevron-left", action: (cx) => this.stepFile(-1, cx) },
+      { name: "more", action: (cx, press, end) => { this.rowMenu = { path: file.path, x: end, y: press.y + 10 }; this.menu = "row"; cx.notify(); } },
     ];
   }
 
   clickFileRow(file, press, cx) {
-    const buttons = this.fileButtons(file), end = press.width - HUNK_MARGIN;
+    const buttons = this.fileButtons(file), end = press.width - FILE_END;
     const at = buttonAt(press.x, end, buttons.length, FILE_BUTTON, FILE_GAP);
     if (at < 0) this.toggleFile(file.path, cx);
     else buttons[at].action(cx, press, end - at * (FILE_BUTTON + FILE_GAP));
@@ -841,9 +843,10 @@ export default class Changes extends View {
     cx.notify();
   }
 
-  togglePanel() {
-    if (this.width >= FULL_PANEL - 40) run("layout.resize", { id: "panel", px: this.smaller ?? 368 });
-    else { this.smaller = this.width; run("layout.resize", { id: "panel", px: FULL_PANEL }); }
+  // Changes needs its width; Files is happy with less, so it's asked for here.
+  keepWide() {
+    const root = layout(), panel = findNode(root, "panel");
+    if (panel && !panel.hidden && findNode(root, "panel-body")?.active === "changes" && (panel.size?.px ?? 0) < PANEL_MIN) run("layout.resize", { id: "panel", px: PANEL_MIN });
   }
 
   pieces(spans, t) {
@@ -855,20 +858,20 @@ export default class Changes extends View {
 
   code(row, columns, t) {
     const tone = this.tones[row.kind];
-    const cell = div().flex_1().min_w(0).h_full().overflow_hidden().pl(CODE_LEFT).pr(CODE_RIGHT).font_family(this.mono).text_size(12)
-      .when(Boolean(tone), (el) => el.bg(tone.code));
+    const cell = div().flex_1().min_w(0).h_full().overflow_hidden().pr(CODE_RIGHT).font_family(MONO).text_size(11.5).text_color(tone ? t.foreground : t.diff_text);
     const spans = row.spans ?? [[row.text, null]];
-    if (this.wrap) return cell.child(v_flex().children(wrapSpans(spans, columns).map((line) => h_flex().h(LINE).items_center().children(this.pieces(line, t)))));
-    return cell.child(h_flex().h(LINE).items_center().ml(-this.scrollX).children(this.pieces(spans, t)));
+    const body = this.wrap ? cell.child(v_flex().children(wrapSpans(spans, columns).map((line) => h_flex().h(LINE).items_center().children(this.pieces(line, t)))))
+      : cell.child(h_flex().h(LINE).items_center().ml(-this.scrollX).children(this.pieces(spans, t)));
+    if (!tone) return body;
+    return h_flex().flex_1().min_w(0).h_full().items_start()
+      .child(h_flex().w(MARKER).h(LINE).flex_none().items_center().justify_center().font_family(MONO).text_size(11.5).text_color(tone.text).child(row.kind === "add" ? "+" : minus))
+      .child(body);
   }
 
   gutter(row, t) {
     const tone = this.tones[row?.kind], number = row ? row.new ?? row.old : "";
-    return h_flex().flex_none().h_full().items_start()
-      .child(div().w(BAR).h_full().flex_none().when(Boolean(tone), (el) => el.bg(tone.bar)))
-      .child(div().w(GUTTER).h_full().flex_none().when(Boolean(tone), (el) => el.bg(tone.gutter))
-        .child(h_flex().h(LINE).pr(8).items_center().justify_end().font_family(this.mono).text_size(12).text_color(tone?.bar ?? t.dim).child(String(number))))
-      .child(div().w(SEAM).h_full().flex_none());
+    return div().w(GUTTER).h_full().flex_none().when(Boolean(tone), (el) => el.bg(tone.gutter))
+      .child(h_flex().h(LINE).pr(14).items_center().justify_end().font_family(MONO).text_size(11.5).text_color(tone?.text ?? t.line_number).child(String(number)));
   }
 
   // The side of a change with nothing on it.
@@ -880,7 +883,7 @@ export default class Changes extends View {
 
   // The row's hover layer: a clear sheet, shown whole when the pointer is on it.
   hoverLayer(row, t) {
-    const badge = (at) => h_flex().absolute().left(at).top(0).size(LINE).ml(BAR + GUTTER - LINE - 6).items_center().justify_center().rounded(6).bg(t.solid).text_color(t.solid_foreground).child(icon("plus", 13));
+    const badge = (at) => h_flex().absolute().left(at).top(0).size(LINE).ml(GUTTER - LINE - 6).items_center().justify_center().rounded(6).bg(t.solid).text_color(t.solid_foreground).child(icon("plus", 13));
     const layer = div().id("hover").absolute().inset_0().opacity(0).hover((s) => s.opacity(1)).child(badge(0)).when(row.kind === "pair", (el) => el.child(badge(Math.round(this.diffWidth() / 2))));
     const changed = row.kind === "pair" ? (row.left?.kind === "del" || row.right?.kind === "add") : this.canHunk(row);
     if (!changed || this.tight) return layer;
@@ -889,45 +892,51 @@ export default class Changes extends View {
     return layer.child(h_flex().absolute().right(HUNK_MARGIN).top(0).w(HUNK_BUTTONS).h(LINE).gap(4).items_center().justify_end().child(button("Revert")).when(Boolean(word), (el) => el.child(button(word))));
   }
 
-  // The theme names no diff colors: a change wears its green or red, thinned as mods thin `blocked`.
   toned(t) {
-    const tone = (bar) => ({ bar, code: `${bar}24`, gutter: `${bar}0f` });
-    return { add: tone(t.ansi2), del: tone(t.ansi1), stripe: t.hover };
+    return {
+      add: { row: t.diff_added_row, gutter: t.diff_added_gutter, text: t.added },
+      del: { row: t.diff_removed_row, gutter: t.diff_removed_gutter, text: t.removed },
+      stripe: t.hover,
+    };
   }
 
   lineRow(row, columns, t) {
-    return h_flex().relative().w_full().h_full().items_start().child(this.gutter(row, t)).child(this.code(row, columns, t)).child(this.hoverLayer(row, t));
+    const tone = this.tones[row.kind];
+    return h_flex().relative().w_full().h_full().items_start().when(Boolean(tone), (el) => el.bg(tone.row)).child(this.gutter(row, t)).child(this.code(row, columns, t)).child(this.hoverLayer(row, t));
   }
 
   pairRow(row, columns, t) {
     const lines = Math.round(this.heightOf(row, columns) / LINE);
-    const cell = (side) => h_flex().flex_1().min_w(0).h_full().items_start().child(this.gutter(side, t)).child(side ? this.code(side, columns, t) : this.stripes(lines));
-    return h_flex().relative().w_full().h_full().items_start().child(cell(row.left)).child(div().w(SEAM).h_full().flex_none()).child(cell(row.right)).child(this.hoverLayer(row, t));
+    const cell = (side) => h_flex().flex_1().min_w(0).h_full().items_start().when(Boolean(this.tones[side?.kind]), (el) => el.bg(this.tones[side.kind].row))
+      .child(this.gutter(side, t)).child(side ? this.code(side, columns, t) : this.stripes(lines));
+    return h_flex().relative().w_full().h_full().items_start().child(cell(row.left)).child(cell(row.right)).child(this.hoverLayer(row, t));
   }
 
   gapRow(row, t) {
-    const split = this.splitting();
-    const label = h_flex().id("gap").flex_1().min_w(0).h_full().bg(t.raised).items_center().text_color(t.muted).hover((s) => s.bg(t.hover))
-      .when(split, (el) => el.rounded_tl(9).rounded_bl(9)).when(!split, (el) => el.rounded(9))
-      .child(h_flex().w(CODE_AT - 8).h_full().flex_none().items_center().justify_center().border_r(1).border_color(t.background).child(icon(row.tail ? "chevron-down" : "chevron-up", 15)))
-      .child(div().pl(CODE_LEFT + 1).text_size(12).child(`${commas(row.count)} unmodified ${row.count === 1 ? "line" : "lines"}`));
-    return h_flex().w_full().h_full().pl(8).py(2).child(label).when(split, (el) => el.child(div().w(SEAM).h_full().flex_none()).child(div().flex_1().min_w(0).h_full().bg(t.raised)));
+    return div().w_full().h_full().py(4).child(h_flex().id("gap").size_full().bg(t.diff_collapsed_row).items_center().text_size(11.5).text_color(t.text_faint).hover((s) => s.bg(t.hover))
+      .child(h_flex().w(GUTTER).h_full().flex_none().items_center().justify_center().bg(t.diff_collapsed_gutter).child(icon("unfold", 12)))
+      .child(div().pl(14).child(`${commas(row.count)} unmodified ${row.count === 1 ? "line" : "lines"}`)));
   }
 
-  fileLabel(file, t) {
-    const parts = file.path.split("/"), name = parts.pop(), [glyph, tint] = iconOf(file.path);
-    return h_flex().flex_1().min_w(0).gap(8).items_center()
-      .child(icon(`ft-${glyph}`, 16).text_color(tint ? t[tint] : t.muted))
-      .child(h_flex().flex_1().min_w(0).items_center()
-        .when(parts.length > 0, (el) => el.child(div().min_w(0).truncate().text_color(t.dim).child(`${parts.join("/")}/`)))
+  fileLabel(file, t, on = true) {
+    const parts = file.path.split("/"), name = parts.pop();
+    return h_flex().flex_1().min_w(0).gap(8).items_center().text_size(13)
+      .child(typeTag(file.path, on ? t.accent : t.label))
+      .child(h_flex().flex_1().min_w(0).gap(4).items_center()
+        .when(parts.length > 0, (el) => el.child(div().min_w(0).truncate().text_color(t.label).child(`${parts.join(" / ")} /`)))
         .child(div().flex_none().max_w_full().truncate().when(file.isDeleted, (el) => el.line_through()).child(name)));
   }
 
-  stats(file, t, both = true) {
+  stats(file, t, both = true, size = 11.5) {
     const add = both || file.add > 0, del = both || file.del > 0;
-    return h_flex().flex_none().gap(6).text_size(12)
-      .when(add, (el) => el.child(div().text_color(t.ansi2).child(`+${commas(file.add)}`)))
-      .when(del, (el) => el.child(div().text_color(t.ansi1).child(`-${commas(file.del)}`)));
+    return h_flex().flex_none().gap(6).font_family(MONO).text_size(size)
+      .when(add, (el) => el.child(div().text_color(t.added).child(`+${commas(file.add)}`)))
+      .when(del, (el) => el.child(div().text_color(t.removed).child(`${minus}${commas(file.del)}`)));
+  }
+
+  // `1 / 59`: where this file stands among them.
+  counter(file, t) {
+    return div().flex_none().ml(8).font_family(MONO).text_size(10.5).text_color(t.label).child(`${this.files.indexOf(file) + 1} / ${this.files.length}`);
   }
 
   commentRow(row, t) {
@@ -937,14 +946,18 @@ export default class Changes extends View {
         .child(v_flex().text_size(12).text_color(t.foreground).child(row.comment.text)));
   }
 
+  // What a file's header holds, in a list row or above a single file. A row can't take
+  // handlers, so its buttons are matched by place (`fileButtons`).
   fileRow(row, t) {
-    const file = row.file, shut = this.shut.has(file.path);
-    const button = ({ id, name, tip, on = false }) => this.tip(`${id}-${file.path}`, tip, h_flex().id(id).size(FILE_BUTTON).flex_none().items_center().justify_center().rounded(6).text_color(on ? t.accent : t.muted).hover((s) => s.bg(t.hover)).child(icon(name, 15)), t);
-    return h_flex().id("file").w_full().h_full().pl(10).pr(HUNK_MARGIN).gap(8).items_center().bg(t.background).border_b(1).border_color(t.border).when(!row.first, (el) => el.border_t(1)).hover((s) => s.bg(t.hover))
-      .child(icon(shut ? "chevron-right" : "chevron-down", 13).text_color(t.dim))
-      .child(this.fileLabel(file, t))
+    const file = row.file, shut = this.shut.has(file.path), [next, back, more] = this.fileButtons(file);
+    const button = (name) => h_flex().size(FILE_BUTTON).flex_none().items_center().justify_center().rounded(7).text_color(t.muted).child(icon(name, 13));
+    const options = h_flex().absolute().right(FILE_END + 2 * (FILE_BUTTON + FILE_GAP)).top(6).size(FILE_BUTTON).items_center().justify_center().rounded(7).bg(t.card).text_color(t.muted).child(icon(more.name, 13));
+    return h_flex().id("file").relative().w_full().h_full().pl(18).pr(FILE_END).gap(8).items_center().when(!row.first, (el) => el.border_t(1).border_color(t.card_border).hover((s) => s.bg(t.hover)))
+      .child(this.fileLabel(file, t, file.path === this.open))
       .child(this.stats(file, t))
-      .child(h_flex().flex_none().gap(FILE_GAP).items_center().children(this.fileButtons(file).reverse().map(button)));
+      .child(this.counter(file, t))
+      .child(h_flex().flex_none().gap(FILE_GAP).child(button(back.name)).child(button(next.name)))
+      .child(div().id("options").absolute().inset_0().opacity(0).hover((s) => s.opacity(1)).when(!shut, (el) => el.child(options)));
   }
 
   drawRow(row, columns, t) {
@@ -958,12 +971,13 @@ export default class Changes extends View {
     }
   }
 
-  tool(id, name, tip, action, t, { on = false, spin = false, mark = null } = {}) {
-    const size = this.width >= WIDE ? 32 : 30;
-    const glyph = mark ?? icon(name, 18).when(spin, (el) => el.spin(800));
-    const button = h_flex().id(id).size(size).flex_none().items_center().justify_center().rounded(size / 2).cursor_pointer().text_color(on ? t.accent : t.muted).when(on, (el) => el.bg(t.selected)).hover((s) => s.bg(on ? t.selected : t.hover))
-      .on_click((_e, cx) => action(cx)).child(glyph);
-    return this.tip(id, tip, button, t);
+  tool(id, name, tip, action, t, { on = false } = {}) {
+    return this.tip(id, tip, this.toolButton(id, name, t, on).on_click((_e, cx) => action(cx)), t);
+  }
+
+  toolButton(id, name, t, on = false) {
+    return h_flex().id(id).size(26).flex_none().items_center().justify_center().rounded(13).cursor_pointer().text_color(on ? t.foreground : t.muted).when(on, (el) => el.bg(t.pill_selected))
+      .when(!on, (el) => el.hover((s) => s.bg(t.hover_strong).text_color(t.foreground))).child(icon(name, 14));
   }
 
   // `.tooltip()` shows nothing here: its layer is looked up on the window's first
@@ -973,13 +987,6 @@ export default class Changes extends View {
       .when(!this.menu, (el) => el.content(div().mt(6).px(9).py(5).rounded(8).bg(t.raised).border_1().border_color(t.border).shadow_md().text_size(12).text_color(t.foreground).whitespace_nowrap().child(text)));
   }
 
-  // Which view shows: a frame holding both sides, in the theme's removed and added colors.
-  diffMark(t) {
-    const state = this.split ? "split" : "unified";
-    const part = (name, color) => svg(`mods/changes/icons/diff-${name}.svg`).absolute().top(0).left(0).size(18).text_color(color);
-    return div().relative().size(18).flex_none().child(part(`${state}-old`, t.ansi1)).child(part(`${state}-new`, t.ansi2)).child(part("frame", t.muted));
-  }
-
   popover(id, anchor, trigger, content) {
     const open = this.menu === id;
     return Popover.new(`changes-${id}`).anchor(anchor).open(open)
@@ -987,6 +994,7 @@ export default class Changes extends View {
         this.menu = next ? id : null;
         if (next && id === "base") { this.baseInput.set_value(""); this.baseFilter = ""; this.baseInput.focus(); }
         if (next && id === "jump") this.openJump();
+        if (next && id === "switch") this.openSwitch(cx);
         cx.notify();
       })
       .trigger(trigger).when(open, (el) => el.content(content()));
@@ -997,35 +1005,37 @@ export default class Changes extends View {
   }
 
   item(id, label, action, t, { hint = null, on = false, danger = false, enabled = true } = {}) {
-    return h_flex().id(`changes-item-${id}`).h(32).flex_none().px(10).gap(10).items_center().rounded(9).when(enabled, (el) => el.cursor_pointer().hover((s) => s.bg(t.hover)).on_click((_e, cx) => { this.menu = null; action(cx); cx.notify(); })).text_color(!enabled ? t.dim : danger ? t.blocked : t.foreground)
+    return h_flex().id(`changes-item-${id}`).h(32).flex_none().px(10).gap(10).items_center().rounded(9).when(enabled, (el) => el.cursor_pointer().hover((s) => s.bg(t.hover)).on_click((_e, cx) => { this.menu = null; action(cx); cx.notify(); })).text_color(!enabled ? t.dim : danger ? (t.failed ?? t.blocked) : t.foreground)
       .child(div().flex_1().min_w(0).truncate().child(label))
       .when(Boolean(hint), (el) => el.child(div().flex_none().text_size(11).text_color(t.dim).child(hint)))
       .when(on, (el) => el.child(icon("check", 14).text_color(t.accent)));
   }
 
-  // Scope, branch and toolbar share one shape: a filled pill on the panel.
-  capsule(t) {
-    return h_flex().h(36).items_center().rounded(18).bg(t.raised).border_1().border_color(t.border);
+  // Scope, branch and tools share one shape: a filled pill on the panel.
+  pillBox(t) {
+    return h_flex().items_center().rounded(999).bg(t.pill).border_1().border_color(t.pill_ring);
   }
 
   pill(id, t) {
-    return this.capsule(t).id(id).min_w(0).px(14).gap(8).cursor_pointer().hover((s) => s.bg(t.hover));
+    return this.pillBox(t).id(id).h(34).min_w(0).px(13).gap(7).text_size(13.5).cursor_pointer().hover((s) => s.bg(t.hover));
   }
 
   scopeControl(t) {
     const label = SCOPES.find(([id]) => id === this.scope)?.[1];
     const add = this.files.reduce((n, f) => n + f.add, 0), del = this.files.reduce((n, f) => n + f.del, 0);
-    const trigger = this.pill("changes-scope", t).flex_none()
-      .child(div().child(label)).child(icon("chevron-down", 13).text_color(t.muted))
-      .child(div().text_color(t.ansi2).child(`+${commas(add)}`)).child(div().text_color(t.ansi1).child(`-${commas(del)}`));
+    const trigger = this.pill("changes-scope", t).flex_none().gap(9)
+      .child(h_flex().gap(4).items_center().child(label).child(icon("chevron-down", 11).text_color(t.label)))
+      .child(div().font_family(MONO).text_size(12.5).text_color(t.added).child(`+${commas(add)}`))
+      .child(div().font_family(MONO).text_size(12.5).text_color(t.removed).child(`${minus}${commas(del)}`));
     return this.tip("changes-scope", "Choose which changes to show", this.popover("scope", "top_left", trigger, () => this.menuBox(180, t, SCOPES.map(([id, name]) => this.item(id, name, (cx) => this.setScope(id, cx), t, { on: id === this.scope })))), t);
   }
 
   compareControl(t) {
     if (this.scope === "branch" && this.base) {
       const trigger = this.pill("changes-base", t)
-        .child(div().min_w(0).truncate().child(this.branch ?? "")).child(icon("arrow-right", 14).text_color(t.dim))
-        .child(div().min_w(0).truncate().child(this.base)).child(icon("chevron-down", 13).text_color(t.muted));
+        .child(icon("branch", 14).text_color(t.accent))
+        .child(div().min_w(0).truncate().child(this.branch ?? "")).child(icon("arrow-right", 14).text_color(t.label))
+        .child(div().min_w(0).truncate().child(this.base)).child(icon("chevron-down", 12).text_color(t.label));
       return this.popover("base", "top_left", trigger, () => {
         const wanted = this.baseFilter.toLowerCase(), refs = this.refs.filter((ref) => ref !== this.branch && ref.toLowerCase().includes(wanted)).slice(0, 80);
         return this.menuBox(300, t, [
@@ -1037,18 +1047,50 @@ export default class Changes extends View {
     if (this.scope === "commit" && this.commits.length) {
       const shown = this.commits.find((c) => c.sha === this.shownCommit) ?? this.commits[0];
       const trigger = this.pill("changes-commit", t)
-        .child(div().flex_none().text_color(t.dim).child(shown.short)).child(div().min_w(0).truncate().child(shown.subject)).child(icon("chevron-down", 13).text_color(t.muted));
+        .child(div().flex_none().font_family(MONO).text_size(13).text_color(t.label).child(shown.short)).child(div().min_w(0).truncate().child(shown.subject)).child(icon("chevron-down", 12).text_color(t.label));
       return this.popover("commit", "top_left", trigger, () => this.menuBox(380, t, this.commits.map((c) => this.item(`commit-${c.sha}`, `${c.short}  ${c.subject}`, (cx) => { this.picked = c.sha; this.reload(cx); }, t, { hint: c.when, on: c.sha === shown.sha }))));
     }
-    if (this.scope === "turn") return div().min_w(0).px(4).truncate().text_color(t.muted).child(this.turnLabel() ?? "");
-    return this.branch ? this.branchLabel(t) : div();
+    if (this.scope === "turn" && this.turnLabel()) return div().min_w(0).px(4).truncate().text_color(t.muted).child(this.turnLabel());
+    return this.branch ? this.branchControl(t) : div();
   }
 
-  // Not a button, so no button's shape: drawn as the status bar draws a branch.
-  branchLabel(t) {
-    return h_flex().min_w(0).px(4).gap(6).items_center().text_color(t.muted)
-      .child(svg("mods/workspace-chrome/branch.svg").size(14).flex_none())
-      .child(div().min_w(0).truncate().child(this.branch));
+  branchControl(t) {
+    const trigger = this.pill("changes-branch", t).pr(11)
+      .child(icon("branch", 13).text_color(t.accent))
+      .child(div().min_w(0).truncate().child(this.branch))
+      .child(icon("chevron-down", 11).text_color(t.label));
+    return this.tip("changes-branch", "Switch branch", this.popover("switch", "top_left", trigger, () => {
+      const wanted = this.baseFilter.toLowerCase(), list = this.branches.filter((name) => name.toLowerCase().includes(wanted)).slice(0, 80);
+      return this.menuBox(300, t, [
+        h_flex().h(32).flex_none().px(9).mb(4).items_center().rounded(7).border_1().border_color(t.border).child(Input.new(this.baseInput).h_full().text_size(12)),
+        ...list.map((name) => this.item(`switch-${name}`, name, (cx) => this.switchTo(name, cx), t, { on: name === this.branch })),
+      ]);
+    }), t);
+  }
+
+  openSwitch(cx) {
+    this.baseInput.set_value(""); this.baseFilter = ""; this.baseInput.focus();
+    if (!this.root) return;
+    cx.spawn(async (cx) => {
+      const r = await this.git(["for-each-ref", "--sort=-committerdate", "--count=300", "--format=%(refname:short)", "refs/heads"]);
+      if (r.code === 0) this.branches = r.stdout.split("\n").filter(Boolean);
+      cx.notify();
+    });
+  }
+
+  // Git refuses a switch that would overwrite uncommitted work, and says so.
+  switchTo(name, cx) {
+    const { root, on } = this;
+    if (!root || this.busy || name === this.branch) return;
+    this.busy = true; this.note = null;
+    cx.spawn(async (cx) => {
+      try {
+        const r = await exec("git", ["switch", name], { cwd: root, on });
+        if (r.code !== 0) throw new Error((r.stderr || r.stdout).trim());
+      } catch (e) { this.note = `Switch failed: ${e?.message ?? e}`; }
+      finally { this.busy = false; this.raw = null; this.refresh(cx); cx.notify(); }
+    });
+    cx.notify();
   }
 
   turnLabel() {
@@ -1059,13 +1101,8 @@ export default class Changes extends View {
     return turn.end ? `Turn from ${when}` : `Turn started ${when}`;
   }
 
-  menuButton(id, name, t, on = false) {
-    const size = this.width >= WIDE ? 32 : 30;
-    return h_flex().id(id).size(size).flex_none().items_center().justify_center().rounded(size / 2).cursor_pointer().text_color(on ? t.accent : t.muted).when(on, (el) => el.bg(t.selected)).hover((s) => s.bg(on ? t.selected : t.hover)).child(icon(name, 18));
-  }
-
   jumpControl(t) {
-    return this.tip("changes-jump", "Jump to file", this.popover("jump", "top_right", this.menuButton("changes-jump", "find", t, this.menu === "jump"), () => this.jumpBox(t)), t);
+    return this.tip("changes-jump", "Jump to file", this.popover("jump", "top_right", this.toolButton("changes-jump", "find-in-diff", t, this.menu === "jump"), () => this.jumpBox(t)), t);
   }
 
   jumpRow(row, active, t) {
@@ -1092,66 +1129,43 @@ export default class Changes extends View {
         : div().px(8).py(6).text_color(t.dim).child("No matching files"));
   }
 
+  // Everything the design keeps out of the pill: looking at the diff first, then acting on it.
   moreControl(t) {
-    return this.tip("changes-more", "Changes options", this.popover("more", "top_left", this.menuButton("changes-more", "more", t), () => {
-      const word = this.stageWord(), some = this.files.length > 0, tiny = this.width < 440;
+    return this.tip("changes-more", "Changes options", this.popover("more", "top_right", this.toolButton("changes-more", "more", t), () => {
+      const word = this.stageWord(), some = this.files.length > 0;
       return this.menuBox(220, t, [
+        this.item("refresh", "Refresh", (cx) => this.reload(cx), t),
+        this.item("wrap", "Wrap lines", (cx) => { this.wrap = !this.wrap; this.scrollX = 0; this.saveView(); this.compose(); cx.notify(); }, t, { on: this.wrap }),
+        this.item("fold", "Hide unchanged lines", (cx) => this.toggleUnfold(cx), t, { on: !this.unfold }),
+        this.item("space", "Hide whitespace", (cx) => { this.tight = !this.tight; this.reload(cx); }, t, { on: this.tight }),
+        ...(this.oneFile() ? [] : [this.item("all-files", this.shut.size < this.files.length ? "Collapse all diffs" : "Expand all diffs", (cx) => this.toggleAllFiles(cx), t, { enabled: some })]),
         ...(word ? [this.item("stage-all", `${word} all`, (cx) => this.act(word.toLowerCase(), {}, cx), t, { enabled: some })] : []),
         this.item("revert-all", "Revert all", (cx) => this.act("revert", {}, cx), t, { danger: some, enabled: some }),
-        ...(this.oneFile() ? [] : [this.item("all-files", this.shut.size < this.files.length ? "Collapse all diffs" : "Expand all diffs", (cx) => this.toggleAllFiles(cx), t, { enabled: some })]),
-        this.item("space", "Hide whitespace", (cx) => { this.tight = !this.tight; this.reload(cx); }, t, { on: this.tight }),
-        ...(tiny ? [this.item("fold", "Show every line", (cx) => this.toggleUnfold(cx), t, { on: this.unfold })] : []),
       ]);
     }), t);
   }
 
   toolbar(t) {
-    const wide = this.width >= WIDE, tiny = this.width < 440;
-    const tools = this.capsule(t).flex_none().pl(wide ? 4 : 2).pr(2).gap(wide ? 3 : 1)
-      .child(this.moreControl(t))
+    const tools = this.pillBox(t).flex_none().gap(2).p(3)
       .child(this.jumpControl(t))
-      .child(this.tool("changes-refresh", "refresh", this.spinning ? "Refreshing changes" : "Refresh", (cx) => this.refreshNow(cx), t, { spin: Boolean(this.spinning) }))
-      .child(this.tool("changes-wrap", "wrap", this.wrap ? "Disable word wrap" : "Enable word wrap", (cx) => { this.wrap = !this.wrap; this.scrollX = 0; this.saveView(); this.compose(); cx.notify(); }, t, { on: this.wrap }))
-      .when(!tiny, (el) => el.child(this.tool("changes-fold", "fold", this.unfold ? "Fold unmodified lines" : "Show every line", (cx) => this.toggleUnfold(cx), t, { on: this.unfold })))
-      .when(this.canSplit(), (el) => el.child(this.tool("changes-split", null, this.split ? "Switch to unified diff" : "Switch to split diff", (cx) => { this.split = !this.split; this.saveView(); this.compose(); cx.notify(); }, t, { mark: this.diffMark(t) })))
-      .child(this.tool("changes-tree", "tree", this.showTree ? "Hide file tree" : "Show file tree", (cx) => this.toggleTree(cx), t, { on: this.showTree }));
-    if (wide) return h_flex().flex_none().px(10).py(8).gap(8).items_center().child(this.scopeControl(t)).child(div().flex_1().min_w(0).child(h_flex().child(this.compareControl(t)))).child(tools);
-    return v_flex().flex_none().px(10).py(8).gap(8)
-      .child(h_flex().gap(8).items_center().justify_between().child(this.scopeControl(t)).child(tools))
-      .child(h_flex().min_w(0).child(this.compareControl(t)));
-  }
-
-  strip(t) {
-    const hasPanel = Boolean(findNode(layout(), "panel"));
-    return h_flex().h(38).flex_none().px(10).gap(8).items_center().border_b(1).border_color(t.border)
-      .child(h_flex().h(28).px(10).gap(8).items_center().rounded(8).bg(t.raised)
-        .child(svg("mods/changes/changes.svg").size(14).flex_none().text_color(t.muted))
-        .child(div().font_semibold().child("Changes"))
-        .when(hasPanel, (el) => el.child(this.tip("changes-close", "Close", h_flex().id("changes-close").size(18).items_center().justify_center().rounded(5).cursor_pointer().text_color(t.dim).hover((s) => s.bg(t.hover)).on_click(() => run("layout.hide", { id: "panel" })).child(icon("close", 12)), t))))
-      .child(div().flex_1())
-      .when(hasPanel, (el) => el.child(this.tool("changes-expand", this.width >= FULL_PANEL - 40 ? "shrink" : "expand", this.width >= FULL_PANEL - 40 ? "Shrink panel" : "Expand panel", () => this.togglePanel(), t)));
-  }
-
-  banner(t) {
-    const arrow = (id, name, step, tip) => this.tip(id, tip, h_flex().id(id).size(28).flex_none().items_center().justify_center().rounded(14).cursor_pointer().text_color(t.muted).hover((s) => s.bg(t.hover)).on_click((_e, cx) => this.stepFile(step, cx)).child(icon(name, 16)), t);
-    return h_flex().flex_none().mx(10).mb(8).min_h(44).px(14).py(6).gap(10).items_center().rounded(14).border_1().border_color(t.border)
-      .child(icon("info", 16).text_color(t.accent))
-      .child(div().flex_1().min_w(0).child("This diff is large, showing one file at a time"))
-      .child(arrow("changes-prev", "chevron-left", -1, "Previous file")).child(arrow("changes-next", "chevron-right", 1, "Next file"));
+      .when(this.canSplit(), (el) => el.child(this.tool("changes-split", "split-view", this.split ? "Switch to unified diff" : "Switch to split diff", (cx) => { this.split = !this.split; this.saveView(); this.compose(); cx.notify(); }, t, { on: this.split })))
+      .child(this.tool("changes-tree", "file-tree", this.showTree ? "Hide file tree" : "Show file tree", (cx) => this.toggleTree(cx), t, { on: this.showTree }))
+      .child(this.moreControl(t));
+    return h_flex().flex_none().px(8).pb(8).gap(6).items_center()
+      .child(this.scopeControl(t))
+      .child(h_flex().flex_1().min_w(0).child(this.compareControl(t)))
+      .child(tools);
   }
 
   fileHeader(file, t) {
-    const state = this.gaps.get(file.path), viewed = this.isViewed(file);
-    const trigger = h_flex().id("changes-file-more").size(26).flex_none().items_center().justify_center().rounded(6).cursor_pointer().text_color(t.muted).hover((s) => s.bg(t.hover)).child(icon("more", 15));
-    const button = (id, name, tip, action, on = false) => this.tip(id, tip, h_flex().id(id).size(26).flex_none().items_center().justify_center().rounded(6).cursor_pointer().text_color(on ? t.accent : t.muted).hover((s) => s.bg(t.hover)).on_click((_e, cx) => action(cx)).child(icon(name, 15)), t);
-    const narrow = this.diffWidth() < 460;
-    return h_flex().h(42).flex_none().px(14).gap(8).items_center().border_b(1).border_color(t.border)
+    const step = (id, name, by, tip) => this.tip(id, tip, h_flex().id(id).size(FILE_BUTTON).flex_none().items_center().justify_center().rounded(7).cursor_pointer().text_color(t.muted).hover((s) => s.bg(t.hover_strong).text_color(t.foreground)).on_click((_e, cx) => this.stepFile(by, cx)).child(icon(name, 13)), t);
+    const trigger = h_flex().id("changes-file-more").size(FILE_BUTTON).flex_none().items_center().justify_center().rounded(7).cursor_pointer().text_color(t.muted).hover((s) => s.bg(t.hover_strong).text_color(t.foreground)).child(icon("more", 13));
+    return h_flex().h(FILE_ROW).flex_none().pl(18).pr(FILE_END).gap(8).items_center()
       .child(this.fileLabel(file, t))
       .child(this.stats(file, t))
-      .when(!narrow, (el) => el.child(button("changes-viewed", viewed ? "eye-off" : "eye", viewed ? "Mark as unviewed" : "Mark as viewed", (cx) => this.toggleViewed(file, cx), viewed)))
-      .when(!narrow && !this.on, (el) => el.child(button("changes-open", "external", "Open in editor", (cx) => this.openInEditor(file.path, null, cx))))
-      .when(!narrow && file.hunks.length > 0, (el) => el.child(button("changes-whole", "code", state?.all ? "Show only the changes" : "Show the whole file", (cx) => this.toggleWhole(file, cx), Boolean(state?.all))))
-      .child(this.tip("changes-file-more", "File options", this.popover("file", "top_right", trigger, () => this.fileMenu(file, t)), t));
+      .child(this.counter(file, t))
+      .child(this.tip("changes-file-more", "File options", this.popover("file", "top_right", trigger, () => this.fileMenu(file, t)), t))
+      .child(h_flex().flex_none().gap(FILE_GAP).child(step("changes-prev", "chevron-left", -1, "Previous file")).child(step("changes-next", "chevron-right", 1, "Next file")));
   }
 
   fileMenu(file, t) {
@@ -1173,14 +1187,22 @@ export default class Changes extends View {
 
   diffList(t) {
     const rows = this.rows, columns = this.columns(), menuFile = this.menu === "row" ? this.files.find((f) => f.path === this.rowMenu?.path) : null;
-    return div().flex_1().min_h(0).relative()
+    // GPUI clips to a box, not a curve: the rows stop short of the card's rounded bottom.
+    return div().flex_1().min_h(0).relative().pb(12)
       .id("changes-diff-wrap")
       .on_mouse_down("left", (e) => this.pressed(e))
       .on_scroll_wheel((e, cx) => this.wheel(e, cx))
       .child(v_virtual_list("changes-diff", rows.length, this.sizes, (i) => rows[i].id, (range) => rows.slice(range.start, range.end).map((row) => this.drawRow(row, columns, t)))
         .track_scroll(this.scroll).on_item_click((id, cx) => this.clickRow(id, cx)).size_full())
       .child(Scrollbar.vertical("changes-diff").viewport_from_layout().absolute().inset_0())
+      .when(this.maxScroll > 0 && !this.wrap, (el) => el.child(this.sideways(t)))
       .when(Boolean(menuFile), (el) => el.child(div().absolute().left(this.rowMenu.x).top(this.rowMenu.y).child(this.popover("row", "top_right", div().size(1), () => this.fileMenu(menuFile, t)))));
+  }
+
+  // Long lines scroll sideways with the wheel; this shows how far along they are.
+  sideways(t) {
+    const room = this.diffWidth() - GUTTER - MARKER, width = Math.max(40, room * room / (room + this.maxScroll));
+    return div().absolute().bottom(2).left(GUTTER + (room - width) * (this.scrollX / this.maxScroll)).w(width).h(6).rounded(3).bg(t.pill_selected);
   }
 
   composer(t) {
@@ -1209,30 +1231,37 @@ export default class Changes extends View {
       .child(control);
   }
 
-  commitBox(t) {
-    const enabled = this.canCommit();
-    return h_flex().flex_none().p(10).gap(8).border_t(1).border_color(t.border)
-      .child(div().id("commit-message").flex_1().min_w(0).h(32).px(10).flex().items_center().rounded(8).border_1().border_color(this.typing ? t.accent : t.border).cursor_text().on_mouse_down("left", (_e, cx) => cx.stop_propagation()).child(Input.new(this.input).h_full().text_size(12).text_color(t.foreground)))
-      .child(div().id("commit").h(32).px(14).flex().items_center().rounded(8).bg(enabled ? t.solid : t.raised).text_color(enabled ? t.solid_foreground : t.dim).text_size(12).when(enabled, (e) => e.cursor_pointer()).on_click((_e, cx) => this.commit(cx)).child(this.busy ? "Committing…" : "Commit"));
+  // Outside the cards: what would be committed, the message, and the one orange button.
+  commitBar(t) {
+    const enabled = this.canCommit(), files = plural(this.files.length, "file").toUpperCase();
+    const staged = this.staged ? `${this.staged} STAGED` : "NOTHING STAGED";
+    return h_flex().flex_none().pl(14).pr(8).py(8).gap(8).items_center()
+      .child(spaced(`${staged} · ${files}`, 10.5, 0.1).text_color(t.label))
+      .child(h_flex().id("commit-message").flex_1().min_w(0).h(34).px(11).gap(6).items_center().rounded(11).bg(this.typing ? t.selected : t.pill).border_1().border_color(t.pill_ring).cursor_text()
+        .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
+        .on_key_down((e, cx) => { if (e.key === "enter" && (e.modifiers.platform || e.modifiers.control)) { cx.stop_propagation(); this.commit(cx); } })
+        .child(div().flex_1().min_w(0).child(Input.new(this.input).h_full().text_size(13).text_color(t.foreground)))
+        .child(div().flex_none().font_family(MONO).text_size(10.5).text_color(t.label).child(window()?.platform === "macos" ? "\u2318\u21b5" : "Ctrl \u21b5")))
+      .child(h_flex().id("commit").h(34).px(15).gap(6).flex_none().items_center().rounded(11).bg(t.accent).text_color(t.accent_foreground).text_size(13.5).font_medium()
+        .when(!enabled, (e) => e.opacity(0.55)).when(enabled, (e) => e.cursor_pointer()).on_click((_e, cx) => this.commit(cx))
+        .child(icon("commit", 14)).child(this.busy ? "Committing…" : "Commit"));
   }
 
   treeRow(row, t) {
-    const tight = this.treeWidth() < TREE_STATS_AT, step = tight ? 10 : 16;
-    const guides = Array.from({ length: row.depth }, (_, depth) => div().absolute().left(15 + depth * step).top(0).w(1).h(TREE_ROW).bg(t.border));
-    const shell = h_flex().id("row").relative().w_full().h(TREE_ROW).flex_none().pl(8 + row.depth * step).pr(8).gap(7).items_center().rounded(8).children(guides);
-    if (row.kind === "dir") return shell.hover((s) => s.bg(t.hover)).child(icon(row.open ? "chevron-down" : "chevron-right", 13).text_color(t.dim)).child(div().flex_1().min_w(0).truncate().child(row.name));
-    const file = row.file, active = file.path === this.open, [glyph, tint] = iconOf(file.path);
-    return shell.when(active, (el) => el.bg(t.selected)).hover((s) => s.bg(active ? t.selected : t.hover))
-      .child(icon(`ft-${glyph}`, 15).text_color(tint ? t[tint] : t.muted))
-      .child(div().flex_1().min_w(0).truncate().text_color(active ? t.foreground : t.muted).when(this.isViewed(file), (el) => el.text_color(t.dim)).when(file.isDeleted, (el) => el.line_through()).child(row.name))
-      .when(!tight, (el) => el.child(this.stats(file, t, false)));
+    const shell = h_flex().id("row").w_full().h(TREE_ROW).flex_none().pr(8).items_center().rounded(7);
+    if (row.kind === "dir") return shell.pl(4 + row.depth * 14).gap(6).text_color(t.tile_text).hover((s) => s.bg(t.hover)).child(icon(row.open ? "chevron-down" : "chevron-right", 12).text_color(t.label)).child(div().flex_1().min_w(0).truncate().child(row.name));
+    const file = row.file, active = file.path === this.open, tight = this.treeWidth() < TREE_STATS_AT;
+    return shell.pl(8 + row.depth * 14).gap(8).when(active, (el) => el.bg(t.hover_strong)).hover((s) => s.bg(active ? t.hover_strong : t.hover))
+      .child(typeTag(file.path, active ? t.accent : t.label))
+      .child(div().flex_1().min_w(0).truncate().text_color(active ? t.foreground : t.text_secondary).when(this.isViewed(file), (el) => el.text_color(t.label)).when(file.isDeleted, (el) => el.line_through()).child(row.name))
+      .when(!tight, (el) => el.child(this.stats(file, t, false, 11)));
   }
 
   fileTree(t) {
     const rows = this.treeList ?? [];
-    return v_flex().size_full().min_h(0).p(6).gap(6)
-      .child(h_flex().h(32).flex_none().px(10).gap(8).items_center().rounded(9).border_1().border_color(t.border)
-        .child(icon("search", 14).text_color(t.dim)).child(div().flex_1().min_w(0).child(Input.new(this.filterInput).h_full().text_size(13))))
+    return v_flex().size_full().min_h(0).pt(10).px(8).pb(8).gap(8).bg(t.card).border_1().border_color(t.card_border).rounded(18).overflow_hidden().text_size(12.5)
+      .child(h_flex().h(34).flex_none().px(10).gap(8).items_center().rounded(10).bg(t.well).text_color(t.label)
+        .child(icon("search", 14)).child(div().flex_1().min_w(0).child(Input.new(this.filterInput).h_full().text_size(12.5).text_color(t.foreground))))
       .child(div().flex_1().min_h(0).relative()
         .child(v_virtual_list("changes-tree", rows.length, TREE_ROW, (i) => rows[i].id, (range) => rows.slice(range.start, range.end).map((row) => this.treeRow(row, t)))
           .track_scroll(this.treeScroll).size_full()
@@ -1250,37 +1279,35 @@ export default class Changes extends View {
   // The tree keeps its width inside, so it slides out rather than squeezing up.
   treePane(t) {
     const shown = this.treeShown(), width = this.treeWidth(), motion = this.treeMoving ? TREE_SPRING : TREE_SNAP;
-    return div().id("changes-tree-pane").flex_none().h_full().overflow_hidden().w(shown ? width : 0).opacity(shown ? 1 : 0).spring("width", motion).spring("opacity", motion)
-      .when(shown || Boolean(this.treeMoving), (el) => el.child(div().w(width).h_full().border_l(1).border_color(t.border).child(this.fileTree(t))));
+    return div().id("changes-tree-pane").flex_none().h_full().overflow_hidden().w(shown ? width + 8 : 0).opacity(shown ? 1 : 0).spring("width", motion).spring("opacity", motion)
+      .when(shown || Boolean(this.treeMoving), (el) => el.child(div().ml(8).w(width).h_full().child(this.fileTree(t))));
   }
 
   render(cx) {
     if (key() !== this.context || (this.behind && this.shown())) this.refresh(cx);
-    this.mono = settings().font_family ?? "JetBrains Mono";
-    this.tones = this.toned(theme());
+    this.keepWide();
+    const t = look(theme()), file = this.currentFile(), hasRows = this.rows.length > 0;
+    this.tones = this.toned(t);
     this.paintSome(12);
     if (this.job) this.paintRest(cx);
-    const t = theme(), file = this.currentFile(), hasRows = this.rows.length > 0;
     const canCommit = this.scope === "unstaged" || this.scope === "staged";
-    const diff = v_flex().flex_1().min_w(0).min_h(0).h_full()
+    const diff = v_flex().flex_1().min_w(0).min_h(0).h_full().rounded(18).overflow_hidden().bg(t.card).border_1().border_color(t.card_border)
       .when(Boolean(file) && this.oneFile(), (el) => el.child(this.fileHeader(file, t)))
       .child(hasRows ? this.diffList(t) : this.emptyState(t))
-      .when(this.limited, (el) => el.child(div().px(12).py(4).text_size(11).text_color(t.dim).child("Too many files to list them all")))
-      .when(Boolean(this.note), (el) => el.child(div().px(12).py(6).text_size(11).text_color(t.blocked).child(this.note)))
+      .when(this.limited, (el) => el.child(div().px(12).py(4).text_size(11).text_color(t.label).child("Too many files to list them all")))
+      .when(Boolean(this.note), (el) => el.child(div().px(12).py(6).text_size(11).text_color(t.failed_text).child(this.note)))
       .when(Boolean(this.draft), (el) => el.child(this.composer(t)))
-      .when(this.comments.length > 0 && !this.draft, (el) => el.child(this.commentBar(t)))
-      .when(canCommit, (el) => el.child(this.commitBox(t)));
-    const body = h_flex().flex_1().min_h(0).border_t(1).border_color(t.border).child(diff).child(this.treePane(t));
-    return v_flex().id("changes").size_full().min_h(0).rounded(10).overflow_hidden().bg(t.background).border_1().border_color(t.border).text_color(t.foreground).text_size(13).track_focus(this.handle)
+      .when(this.comments.length > 0 && !this.draft, (el) => el.child(this.commentBar(t)));
+    return v_flex().id("changes").size_full().min_h(0).rounded(20).overflow_hidden().bg(t.panel).border_1().border_color(t.panel_border).text_color(t.foreground).text_size(13).track_focus(this.handle)
       .on_size_change((size, cx) => this.resized(size, cx))
       .on_key_down((e, cx) => {
         if (e.key !== "escape") return;
         if (this.draft) { this.draft = null; this.handle.focus(); cx.stop_propagation(); cx.notify(); }
         else if (this.typing) { this.typing = false; this.handle.focus(); cx.stop_propagation(); cx.notify(); }
       })
-      .child(this.strip(t))
+      .child(panelHeader(t, "changes"))
       .child(this.toolbar(t))
-      .when(this.oneFile(), (el) => el.child(this.banner(t)))
-      .child(body);
+      .child(h_flex().flex_1().min_h(0).px(8).child(diff).child(this.treePane(t)))
+      .child(canCommit ? this.commitBar(t) : div().h(8).flex_none());
   }
 }

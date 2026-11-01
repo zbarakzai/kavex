@@ -1,8 +1,9 @@
 // A lazy file browser for the focused pane's folder, with bounded read-only previews.
 import { View, div, svg } from "gpui-kit";
 import { v_flex, h_flex, Editor, EditorState } from "gpui-base";
-import { spaces, panes, focused, exec, readTextFile, watchFolder, theme, settings, window } from "herdr";
+import { spaces, panes, focused, exec, readTextFile, watchFolder, theme, window } from "herdr";
 import * as fs from "fs/promises";
+import { look, panelHeader, typeTag, MONO } from "./look.js";
 
 function location() {
   const space = spaces().find(s => s.active), f = focused();
@@ -102,6 +103,16 @@ export default class Files extends View {
     });
   }
 
+  // Opens a folder and, as the tree joins a folder holding only one folder, any such below it.
+  async open(path, context) {
+    await this.loadFolder(path, context);
+    const inside = this.entries.get(path);
+    if (inside?.length !== 1 || !inside[0].dir || !this.folders.has(path)) return;
+    const next = `${path}/${inside[0].name}`;
+    this.folders.add(next);
+    await this.open(next, context);
+  }
+
   toggle(path, cx) {
     if (this.folders.has(path)) {
       for (const folder of [...this.folders]) if (folder === path || folder.startsWith(path + "/")) this.folders.delete(folder);
@@ -111,7 +122,7 @@ export default class Files extends View {
         const context = this.context;
         this.pending.add(path);
         cx.spawn(async cx => {
-          try { await this.loadFolder(path, context); }
+          try { await this.open(path, context); }
           catch (e) { if (this.current(context)) this.error = String(e); }
           finally { if (this.context === context) this.pending.delete(path); cx.notify(); }
         });
@@ -133,41 +144,54 @@ export default class Files extends View {
         const t = theme(), ext = path.includes(".") ? path.split(".").pop() : "txt";
         this.code = EditorState.new({ language: LANG[ext] ?? ext, readonly: true,
           value: text.length > 400000 ? text.slice(0, 400000) + "\n… (file truncated)" : text,
-          font_family: settings().font_family, font_size: 12,
+          font_family: MONO, font_size: 11.5,
           syntax: { keyword: t.ansi5, string: t.ansi2, comment: t.dim, function: t.ansi4, type: t.ansi3, number: t.ansi1, constant: t.ansi6 } });
       } catch { if (this.file === path && this.current(context)) this.fileError = "Cannot preview this file (binary, too large, or unreadable)"; }
       finally { cx.notify(); }
     });
   }
 
+  // The Changes tree without its counts: 28 px rows, a type tag, a folder holding only one
+  // folder on one line.
   rows(prefix, depth, out, t) {
     if (out.length >= TOTAL || depth > 40) return out;
     for (const entry of this.entries.get(prefix) ?? []) {
       if (out.length >= TOTAL) break;
-      const path = prefix ? `${prefix}/${entry.name}` : entry.name, open = this.folders.has(path), mark = this.marks[`${this.root}/${path}`];
-      out.push(h_flex().id(`file-${path}`).h(28).flex_none().pl(8 + depth * 18).pr(8).gap(7).items_center().rounded(7).cursor_pointer().hover(s => s.bg(t.hover))
+      const path = prefix ? `${prefix}/${entry.name}` : entry.name, open = this.folders.has(path);
+      let last = path, label = entry.name;
+      for (;;) {
+        const inside = this.folders.has(last) ? this.entries.get(last) : null;
+        if (inside?.length !== 1 || !inside[0].dir) break;
+        last = `${last}/${inside[0].name}`; label += ` / ${inside[0].name}`;
+      }
+      const mark = this.marks[`${this.root}/${path}`];
+      const row = h_flex().id(`file-${path}`).h(28).flex_none().pr(8).items_center().rounded(7).cursor_pointer().hover(s => s.bg(t.hover)).text_size(12.5)
         .on_click((_e, cx) => entry.dir ? this.toggle(path, cx) : this.show(path, cx))
-        .when(!this.on, el => el.drag_paths(`${this.root}/${path}`))
-        .child(entry.dir ? svg(`mods/files/chevron-${open ? "down" : "right"}.svg`).size(12).flex_none().text_color(t.dim) : div().w(12).flex_none())
-        .child(svg(`mods/files/${entry.dir ? "folder" : "file"}.svg`).size(14).flex_none().text_color(t.muted))
-        .child(div().flex_1().min_w(0).truncate().child(entry.name))
-        .when(Boolean(mark), el => el.child(div().text_size(11).text_color(mark === "A" ? t.ansi2 : mark === "D" || mark === "U" ? t.ansi1 : t.blocked).child(mark))));
-      if (entry.dir && open) this.rows(path, depth + 1, out, t);
+        .when(!this.on, el => el.drag_paths(`${this.root}/${path}`));
+      out.push(entry.dir
+        ? row.pl(4 + depth * 14).gap(6).text_color(t.tile_text).child(svg(`mods/workspace-chrome/icons/chevron-${open ? "down" : "right"}.svg`).size(12).flex_none().text_color(t.label)).child(div().flex_1().min_w(0).truncate().child(label))
+        : row.pl(8 + depth * 14).gap(8).text_color(t.text_secondary).child(typeTag(entry.name, t.label)).child(div().flex_1().min_w(0).truncate().child(entry.name))
+          .when(Boolean(mark), el => el.child(div().font_family(MONO).text_size(11).text_color(mark === "A" ? t.added : mark === "D" || mark === "U" ? t.removed : t.muted).child(mark))));
+      if (entry.dir && open) this.rows(last, depth + 1, out, t);
     }
     return out;
   }
 
   render(cx) {
     if (key() !== this.context?.key) this.refresh(cx);
-    const t = theme();
-    return v_flex().id("files").size_full().min_h(0).rounded(10).overflow_hidden().bg(t.background).border_1().border_color(t.border).text_color(t.foreground).text_size(13)
-      .child(h_flex().h(42).flex_none().px(14).gap(8).items_center().border_b(1).border_color(t.border)
-        .when(Boolean(this.file), el => el.child(div().id("files-back").w(20).cursor_pointer().text_color(t.muted).on_click((_e, cx) => { this.show(null); cx.notify(); }).child("←")))
-        .child(div().font_semibold().child("Files"))
-        .child(div().flex_1().min_w(0).truncate().text_right().text_size(12).text_color(t.dim).child(this.file ?? this.root?.split(/[\\/]/).pop() ?? "")))
-      .when(!this.file, el => el.child(v_flex().id("files-tree").flex_1().min_h(0).overflow_y_scrollbar().p(6).children(this.rows("", 0, [], t))
-        .when(Boolean(this.error) || !this.entries.get("")?.length, el => el.child(div().p(8).text_size(12).text_color(t.dim).child(this.error || (this.loading ? "Loading files…" : this.root ? "No files" : "No folder"))))
-        .when(this.limited, el => el.child(div().p(8).text_size(11).text_color(t.dim).child("File list limited to 500 entries per folder and 5,000 total")))))
-      .when(Boolean(this.file), el => el.child(this.code ? Editor.new(this.code).flex_1().min_h(0) : div().p(12).text_color(t.dim).child(this.fileError || "Loading file…")));
+    const t = look(theme());
+    const card = v_flex().flex_1().min_w(0).min_h(0).h_full().rounded(18).overflow_hidden().bg(t.card).border_1().border_color(t.card_border)
+      .when(Boolean(this.file), el => el.child(h_flex().h(40).flex_none().pl(10).pr(14).gap(8).items_center()
+        .child(h_flex().id("files-back").size(28).flex_none().items_center().justify_center().rounded(7).text_color(t.muted).hover(s => s.bg(t.hover_strong).text_color(t.foreground))
+          .on_click((_e, cx) => { this.show(null); cx.notify(); }).child(svg("mods/workspace-chrome/icons/chevron-left.svg").size(13)))
+        .child(typeTag(this.file ?? "", t.accent))
+        .child(div().flex_1().min_w(0).truncate().child(this.file ?? ""))))
+      .when(!this.file, el => el.child(v_flex().id("files-tree").flex_1().min_h(0).overflow_y_scrollbar().px(8).py(8).children(this.rows("", 0, [], t))
+        .when(Boolean(this.error) || !this.entries.get("")?.length, el => el.child(div().p(8).text_size(12).text_color(t.label).child(this.error || (this.loading ? "Loading files…" : this.root ? "No files" : "No folder"))))
+        .when(this.limited, el => el.child(div().p(8).text_size(11).text_color(t.label).child("File list limited to 500 entries per folder and 5,000 total")))))
+      .when(Boolean(this.file), el => el.child(this.code ? Editor.new(this.code).flex_1().min_h(0) : div().p(12).text_color(t.label).child(this.fileError || "Loading file…")));
+    return v_flex().id("files").size_full().min_h(0).rounded(20).overflow_hidden().bg(t.panel).border_1().border_color(t.panel_border).text_color(t.foreground).text_size(13)
+      .child(panelHeader(t, "files"))
+      .child(h_flex().flex_1().min_h(0).px(8).pb(8).child(card));
   }
 }

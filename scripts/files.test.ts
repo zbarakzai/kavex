@@ -47,9 +47,9 @@ function panel(readdir: (path: string) => Promise<ReturnType<typeof dirent>[]>) 
   const element: unknown = new Proxy(() => element, { get: () => element });
   const never = () => new Promise(() => {});
   const host = {
-    View: class {}, div: () => element, svg: () => element, v_flex: () => element, h_flex: () => element, Editor: {}, EditorState: {}, fs: { readdir },
+    View: class {}, div: () => element, svg: () => element, v_flex: () => element, h_flex: () => element, Editor: {}, EditorState: {}, fs: { readdir }, typeTag: () => element, panelHeader: () => element, look: (t: unknown) => t, MONO: "",
     spaces: () => [{ id: "s", active: true, folder: "C:\\repo", machine: null }], panes: () => [], focused: () => ({ pane: null, cwd: "C:\\repo" }),
-    exec: async () => ({ code: 128, stdout: "", stderr: "" }), readTextFile: never, watchFolder: never, theme: () => ({}), settings: () => ({}), window: () => ({ platform: "windows" }),
+    exec: async () => ({ code: 128, stdout: "", stderr: "" }), readTextFile: never, watchFolder: never, theme: () => ({}), window: () => ({ platform: "windows" }),
   };
   const Files = new Function(...Object.keys(host), body)(...Object.values(host));
   const cx = { spawn: (task: (cx: unknown) => unknown) => { task(cx); }, notify() {}, timer: { every() {} } };

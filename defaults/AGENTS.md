@@ -80,7 +80,7 @@ first frame or during GPU recovery it reports an error instead of a PNG.
 | `settings.json` | the person: zoom, sounds, fonts for every layout | live |
 | `mods/<name>/` | panels: small JavaScript programs | live (hot reload) |
 | `programs.json` | how programs show (name, icon, tile), on top of the built-in table | live |
-| `icons/` | the shipped program icons | written by Zaki (put your own elsewhere) |
+| `icons/` | the shipped program and file type logos | written by Zaki (put your own elsewhere) |
 | `frame/` | the app's own screens (welcome, ...) | rewritten by Zaki on every start: don't edit, it won't stick |
 | `view.json` | this screen's selected space/tab/pane, zoom, settled tabs, recent spaces and seen attention | written by Zaki |
 | `shared.json`, `data/`, `seen.json`, `installed.json`, `window.json`, `windows.json` | mod state, bookkeeping, where the window was (size, maximized), mods' windows (spots, kept ones) | written by Zaki |
@@ -122,25 +122,40 @@ the highlighted line shows where it will land.
   `settled` on each tab. Zaki's tab bar settles the tabs of a folded group; the
   other shipped layouts list every tab, and a mod can hide or fold settled tabs.
   Showing one, or an agent in it needing the user, brings it back.
-- Tabs can be **grouped and colored** on this screen, in the `tabs` bar (the main
-  layout's). It's shared state, not the model, so any mod can read or edit it and
+- Tabs can be **grouped** on this screen, in the `tabs` bar (the main layout's) or
+  its `tabs-column`. It's shared state, not the model, so any mod can read or edit it and
   the bar makes the tabs follow: `shared("tab.groups")` is `{ id: { name, color,
-  folded, tabs: [tab ids] } }`, `shared("tab.colors")` is `{ tab id: color }`
-  (`"none"`: no color, even in a colored folder), `shared("tab.folders")` is
-  `[{ machine, folder, color }]` (every tab in that folder). Colors are `ansi1`..`ansi6`,
-  the space avatars' hues, or `#rrggbb`. A tab wears its own color, else its
-  group's, else its deepest folder's. A group's tabs stay side by side (strays are
+  folded, tabs: [tab ids] } }`. A group's color is `blue`, `violet` or `teal`, never
+  orange, which means "you"; a group saved under another color shows the nearest of
+  them. `shared("tab.colors")` and `shared("tab.folders")`, older per-tab and
+  per-folder colors, are kept but no longer drawn. A group's tabs stay side by side (strays are
   moved with `tab.move`). A folded group's tabs are settled, so `tab.next`,
-  `tab.prev` and `tab.select {index}` skip them, and a light shows each one; the
-  shown tab and any blocked or done tab stay out of the fold until you leave them.
-  A person right-clicks a tab or a group's label (the `tab-menu` mod), clicks a
-  label to fold, drags a tab in or out of a group and a label to move the group,
+  `tab.prev` and `tab.select {index}` skip them, and its name shows how many, with an
+  orange dot if one needs you; the shown tab stays out of the fold until you leave it.
+  `shared("tabs.placement")` is `"top"` (the default) or `"right"`: one value, set by
+  the bar's switch and the row in Settings > Look, each showing what the other set. On
+  the right the bar shows the current tab and the `tabs-column` block lists tabs as
+  rows, loose ones first, then each group under its name, with a folded group keeping
+  only the current tab's row; only one side panel shows at a time, so the column makes
+  way while Files or Changes is open. Both placements do the same things:
+  `shared("tabs.picked")` holds the picked tabs. `tabs-column.focus` (`cmd-shift-r`,
+  `ctrl-shift-r`, under `layout:main`) moves the keyboard onto the column, on the
+  current tab: up and down move, left and right fold and unfold a group, Enter opens a
+  tab or folds a group, and Esc goes back to the terminal. It needs the column on
+  screen, and otherwise fails with a toast. The list can't be scrolled from a mod, so
+  a list too long for the column can leave the keyboard's row out of view.
+  A person right-clicks a tab or a group's name (the `tab-menu` mod), clicks a
+  name to fold, drags a tab in or out of a group and a name to move the group,
   and Cmd-clicks (Ctrl-clicks) or Shift-clicks to pick several tabs. The bar makes
-  room as a tab is carried; pulled far from the bar, it goes back (`tab-drag`, a
-  clear layer over the window, carries the pointer meanwhile). A mouse wheel over
-  the bar steps through tabs and stops at the ends; a trackpad scrolls it. For keys:
+  room as a tab is carried and the column shows a line where it will land, in the
+  target group's color; pulled far from either, the tab goes back
+  (`tab-drag`, a clear layer over the window, carries the pointer meanwhile; its prop
+  `to` names the mod that gets the positions). A mouse wheel over them steps through
+  tabs and stops at the ends; a trackpad scrolls. A terminal started with the label
+  `zaki.group=<name>` lands in that group, made if it's new, once; after that its tab
+  is the person's to move. For keys:
   `tabs.group` (the picked tabs, or the shown one; asks for a name), `tabs.fold`,
-  `tabs.ungroup`, `tabs.color`. They act on the shown tab and need the bar.
+  `tabs.ungroup`. They act on the shown tab and need the bar.
 - A **pane** is a terminal on screen, or a **mod** beside them (a markdown
   viewer, a board, a git panel): `pane.split {direction, mod, props}`. A
   mod pane splits, zooms, closes and gets a header like any pane, keeps
@@ -155,7 +170,8 @@ the highlighted line shows where it will land.
 - Every terminal is a core terminal. Zaki labels the ones it starts with
   `zaki.space=<id>` and `zaki.tab=<id>`. **A terminal with those
   labels shows up there**, even one you start yourself:
-  `hc run --keep --label zaki.space=<id> --label zaki.tab=<id> -- claude`.
+  `hc run --keep --label zaki.space=<id> --label zaki.tab=<id> -- claude`, plus
+  `--label zaki.group=<name>` to land in a tab group.
   Labels use ids local to that machine; remote ids shown by the app have a
   `<machine>/` prefix (strip it when writing labels on that machine). Adoption
   also enables core keep; `terminal.park` removes the pane and disables keep.
@@ -185,33 +201,37 @@ the highlighted line shows where it will land.
 
 Each file is one whole window. `layout.switch` (`ctrl-shift-l`) cycles
 through them, `layout.switch {name}` picks one; `shared("layout")` is the
-shown one's name. Zaki ships `main` ("Zaki": spaces by machine and the
-agents list on the left, `workspace-chrome`; tabs as pills with a + menu
-that starts a terminal or any installed agent, `new-menu`; panes as cards
-with a header; Files and Changes panels on the right, `files` and
-`changes`, opened from the tab bar, shown or hidden with `cmd-shift-b` (`ctrl-shift-j`)
+shown one's name. Zaki ships `main` ("Zaki": three regions on `canvas`, a
+sidebar of spaces by machine, the agents list and `workspace-chrome`; the
+terminals with their tabs on one rounded surface, with a + menu
+that starts a terminal or any installed agent, `new-menu`; a pane gets a frame
+and header once its tab is split; Files and Changes panels on the right, `files` and
+`changes`, opened from the tab bar's folder button, shown or hidden with `cmd-shift-b` (`ctrl-shift-j`)
 and remembered per space (which ones:
-shared `"workspace.panels"`, set by the welcome); a status bar,
-`workspace-status`), and as examples `terminals` ("Terminals": tabs in
+shared `"workspace.panels"`, set by the welcome)), and as examples `terminals` ("Terminals": tabs in
 the title bar, panes as cards, a space picker) and `win98`
 ("Zaki 98": a whole desktop in one mod, `win98`). Add a layout by
-writing a new file. The Files panel supports Windows folder paths with spaces,
-parentheses and apostrophes.
+writing a new file. The Files panel shows the same tree as Changes, without its counts:
+each file has its language logo in the theme's color, or a short type tag where there is none,
+and supports Windows folder paths with spaces, parentheses and apostrophes.
 
 The Changes panel shows the focused repo's diff by scope: Unstaged (with new
 files), Staged, Commit (a picked commit), Branch (from where it left a picked
 branch, with uncommitted and new files) or Last turn (what the latest agent turn
-changed; it needs `sh`, and turns count once the panel has been opened). A
-small diff stacks every file in one scroll, each foldable by its header, and the
-filterable file tree beside it scrolls to a file; a large one (over 128 files or
-6,000 changed lines) shows one file at a time, picked in the tree. The expand
-button widens the panel, and the toolbar jumps to a file by name,
-folds or shows unchanged lines, wraps long ones and compares side by side. Hover a line for `+`, a comment: comments
+changed; it needs `sh`, and turns count once the panel has been opened). The branch
+pill shows the branch and switches it with `git switch`, which refuses to overwrite
+uncommitted work. A small diff stacks every file in one scroll, each foldable by its
+header, and the filterable file tree beside it scrolls to a file; a large one (over 128
+files or 6,000 changed lines) shows one file at a time, picked in the tree. A file's
+header steps to the next or previous file. The expand button widens the panel; the pill
+of tools finds a file by name, compares side by side and shows the tree, and its `…`
+holds refresh, wrap lines, hide unchanged lines and the actions on the whole diff. Hover a line for `+`, a comment: comments
 stay until sent to one of the space's agents with `hc send`. On a changed line, hover also
-offers its hunk's Stage or Unstage and Revert; the file's menu and the toolbar's
+offers its hunk's Stage or Unstage and Revert; a file header's hover `…` and the toolbar's
 do the same for a file and the whole diff. A revert always asks first and can't
 be undone. Cmd-click (Ctrl-click) a line opens it in Cursor, VS Code or Zed,
-else the system's app. Commit takes what's staged, or everything if nothing is.
+else the system's app. Commit takes what's staged, or everything if nothing is, by its
+button, Enter or `cmd-enter` (`ctrl-enter`).
 
 **Zaki's own layouts and mods are read-only.** They are replaced whole
 on every start. Use settings.json for look (fonts, sizes, theme, colors,
@@ -334,29 +354,30 @@ layout's look and a block can differ:
   "terminal_padding": [10, 6], "terminal_opacity": 1, ... }
 ```
 
-- `theme`: `graphite`, `ink`, `moss` (dark), `paper` (light), or the name
-  of a file in `themes/`; or one for each appearance:
+- `theme`: `zaki` (a shipped file, the default dark theme), `graphite`, `ink`, `moss`
+  (dark), `paper` (light), or the name of a file in `themes/`; or one for each appearance:
   `"theme": { "light": "paper", "dark": "graphite" }` follows the system's
   light or dark mode (or the person's `appearance`). `app.theme {name}`
   sets the half of the name's lightness. A layout without a theme shows
-  settings.json's theme, else graphite or paper. `colors` overrides any theme color by name (see
+  settings.json's theme, else zaki or paper. `colors` overrides any theme color by name (see
   `theme()` below), for terminals and panels alike: overrides apply in
   both appearances, so name theme colors (`chrome`, `canvas`) rather than
   writing hex when a layout should work light and dark.
 - `themes/<name>.json`: `{ "background", "foreground", "selection",
   "cursor"?, "ansi": [16 colors], "colors"?: {...} }`, all `#rrggbb`; panel
-  colors are derived from these, `colors` overrides them. Zaki ships
-  `atom-one-dark`. The original unedited Atom One Dark and Win98 theme files
+  colors are derived from these, `colors` overrides them and can add names of its own
+  (a layout's colors should stick to the names every theme has: one missing paints
+  magenta). Zaki ships `zaki` and `atom-one-dark`. The original unedited Atom One Dark and Win98 theme files
   are upgraded to readable terminal colors; edited theme files are kept.
   A theme named like a layout (`themes/win98.json`) is
   that layout's own: Settings offers it only there.
 - `font` / `font_size`: the terminals' (px at zoom 1); `ui_font`: the mods'
   (their text sizes are their own, in px, and follow zoom). Optional: without
-  them a layout uses settings.json's, else Zaki's (JetBrains Mono 14, Geist).
+  them a layout uses settings.json's, else Zaki's (Geist Mono 13, Geist).
   Zaki (main) leaves these unset; Terminals sets text size 15, and Zaki 98
   brings its own fonts.
   JetBrains Mono, Geist Mono and Geist ship with Zaki; any installed font
-  works (a terminal font the machine lacks falls back to JetBrains Mono).
+  works (a terminal font the machine lacks falls back to Geist Mono).
   A layout brings its own fonts: `.ttf`/`.otf` files in a mod's `fonts/`
   folder (or the home's `fonts/`) load at start and on the next look change,
   so a layout and its mod folder travel together (Zaki 98's do: its pixel
@@ -774,7 +795,9 @@ has 120 programs (agents, editors, runtimes, tools, databases, infra);
   another mod or props starts over. `<mod>.<command>` reaches shown copies only.
 - Images and SVGs are referenced from `~/.config/zaki`:
   `image("mods/<name>/logo.svg")` (full color), `svg("mods/<name>/icon.svg")`
-  (tinted with the text color).
+  (tinted with the text color). Zaki's interface icons are for every mod:
+  `svg("mods/workspace-chrome/icons/plus.svg")`, in any layout, shown or not.
+  Icon paths from before that folder still work for this release only.
 - The defaults are mods too, read them as examples: `spaces`, `agents`,
   `tabs` (the tab bar), `tab-menu`, `tab-drag`, `menu`, `prompt`, `confirm`, `help`, `toast`,
   Terminals' `picker`, `peek`, and `pane` (an
@@ -868,7 +891,7 @@ Rules:
   spinner costs real battery. Use `.frames(["⠋", "⠙", …], 90)` (shows
   each string in turn as the element's text), `svg(arc).spin(900)` (turns
   an icon once every 900 ms: a ring spinner, e.g.
-  `mods/workspace-chrome/spinner.svg`), or `.loop("opacity", { from:
+  `mods/workspace-chrome/icons/spinner.svg`), or `.loop("opacity", { from:
   0.4, to: 1, period: 1200 })` (also width, height, left, top), and
   `.transition(...)` for changes: they run without your script and stop
   when not shown. Timers are for data (a clock, a fetch), and only as often
@@ -916,7 +939,9 @@ All of it is in `herdr.d.ts`. In short:
   input (a stronger border), foreground, muted, dim, accent,
   accent_foreground, solid and solid_foreground (a primary button),
   selection, working, blocked, done, idle, unknown, ansi0..15; light and
-  dark themes name the same ones), `settings()` (with `dark`: the
+  dark themes name the same ones; the `zaki` theme adds the window design's own names,
+  such as `panel`, `card`, `pill`, `tile`, `status_needs_bg`, `group_blue_tint`:
+  each shipped mod's `look.js` shows them and what stands in under other themes), `settings()` (with `dark`: the
   appearance now), `keys()`, `commands()` (every app
   command, its arguments and what it does), `layouts()` (the layout names).
   `focused().agent` is the agent an agent block shows.

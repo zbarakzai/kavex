@@ -73,8 +73,8 @@ function items(p, git) {
 }
 
 function menuIcon(command) {
-  const name = command.endsWith(".close") ? "x" : command.endsWith(".rename") ? "square-pen" : command.endsWith(".new") ? "plus" : command === "worktree" ? "git-branch" : command === "app.help" ? "terminal" : command === "app.theme" ? "settings" : command === "pane.split" ? "panel-right" : command === "pane.zoom" ? "square" : "terminal";
-  return `mods/workspace-chrome/${name}.svg`;
+  const name = command.endsWith(".close") ? "close" : command.endsWith(".rename") ? "rename" : command.endsWith(".new") ? "plus" : command === "worktree" ? "branch" : command === "app.help" ? "terminal" : command === "app.theme" ? "look" : command === "pane.split" ? "split-right" : command === "pane.zoom" ? "zoom" : "terminal";
+  return `mods/workspace-chrome/icons/${name}.svg`;
 }
 
 // The key bound to a command, for the hint on the right.

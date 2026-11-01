@@ -30,7 +30,6 @@ const NAMED = [
   ["tabs.group", {}, "Tab", "Group tabs", "tab group organize name"],
   ["tabs.fold", {}, "Tab", "Fold or unfold group", "tab group collapse expand"],
   ["tabs.ungroup", {}, "Tab", "Ungroup tabs", "tab group"],
-  ["tabs.color", {}, "Tab", "Next tab color", "tab group paint"],
   ["pane.split", { direction: "right" }, "Pane", "Split right", "vertical"],
   ["pane.split", { direction: "down" }, "Pane", "Split down", "horizontal"],
   ["pane.close", {}, "Pane", "Close pane", "kill"],
@@ -300,7 +299,7 @@ export default class Palette extends View {
           .border_1()
           .border_color(t.accent)
           .bg(t.background)
-          .child(svg("frame/palette/command.svg").size(16).text_color(t.dim))
+          .child(svg("mods/workspace-chrome/icons/command.svg").size(16).text_color(t.dim))
           .child(Input.new(this.input).flex_1().h_full().text_size(12.8).text_color(t.foreground))
           .child(div().text_size(11).text_color(t.dim).child("Esc")),
       )

@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Zaki — terminal workspace</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&amp;family=Geist+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0D0D0D}
+a{color:#F08A5D}a:hover{color:#FFB08C}
+button{cursor:pointer;font:inherit;border:0;color:inherit}
+.zk-row:hover{background:#1E1E1E !important}
+.zk-icon:hover{background:#222222 !important;color:#F2F2F2 !important}
+.zk-tree .zk-row:hover{background:#1E1E1E !important}
+input::placeholder{color:#8E8E8E}
+:focus-visible{outline:2px solid #EC6F3E;outline-offset:2px}
+@keyframes zkblink{50%{opacity:0}}
+.zk-cursor{animation:zkblink 1.1s steps(1) infinite}
+.zk-scroll::-webkit-scrollbar{width:8px;height:8px}
+.zk-scroll::-webkit-scrollbar-thumb{background:#2A2A2A;border-radius:8px}
+.zk-scroll::-webkit-scrollbar-track{background:transparent}
+.zk-commit:focus-within{background:#1C1C1C !important}
+</style>
+</helmet>
+<div style="min-height: 100vh; box-sizing: border-box; display: flex; flex-wrap: wrap; align-items: stretch; gap: 6px; padding: 6px; background: #0D0D0D; color: #F2F2F2; font-family: 'Geist', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif; font-size: 13px; line-height: 1.4">
+
+<aside aria-label="Spaces and agents" style="flex: 1 1 230px; min-width: 0; display: flex; flex-direction: column; gap: 2px; padding: 0 4px">
+
+<div style="display: flex; align-items: center; gap: 8px; height: 44px; padding-left: 8px">
+<span aria-hidden="true" style="display: flex; gap: 7px"><span style="width: 11px; height: 11px; border-radius: 50%; background: #2E2E2E"></span><span style="width: 11px; height: 11px; border-radius: 50%; background: #2E2E2E"></span><span style="width: 11px; height: 11px; border-radius: 50%; background: #2E2E2E"></span></span>
+<span style="flex: 1; font-size: 16px; font-weight: 500; margin-left: 10px">Zaki</span>
+<button class="zk-icon" aria-label="Search" style="width: 30px; height: 30px; display: grid; place-items: center; background: transparent; color: #A8A8A8; border-radius: 8px; padding: 0"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg></button>
+</div>
+
+<h2 style="display: flex; align-items: center; justify-content: space-between; margin: 14px 0 4px; padding-left: 10px; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 10.5px; font-weight: 500; letter-spacing: 0.1em; color: #8E8E8E">SPACES
+<button class="zk-icon" aria-label="New space" style="width: 26px; height: 26px; display: grid; place-items: center; background: transparent; color: #A8A8A8; border-radius: 7px; padding: 0"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button></h2>
+
+<button class="zk-row" style="display: flex; align-items: center; gap: 10px; padding: 5px 8px; border-radius: 10px; background: transparent; text-align: left; width: 100%">
+<span aria-hidden="true" style="flex: none; width: 26px; height: 26px; border-radius: 7px; background: #1F1F1F; display: grid; place-items: center; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11.5px; color: #CFCFCF">A</span>
+<span style="flex: 1; min-width: 0; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">atelier</span>
+</button>
+<button class="zk-row" aria-current="true" style="display: flex; align-items: center; gap: 10px; padding: 5px 8px; border-radius: 10px; background: #1C1C1C; text-align: left; width: 100%">
+<span aria-hidden="true" style="flex: none; width: 26px; height: 26px; border-radius: 7px; background: {{accent}}; display: grid; place-items: center; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11.5px; font-weight: 600; color: #140A05">Z</span>
+<span style="flex: 1; min-width: 0; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">zaki</span>
+</button>
+<button class="zk-row" style="display: flex; align-items: center; gap: 10px; padding: 5px 8px; border-radius: 10px; background: transparent; text-align: left; width: 100%">
+<span aria-hidden="true" style="flex: none; width: 26px; height: 26px; border-radius: 7px; background: #1F1F1F; display: grid; place-items: center; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11.5px; color: #CFCFCF">G</span>
+<span style="flex: 1; min-width: 0; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Grokking System Design</span>
+</button>
+
+<h2 style="margin: 22px 0 4px; padding-left: 10px; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 10.5px; font-weight: 500; letter-spacing: 0.1em; color: #8E8E8E">AGENTS</h2>
+
+<button class="zk-row" aria-label="Claude Code in zaki, tab 2, done less than a minute ago" style="display: flex; align-items: center; gap: 9px; padding: 5px 8px; border-radius: 9px; background: transparent; text-align: left; width: 100%">
+<span aria-hidden="true" style="flex: none; width: 22px; height: 22px; border-radius: 6px; background: rgba(236,111,62,0.16); display: grid; place-items: center"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="{{accent}}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 7 5 5-5 5"></path><path d="M13 17h6"></path></svg></span>
+<span style="flex: 1; min-width: 0; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">zaki <span style="color: #8E8E8E">· 2</span></span>
+<span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 10px; color: #8E8E8E">&lt;1m</span>
+<span style="display: inline-flex; align-items: center; gap: 4px; height: 17px; padding: 0 6px; border-radius: 5px; background: rgba(126,219,147,0.12); font-family: 'Geist Mono', ui-monospace, monospace; font-size: 9px; font-weight: 500; letter-spacing: 0.08em; color: #7EDB93"><span aria-hidden="true" style="width: 5px; height: 5px; border-radius: 50%; background: #7EDB93"></span>DONE</span>
+</button>
+<button class="zk-row" aria-current="page" aria-label="Claude Code in zaki, tab 3, idle 32 minutes" style="display: flex; align-items: center; gap: 9px; padding: 5px 8px; border-radius: 9px; background: #1C1C1C; text-align: left; width: 100%">
+<span aria-hidden="true" style="flex: none; width: 22px; height: 22px; border-radius: 6px; background: rgba(236,111,62,0.16); display: grid; place-items: center"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="{{accent}}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 7 5 5-5 5"></path><path d="M13 17h6"></path></svg></span>
+<span style="flex: 1; min-width: 0; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">zaki <span style="color: #9A9A9A">· 3</span></span>
+<span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 10px; color: #9A9A9A">32m</span>
+<span style="height: 17px; padding: 0 6px; border-radius: 5px; background: #2A2A2A; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 9px; font-weight: 500; letter-spacing: 0.08em; color: #B5B5B5; display: grid; place-items: center">IDLE</span>
+</button>
+<button class="zk-row" aria-label="Claude Code in zaki, tab 1, idle 2 hours" style="display: flex; align-items: center; gap: 9px; padding: 5px 8px; border-radius: 9px; background: transparent; text-align: left; width: 100%">
+<span aria-hidden="true" style="flex: none; width: 22px; height: 22px; border-radius: 6px; background: rgba(236,111,62,0.16); display: grid; place-items: center"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="{{accent}}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 7 5 5-5 5"></path><path d="M13 17h6"></path></svg></span>
+<span style="flex: 1; min-width: 0; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">zaki <span style="color: #8E8E8E">· 1</span></span>
+<span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 10px; color: #8E8E8E">2h</span>
+<span style="height: 17px; padding: 0 6px; border-radius: 5px; background: #1F1F1F; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 9px; font-weight: 500; letter-spacing: 0.08em; color: #A8A8A8; display: grid; place-items: center">IDLE</span>
+</button>
+<button class="zk-row" aria-label="Claude Code in atelier, idle 8 hours" style="display: flex; align-items: center; gap: 9px; padding: 5px 8px; border-radius: 9px; background: transparent; text-align: left; width: 100%">
+<span aria-hidden="true" style="flex: none; width: 22px; height: 22px; border-radius: 6px; background: rgba(236,111,62,0.16); display: grid; place-items: center"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="{{accent}}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 7 5 5-5 5"></path><path d="M13 17h6"></path></svg></span>
+<span style="flex: 1; min-width: 0; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">atelier</span>
+<span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 10px; color: #8E8E8E">8h</span>
+<span style="height: 17px; padding: 0 6px; border-radius: 5px; background: #1F1F1F; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 9px; font-weight: 500; letter-spacing: 0.08em; color: #A8A8A8; display: grid; place-items: center">IDLE</span>
+</button>
+
+<span style="flex: 1; min-height: 24px"></span>
+
+<button class="zk-row" style="display: flex; align-items: center; gap: 10px; height: 36px; padding: 0 10px; border-radius: 10px; background: transparent; color: #CFCFCF; font-size: 13.5px; text-align: left; width: 100%">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"></path><circle cx="15" cy="7" r="2"></circle><circle cx="9" cy="17" r="2"></circle></svg>Settings</button>
+<button class="zk-row" style="display: flex; align-items: center; gap: 10px; height: 36px; padding: 0 10px; border-radius: 10px; background: transparent; color: #CFCFCF; font-size: 13.5px; text-align: left; width: 100%">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Add machine</button>
+<p style="display: flex; align-items: center; gap: 8px; margin: 6px 0 8px; padding-left: 10px; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 10.5px; letter-spacing: 0.1em; color: #8E8E8E"><span aria-hidden="true" style="width: 6px; height: 6px; border-radius: 50%; background: #7EDB93"></span>THIS COMPUTER · 4 AGENTS</p>
+</aside>
+
+<main style="flex: 999 1 460px; min-width: 0; display: flex; flex-direction: column; background: #161616; border-radius: 14px; overflow: hidden">
+<div style="display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding: 9px 9px 0">
+<button class="zk-row" aria-label="Tab 1, idle" style="display: flex; align-items: center; gap: 9px; height: 40px; padding: 0 14px; border-radius: 13px; background: transparent; color: #B5B5B5; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 12.5px"><span aria-hidden="true" style="color: #8E8E8E">&gt;_</span>1<span aria-hidden="true" style="width: 6px; height: 6px; border-radius: 50%; background: #6E6E6E"></span></button>
+<button class="zk-row" aria-label="Tab 2, done" style="display: flex; align-items: center; gap: 9px; height: 40px; padding: 0 14px; border-radius: 13px; background: transparent; color: #B5B5B5; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 12.5px"><span aria-hidden="true" style="color: #8E8E8E">&gt;_</span>2<span aria-hidden="true" style="width: 6px; height: 6px; border-radius: 50%; background: #7EDB93"></span></button>
+<button aria-current="true" aria-label="Tab 3, Claude Code, idle" style="display: flex; align-items: center; gap: 10px; height: 40px; padding: 0 8px 0 14px; border-radius: 13px; background: #1F1F1F; box-shadow: inset 0 0 0 1px #2C2C2C; color: #F2F2F2; font-size: 14px; text-align: left"><span aria-hidden="true" style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 12.5px; color: {{accent}}">&gt;_</span><span>Claude Code</span><span aria-hidden="true" style="width: 24px; height: 24px; display: grid; place-items: center; border-radius: 7px; color: #8E8E8E"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"></path></svg></span></button>
+<button class="zk-icon" aria-label="New tab" style="width: 36px; height: 36px; display: grid; place-items: center; background: transparent; color: #A8A8A8; border-radius: 10px; padding: 0"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button>
+<span style="flex: 1; min-width: 8px"></span>
+<div role="radiogroup" aria-label="Where tabs go" style="display: flex; align-items: center; gap: 2px; padding: 4px; border-radius: 999px; background: #151515; box-shadow: inset 0 0 0 1px #2A2A2A">
+<button role="radio" aria-checked="true" aria-label="Tabs on top" style="width: 32px; height: 32px; display: grid; place-items: center; background: #2A2A2A; color: #F2F2F2; border-radius: 999px; padding: 0"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"></rect><path d="M3 9h18"></path></svg></button>
+<button role="radio" aria-checked="false" aria-label="Tabs on the right" class="zk-icon" style="width: 32px; height: 32px; display: grid; place-items: center; background: transparent; color: #8E8E8E; border-radius: 999px; padding: 0"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"></rect><path d="M15 4v16"></path></svg></button>
+</div>
+<button aria-label="Files and Changes panel" aria-pressed="{{changesPressed}}" onClick="{{toggleChanges}}" style="width: 40px; height: 40px; display: grid; place-items: center; background: {{changesBtnBg}}; color: {{changesBtnFg}}; border-radius: 12px; padding: 0"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg></button>
+</div>
+
+<div class="zk-scroll" style="flex: 1 1 0; min-height: 520px; overflow: auto; display: flex; flex-direction: column-reverse; padding: 18px 24px 20px; font-family: 'Geist Mono', ui-monospace, 'SF Mono', Menlo, monospace; font-size: 13px; line-height: 1.75; color: #D6D6D6">
+<div>
+<table style="border-collapse: collapse; margin: 0 0 18px; font-size: 12.5px">
+<thead><tr><th style="border: 1px solid #333333; padding: 5px 16px; text-align: left; font-weight: 400; color: #F2F2F2">Rows showing</th><th style="border: 1px solid #333333; padding: 5px 16px; text-align: left; font-weight: 400; color: #F2F2F2">Time per redraw on this Mac</th></tr></thead>
+<tbody>
+<tr><td style="border: 1px solid #333333; padding: 5px 16px">20</td><td style="border: 1px solid #333333; padding: 5px 16px">3 ms</td></tr>
+<tr><td style="border: 1px solid #333333; padding: 5px 16px">270</td><td style="border: 1px solid #333333; padding: 5px 16px">7 ms</td></tr>
+<tr><td style="border: 1px solid #333333; padding: 5px 16px">1,000</td><td style="border: 1px solid #333333; padding: 5px 16px">about 30 ms (few samples)</td></tr>
+<tr><td style="border: 1px solid #333333; padding: 5px 16px">5,000</td><td style="border: 1px solid #333333; padding: 5px 16px">about 80 ms (few samples)</td></tr>
+</tbody>
+</table>
+<p style="margin: 0 0 14px">A slower Windows PC could feel this with many rows open, but that's a guess until we have a Windows reading.</p>
+<p style="margin: 0 0 14px">What was tested: the 5 tests in <span style="color: #B9A8F7">scripts/files.test.ts</span> pass and <span style="color: #B9A8F7">zaki check</span> passes. I didn't click through the fixed panel in a real window, and I didn't run the Rust tests because that needs a build.</p>
+<p style="margin: 0">To check on Windows:</p>
+<p style="margin: 0; padding-left: 3ch; text-indent: -3ch">1. Copy the new <span style="color: #B9A8F7">main.js</span> to <span style="color: #B9A8F7">%USERPROFILE%\.config\zaki\mods\files\main.js</span>. It applies at once, but a restart moves it aside, so use <span style="color: #B9A8F7">just install</span> to keep it.</p>
+<p style="margin: 0; padding-left: 3ch; text-indent: -3ch">2. Quit Zaki and run:</p>
+<p style="margin: 0; word-break: break-all">$env:HERDR_APP_BENCH="$env:TEMP\zaki-frames.jsonl"; &amp; "$env:LOCALAPPDATA\Programs\zaki\zaki.exe"</p>
+<p style="margin: 0 0 14px; padding-left: 3ch; text-indent: -3ch">3. Collapse a folder a few times, quit, and send me <span style="color: #B9A8F7">zaki-frames.jsonl</span> from your temp folder. It shows whether drawing is the slow part.</p>
+<p style="margin: 0 0 14px">Your call: should mods be allowed to read folders outside the home folder? I recommend yes, because it removes PowerShell from the Files panel for every local folder, and mods can already run any program, so it gives them no new power. It's a core change, so <span style="color: #B9A8F7">AGENTS.md</span> needs your go-ahead.</p>
+<p style="margin: 0 0 14px; color: #8E8E8E">✻ Cooked for 15m 41s · done 19:02</p>
+<p style="margin: 0; color: #3A3A3A; overflow: hidden; white-space: nowrap" aria-hidden="true">────────────────────────────────────────────────────────────────────────────────────────────────────────────</p>
+<p style="margin: 0; display: flex; align-items: center; gap: 1ch"><span style="color: {{accent}}">❯</span><span class="zk-cursor" aria-hidden="true" style="display: inline-block; width: 0.6em; height: 1.2em; background: #F2F2F2"></span></p>
+<p style="margin: 0; color: #3A3A3A; overflow: hidden; white-space: nowrap" aria-hidden="true">────────────────────────────────────────────────────────────────────────────────────────────────────────────</p>
+<p style="margin: 0; color: #8E8E8E">Opus 5.5 · 25% ctx · $5.34</p>
+<p style="margin: 0; color: {{accent}}">⏵⏵ auto mode on <span style="color: #8E8E8E">(shift+tab to cycle)</span></p>
+</div>
+</div>
+</main>
+
+<sc-if value="{{changes}}" hint-placeholder-val="{{ true }}">
+<aside aria-label="Changes" style="flex: 1 1 680px; min-width: 0; max-height: calc(100vh - 12px); display: flex; flex-direction: column; background: #0E0E0E; border: 1px solid #222222; border-radius: 20px; overflow: hidden; box-sizing: border-box">
+
+<div style="display: flex; align-items: center; gap: 6px; height: 58px; padding: 0 8px">
+<div role="tablist" aria-label="Side panel" style="display: flex; align-items: center; gap: 4px; min-width: 0">
+<button role="tab" aria-selected="true" style="display: flex; align-items: center; gap: 10px; height: 40px; min-width: 150px; padding: 0 8px 0 14px; border-radius: 13px; background: #1C1C1C; box-shadow: inset 0 0 0 1px #2A2A2A; color: #F2F2F2; font-size: 14px; text-align: left">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="3"></rect><path d="M12 7v6M9 10h6M9 17h6"></path></svg>
+<span style="flex: 1">Changes</span>
+<span aria-hidden="true" style="width: 24px; height: 24px; display: grid; place-items: center; border-radius: 7px; color: #8E8E8E"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"></path></svg></span>
+</button>
+<button role="tab" aria-selected="false" class="zk-row" style="display: flex; align-items: center; gap: 10px; height: 40px; padding: 0 16px 0 14px; border-radius: 13px; background: transparent; color: #A8A8A8; font-size: 14px">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg>Files</button>
+</div>
+<span style="flex: 1"></span>
+<button class="zk-icon" aria-label="Expand panel to full window" style="width: 36px; height: 36px; display: grid; place-items: center; background: transparent; color: #A8A8A8; border-radius: 10px; padding: 0"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"></path></svg></button>
+
+</div>
+
+<div style="display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 2px 8px 10px">
+<button class="zk-row" aria-haspopup="listbox" aria-label="Diff scope: Unstaged, 1,340 lines added, 140 removed" style="display: flex; align-items: center; gap: 12px; height: 40px; padding: 0 18px; border-radius: 999px; background: #151515; box-shadow: inset 0 0 0 1px #2A2A2A; font-size: 14px">
+<span style="display: flex; align-items: center; gap: 6px">Unstaged<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#8E8E8E" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></span>
+<span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 13px; color: #7EDB93">+1,340</span>
+<span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 13px; color: #F08A5D">−140</span>
+</button>
+<button class="zk-row" aria-label="Branch feat/tab-groups, switch branch" style="display: inline-flex; align-items: center; gap: 10px; height: 40px; padding: 0 16px 0 18px; border-radius: 999px; background: #151515; box-shadow: inset 0 0 0 1px #2A2A2A; color: #F2F2F2; font-size: 14px">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="{{accent}}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3v12"></path><circle cx="18" cy="6" r="3"></circle><circle cx="6" cy="18" r="3"></circle><path d="M18 9a9 9 0 0 1-9 9"></path></svg>feat/tab-groups<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#8E8E8E" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></button>
+<span style="flex: 1"></span>
+<div role="toolbar" aria-label="Diff tools" style="display: flex; align-items: center; gap: 2px; padding: 4px; border-radius: 999px; background: #151515; box-shadow: inset 0 0 0 1px #2A2A2A">
+<button class="zk-icon" aria-label="Find in diff" style="width: 34px; height: 34px; display: grid; place-items: center; background: transparent; color: #A8A8A8; border-radius: 999px; padding: 0"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h4"></path><path d="M14 3v5h5"></path><circle cx="16" cy="16" r="3"></circle><path d="m21 21-2.8-2.8"></path></svg></button>
+<button class="zk-icon" aria-label="Split view" aria-pressed="false" style="width: 34px; height: 34px; display: grid; place-items: center; background: transparent; color: #A8A8A8; border-radius: 999px; padding: 0"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M12 4v16"></path><path d="M6 9h3M15 9h3M6 13h2M15 13h3"></path></svg></button>
+<button aria-label="Show file tree" aria-pressed="true" style="width: 34px; height: 34px; display: grid; place-items: center; background: #2A2A2A; color: #F2F2F2; border-radius: 999px; padding: 0"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M15 4v16"></path></svg></button>
+<button class="zk-icon" aria-label="More: refresh, wrap lines, hide unchanged lines" style="width: 34px; height: 34px; display: grid; place-items: center; background: transparent; color: #A8A8A8; border-radius: 999px; padding: 0"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.6"></circle><circle cx="12" cy="12" r="1.6"></circle><circle cx="19" cy="12" r="1.6"></circle></svg></button>
+</div>
+</div>
+
+<div style="flex: 1 1 auto; min-height: 0; display: flex; flex-wrap: wrap; gap: 8px; padding: 0 8px">
+
+<section aria-label="Diff of defaults/AGENTS.md" style="flex: 999 1 360px; min-width: 0; min-height: 0; display: flex; flex-direction: column; background: #151515; border: 1px solid #262626; border-radius: 18px; overflow: hidden">
+<div style="display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 8px 0 18px">
+<span aria-hidden="true" style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 9px; font-weight: 600; color: {{accent}}">MD</span>
+<span style="flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 13px"><span style="color: #8E8E8E">defaults /</span> AGENTS.md</span>
+<span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11.5px; color: #7EDB93">+19</span><span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11.5px; color: #F08A5D">−2</span>
+<span style="margin-left: 8px; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 10.5px; color: #8E8E8E">1 / 59</span>
+<button class="zk-icon" aria-label="Previous file" style="width: 28px; height: 28px; display: grid; place-items: center; background: transparent; color: #A8A8A8; border-radius: 7px; padding: 0"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"></path></svg></button>
+<button class="zk-icon" aria-label="Next file" style="width: 28px; height: 28px; display: grid; place-items: center; background: transparent; color: #A8A8A8; border-radius: 7px; padding: 0"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg></button>
+</div>
+
+<div class="zk-scroll" style="flex: 1 1 0; min-height: 440px; overflow: auto; padding: 2px 0 10px; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11.5px; line-height: 23px; white-space: pre; color: #C9C9C9">
+<div style="display: flex"><span style="flex: none; width: 48px; padding-right: 14px; box-sizing: border-box; text-align: right; color: #6E6E6E">189</span><span style="padding-right: 16px">agents list on the left, `workspace-chrome`; tabs as pills with</span></div>
+<div style="display: flex"><span style="flex: none; width: 48px; padding-right: 14px; box-sizing: border-box; text-align: right; color: #6E6E6E">190</span><span style="padding-right: 16px">that starts a terminal or any installed agent, `new-menu`; panes</span></div>
+<div style="display: flex"><span style="flex: none; width: 48px; padding-right: 14px; box-sizing: border-box; text-align: right; color: #6E6E6E">191</span><span style="padding-right: 16px">with a header; Files and Changes panels on the right, `files`</span></div>
+<div style="display: flex; background: rgba(236,111,62,0.09); color: #F2F2F2; min-width: max-content"><span style="flex: none; width: 48px; padding-right: 14px; box-sizing: border-box; text-align: right; color: #F08A5D; background: rgba(236,111,62,0.16)">192</span><span style="flex: none; width: 18px; color: #F08A5D; text-align: center">−</span><span style="padding-right: 16px">`changes`, opened from the tab bar and remembered per space (</span></div>
+<div style="display: flex; background: rgba(126,219,147,0.07); color: #F2F2F2; min-width: max-content"><span style="flex: none; width: 48px; padding-right: 14px; box-sizing: border-box; text-align: right; color: #7EDB93; background: rgba(126,219,147,0.14)">192</span><span style="flex: none; width: 18px; color: #7EDB93; text-align: center">+</span><span style="padding-right: 16px">`changes`, opened from the tab bar, shown or hidden with `cmd+b`</span></div>
+<div style="display: flex; background: rgba(126,219,147,0.07); color: #F2F2F2; min-width: max-content"><span style="flex: none; width: 48px; padding-right: 14px; box-sizing: border-box; text-align: right; color: #7EDB93; background: rgba(126,219,147,0.14)">193</span><span style="flex: none; width: 18px; color: #7EDB93; text-align: center">+</span><span style="padding-right: 16px">and remembered per space (which ones:</span></div>
+<div style="display: flex"><span style="flex: none; width: 48px; padding-right: 14px; box-sizing: border-box; text-align: right; color: #6E6E6E">194</span><span style="padding-right: 16px">shared `"workspace.panels"`, set by the welcome); a status bar</span></div>
+<div style="display: flex"><span style="flex: none; width: 48px; padding-right: 14px; box-sizing: border-box; text-align: right; color: #6E6E6E">195</span><span style="padding-right: 16px">`workspace-status`), and as examples `terminals` ("Terminals")</span></div>
+<div style="display: flex"><span style="flex: none; width: 48px; padding-right: 14px; box-sizing: border-box; text-align: right; color: #6E6E6E">196</span><span style="padding-right: 16px">the title bar, panes as cards, a space picker) and `win98`</span></div>
+<button class="zk-row" style="display: flex; align-items: center; width: 100%; height: 30px; margin: 4px 0; padding: 0; background: #1B1B1B; color: #9A9A9A; font-family: 'Geist', sans-serif; font-size: 11.5px; white-space: nowrap; text-align: left">
+<span style="flex: none; width: 48px; display: grid; place-items: center; align-self: stretch; background: #202020"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m7 15 5 5 5-5M7 9l5-5 5 5"></path></svg></span><span style="padding-left: 14px">1 unmodified line</span></button>
+<div style="display: flex"><span style="flex: none; width: 48px; padding-right: 14px; box-sizing: border-box; text-align: right; color: #6E6E6E">198</span><span style="padding-right: 16px">writing a new file. The Files panel supports Windows folder paths</span></div>
+<div style="display: flex"><span style="flex: none; width: 48px; padding-right: 14px; box-sizing: border-box; text-align: right; color: #6E6E6E">199</span><span style="padding-right: 16px">parentheses and apostrophes.</span></div>
+<div style="display: flex"><span style="flex: none; width: 48px; padding-right: 14px; box-sizing: border-box; text-align: right; color: #6E6E6E">200</span><span></span></div>
+<div style="display: flex; background: rgba(126,219,147,0.07); color: #F2F2F2; min-width: max-content"><span style="flex: none; width: 48px; padding-right: 14px; box-sizing: border-box; text-align: right; color: #7EDB93; background: rgba(126,219,147,0.14)">201</span><span style="flex: none; width: 18px; color: #7EDB93; text-align: center">+</span><span style="padding-right: 16px">The Changes panel shows the focused repo's diff by scope: Unstaged</span></div>
+</div>
+
+</section>
+
+<nav aria-label="Changed files" class="zk-tree" style="flex: 1 1 240px; min-width: 0; min-height: 0; display: flex; flex-direction: column; background: #151515; border: 1px solid #262626; border-radius: 18px; padding: 10px 8px 8px">
+<label style="display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 10px; background: #0F0F0F; border-radius: 10px; color: #8E8E8E">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+<span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0)">Filter files</span>
+<input type="text" placeholder="Filter files" style="flex: 1; min-width: 0; height: 30px; border: 0; outline: none; background: transparent; color: #F2F2F2; font: inherit; font-size: 12.5px; padding: 0">
+</label>
+
+<div class="zk-scroll" style="flex: 1 1 0; min-height: 440px; overflow-y: auto; margin-top: 8px; font-size: 12.5px">
+<button class="zk-row" aria-expanded="true" style="display: flex; align-items: center; gap: 6px; height: 28px; padding: 0 8px 0 4px; border-radius: 7px; background: transparent; color: #CFCFCF; text-align: left; width: 100%">
+<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#8E8E8E" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>
+<span style="flex: 1">defaults</span>
+</button>
+<button class="zk-row" aria-current="true" style="display: flex; align-items: center; gap: 8px; height: 28px; padding: 0 8px 0 22px; border-radius: 7px; background: #222222; color: #F2F2F2; text-align: left; width: 100%">
+<span aria-hidden="true" style="width: 18px; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 9px; font-weight: 600; color: {{accent}}">MD</span>
+<span style="flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">AGENTS.md</span>
+<span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; color: #7EDB93">+19</span><span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; color: #F08A5D">−2</span>
+</button>
+<button class="zk-row" style="display: flex; align-items: center; gap: 8px; height: 28px; padding: 0 8px 0 22px; border-radius: 7px; background: transparent; color: #D6D6D6; text-align: left; width: 100%">
+<span aria-hidden="true" style="width: 18px; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 9px; font-weight: 600; color: #8E8E8E">{ }</span>
+<span style="flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">keys.json</span>
+<span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; color: #7EDB93">+3</span>
+</button>
+<button class="zk-row" style="display: flex; align-items: center; gap: 8px; height: 28px; padding: 0 8px 0 22px; border-radius: 7px; background: transparent; color: #D6D6D6; text-align: left; width: 100%">
+<span aria-hidden="true" style="width: 18px; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 9px; font-weight: 600; color: #8E8E8E">{ }</span>
+<span style="flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">keys.macos.json</span>
+<span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; color: #7EDB93">+3</span>
+</button>
+<button class="zk-row" aria-expanded="true" style="display: flex; align-items: center; gap: 6px; height: 28px; padding: 0 8px 0 18px; border-radius: 7px; background: transparent; color: #CFCFCF; text-align: left; width: 100%">
+<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#8E8E8E" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>
+<span style="flex: 1">mods / changes</span>
+</button>
+<button class="zk-row" style="display: flex; align-items: center; gap: 8px; height: 28px; padding: 0 8px 0 36px; border-radius: 7px; background: transparent; color: #D6D6D6; text-align: left; width: 100%">
+<span aria-hidden="true" style="width: 18px; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 9px; font-weight: 600; color: #8E8E8E">JS</span>
+<span style="flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">main.js</span>
+<span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; color: #7EDB93">+1208</span><span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; color: #F08A5D">−128</span>
+</button>
+<button class="zk-row" aria-expanded="true" style="display: flex; align-items: center; gap: 6px; height: 28px; padding: 0 8px 0 18px; border-radius: 7px; background: transparent; color: #CFCFCF; text-align: left; width: 100%">
+<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#8E8E8E" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>
+<span style="flex: 1">mods / files</span>
+</button>
+<button class="zk-row" style="display: flex; align-items: center; gap: 8px; height: 28px; padding: 0 8px 0 36px; border-radius: 7px; background: transparent; color: #D6D6D6; text-align: left; width: 100%">
+<span aria-hidden="true" style="width: 18px; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 9px; font-weight: 600; color: #8E8E8E">JS</span>
+<span style="flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">main.js</span>
+<span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; color: #7EDB93">+9</span><span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; color: #F08A5D">−6</span>
+</button>
+<button class="zk-row" aria-expanded="true" style="display: flex; align-items: center; gap: 6px; height: 28px; padding: 0 8px 0 4px; border-radius: 7px; background: transparent; color: #CFCFCF; text-align: left; width: 100%">
+<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#8E8E8E" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>
+<span style="flex: 1">scripts</span>
+</button>
+<button class="zk-row" style="display: flex; align-items: center; gap: 8px; height: 28px; padding: 0 8px 0 22px; border-radius: 7px; background: transparent; color: #D6D6D6; text-align: left; width: 100%">
+<span aria-hidden="true" style="width: 18px; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 9px; font-weight: 600; color: #8E8E8E">TS</span>
+<span style="flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">files.test.ts</span>
+<span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; color: #7EDB93">+79</span><span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; color: #F08A5D">−1</span>
+</button>
+<button class="zk-row" style="display: flex; align-items: center; gap: 8px; height: 28px; padding: 0 8px; border-radius: 7px; background: transparent; color: #D6D6D6; text-align: left; width: 100%">
+<span aria-hidden="true" style="width: 18px; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 9px; font-weight: 600; color: #8E8E8E">&gt;_</span>
+<span style="flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">justfile</span>
+<span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; color: #7EDB93">+1</span><span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; color: #F08A5D">−1</span>
+</button>
+</div>
+</nav>
+</div>
+<footer style="display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding: 12px 12px 12px 18px">
+<span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 10.5px; letter-spacing: 0.1em; color: #8E8E8E; white-space: nowrap">NOTHING STAGED · 59 FILES</span>
+<div class="zk-commit" style="flex: 1 1 240px; min-width: 0; display: flex; align-items: center; gap: 8px; height: 44px; box-sizing: border-box; padding: 0 14px; background: #151515; box-shadow: inset 0 0 0 1px #2A2A2A; border-radius: 14px">
+<label for="zk-commit" style="position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap">Commit message</label>
+<input id="zk-commit" type="text" placeholder="Commit message" style="flex: 1; min-width: 0; height: 40px; border: 0; outline: none; background: transparent; color: #F2F2F2; padding: 0; font: inherit; font-size: 13.5px">
+<span aria-hidden="true" style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 10.5px; color: #8E8E8E">⌘↵</span>
+</div>
+<button style="display: flex; align-items: center; gap: 8px; height: 44px; padding: 0 22px; border-radius: 14px; background: {{accent}}; color: #140A05; font-size: 14px; font-weight: 500">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M3 12h6M15 12h6"></path></svg>Commit</button>
+</footer>
+</aside>
+</sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#EC6F3E","options":["#EC6F3E","#7EDB93","#8C9CF5","#B9A8F7"]},"changes":{"editor":"boolean","default":true},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    var s = this.state || {};
+    var show = typeof s.changes === 'boolean' ? s.changes : (this.props.changes ?? true);
+    var self = this;
+    return {
+      accent: this.props.accent ?? '#EC6F3E',
+      changes: show,
+      changesPressed: show ? 'true' : 'false',
+      changesBtnBg: show ? '#262626' : 'transparent',
+      changesBtnFg: show ? '#F2F2F2' : '#A8A8A8',
+      toggleChanges: function () { self.setState({ changes: !show }); }
+    };
+  }
+}
+</script>
+</body>
+</html>

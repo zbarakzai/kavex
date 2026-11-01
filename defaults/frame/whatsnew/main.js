@@ -47,7 +47,7 @@ export default class WhatsNew extends View {
         .child(div().id("wn-close").size(26).rounded(7).flex().items_center().justify_center()
           .text_color(t.muted).cursor_pointer().hover(s => s.bg(t.hover).text_color(t.foreground))
           .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
-          .on_click(() => this.done()).child(svg("mods/workspace-chrome/x.svg").size(14))))
+          .on_click(() => this.done()).child(svg("mods/workspace-chrome/icons/close.svg").size(14))))
       .child(div().relative().flex_1().min_h(0)
         .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
         .child(div().id("wn-body").size_full().overflow_y_scroll()
