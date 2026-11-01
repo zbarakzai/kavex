@@ -1,0 +1,119 @@
+// Pi's session: the extension that says which one a terminal holds, and the numbers in its lines.
+// Pi stores a cost with every usage, so it needs no price list.
+
+// Runs inside Pi, which loads every file in its extensions folder by itself, with nothing for the
+// person to approve. Pi started by a tool in this terminal (`pi -p`) isn't this terminal's agent.
+// It prints nothing, and a failure is only a row with no numbers: never in Pi's way.
+const EXTENSION = `// Zaki's Pi extension: labels this terminal with its session file and context limit, so Zaki
+// shows the right numbers. Zaki writes this file. It does nothing outside a Zaki terminal.
+import { execFile } from "node:child_process";
+import { homedir } from "node:os";
+import { join } from "node:path";
+
+const home = homedir();
+const places = [
+  "hc",
+  join(home, ".local/bin/hc"),
+  "/opt/homebrew/bin/hc",
+  "/usr/local/bin/hc",
+  join(home, ".local/share/mise/shims/hc"),
+  join(home, ".nix-profile/bin/hc"),
+  "/run/current-system/sw/bin/hc",
+  join(home, ".cargo/bin/hc"),
+  join(process.env.LOCALAPPDATA ?? home, "Programs/herdr-core/hc.exe"),
+];
+
+function label(args, tries = places) {
+  if (!tries.length) return;
+  execFile(tries[0], args, { windowsHide: true }, (failed) => {
+    if (failed?.code === "ENOENT") label(args, tries.slice(1));
+  });
+}
+
+export default function (pi) {
+  const terminal = process.env.HC_TERMINAL_ID;
+  if (!terminal) return;
+  const report = (_event, ctx) => {
+    const file = ctx.sessionManager.getSessionFile();
+    if (ctx.mode !== "tui" || !file) return;
+    label(["label", terminal, "zaki.session=" + file, "zaki.limit=" + (ctx.getContextUsage()?.contextWindow ?? "")]);
+  };
+  pi.on("session_start", report);
+  pi.on("model_select", report);
+}
+`;
+
+const SESSION_FILE = /^((?:[A-Za-z]:)?[\\/].*)[\\/]([^\\/]+)\.jsonl$/;
+
+// Pi's own rule for a usage it trusts as the size of the context.
+function contextOf({ stopReason, usage }) {
+  if (stopReason === "aborted" || stopReason === "error" || !usage) return 0;
+  return usage.totalTokens || (usage.input ?? 0) + (usage.output ?? 0) + (usage.cacheRead ?? 0) + (usage.cacheWrite ?? 0);
+}
+
+// A usage with tokens and no cost is a model Pi has no price for, which it stores as 0.
+function spend(facts, usage) {
+  if (!usage) return;
+  const input = usage.input ?? 0, output = usage.output ?? 0, cached = (usage.cacheRead ?? 0) + (usage.cacheWrite ?? 0);
+  if (!(input + output + cached)) return;
+  facts.tokens.input += input;
+  facts.tokens.output += output;
+  facts.tokens.cached += cached;
+  facts.spent = true;
+  if (usage.cost?.total > 0) facts.cost += usage.cost.total;
+  else facts.unpriced = true;
+}
+
+// Right after a compaction nothing says how big the context is, until Pi's next answer.
+function context(used, total) {
+  if (used === null) return { used, total };
+  return total >= used ? { used, total, percent: Math.round((used / total) * 100) } : { used };
+}
+
+export const pi = {
+  // Goes up when what `install` puts on a machine changes.
+  setup: 1,
+
+  // `files` reads and writes on the machine being set up. A file of its own in Pi's folder, so
+  // nothing of the person's is touched.
+  async install({ home, read, write }) {
+    const path = `${home}/.pi/agent/extensions/zaki-session.ts`;
+    const now = await read(path);
+    if (now !== EXTENSION) await write(path, EXTENSION, now);
+    return true;
+  },
+
+  // What keeps a line worth parsing. Fixed strings, and more than one is a line each.
+  filter: ['"cacheRead":', '"type":"compaction"', '"type":"model_change"'].join("\n"),
+
+  reports: true,
+
+  // The extension runs at launch, so past this a Pi with no label isn't just still starting.
+  patience: 6000,
+  waiting: { state: "waiting", say: "Run `/reload` in Pi to load Zaki's extension." },
+
+  // Any folder can hold a session, with `--session-dir`, so all a path has to be is one.
+  locate(_term, label, limit) {
+    const [, folder, id] = label?.match(SESSION_FILE) ?? [];
+    return id ? { id, folder, file: label, limit: Number(limit) > 0 ? Number(limit) : undefined } : null;
+  },
+
+  // Running totals, as for Claude. `seen` is because a window reads lines twice.
+  facts: () => ({ seen: new Set(), model: null, used: null, spent: false, tokens: { input: 0, output: 0, cached: 0 }, cost: 0, unpriced: false }),
+
+  add(facts, line) {
+    if (!line.id || facts.seen.has(line.id)) return;
+    facts.seen.add(line.id);
+    const { type, usage, message } = line;
+    if (type === "model_change") facts.model = line.modelId ?? facts.model;
+    if (type === "compaction") facts.used = null;
+    if (type === "compaction" || type === "branch_summary" || type === "usage") spend(facts, usage);
+    if (type !== "message" || !message) return;
+    spend(facts, message.usage);
+    if (message.role !== "assistant") return;
+    facts.model = message.responseModel ?? message.model ?? facts.model;
+    facts.used = contextOf(message) || facts.used;
+  },
+
+  numbers: (facts, { limit }) => facts.spent && { model: facts.model ?? "Pi", context: context(facts.used, limit), tokens: { ...facts.tokens }, cost: facts.unpriced ? undefined : facts.cost },
+};

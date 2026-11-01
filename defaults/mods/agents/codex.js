@@ -123,6 +123,7 @@ export const codex = {
   filter: ['"type":"token_count"', '"type":"turn_context"', '"type":"thread_settings_applied"', '"type":"SubAgentActivity"'].join("\n"),
 
   reports: true,
+  waiting: { state: "waiting", say: "Run `/hooks` in Codex, trust Zaki's hook, then restart this Codex." },
 
   // Nothing on disk ties a Codex process to a session, so its hook labels the terminal.
   locate(_term, label) {

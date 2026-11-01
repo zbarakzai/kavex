@@ -2,19 +2,21 @@
 // object (see claude.js): `locate` finds a terminal's session, `helpers` its helpers' files,
 // `filter`, `facts` and `add` read their lines, `numbers` says what they add up to (cost included,
 // or left out for "no price"), and `limit` asks how big its model's context is, unless `numbers`
-// knows and gives `context` itself. One that labels its own terminal is marked `reports`, and
-// one with files of its own to set up has `setup`, a version, and `install`.
+// knows and gives `context` itself. One that labels its own terminal is marked `reports`, says
+// what to do in `waiting`, and has `patience` if it labels at launch. One with files of its own to
+// set up has `setup`, a version, and `install`.
 
 import { exec, hc, home, readTextFile, setShared, shared, terminals, watchFolder, writeTextFile } from "herdr";
 import { claude } from "./claude.js";
 import { codex } from "./codex.js";
+import { pi } from "./pi.js";
 
-const AGENTS = { claude, codex };
+const AGENTS = { claude, codex, pi };
 
 const LABEL = "zaki.session";
+const LIMIT = "zaki.limit";
 const NONE = { state: "none" };
 const EMPTY = { state: "empty" };
-const WAITING = { state: "waiting" };
 const WORKED = ["working", "done"];
 const EVERY = 2000;
 const LIMITS = "agents.limits";
@@ -82,9 +84,10 @@ export class Sessions {
   // message: back at the shell, it goes, so that one can't show the last one's numbers.
   async tidy(all) {
     for (const t of all) {
-      if (t.state !== "live" || !t.program?.shell || !t.labels?.[LABEL]) continue;
+      const left = [LABEL, LIMIT].filter((label) => t.labels?.[label]);
+      if (t.state !== "live" || !t.program?.shell || !left.length) continue;
       try {
-        await hc(["label", t.address, `${LABEL}=`]);
+        await hc(["label", t.address, ...left.map((label) => `${label}=`)]);
       } catch {}
     }
   }
@@ -108,13 +111,16 @@ export class Sessions {
     const agent = AGENTS[term.program.key];
     let session = this.live.get(term.address);
     try {
-      const found = await agent.locate(term, term.labels?.[LABEL]);
+      const found = await agent.locate(term, term.labels?.[LABEL], term.labels?.[LIMIT]);
       if (this.reading !== run) return;
       if (found && found.id !== session?.id) {
         session = { ...found, facts: agent.facts(), files: new Map(), changes: 1, done: 0 };
         this.live.set(term.address, session);
+      } else if (found && found.limit !== session.limit) {
+        session.limit = found.limit;
+        session.changes++;
       }
-      if (agent.reports && !session?.file) return this.unreported(term, cx);
+      if (agent.reports && !session?.file) return this.unreported(term, agent, cx);
       if (!session || (session.done === session.changes && this.folders.has(session.folder))) return;
       const { changes } = session;
       const had = JSON.stringify(session.result);
@@ -128,12 +134,14 @@ export class Sessions {
   }
 
   // An agent that reports its own session and hasn't. Codex's hook runs on its first message, not
-  // at launch, so one that hasn't worked yet may simply be new; only one that has is waiting.
-  unreported(term, cx) {
+  // at launch, so one that hasn't worked yet may simply be new; only one that has is waiting. One
+  // that reports at launch is waiting too once it has had time to start.
+  unreported(term, agent, cx) {
     const had = this.live.get(term.address);
-    const worked = had?.worked || WORKED.includes(term.status);
-    const result = worked ? WAITING : EMPTY;
-    this.live.set(term.address, { worked, result });
+    const since = had?.since ?? Date.now();
+    const late = had?.late || WORKED.includes(term.status) || Date.now() - since >= agent.patience;
+    const result = late ? agent.waiting : EMPTY;
+    this.live.set(term.address, { since, late, result });
     if (had?.result !== result) cx.notify();
   }
 
@@ -159,7 +167,7 @@ export class Sessions {
       }
       if (session.facts === facts) break;
     }
-    const numbers = agent.numbers(session.facts);
+    const numbers = agent.numbers(session.facts, session);
     return numbers ? { state: "ready", ...numbers } : EMPTY;
   }
 

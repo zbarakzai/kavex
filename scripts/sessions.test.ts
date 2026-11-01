@@ -164,7 +164,7 @@ const open = async () => {
 const shows = (draw: () => El, address: string) => words(byId(draw(), `ag-${address}`)!);
 
 beforeEach(() => {
-  for (const folder of [".claude", ".codex", ".zaki"]) rmSync(join(home, folder), { recursive: true, force: true });
+  for (const folder of [".claude", ".codex", ".zaki", ".pi"]) rmSync(join(home, folder), { recursive: true, force: true });
   state = {
     agents: [], terminals: [], ran: [], shared: {}, opened: [], closed: [], props: {}, layout: null,
     reads: [], watched: [], watchers: [], execs: [], running: 0, parked: 0, timers: [], notified: 0, stopped: 0,
@@ -617,7 +617,7 @@ test("every color the row and the dropdown use comes from the theme", async () =
   for (const e of [...all(root), ...all(byId(draw(), "ag-t1")!)]) {
     for (const [k, a] of e.calls) if (["text_color", "bg", "border_color"].includes(k) && a[0] !== undefined) expect(named.has(a[0])).toBe(true);
   }
-  for (const file of ["main.js", "sessions.js", "claude.js", "codex.js", "sizes.js", "dropdown.js", "prices.js"]) {
+  for (const file of ["main.js", "sessions.js", "claude.js", "codex.js", "pi.js", "sizes.js", "dropdown.js", "prices.js"]) {
     expect(readFileSync(new URL(`../defaults/mods/agents/${file}`, import.meta.url), "utf8")).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
   }
 });
@@ -1054,7 +1054,7 @@ test("no network, no login: all a pass touches is the session and Claude's own /
   expect([...new Set(state.execs.map(([cmd]: string[]) => cmd))].sort()).toEqual(["claude", "sh"]);
   const touched = [...state.reads, ...state.execs.flat()].join("\n");
   expect(touched).not.toMatch(/credential|keychain|oauth|\.netrc|security/i);
-  for (const file of ["main.js", "sessions.js", "claude.js", "codex.js", "sizes.js", "dropdown.js", "prices.js"]) {
+  for (const file of ["main.js", "sessions.js", "claude.js", "codex.js", "pi.js", "sizes.js", "dropdown.js", "prices.js"]) {
     expect(readFileSync(new URL(`../defaults/mods/agents/${file}`, import.meta.url), "utf8")).not.toMatch(/\bfetch\(|WebSocket|https?:/);
   }
 });
@@ -1905,4 +1905,641 @@ test("no network, no login, and Codex's own files only read: all a pass touches 
   expect([...new Set(state.execs.map(([cmd]: string[]) => cmd))].sort()).toEqual(["find", "sh"]);
   const touched = [...state.reads, ...state.execs.flat(), ...state.written].join("\n");
   expect(touched).not.toMatch(/auth\.json|credential|keychain|oauth|\.netrc|security|login/i);
+});
+
+// Pi, from here on. Lines follow its session format (docs/session-format.md, v1.4.0), with made-up
+// words: no real Pi session exists on the machine these were written on.
+const PI = { key: "pi", name: "Pi", icon: "icons/pi.svg", tint: true, tile: null, color: null, agent: true, shell: false };
+const piFolder = (cwd = "/work/project") => join(home, ".pi", "agent", "sessions", `--${cwd.slice(1).replace(/\//g, "-")}--`);
+const piId = (n: number) => `019c0000-0000-7000-8000-${String(n).padStart(12, "0")}`;
+const piFile = (id: string, cwd?: string) => join(piFolder(cwd), `2026-11-01T10-00-00-000Z_${id}.jsonl`);
+const piLabels = (id: string, limit: number | null = 200000, cwd?: string) => ({ "zaki.session": piFile(id, cwd), ...(limit ? { "zaki.limit": String(limit) } : {}) });
+const aPi = (address: string, more: any = {}) => running(address, 301, PI, { foreground: { pid: 301, name: "pi", argv: ["pi"], cwd: "/work/project" }, ...more });
+
+const entry = (type: string, more: any = {}) => JSON.stringify({ type, id: (++state.ordinal).toString(16).padStart(8, "0"), parentId: null, timestamp: "2026-11-01T10:00:00.000Z", ...more });
+const piStart = (id: string) => JSON.stringify({ type: "session", version: 3, id, timestamp: "2026-11-01T10:00:00.000Z", cwd: "/work/project" });
+const piAsks = (text = "made up") => entry("message", { message: { role: "user", content: text, timestamp: 1 } });
+type PiUsed = { input?: number; output?: number; read?: number; write?: number; total?: number; cost?: number | null };
+const piUsage = ({ input = 0, output = 0, read = 0, write = 0, total, cost = 0.01 }: PiUsed) => ({
+  input, output, cacheRead: read, cacheWrite: write, totalTokens: total ?? input + output + read + write,
+  cost: cost === null ? undefined : { input: cost, output: 0, cacheRead: 0, cacheWrite: 0, total: cost },
+});
+const piSaid = ({ model = "claude-opus-5-5", stop = "stop", text = "made up", ...used }: PiUsed & { model?: string; stop?: string; text?: string }) =>
+  entry("message", { message: { role: "assistant", content: [{ type: "text", text }], api: "anthropic-messages", provider: "anthropic", model, usage: piUsage(used), stopReason: stop, timestamp: 1 } });
+
+const piWrites = (id: string, lines: string[], cwd?: string) => {
+  mkdirSync(dirname(piFile(id, cwd)), { recursive: true });
+  appendFileSync(piFile(id, cwd), lines.map((l) => `${l}\n`).join(""));
+};
+const piRow = async (id: string, lines: string[], limit: number | null = 200000) => {
+  if (lines.length) piWrites(id, lines);
+  const term = aPi("t1", { labels: piLabels(id, limit) });
+  state.terminals = [term];
+  state.agents = [listed(term)];
+  const list = await open();
+  await ticks();
+  return list;
+};
+const piChanges = async (id: string, lines: string[]) => {
+  piWrites(id, lines);
+  changed(piFile(id));
+  await ticks();
+};
+
+test("a Pi row shows its session from the terminal's labels", async () => {
+  const { draw } = await piRow(piId(1), [piStart(piId(1)), piAsks(), piSaid({ input: 10, read: 49000, output: 990 })]);
+  expect(rowPercents(draw, "t1")).toEqual(["25%"]);
+});
+
+test("context is the last valid total: an aborted, failed or empty message says nothing about it", async () => {
+  const { draw } = await piRow(piId(1), [
+    piSaid({ read: 20000 }),
+    piSaid({ read: 100000, stop: "toolUse" }),
+    piSaid({ read: 190000, stop: "aborted" }),
+    piSaid({ read: 190000, stop: "error" }),
+    piSaid({ cost: 0 }),
+  ]);
+  expect(rowPercents(draw, "t1")).toEqual(["50%"]);
+});
+
+test("a message with no total falls back on adding it up, as Pi does", async () => {
+  const { draw } = await piRow(piId(1), [piSaid({ input: 10000, read: 30000, write: 10000, output: 0, total: 0 })]);
+  expect(rowPercents(draw, "t1")).toEqual(["25%"]);
+});
+
+test("the dropdown shows Pi's own stored cost added up, its tokens and the model running now", async () => {
+  const { draw } = await piRow(piId(1), [
+    piSaid({ input: 1000, read: 2000, write: 3000, output: 400, cost: 1.25, model: "gpt-6.1-sol" }),
+    piSaid({ input: 500, read: 60000, write: 4700, output: 8000, cost: 2.5 }),
+  ]);
+  const seen = await card(draw);
+  expect(seen).toContain("claude-opus-5-5");
+  expect(seen).toContain("73.2k / 200k");
+  expect(seen).toContain("37%");
+  expect(seen).toContain("$3.75");
+  expect(seen).toContain("in 1.5k · out 8.4k · cached 69.7k");
+});
+
+test("cost and tokens add up all Pi counts in a session: tool results, summaries and cache warming too", async () => {
+  const { draw } = await piRow(piId(1), [
+    piSaid({ input: 100, read: 1000, output: 900, cost: 1 }),
+    entry("message", { message: { role: "toolResult", toolCallId: "c", toolName: "codemode", content: [], isError: false, usage: piUsage({ input: 10, output: 10, cost: 0.25 }), timestamp: 1 } }),
+    entry("usage", { kind: "cache_warm", provider: "anthropic", model: "claude-opus-5-5", usage: piUsage({ read: 50000, cost: 0.5 }) }),
+    entry("branch_summary", { fromId: "f", summary: "made up", usage: piUsage({ input: 20, output: 20, cost: 0.125 }) }),
+    entry("compaction", { summary: "made up", firstKeptEntryId: "k", tokensBefore: 9, usage: piUsage({ input: 40, output: 40, cost: 0.125 }) }),
+    piSaid({ input: 100, read: 39000, output: 900, cost: 1 }),
+  ]);
+  expect(rowPercents(draw, "t1")).toEqual(["20%"]);
+  const seen = await card(draw);
+  expect(seen).toContain("$3.00");
+  expect(seen).toContain("in 270 · out 1.9k · cached 90k");
+});
+
+test("a message Pi has no price for reads no price, and the rest of the dropdown stays", async () => {
+  const { draw } = await piRow(piId(1), [piSaid({ read: 40000, cost: 2 }), piSaid({ read: 50000, cost: 0, model: "my-local-model" })]);
+  const seen = await card(draw);
+  expect(seen).toContain("no price");
+  expect(seen).toContain("50k / 200k");
+  expect(seen).toContain("in 0 · out 0 · cached 90k");
+});
+
+test("a message with tokens and no cost at all reads no price too", async () => {
+  const { draw } = await piRow(piId(1), [piSaid({ read: 40000, cost: null })]);
+  expect(await card(draw)).toContain("no price");
+});
+
+test("a failed message with no tokens makes nothing no price", async () => {
+  const { draw } = await piRow(piId(1), [piSaid({ read: 40000, cost: 2 }), piSaid({ stop: "error", cost: 0 })]);
+  expect(await card(draw)).toContain("$2.00");
+});
+
+test("the model running now is the newest picked or answering, and the one that really answered wins", async () => {
+  const { draw } = await piRow(piId(1), [piSaid({ read: 40000 })]);
+  await piChanges(piId(1), [entry("model_change", { provider: "openai", modelId: "gpt-6.1-sol" })]);
+  expect(await card(draw)).toContain("gpt-6.1-sol");
+  const fallback = JSON.parse(piSaid({ read: 40000 }));
+  fallback.message.responseModel = "claude-sonnet-5-5";
+  await piChanges(piId(1), [JSON.stringify(fallback)]);
+  expect(await card(draw)).toContain("claude-sonnet-5-5");
+});
+
+test("a window read twice counts each entry once", async () => {
+  const lines = Array.from({ length: 12 }, () => piSaid({ read: 1000, cost: 0.5, text: "x".repeat(200000) }));
+  const { draw } = await piRow(piId(1), lines);
+  await piChanges(piId(1), [piSaid({ read: 1000, cost: 0.5 })]);
+  await piChanges(piId(1), [piSaid({ read: 1000, cost: 0.5 })]);
+  expect(await card(draw)).toContain("$7.00");
+});
+
+test("what a person or a tool wrote about tokens is never read as usage", async () => {
+  const talk = JSON.stringify({ type: "usage", usage: { input: 1, totalTokens: 900000, cost: { total: 100 } } });
+  const { draw } = await piRow(piId(1), [piSaid({ read: 40000, cost: 1, text: talk }), piAsks(talk), entry("custom", { customType: "made-up", data: { usage: piUsage({ read: 900000, cost: 100 }) } })]);
+  expect(rowPercents(draw, "t1")).toEqual(["20%"]);
+  expect(await card(draw)).toContain("$1.00");
+});
+
+test("a session with no usage yet, or only a failed start, reads as no usage", async () => {
+  const { draw } = await piRow(piId(1), [piStart(piId(1)), piAsks(), piSaid({ stop: "error", cost: 0 })]);
+  expect(rowPercents(draw, "t1")).toEqual([]);
+  expect(shows(draw, "t1")).not.toContain("–");
+  clicks(byId(draw(), "logo-t1")!);
+  expect(words((await dropdown()).draw())).toEqual(["No usage yet"]);
+});
+
+test("a new Pi with no session file yet shows no percent and No usage yet, then its numbers", async () => {
+  const { draw } = await piRow(piId(1), []);
+  expect(rowPercents(draw, "t1")).toEqual([]);
+  expect(shows(draw, "t1")).not.toContain("–");
+  clicks(byId(draw(), "logo-t1")!);
+  expect(words((await dropdown()).draw())).toEqual(["No usage yet"]);
+  piWrites(piId(1), [piStart(piId(1)), piAsks(), piSaid({ read: 40000 })]);
+  await ticks();
+  expect(rowPercents(draw, "t1")).toEqual(["20%"]);
+});
+
+test("with no limit reported the dropdown shows tokens and the row shows nothing", async () => {
+  const { draw } = await piRow(piId(1), [piSaid({ read: 40000 })], null);
+  expect(rowPercents(draw, "t1")).toEqual([]);
+  expect(shows(draw, "t1")).not.toContain("–");
+  const seen = await card(draw);
+  expect(seen).toContain("40k");
+  expect(seen).not.toContain("40k / 200k");
+});
+
+test("a limit that isn't a number is no limit", async () => {
+  for (const limit of ["lots", "0", "-5", ""]) {
+    const term = aPi("t1", { labels: { ...piLabels(piId(1)), "zaki.limit": limit } });
+    piWrites(piId(1), [piSaid({ read: 40000 })]);
+    state.terminals = [term];
+    state.agents = [listed(term)];
+    const { draw } = await open();
+    await ticks();
+    expect(rowPercents(draw, "t1")).toEqual([]);
+    expect(shows(draw, "t1")).not.toContain("–");
+    rmSync(piFile(piId(1)));
+  }
+});
+
+test("more used than the limit means the limit is wrong, so no percent shows", async () => {
+  const { draw } = await piRow(piId(1), [piSaid({ read: 300000 })]);
+  expect(rowPercents(draw, "t1")).toEqual([]);
+  expect(await card(draw)).toContain("300k");
+});
+
+test("a Pi percent turns the blocked color from 90%", async () => {
+  const { draw } = await piRow(piId(1), [piSaid({ read: 180000 })]);
+  const percent = all(byId(draw(), "ag-t1")!).find((e) => e.kids.includes("90%"))!;
+  expect(arg(percent, "text_color")).toBe(colors.blocked);
+});
+
+test("a new limit, from picking another model, redraws with what's already read", async () => {
+  const { draw } = await piRow(piId(1), [piSaid({ read: 40000 })]);
+  expect(rowPercents(draw, "t1")).toEqual(["20%"]);
+  state.terminals = [aPi("t1", { labels: piLabels(piId(1), 1000000) })];
+  await ticks();
+  expect(rowPercents(draw, "t1")).toEqual(["4%"]);
+});
+
+test("/new shows the new session's numbers, and its file may not be there yet", async () => {
+  const { draw } = await piRow(piId(1), [piSaid({ read: 180000, cost: 2 })]);
+  state.terminals = [aPi("t1", { labels: piLabels(piId(2)) })];
+  await ticks();
+  expect(rowPercents(draw, "t1")).toEqual([]);
+  expect(shows(draw, "t1")).not.toContain("–");
+  piWrites(piId(2), [piStart(piId(2)), piAsks(), piSaid({ read: 40000, cost: 1 })]);
+  await ticks();
+  expect(rowPercents(draw, "t1")).toEqual(["20%"]);
+  expect(await card(draw)).toContain("$1.00");
+});
+
+test("compacting keeps the session: cost goes on, and context is unknown until Pi's next answer, as it says itself", async () => {
+  const { draw } = await piRow(piId(1), [piSaid({ read: 180000, cost: 2 })]);
+  await piChanges(piId(1), [entry("compaction", { summary: "made up", firstKeptEntryId: "k", tokensBefore: 180000, usage: piUsage({ input: 100, output: 100, cost: 0.5 }) })]);
+  expect(rowPercents(draw, "t1")).toEqual([]);
+  expect(shows(draw, "t1")).not.toContain("–");
+  const between = await card(draw);
+  expect(between).toContain("? / 200k");
+  expect(between).toContain("$2.50");
+  await piChanges(piId(1), [piSaid({ read: 20000, cost: 0.5 })]);
+  expect(rowPercents(draw, "t1")).toEqual(["10%"]);
+  expect(await card(draw)).toContain("$3.00");
+});
+
+test("a compaction with no usage of its own, and an answer that fails after it, leave context unknown", async () => {
+  const { draw } = await piRow(piId(1), [piSaid({ read: 180000 }), entry("compaction", { summary: "made up", firstKeptEntryId: "k", tokensBefore: 180000 }), piSaid({ read: 190000, stop: "aborted" })]);
+  expect(rowPercents(draw, "t1")).toEqual([]);
+  expect(await card(draw)).toContain("? / 200k");
+});
+
+test("a compaction read twice by the window doesn't wipe the newer answer", async () => {
+  const { draw } = await piRow(piId(1), [piSaid({ read: 180000 }), entry("compaction", { summary: "made up", firstKeptEntryId: "k", tokensBefore: 180000 }), piSaid({ read: 20000 })]);
+  expect(rowPercents(draw, "t1")).toEqual(["10%"]);
+  await piChanges(piId(1), [piAsks(), piSaid({ read: 20000 })]);
+  expect(rowPercents(draw, "t1")).toEqual(["10%"]);
+});
+
+test("a resumed session keeps its numbers, in the same file, also after Zaki restarts", async () => {
+  const first = await piRow(piId(1), [piSaid({ read: 40000, cost: 2 })]);
+  expect(rowPercents(first.draw, "t1")).toEqual(["20%"]);
+  state.timers = [];
+  const { draw } = await piRow(piId(1), [piSaid({ read: 60000, cost: 1 })]);
+  expect(rowPercents(draw, "t1")).toEqual(["30%"]);
+  expect(await card(draw)).toContain("$3.00");
+});
+
+test("two Pi agents in one folder each show their own numbers", async () => {
+  const a = aPi("t1", { labels: piLabels(piId(1)) }), b = aPi("t2", { labels: piLabels(piId(2)) });
+  state.terminals = [a, b];
+  state.agents = [listed(a), listed(b)];
+  piWrites(piId(1), [piSaid({ read: 40000 })]);
+  piWrites(piId(2), [piSaid({ read: 120000 })]);
+  const { draw } = await open();
+  await ticks();
+  expect(rowPercents(draw, "t1")).toEqual(["20%"]);
+  expect(rowPercents(draw, "t2")).toEqual(["60%"]);
+  piWrites(piId(2), [piSaid({ read: 160000 })]);
+  changed(piFile(piId(2)));
+  await ticks();
+  expect(rowPercents(draw, "t1")).toEqual(["20%"]);
+  expect(rowPercents(draw, "t2")).toEqual(["80%"]);
+});
+
+test("only a real session file in the label counts", async () => {
+  for (const label of ["hello", "relative/session.jsonl", join(piFolder(), "notes.txt"), `${piFile(piId(1))}.bak`]) {
+    const term = aPi("t1", { labels: { "zaki.session": label, "zaki.limit": "200000" } });
+    state.terminals = [term];
+    state.agents = [listed(term)];
+    await open();
+    await ticks();
+    expect(state.execs).toEqual([]);
+  }
+});
+
+test("a session folder set by the person works, with spaces in it", async () => {
+  const file = join(home, ".pi", "my sessions", `2026-11-01T10-00-00-000Z_${piId(1)}.jsonl`);
+  mkdirSync(dirname(file), { recursive: true });
+  writeFileSync(file, `${piSaid({ read: 40000 })}\n`);
+  const term = aPi("t1", { labels: { "zaki.session": file, "zaki.limit": "200000" } });
+  state.terminals = [term];
+  state.agents = [listed(term)];
+  const { draw } = await open();
+  await ticks();
+  expect(rowPercents(draw, "t1")).toEqual(["20%"]);
+  expect(state.watched).toContain(dirname(file));
+});
+
+test("a terminal back at its shell loses both labels", async () => {
+  await piRow(piId(1), [piSaid({ read: 40000 })]);
+  state.terminals = [aPi("t1", { program: SHELL, labels: piLabels(piId(1)) })];
+  await ticks();
+  expect(state.hc).toEqual([["label", "t1", "zaki.session=", "zaki.limit="]]);
+});
+
+test("an answer that failed with tokens says nothing of the context, so no percent shows", async () => {
+  const { draw } = await piRow(piId(1), [piSaid({ read: 180000, stop: "aborted", cost: 1 })]);
+  expect(rowPercents(draw, "t1")).toEqual([]);
+  const seen = await card(draw);
+  expect(seen).toContain("? / 200k");
+  expect(seen).toContain("$1.00");
+});
+
+const RELOAD_MESSAGE = "Run `/reload` in Pi to load Zaki's extension.";
+const quietPi = async (more: any = {}) => {
+  const term = aPi("t1", more);
+  state.terminals = [term];
+  state.agents = [listed(term)];
+  const list = await open();
+  await ticks();
+  return list;
+};
+// Pi's extension runs at launch, so a label is only missing for as long as Pi takes to start.
+const later = async (ms: number) => {
+  setSystemTime(new Date(Date.now() + ms));
+  await ticks();
+};
+
+test("a Pi that still reports nothing once it has started shows a dash, and its dropdown says what to do", async () => {
+  const { draw } = await quietPi();
+  expect(shows(draw, "t1")).not.toContain("–");
+  clicks(byId(draw(), "logo-t1")!);
+  expect(words((await dropdown()).draw())).toEqual(["No usage yet"]);
+
+  await later(10000);
+  setSystemTime();
+  expect(shows(draw, "t1")).toContain("–");
+  expect(rowPercents(draw, "t1")).toEqual([]);
+  clicks(byId(draw(), "logo-t1")!);
+  expect(words((await dropdown()).draw())).toEqual([RELOAD_MESSAGE]);
+});
+
+test("a Pi that has worked and reported nothing shows a dash at once", async () => {
+  const { draw } = await quietPi();
+  state.terminals = [aPi("t1", { status: "working" })];
+  await ticks();
+  expect(shows(draw, "t1")).toContain("–");
+});
+
+test("a Codex waits for its first message however long it sits there", async () => {
+  const { draw } = await quietCodex();
+  await later(3600000);
+  setSystemTime();
+  expect(shows(draw, "t1")).not.toContain("–");
+});
+
+test("a Pi that reports in time never shows a dash, and one that reports late shows its numbers, an open dropdown too", async () => {
+  const { draw } = await quietPi();
+  await later(10000);
+  setSystemTime();
+  expect(shows(draw, "t1")).toContain("–");
+  clicks(byId(draw(), "logo-t1")!);
+  const { draw: open2 } = await dropdown();
+  expect(words(open2())).toEqual([RELOAD_MESSAGE]);
+
+  piWrites(piId(1), [piSaid({ read: 40000 })]);
+  state.terminals = [aPi("t1", { labels: piLabels(piId(1)) })];
+  await ticks();
+  expect(rowPercents(draw, "t1")).toEqual(["20%"]);
+  expect(shows(draw, "t1")).not.toContain("–");
+  expect(words(open2())).toContain("40k / 200k");
+});
+
+const extensionPath = () => join(home, ".pi", "agent", "extensions", "zaki-session.ts");
+const seesPi = async () => {
+  await quietPi();
+  await settle();
+};
+
+test("the extension goes in when Zaki first sees Pi, and other extensions and Pi's settings stay as they were", async () => {
+  const other = join(home, ".pi", "agent", "extensions", "my-own.ts");
+  const settings = join(home, ".pi", "agent", "settings.json");
+  mkdirSync(dirname(other), { recursive: true });
+  writeFileSync(other, "export default function () {}\n");
+  writeFileSync(settings, '{"extensions":["-made-up"]}\n');
+  await seesPi();
+  expect(state.written).toEqual([extensionPath()]);
+  expect(existsSync(extensionPath())).toBe(true);
+  expect(readFileSync(other, "utf8")).toBe("export default function () {}\n");
+  expect(readFileSync(settings, "utf8")).toBe('{"extensions":["-made-up"]}\n');
+  expect(state.shared["agents.setup"]).toEqual({ pi: 1 });
+});
+
+test("with no Pi in sight no extension goes in, and a Pi on another machine adds none here", async () => {
+  await quietCodex();
+  await settle();
+  expect(existsSync(extensionPath())).toBe(false);
+  const term = aPi("vps/t1");
+  state.terminals = [term];
+  state.agents = [listed(term)];
+  state.shared = {};
+  await open();
+  await ticks();
+  expect(existsSync(extensionPath())).toBe(false);
+});
+
+test("a second run changes nothing", async () => {
+  await seesPi();
+  const text = readFileSync(extensionPath(), "utf8");
+  state.written = [];
+  state.shared = {};
+  await seesPi();
+  expect(state.written).toEqual([]);
+  expect(readFileSync(extensionPath(), "utf8")).toBe(text);
+  expect(state.shared["agents.setup"]).toEqual({ pi: 1 });
+});
+
+test("once set up, nothing is even read again, so an extension the person removed stays removed", async () => {
+  await seesPi();
+  rmSync(extensionPath());
+  state.reads = [];
+  state.written = [];
+  await seesPi();
+  expect(state.reads).toEqual([]);
+  expect(existsSync(extensionPath())).toBe(false);
+});
+
+test("a new version of the setup runs again", async () => {
+  await seesPi();
+  const text = readFileSync(extensionPath(), "utf8");
+  writeFileSync(extensionPath(), "// an older extension\n");
+  state.shared = { "agents.setup": { pi: 0 } };
+  await seesPi();
+  expect(readFileSync(extensionPath(), "utf8")).toBe(text);
+});
+
+test("a write that fails isn't taken for done, and the row is still drawn", async () => {
+  state.brokenWrites = true;
+  const { draw } = await quietPi();
+  await settle();
+  expect(state.shared["agents.setup"]).toBeUndefined();
+  expect(existsSync(extensionPath())).toBe(false);
+  expect(byId(draw(), "ag-t1")).toBeDefined();
+});
+
+test("Pi and Codex are set up each on their own", async () => {
+  await seesCodex();
+  await seesPi();
+  expect(state.shared["agents.setup"]).toEqual({ codex: 1, pi: 1 });
+});
+
+// The extension itself, as Pi loads it, in a process of its own. `pi` and `ctx` are stand-ins made
+// from Pi's own types (dist/core/extensions/types.d.ts, v1.4.0): nothing here runs Pi.
+const standIn = () => {
+  const path = join(home, "stand-in.ts");
+  writeFileSync(path, `
+const [extension, steps] = process.argv.slice(2);
+const handlers = {};
+(await import(extension)).default({ on: (name, handler) => (handlers[name] ??= []).push(handler) });
+for (const { event, file, window, mode = "tui" } of JSON.parse(steps)) {
+  const ctx = { mode, sessionManager: { getSessionFile: () => file }, getContextUsage: () => (window ? { tokens: null, contextWindow: window, percent: null } : undefined) };
+  for (const handler of handlers[event] ?? []) await handler({ type: event }, ctx);
+}
+`);
+  return path;
+};
+const piRuns = (steps: any[], env: Record<string, string>) => Bun.spawnSync([process.execPath, "run", standIn(), extensionPath(), JSON.stringify(steps)], { env: { HOME: home, PATH: "/usr/bin:/bin", ...env } });
+
+test("the extension does nothing outside a Zaki terminal", async () => {
+  await seesPi();
+  resetHc();
+  fakeHc(join(home, "bin"));
+  const r = piRuns([{ event: "session_start", file: piFile(piId(1)), window: 200000 }], { PATH: `${join(home, "bin")}:/usr/bin:/bin` });
+  expect(r.exitCode).toBe(0);
+  expect(hcSaid()).toBeNull();
+});
+
+test("every way a session starts labels the terminal with its file and limit, and the extension says nothing", async () => {
+  await seesPi();
+  resetHc();
+  fakeHc(join(home, "bin"));
+  const r = piRuns([{ event: "session_start", file: piFile(piId(1)), window: 200000 }], onPath(join(home, "bin")));
+  expect(r.exitCode).toBe(0);
+  expect(r.stdout.toString()).toBe("");
+  expect(r.stderr.toString()).toBe("");
+  expect(hcSaid()).toEqual(["label", "t7", `zaki.session=${piFile(piId(1))}`, "zaki.limit=200000"]);
+});
+
+test("picking another model tells Zaki its limit", async () => {
+  await seesPi();
+  resetHc();
+  fakeHc(join(home, "bin"));
+  piRuns([{ event: "model_select", file: piFile(piId(1)), window: 1000000 }], onPath(join(home, "bin")));
+  expect(hcSaid()).toEqual(["label", "t7", `zaki.session=${piFile(piId(1))}`, "zaki.limit=1000000"]);
+});
+
+test("the labels the extension sets are ones the mod takes", async () => {
+  await seesPi();
+  resetHc();
+  fakeHc(join(home, "bin"));
+  piRuns([{ event: "session_start", file: piFile(piId(1)), window: 200000 }], onPath(join(home, "bin")));
+  const [, , session, limit] = hcSaid()!;
+  rmSync(join(home, "hc-said"));
+  piWrites(piId(1), [piSaid({ read: 40000 })]);
+  const { draw } = await quietPi({ labels: Object.fromEntries([session, limit].map((said) => said.split(/=(.*)/s).slice(0, 2))) });
+  expect(rowPercents(draw, "t1")).toEqual(["20%"]);
+});
+
+test("with no model there's no limit, and an old one goes", async () => {
+  await seesPi();
+  resetHc();
+  fakeHc(join(home, "bin"));
+  piRuns([{ event: "session_start", file: piFile(piId(1)) }], onPath(join(home, "bin")));
+  expect(hcSaid()).toEqual(["label", "t7", `zaki.session=${piFile(piId(1))}`, "zaki.limit="]);
+});
+
+test("a Pi run by a tool in this terminal, or with no session file, can't take the terminal's label", async () => {
+  await seesPi();
+  resetHc();
+  fakeHc(join(home, "bin"));
+  for (const mode of ["print", "json", "rpc"]) piRuns([{ event: "session_start", file: piFile(piId(2)), window: 200000, mode }], onPath(join(home, "bin")));
+  piRuns([{ event: "session_start", window: 200000 }], onPath(join(home, "bin")));
+  expect(hcSaid()).toBeNull();
+});
+
+test.skipIf(systemHc)("the extension finds hc where the app does when PATH doesn't have it", async () => {
+  await seesPi();
+  for (const folder of [".local/bin", ".local/share/mise/shims", ".nix-profile/bin", ".cargo/bin"]) {
+    resetHc();
+    rmSync(join(home, ".cargo"), { recursive: true, force: true });
+    rmSync(join(home, ".nix-profile"), { recursive: true, force: true });
+    fakeHc(join(home, folder));
+    expect(piRuns([{ event: "session_start", file: piFile(piId(1)), window: 200000 }], bare).exitCode).toBe(0);
+    expect(hcSaid()).toEqual(["label", "t7", `zaki.session=${piFile(piId(1))}`, "zaki.limit=200000"]);
+  }
+  rmSync(join(home, ".cargo"), { recursive: true, force: true });
+  rmSync(join(home, ".nix-profile"), { recursive: true, force: true });
+});
+
+test.skipIf(systemHc)("with hc nowhere, or failing, the extension gets out of Pi's way", async () => {
+  await seesPi();
+  resetHc();
+  const gone = piRuns([{ event: "session_start", file: piFile(piId(1)), window: 200000 }], bare);
+  expect(gone.exitCode).toBe(0);
+  expect(gone.stdout.toString()).toBe("");
+  expect(gone.stderr.toString()).toBe("");
+  fakeHc(join(home, "bin"), 1);
+  const failed = piRuns([{ event: "session_start", file: piFile(piId(1)), window: 200000 }], onPath(join(home, "bin")));
+  expect(failed.exitCode).toBe(0);
+  expect(failed.stdout.toString()).toBe("");
+  expect(failed.stderr.toString()).toBe("");
+});
+
+test("no network, no login, and nothing of Pi's read but its session: all a pass touches", async () => {
+  const net = spyOn(globalThis, "fetch");
+  await seesPi();
+  const { draw } = await piRow(piId(1), [piSaid({ read: 40000 })]);
+  clicks(byId(draw(), "logo-t1")!);
+  await dropdown();
+  await ticks();
+  expect(net).not.toHaveBeenCalled();
+  net.mockRestore();
+  expect([...new Set(state.execs.map(([cmd]: string[]) => cmd))]).toEqual(["sh"]);
+  const touched = [...state.reads, ...state.execs.flat(), ...state.written].join("\n");
+  expect(touched).not.toMatch(/auth\.json|models\.json|settings\.json|credential|keychain|oauth|\.netrc|security|login/i);
+  expect(state.reads).toEqual([extensionPath()]);
+  expect(state.written).toEqual([extensionPath()]);
+  expect(readFileSync(extensionPath(), "utf8")).not.toMatch(/\bfetch\(|WebSocket|https?:/);
+});
+
+test("a 100 MB Pi session is read whole, past lines bigger than a window, and after that only what's new", async () => {
+  const id = piId(1);
+  const talk = entry("message", { message: { role: "toolResult", toolCallId: "c", toolName: "bash", content: [{ type: "text", text: `she said "totalTokens":900000 ${"x".repeat(77000)}` }], isError: false, timestamp: 1 } });
+  const huge = entry("message", { message: { role: "toolResult", toolCallId: "c", toolName: "read", content: [{ type: "text", text: "y".repeat(17 * 1024 * 1024) }], isError: false, timestamp: 1 } });
+  const chunks = [piStart(id)];
+  for (let i = 1; i <= 1100; i++) {
+    chunks.push(piAsks(), piSaid({ input: 900, read: 100, output: 5, cost: 0.01, text: "z".repeat(4000) }), talk.replace(/"id":"[^"]+"/, `"id":"t${i}"`));
+    if (i === 550) chunks.push(huge, entry("compaction", { summary: "made up", firstKeptEntryId: "k", tokensBefore: 9, usage: piUsage({ input: 50, output: 50, cost: 1 }) }), entry("model_change", { provider: "openai", modelId: "gpt-6.1-sol" }));
+  }
+  chunks.push(piSaid({ input: 1000, read: 49000, output: 0, cost: 2, model: "gpt-6.1-sol" }));
+  piWrites(id, chunks);
+  expect(statSync(piFile(id)).size).toBeGreaterThan(100000000);
+
+  const { draw } = await piRow(id, []);
+  expect(rowPercents(draw, "t1")).toEqual(["25%"]);
+  const seen = await card(draw);
+  expect(seen).toContain("gpt-6.1-sol");
+  // 1,100 answers at $0.01, $1 for the compaction, $2 for the last: $14.
+  expect(seen).toContain("$14.00");
+  expect(seen).toContain("in 991k · out 5.5k · cached 159k");
+  expect(Math.max(...state.outputs)).toBeLessThanOrEqual(EXEC_OUTPUT);
+
+  state.execs = [];
+  state.outputs = [];
+  piWrites(id, [piSaid({ read: 100000, cost: 1 })]);
+  changed(piFile(id));
+  await ticks();
+  expect(rowPercents(draw, "t1")).toEqual(["50%"]);
+  expect(Math.max(...state.outputs)).toBeLessThan(2500000);
+  rmSync(piFile(id));
+}, 60000);
+
+test("a line from before Pi wrote totals is still read, and added up as Pi does", async () => {
+  const old = JSON.parse(piSaid({ input: 10000, read: 30000, cost: 1 }));
+  delete old.message.usage.totalTokens;
+  const { draw } = await piRow(piId(1), [JSON.stringify(old)]);
+  expect(rowPercents(draw, "t1")).toEqual(["20%"]);
+});
+
+test("an unreadable Pi session shows no percent and no error, and a broken line is skipped", async () => {
+  piWrites(piId(1), ["{ not json", piSaid({ read: 40000 })]);
+  state.brokenExec = true;
+  const { draw } = await piRow(piId(1), []);
+  expect(rowPercents(draw, "t1")).toEqual([]);
+  expect(shows(draw, "t1")).not.toContain("–");
+  state.brokenExec = false;
+  changed(piFile(piId(1)));
+  await ticks();
+  expect(rowPercents(draw, "t1")).toEqual(["20%"]);
+});
+
+test("the dropdown stays live on a Pi that's working", async () => {
+  const { draw } = await piRow(piId(1), [piSaid({ read: 40000 })]);
+  clicks(byId(draw(), "logo-t1")!);
+  const { draw: live } = await dropdown();
+  expect(words(live())).toContain("40k / 200k");
+  piWrites(piId(1), [piSaid({ read: 60000 })]);
+  changed(piFile(piId(1)));
+  await ticks();
+  expect(words(live())).toContain("60k / 200k");
+});
+
+test("the last line stays for Pi, whose stored cost is at API prices", async () => {
+  const { draw } = await piRow(piId(1), [piSaid({ read: 40000, cost: 1 })]);
+  expect(await card(draw)).toContain("What this would cost on the API, not what you paid.");
+});
+
+test("a session that hasn't changed isn't read again, whatever its limit label says", async () => {
+  for (const labels of [piLabels(piId(1)), piLabels(piId(1), null), { ...piLabels(piId(1)), "zaki.limit": "lots" }]) {
+    piWrites(piId(1), [piSaid({ read: 40000 })]);
+    const term = aPi("t1", { labels });
+    state.terminals = [term];
+    state.agents = [listed(term)];
+    state.timers = [];
+    await open();
+    await ticks();
+    state.execs = [];
+    await ticks();
+    await ticks();
+    expect(realReads()).toBe(0);
+    rmSync(piFile(piId(1)));
+  }
 });

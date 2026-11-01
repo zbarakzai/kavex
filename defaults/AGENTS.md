@@ -198,7 +198,7 @@ the highlighted line shows where it will land.
   peek at it. The same click on a Markdown file opens it in the Files panel; any other
   file or URL goes to the system. Bare addresses refer to the machine of the terminal showing them;
   use `machine/address` for another machine. Names and non-live addresses aren't links.
-- **Session context**: in the agents list, a Claude Code or Codex row on this computer, and such a
+- **Session context**: in the agents list, a Claude Code, Codex or Pi row on this computer, and such a
   sub-agent's, shows how full its session's context is, as a small percent between the name and the
   time, orange from 90%. Clicking its logo opens a dropdown with the model running now, a context
   bar with tokens used, the total and the percent, the API cost, and input, output and cached
@@ -237,6 +237,24 @@ the highlighted line shows where it will land.
   out of both sides: it's 100 minus Codex's "% context left", a few points under used over total. The
   API cost is per response: cached input apart, and Fast and long context (over 272K input) at their
   own prices. Cache writes read "no price": Codex gives one figure and the page prices two kinds.
+
+  Pi differs too. Nothing on disk ties a running Pi to its session either, so **Zaki adds an extension
+  to Pi by itself**, the first time it sees one on this computer: `~/.pi/agent/extensions/zaki-session.ts`,
+  a file of its own, so other extensions and Pi's settings stay as they are, and one the person
+  removes stays removed until Zaki's setup changes. Pi loads it with nothing to approve, but a Pi
+  already running needs `/reload` or a restart. It does nothing outside a Zaki terminal, or in a Pi
+  a tool runs there with no screen of its own (`pi -p`). When a session starts (launch, `/new`,
+  `/resume`, `/fork`, `/reload`) and when another model is picked, it labels the terminal
+  `zaki.session=<session file>` and `zaki.limit=<the model's context limit>`, and both go when the
+  terminal is back at its shell. A Pi with no label a few seconds after it starts shows `–`, with what
+  to do in its dropdown, and so does one with no session to report (`--no-session`). Pi writes its
+  session file once a conversation starts, so until its first answer it shows no percent and "No
+  usage yet". Context is the newest answer that didn't fail, and after compacting it's unknown until Pi's next answer, as
+  in Pi's own footer: the row shows nothing and the dropdown `?`. Pi needs no price list: the API cost
+  is the sum of what Pi stores with each usage, from its own model list whether it's signed in or on
+  an API key, and it covers what `/session` counts: answers, tools that call a model, summaries and
+  cache warming. A usage with tokens and no cost, on a model Pi has no price for, reads "no price".
+  `PI_CODING_AGENT_DIR` isn't followed, so a Pi using it stays at `–`.
 - **Agent navigation order** belongs to the mods. A mod displaying agents calls
   `setAgentOrder(list.map(a => a.address))` on render so `agent.next` /
   `agent.prev` follow its list.
