@@ -3,7 +3,8 @@ import { PRICES, priced } from "./prices.js";
 
 const SESSION_FILE = /^(.+[\\/]sessions)[\\/]\d{4}[\\/]\d{2}[\\/]\d{2}[\\/]rollout-[^\\/]*?([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\.jsonl$/;
 
-// Codex keeps this much out of both sides of the sum in its "% context left".
+// Codex keeps this much out of both sides of the sum in its "% context left". The percent here is
+// 100 minus that figure, so it reads a few points under used over total.
 const BASE = 12000;
 
 function context(used, total) {
