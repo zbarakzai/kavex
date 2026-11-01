@@ -39,6 +39,8 @@ pub enum TerminalEvent {
     Ended,
     /// Right-click where the program doesn't take the mouse: the pane menu.
     ContextMenu(Point<Pixels>),
+    /// A Markdown file was opened: it shows in the Files panel.
+    Preview(PathBuf),
 }
 
 /// What the canvas closures need, shared outside the entity so prepaint can resize.
@@ -61,6 +63,7 @@ struct Grid {
     images: HashMap<(u32, u64, [u32; 4]), Arc<RenderImage>>,
     /// Where the pointer is over the pane.
     hover: Option<Point<Pixels>>,
+    markdown: crate::markdown_refs::MarkdownRefs,
     /// The link under the pointer to underline: (row, first column, last column).
     link_spans: vt::Spans,
     /// Text an input method is still composing ("nihao" before "\u{4f60}\u{597d}"),
@@ -96,6 +99,8 @@ pub struct TerminalView {
     was_focused: bool,
     /// The window frame this terminal was last put on screen in (`FRAME`).
     shown_in: Cell<u64>,
+    /// The window it last drew in.
+    window: Option<AnyWindowHandle>,
     /// When the person last typed here: output right after is shown at once.
     typed_at: Cell<Option<Instant>>,
     /// Scrolled this gesture, in lines, toward the next whole one.
@@ -173,6 +178,7 @@ impl TerminalView {
                 buttons_down: Vec::new(),
                 images: HashMap::new(),
                 hover: None,
+                markdown: Default::default(),
                 link_spans: Vec::new(),
                 marked: None,
                 cursor_at: None,
@@ -182,6 +188,7 @@ impl TerminalView {
             focus: cx.focus_handle(),
             was_focused: false,
             shown_in: Cell::new(0),
+            window: None,
             typed_at: Cell::new(None),
             scrolled: 0.0,
             _reader: None,
@@ -587,6 +594,50 @@ impl TerminalView {
         self.grid.borrow().hover.is_some()
     }
 
+    fn remote(&self) -> bool {
+        crate::mirror::machine(&self.address).is_some()
+    }
+
+    fn ask_markdown(&mut self, cx: &mut Context<Self>) {
+        let Some(lookup) = self.grid.borrow_mut().markdown.start_lookup() else { return };
+        let (words, cwd) = (lookup.words, lookup.cwd);
+        cx.spawn(async move |this, cx| {
+            let answers = cx.background_spawn(async move { crate::markdown_refs::on_disk(words, cwd) }).await;
+            let _ = this.update(cx, |this, cx| {
+                let (changed, unknown) = this.grid.borrow_mut().markdown.finish_lookup(answers);
+                if changed {
+                    cx.notify();
+                }
+                if unknown {
+                    this.ask_markdown(cx);
+                }
+            });
+        })
+        .detach();
+        if lookup.start_rechecking {
+            cx.spawn(async move |this, cx| {
+                loop {
+                    cx.background_executor().timer(crate::markdown_refs::RECHECK).await;
+                    // A hidden window draws nothing, so frames can't say it's gone.
+                    let window = this.read_with(cx, |this, _| this.window).ok().flatten();
+                    let hidden = window.is_some_and(|w| cx.update_window(w, |_, window, _| !window.is_visible()).unwrap_or(false));
+                    let again = this.update(cx, |this, cx| {
+                        let shown = this.shown_in.get() == FRAME.load(Ordering::Relaxed);
+                        let keep = this.grid.borrow_mut().markdown.keep_rechecking(shown);
+                        if keep && !hidden {
+                            this.ask_markdown(cx);
+                        }
+                        keep
+                    });
+                    if !matches!(again, Ok(true)) {
+                        break;
+                    }
+                }
+            })
+            .detach();
+        }
+    }
+
     /// The link at a window position, and where it shows.
     fn link_at(&self, pos: Point<Pixels>) -> Option<(LinkTarget, vt::Spans)> {
         let g = self.grid.borrow();
@@ -594,11 +645,25 @@ impl TerminalView {
         let (col, row) = (x / f32::from(g.cell.width), y / f32::from(g.cell.height));
         let mut target = None;
         let hit = g.vt.link_at(col as u16, row as u16, |text, at| {
+            // On another machine `~` and variables aren't this one's.
             if let Some(range) = links::find(text, at)
+                && !(self.remote() && text[range.clone()].starts_with(['~', '$']))
                 && let Some(link) = links::resolve(&text[range.clone()], self.cwd.as_deref())
             {
                 target = Some(LinkTarget::External(link));
                 return Some(range);
+            }
+            if let Some(range) = links::markdown_word(text, at) {
+                let word = &text[range.clone()];
+                let link = if self.remote() {
+                    links::remote_path(word, self.cwd.as_deref()).map(links::Target::File)
+                } else {
+                    links::resolve(word, self.cwd.as_deref())
+                };
+                if let Some(link) = link {
+                    target = Some(LinkTarget::External(link));
+                    return Some(range);
+                }
             }
             let range = links::word(text, at)?;
             let address = crate::mods::terminal_address(&text[range.clone()], &self.address)?;
@@ -1063,7 +1128,8 @@ fn row_ops(row: &[vt::Cell], cell: Size<Pixels>, window: &mut Window) -> Vec<Row
     ops
 }
 
-fn paint_grid(bounds: Bounds<Pixels>, grid: &Rc<RefCell<Grid>>, focused: bool, window: &mut Window, cx: &mut App) {
+/// Returns whether the disk should be asked about the Markdown files on screen.
+fn paint_grid(bounds: Bounds<Pixels>, grid: &Rc<RefCell<Grid>>, focused: bool, window: &mut Window, cx: &mut App) -> bool {
     crate::bench::count(&crate::bench::GRID);
     let mut g = grid.borrow_mut();
     let cell = g.cell;
@@ -1103,6 +1169,9 @@ fn paint_grid(bounds: Bounds<Pixels>, grid: &Rc<RefCell<Grid>>, focused: bool, w
     }
     g.images.retain(|k, _| keep.contains(k));
     let link_spans = g.link_spans.clone();
+    g.markdown.read(&frame.rows, &frame.wraps);
+    let markdown_spans = g.markdown.spans();
+    let ask_markdown = g.markdown.wants_asking();
     let marked = g.marked.clone();
     drop(g);
 
@@ -1171,12 +1240,14 @@ fn paint_grid(bounds: Bounds<Pixels>, grid: &Rc<RefCell<Grid>>, focused: bool, w
         (g.painted, g.painted_with) = (painted, with);
     }
 
-    for &(y, x0, x1) in &link_spans {
-        let Some(row) = frame.rows.get(y as usize) else { continue };
-        let color = row.get(x0 as usize).map_or(hsla(vt::theme().fg), |c| hsla(c.fg));
-        let (x0, x1) = (x0 as usize, (x1 as usize + 1).min(row.len()));
-        let line = Bounds::new(at(x0, y as usize) + point(px(0.0), cell.height - px(2.0)), size(cell.width * (x1 - x0) as f32, px(1.0)));
-        window.paint_quad(fill(snap_box(line), color));
+    for (spans, opacity) in [(&markdown_spans, 0.55), (&link_spans, 1.0)] {
+        for &(y, x0, x1) in spans {
+            let Some(row) = frame.rows.get(y as usize) else { continue };
+            let color = row.get(x0 as usize).map_or(hsla(vt::theme().fg), |c| hsla(c.fg)).opacity(opacity);
+            let (x0, x1) = (x0 as usize, (x1 as usize + 1).min(row.len()));
+            let line = Bounds::new(at(x0, y as usize) + point(px(0.0), cell.height - px(2.0)), size(cell.width * (x1 - x0) as f32, px(1.0)));
+            window.paint_quad(fill(snap_box(line), color));
+        }
     }
 
     paint_images(false, window);
@@ -1230,6 +1301,7 @@ fn paint_grid(bounds: Bounds<Pixels>, grid: &Rc<RefCell<Grid>>, focused: bool, w
         let _ = line.paint(p, cell.height, TextAlign::Left, None, window, cx);
     }
     grid.borrow_mut().cursor_at = frame.cursor_cell.map(|(x, y)| Bounds::new(at(x as usize, y as usize), cell));
+    ask_markdown
 }
 
 /// OS text input (AltGr, Pinyin, Japanese, Korean, dead keys) types here.
@@ -1298,8 +1370,10 @@ impl Render for TerminalView {
                 g.core.focus(ch, focused);
             }
         }
+        self.window = Some(window.window_handle());
         let cell = cell_size(window);
         let hover = self.grid.borrow().hover;
+        self.grid.borrow_mut().markdown.set_place(self.cwd.as_deref(), self.remote());
         let found = hover.filter(|_| link_mods(&window.modifiers())).and_then(|pos| self.link_at(pos));
         let (link, spans) = found.unzip();
         self.link = link;
@@ -1343,7 +1417,10 @@ impl Render for TerminalView {
                     && let Some((target, _)) = this.link_at(ev.position)
                 {
                     match target {
-                        LinkTarget::External(target) => links::open(&target),
+                        LinkTarget::External(target) => match links::markdown_file(&target, this.remote()) {
+                            Some(path) => cx.emit(TerminalEvent::Preview(path)),
+                            None => links::open(&target),
+                        },
                         LinkTarget::Terminal(address) => cx.emit(TerminalEvent::Peek(address)),
                     }
                     return;
@@ -1407,8 +1484,14 @@ impl Render for TerminalView {
                         }
                     },
                     move |bounds, _, window, cx| {
-                        paint_grid(bounds, &grid_paint, focused, window, cx);
+                        let ask_markdown = paint_grid(bounds, &grid_paint, focused, window, cx);
                         let view = selection_view.clone();
+                        if ask_markdown {
+                            let view = view.clone();
+                            cx.defer(move |cx| {
+                                let _ = view.update(cx, |this, cx| this.ask_markdown(cx));
+                            });
+                        }
                         window.on_mouse_event(move |ev: &MouseMoveEvent, phase, _, cx| {
                             if phase == DispatchPhase::Capture {
                                 let _ = view.update(cx, |this, cx| {

@@ -29,8 +29,9 @@ const press = (e: El, name: string, cx: any, button?: string) => e.calls.find(([
 const scratch = mkdtempSync(join(tmpdir(), "zaki-files-"));
 afterAll(() => rmSync(scratch, { recursive: true, force: true }));
 const theme = JSON.parse(readFileSync(new URL("../defaults/themes/zaki.json", import.meta.url), "utf8"));
-const colors = { background: theme.background, ...theme.colors };
+const colors = { background: theme.background, ...theme.colors, ...Object.fromEntries(theme.ansi.map((c: string, i: number) => [`ansi${i}`, c])) };
 
+(globalThis as any).localStorage = { getItem: () => null, setItem() {} };
 let state: any;
 const shell = (args: string[], opts?: { on?: string }) => {
   if (opts?.on) state.remote.push(args);
@@ -45,7 +46,7 @@ const InputState = {
   },
 };
 mock.module("gpui-kit", () => ({ View: class {}, div: make, svg: make, image: make }));
-mock.module("gpui-base", () => ({ h_flex: make, v_flex: make, InputState, Input: { new: make }, Editor: { new: make }, EditorState: { new: () => ({ release() {} }) } }));
+mock.module("gpui-base", () => ({ h_flex: make, v_flex: make, InputState, Input: { new: make }, Editor: { new: make }, EditorState: { new: () => ({ release() {} }) }, MarkdownState: { new: () => ({ release() {}, set_look() {}, outline: () => [] }) }, TextView: { state: make }, Popover: { new: make }, HoverCard: { new: make } }));
 mock.module("herdr", () => ({
   spaces: () => [{ id: "s1", active: true, folder: scratch, machine: state.on, tabs: [] }],
   panes: () => [{ pane: "p1", cwd: scratch }],

@@ -95,6 +95,11 @@ enum Record {
         application: Option<Rc<ApplicationGeneration>>,
         subscriptions: Vec<Subscription>,
     },
+    // HERDR: a Markdown document, kept with its parse, scroll and find.
+    Markdown {
+        document: Rc<crate::markdown::MarkdownDocument>,
+        application: Option<Rc<ApplicationGeneration>>,
+    },
     /// A calendar's month, view and selected date.
     ///
     /// Retained because the month a script is looking at outlives the frame
@@ -303,6 +308,7 @@ impl EntityStore {
             Record::Textarea { .. } => Some("TextareaState"),
             // HERDR: expose the distinct code-editor handle type.
             Record::Editor { .. } => Some("EditorState"),
+            Record::Markdown { .. } => Some("MarkdownState"),
             Record::Calendar { .. } => Some("CalendarState"),
             Record::Slider { .. } => Some("SliderState"),
             Record::Otp { .. } => Some("OtpState"),
@@ -481,6 +487,32 @@ impl EntityStore {
             application,
             subscriptions: Vec::new(),
         })
+    }
+
+    // HERDR: retained Markdown documents.
+    pub(crate) fn create_markdown(
+        &mut self,
+        options: crate::markdown::MarkdownOptions,
+        application: Option<Rc<ApplicationGeneration>>,
+        cx: &mut App,
+    ) -> Result<EntityHandle, EntityLimitError> {
+        self.ensure_capacity()?;
+        let document = Rc::new(crate::markdown::MarkdownDocument::new(options, cx));
+        self.push(Record::Markdown {
+            document,
+            application,
+        })
+    }
+
+    // HERDR: never resolve a Markdown document as another kind of state.
+    pub(crate) fn markdown(
+        &self,
+        handle: EntityHandle,
+    ) -> Option<Rc<crate::markdown::MarkdownDocument>> {
+        match self.record(handle) {
+            Some(Record::Markdown { document, .. }) => Some(document.clone()),
+            _ => None,
+        }
     }
 
     // HERDR: never resolve an editor as an input or textarea.
@@ -1018,6 +1050,7 @@ impl EntityStore {
                 }
                 // HERDR: unload editors and their subscriptions with the owning mod.
                 | Record::Editor { application: owner, .. }
+                | Record::Markdown { application: owner, .. }
                 | Record::Slider {
                     application: owner, ..
                 }

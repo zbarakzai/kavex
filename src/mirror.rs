@@ -62,6 +62,11 @@ pub fn qualify(id: &str, machine: Option<&str>) -> String {
     machine.map_or_else(|| id.to_owned(), |m| format!("{m}/{id}"))
 }
 
+/// The machine a terminal's address names, none for this computer.
+pub fn machine(address: &str) -> Option<&str> {
+    address.split_once('/').map(|(machine, _)| machine)
+}
+
 pub fn local<'a>(id: &'a str, machine: Option<&str>) -> &'a str {
     machine.and_then(|m| id.strip_prefix(m).and_then(|s| s.strip_prefix('/'))).unwrap_or(id)
 }

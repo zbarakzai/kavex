@@ -91,7 +91,7 @@ pub fn client(args: &[String]) -> i32 {
         [verb] if verb == "ls" => json!({ "ls": true }),
         [verb, message] if verb == "feedback" => json!({ "do": "app.feedback", "args": { "message": message, "from": "agent" } }),
         [verb, command, rest @ ..] if verb == "do" => match parse_args(rest) {
-            Ok(a) => json!({ "do": command, "args": a }),
+            Ok(a) => json!({ "do": command, "args": from_here(command, a) }),
             Err(e) => return fail(&e),
         },
         _ => return fail("usage: zaki ls | zaki commands | zaki status | zaki shot [file.png] | zaki do <command> [--arg value ... | json]"),
@@ -124,6 +124,19 @@ pub fn client(args: &[String]) -> i32 {
         println!("{}", serde_json::to_string_pretty(&reply).unwrap_or_default());
     }
     if reply.get("error").is_some() { 1 } else { 0 }
+}
+
+/// A shell runs where it runs, whichever terminal has the focus: a file it names
+/// is from its folder, on this computer, unless it says what machine.
+fn from_here(command: &str, mut args: Value) -> Value {
+    if command == "file.preview"
+        && args.get("on").is_none_or(Value::is_null)
+        && let Some(path) = args.get("file").and_then(Value::as_str).and_then(|f| std::path::absolute(f).ok())
+    {
+        args["file"] = json!(path);
+        args["on"] = Value::Null;
+    }
+    args
 }
 
 /// `--name api --argv '["pi"]'` (values that parse as JSON are JSON), or one JSON object.
@@ -180,6 +193,17 @@ fn fail(message: &str) -> i32 {
 #[cfg(all(test, unix))]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_preview_asked_from_a_shell_means_its_own_folder_and_machine() {
+        let here = std::env::current_dir().unwrap();
+        let asked = from_here("file.preview", json!({ "file": "plan.md" }));
+        assert_eq!(asked["file"], json!(here.join("plan.md")));
+        assert_eq!(asked.get("on"), Some(&Value::Null));
+        let elsewhere = json!({ "file": "plan.md", "on": "vps" });
+        assert_eq!(from_here("file.preview", elsewhere.clone()), elsewhere);
+        assert_eq!(from_here("tab.new", json!({ "file": "plan.md" })), json!({ "file": "plan.md" }));
+    }
 
     #[test]
     fn a_second_launch_raises_the_running_window() {

@@ -4,6 +4,16 @@ use gpui::{HighlightStyle, Hsla, Rems, StyleRefinement, rems};
 
 use crate::ColorTokens;
 
+/// HERDR: the color of each kind of GitHub alert.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct AlertColors {
+    pub note: Hsla,
+    pub tip: Hsla,
+    pub important: Hsla,
+    pub warning: Hsla,
+    pub caution: Hsla,
+}
+
 /// TextViewStyle used to customize the style for [`super::TextView`].
 ///
 /// The fields are private because this type crosses the `gpui-base` seam:
@@ -29,6 +39,8 @@ pub struct TextViewStyle {
     /// [`Self::on_text_color`] sets it, to let a table on an inverted surface
     /// show that surface.
     table_background: Option<Hsla>,
+    // HERDR: alerts.
+    alerts: AlertColors,
     is_dark: bool,
 }
 
@@ -48,6 +60,8 @@ impl PartialEq for TextViewStyle {
             && self.table_cell == other.table_cell
             && self.inline_code == other.inline_code
             && self.table_background == other.table_background
+            // HERDR: alerts.
+            && self.alerts == other.alerts
             && self.is_dark == other.is_dark
     }
 }
@@ -91,6 +105,14 @@ impl TextViewStyle {
                 ..Default::default()
             },
             table_background: None,
+            // HERDR: alerts.
+            alerts: AlertColors {
+                note: colors.primary,
+                tip: colors.primary,
+                important: colors.primary,
+                warning: colors.primary,
+                caution: colors.primary,
+            },
             is_dark,
         }
     }
@@ -198,6 +220,12 @@ impl TextViewStyle {
         self
     }
 
+    /// HERDR: sets the colors of alerts.
+    pub fn with_alerts(mut self, colors: AlertColors) -> Self {
+        self.alerts = colors;
+        self
+    }
+
     /// Sets whether content-specific assets should use their dark variant.
     pub fn with_dark(mut self, is_dark: bool) -> Self {
         self.is_dark = is_dark;
@@ -268,6 +296,18 @@ impl TextViewStyle {
     /// fallback in [`Self::inline_code_highlight`] applies.
     pub fn inline_code(&self) -> HighlightStyle {
         self.inline_code
+    }
+
+    /// HERDR: the color of an alert's bar and title.
+    pub(crate) fn alert(&self, alert: crate::text::Alert) -> Hsla {
+        use crate::text::Alert;
+        match alert {
+            Alert::Note => self.alerts.note,
+            Alert::Tip => self.alerts.tip,
+            Alert::Important => self.alerts.important,
+            Alert::Warning => self.alerts.warning,
+            Alert::Caution => self.alerts.caution,
+        }
     }
 
     /// Whether content-specific assets should use their dark variant.

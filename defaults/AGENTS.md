@@ -195,7 +195,8 @@ the highlighted line shows where it will land.
   parent's tab without a pane; the `agents` mod shows them,
   `terminal.peek` opens one, `terminal.keep` gives one a pane.
   Ctrl-click (Cmd-click on macOS) a live terminal address in terminal text to
-  peek at it. Bare addresses refer to the machine of the terminal showing them;
+  peek at it. The same click on a Markdown file opens it in the Files panel; any other
+  file or URL goes to the system. Bare addresses refer to the machine of the terminal showing them;
   use `machine/address` for another machine. Names and non-live addresses aren't links.
 - **Agent navigation order** belongs to the mods. A mod displaying agents calls
   `setAgentOrder(list.map(a => a.address))` on render so `agent.next` /
@@ -227,6 +228,23 @@ Reveal (this machine only), Rename, Delete (always asks; moves to the Trash or R
 fails if it can't, deletes for good on another machine), Attach as context (pastes `@path` into a
 focused agent, the quoted path into anything else, and restores copied text), Copy path and Copy
 relative path (from the folder shown). The folder shown itself can't be renamed or deleted.
+
+A Markdown file (`.md`, `.markdown`, `.mdown`, `.mkd`, `.mdx`) opens rendered in a native reader,
+with a Preview | Raw switch that's remembered: GitHub's Markdown with alerts (`> [!NOTE]`), tables,
+task lists, footnotes, front matter, images beside the file (or `https://` ones) and code in color
+with a copy button. Its text uses the system font, as Geist has one weight and no italics, whatever
+`ui_font` says. The outline button jumps to a heading; the search button, or `cmd-f` (`ctrl-f`)
+once the document has the keyboard, marks matches. The reader follows the file as it's saved and
+keeps your place, at once on this machine and within 10 seconds on another. Files stop at 1 MiB.
+Links stay in the reader: another file (the back arrow returns), a heading, or the browser for the
+web. Mermaid diagrams and math show as their source.
+
+In a terminal, a Markdown file named in its text, with or without a slash (`README.md`,
+`@docs/plan.md`) or as a `file://` link, gets a soft underline while it exists, also when a long path wraps. On another
+machine that can't be checked, so there's no underline, but the click still works. Cmd-click
+(Ctrl-click) opens it in the reader, and `zaki do file.preview --file plan.md` does the same for an
+agent. In a layout without the panel it opens in a pane beside the focused one, and the next file
+replaces what that pane shows.
 
 The Changes panel shows the focused repo's diff by scope: Unstaged (with new
 files), Staged, Commit (a picked commit), Branch (from where it left a picked
@@ -634,6 +652,10 @@ The main ones:
   Terminals display Kitty graphics, including Unicode placeholder images used by
   programs such as yazi; partial images and scrolling follow the placeholder cells.
 - Agents: `agent.next`, `agent.prev`, `agent.focus {terminal}`.
+- Files: `file.preview {file, on?}` (shows a file in the Files panel, Markdown rendered; the path
+  is absolute or from the focused terminal's folder, `on` is the machine it's on; `zaki do` from
+  a shell means that shell's folder on this computer unless `on` says otherwise; a layout
+  without the panel uses the tab's Files pane, or opens one beside).
 - Layout: `layout.switch {name?}`, `layout.toggle {id}`, `layout.show {id}`, `layout.hide {id}`
   (a node with a px size slides open and shut; its mod keeps its full size throughout),
   `layout.resize {id, px | weight}`, `layout.select {stack, child}`, `layout.set {layout}`
@@ -949,7 +971,11 @@ receives them. Files and folders on this machine in the Files panel drag this wa
 and other interactive controls too.
 `.when(cond, (el) => …)`, `.children([...])`. Controls from `gpui-base`
 (`Button`, `Checkbox`, `Switch`, `InputState` + `Input`) are unstyled: style
-them. Text: `TextView.markdown(id, text)` renders markdown; `EditorState.new({
+them. Text: `TextView.markdown(id, text)` renders markdown, for a few lines; to read a whole
+document, keep `MarkdownState.new({ value, folder })` on the view (as `files` does) and draw
+`TextView.state(doc).scrollable(true)`: the text stays native however long it is, parsing runs off
+the main thread and only what's on screen draws. It has `set_value`, `set_look`, `outline`,
+`scroll_to`, `find`, `find_step`, `find_again` and `release`. `folder` is where its relative images are. `EditorState.new({
 language, value, readonly, font_family: settings().font_family, syntax: {
 keyword: theme().ansi5, ... } })` + `Editor.new(state)` is a code view (readonly)
 or editor with syntax highlighting, line numbers and folding. A viewer opens
@@ -1021,7 +1047,7 @@ All of it is in `herdr.d.ts`. In short:
   `cx.spawn(async (cx) => { for (;;) { await watchFolder(dir); this.reload(); cx.notify(); } })`.
 - `notify({ ..., action: { name, args } })`: the toast runs the command when clicked.
 - This copy: `props()`, `shared(key)` / `setShared(key, value)` (every mod
-  sees it; setting re-renders all), `nextCommand()` (key commands for this
+  sees it; setting re-renders all; `"files.open"` is how `file.preview` reaches the panel), `nextCommand()` (key commands for this
   mod: `cx.spawn(async (cx) => { for (;;) { const c = await nextCommand(); …; cx.notify(); } })`).
 
 Mods are trusted code: commands and network access (including `fetch`) are unrestricted.

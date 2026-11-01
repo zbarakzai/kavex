@@ -105,6 +105,8 @@ pub struct Cursor {
 pub struct Frame {
     /// A row that didn't change since the last frame is the same `Rc`.
     pub rows: Vec<Rc<Vec<Cell>>>,
+    /// Whether each row's text carries on in the next.
+    pub wraps: Vec<bool>,
     /// Every row changed (output scrolled, a resize, new colors): none is kept.
     pub all: bool,
     pub cursor: Option<Cursor>,
@@ -1182,8 +1184,15 @@ impl Vt {
             let all = dirty == GHOSTTY_RENDER_STATE_DIRTY_FULL || with != self.seen_with;
             let mut seen = HashMap::with_capacity(self.rows as usize);
             let mut rows = Vec::with_capacity(self.rows as usize);
+            let mut wraps = Vec::with_capacity(self.rows as usize);
             ghostty_render_state_get(state, GHOSTTY_RENDER_STATE_DATA_ROW_ITERATOR, &mut self.rows_it as *mut _ as *mut c_void);
             while ghostty_render_state_row_iterator_next(self.rows_it) {
+                let mut raw: GhosttyRow = Default::default();
+                let mut wrap = false;
+                if ghostty_render_state_row_get(self.rows_it, GHOSTTY_RENDER_STATE_ROW_DATA_RAW, &mut raw as *mut _ as *mut c_void) == GHOSTTY_SUCCESS {
+                    ghostty_row_get(raw, GHOSTTY_ROW_DATA_WRAP, &mut wrap as *mut _ as *mut c_void);
+                }
+                wraps.push(wrap);
                 let mut sel = GhosttyRenderStateRowSelection { size: std::mem::size_of::<GhosttyRenderStateRowSelection>(), ..Default::default() };
                 let selected = ghostty_render_state_row_get(self.rows_it, GHOSTTY_RENDER_STATE_ROW_DATA_SELECTION, &mut sel as *mut _ as *mut c_void)
                     == GHOSTTY_SUCCESS;
@@ -1233,7 +1242,7 @@ impl Vt {
             self.drawn = self.drawable();
             ghostty_render_state_clean(state);
             let cursor_cell = cur.viewport_has_value.then_some((cur.viewport_x, cur.viewport_y));
-            Frame { rows, all, cursor, cursor_cell, bg: bg_default }
+            Frame { rows, wraps, all, cursor, cursor_cell, bg: bg_default }
         }
     }
 
@@ -1861,6 +1870,13 @@ mod tests {
         let hit = vt.link_at(2, 0, crate::links::find).unwrap();
         assert_eq!(hit.target, "https://example.com/abcdefgh");
         assert_eq!(hit.spans, vec![(0, 0, 9), (1, 0, 7)]);
+    }
+
+    #[test]
+    fn frames_say_which_rows_wrap() {
+        let mut vt = Vt::new(10, 3);
+        vt.write(b"0123456789abc\r\nend");
+        assert_eq!(vt.frame().wraps, [true, false, false]);
     }
 
     #[test]

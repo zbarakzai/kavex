@@ -118,6 +118,15 @@ Close a pane and end its terminal.
 |---|---|
 | `pane` | no |
 
+## `file.preview`
+
+Show a file in the Files panel, Markdown rendered: its path, absolute or from the focused terminal's folder, and the machine it's on (`hc machine ls`; default the focused terminal's; null is this computer). `zaki do` from a shell means its own folder on this computer unless `on` says otherwise. A layout without that panel uses the tab's Files pane, or opens one beside.
+
+| Argument | Required |
+|---|---|
+| `file` | yes |
+| `on` | no |
+
 ## `terminal.open`
 
 Start a terminal: as a new tab (place "tab", default), or "right"/"down" of the focused pane.

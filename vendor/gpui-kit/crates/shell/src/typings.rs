@@ -2431,9 +2431,55 @@ const BASE: &str = r#"  /** A row. */
     selectable(value?: boolean): this;
     scrollable(value?: boolean): this;
   }
+  // HERDR: a document read at length. Keep one per file and draw it with `TextView.state`.
+  export interface MarkdownLook {
+    foreground: string;
+    heading: string;
+    muted: string;
+    link: string;
+    /** Behind code blocks and table headers. */
+    code: string;
+    inline_code: string;
+    border: string;
+    /** Behind a code block's copy button under the pointer. */
+    hover: string;
+    selection: string;
+    alerts: { note: string; tip: string; important: string; warning: string; caution: string };
+    /** Behind what `find` marks; `mark_active` is the one shown. */
+    mark: string;
+    mark_active: string;
+    /** Semantic colors, as for `EditorState`. */
+    syntax: Record<string, string>;
+    copy_icon: string;
+    copied_icon: string;
+  }
+  export interface MarkdownState {
+    /** Parsed off the main thread; the scroll position stays. */
+    set_value(value: string): void;
+    set_look(look: MarkdownLook): void;
+    /** The top-level headings of the last finished parse. */
+    outline(): { level: number; text: string; block: number }[];
+    scroll_to(block: number): void;
+    /** Marks every match, ignoring ASCII case, and shows the first. Returns how many. */
+    find(query: string): number;
+    /** Moves to another match, wrapping around. Returns its number from 1, or 0. */
+    find_step(by: number): number;
+    /** Finds again after `set_value`, leaving the scroll alone. Null until the parse lands. */
+    find_again(): { found: number; at: number } | null;
+    release(): boolean;
+  }
+  export const MarkdownState: {
+    new: (options?: {
+      value?: string;
+      /** Where relative images are. Without it they don't load. */
+      folder?: string;
+    }) => MarkdownState;
+  };
   export const TextView: {
     html(id: string, html: string): TextViewElement;
     markdown(id: string, markdown: string): TextViewElement;
+    /** HERDR: a retained document; text stays native, however long it is. */
+    state(state: MarkdownState): TextViewElement;
   };
   /**
    * A tab list. It holds no selection of its own — each `Tab` is told whether

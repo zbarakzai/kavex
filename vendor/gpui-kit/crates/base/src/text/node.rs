@@ -59,6 +59,8 @@ pub(crate) enum BlockNode {
     Blockquote {
         children: Vec<BlockNode>,
         span: Option<Span>,
+        // HERDR: GitHub's `> [!NOTE]`.
+        alert: Option<Alert>,
     },
     List {
         /// Only contains ListItem, others will be ignored
@@ -2317,6 +2319,41 @@ impl CodeBlock {
     }
 }
 
+/// HERDR: the kinds of a GitHub alert, a blockquote opening with `[!NOTE]`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Alert {
+    Note,
+    Tip,
+    Important,
+    Warning,
+    Caution,
+}
+
+impl Alert {
+    /// The kind a blockquote's first line names, in any case.
+    pub(crate) fn parse(marker: &str) -> Option<Self> {
+        let name = marker.strip_prefix("[!")?.strip_suffix(']')?;
+        match name.to_ascii_lowercase().as_str() {
+            "note" => Some(Self::Note),
+            "tip" => Some(Self::Tip),
+            "important" => Some(Self::Important),
+            "warning" => Some(Self::Warning),
+            "caution" => Some(Self::Caution),
+            _ => None,
+        }
+    }
+
+    pub(crate) fn title(self) -> &'static str {
+        match self {
+            Self::Note => "Note",
+            Self::Tip => "Tip",
+            Self::Important => "Important",
+            Self::Warning => "Warning",
+            Self::Caution => "Caution",
+        }
+    }
+}
+
 /// A context for rendering nodes, contains link references.
 #[derive(Default, Clone)]
 pub(crate) struct NodeContext {
@@ -3919,13 +3956,31 @@ impl BlockNode {
                     ))
                     .into_any_element()
             }
-            BlockNode::Blockquote { children, .. } => gapped(
+            // HERDR: alerts.
+            BlockNode::Blockquote {
+                children, alert, ..
+            } => gapped(
                 div()
                     .w_full()
-                    .text_color(node_cx.style.muted_foreground())
+                    .text_color(match alert {
+                        Some(_) => node_cx.style.foreground(),
+                        None => node_cx.style.muted_foreground(),
+                    })
                     .border_l_2()
-                    .border_color(node_cx.style.border())
+                    .border_color(match alert {
+                        Some(alert) => node_cx.style.alert(*alert),
+                        None => node_cx.style.border(),
+                    })
                     .pl(body_font_size(node_cx, window) * 0.9)
+                    .when_some(*alert, |this, alert| {
+                        this.child(
+                            div()
+                                .pb(body_font_size(node_cx, window) * 0.3)
+                                .font_weight(gpui::FontWeight::SEMIBOLD)
+                                .text_color(node_cx.style.alert(alert))
+                                .child(alert.title()),
+                        )
+                    })
                     .children({
                         let children_len = children.len();
                         children.into_iter().enumerate().map(move |(index, c)| {
@@ -4980,6 +5035,7 @@ mod tests {
     #[test]
     fn blockquote_selected_source_prefixes_gt() {
         let quote = BlockNode::Blockquote {
+            alert: None,
             span: None,
             children: vec![BlockNode::Paragraph(selected_paragraph("quoted text"))],
         };

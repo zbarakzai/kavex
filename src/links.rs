@@ -66,6 +66,87 @@ pub fn terminal_address<'a>(word: &str, source: &str, live: impl IntoIterator<It
     live.into_iter().any(|a| a == address).then_some(address)
 }
 
+const MARKDOWN: [&str; 5] = ["md", "markdown", "mdown", "mkd", "mdx"];
+const FILE_SCHEME: &str = "file:";
+
+pub fn is_markdown(path: &Path) -> bool {
+    path.extension().and_then(|e| e.to_str()).is_some_and(|e| MARKDOWN.iter().any(|m| e.eq_ignore_ascii_case(m)))
+}
+
+/// Words in `text` naming a Markdown file. Agents write bare names (`README.md`,
+/// `@docs/plan.md`) that Ghostty's pattern, which wants a slash, leaves out.
+pub fn markdown_words(text: &str) -> Vec<Range<usize>> {
+    let allowed = |c: char| c.is_alphanumeric() || matches!(c, '-' | '_' | '/' | '.' | '~' | '$' | '+' | '@' | '%');
+    let mut words = Vec::new();
+    let mut start = None;
+    for (at, c) in text.char_indices().chain([(text.len(), ' ')]) {
+        match (allowed(c), start) {
+            (true, None) => start = Some(at),
+            (false, Some(from)) => {
+                start = None;
+                let word = text[from..at].trim_end_matches('.');
+                let name = word.trim_start_matches(['@', '+', '%']);
+                let begin = from + word.len() - name.len();
+                // `//` is what's left of a URL once its scheme ended the last word.
+                let url = name.starts_with("//");
+                let file_link = url && text[..begin].ends_with(FILE_SCHEME);
+                // Without its slashes: Windows reads `//host/z.md` as a share, with no file name.
+                if (!url || file_link) && is_markdown(Path::new(name.trim_start_matches('/'))) {
+                    let begin = if file_link { begin - FILE_SCHEME.len() } else { begin };
+                    words.push(begin..from + word.len());
+                }
+            }
+            _ => {}
+        }
+    }
+    words
+}
+
+pub fn markdown_word(text: &str, at: usize) -> Option<Range<usize>> {
+    markdown_words(text).into_iter().find(|r| r.contains(&at))
+}
+
+/// A path on another machine: its files can't be checked from here. Only that
+/// machine knows its home, so `~/` stays as it is until someone clicks
+/// ([`under_home`]); any other variable has no value to be had.
+pub fn remote_path(word: &str, cwd: Option<&Path>) -> Option<PathBuf> {
+    if let Some(rest) = word.strip_prefix("$PWD/") {
+        return Some(cwd?.join(rest));
+    }
+    if under_home(Path::new(word)).is_some() || word.starts_with('/') {
+        return Some(PathBuf::from(word));
+    }
+    if word.starts_with(['~', '$']) { None } else { Some(cwd?.join(word)) }
+}
+
+/// What follows the home folder in a path that names it instead of saying where it is.
+pub fn under_home(path: &Path) -> Option<&Path> {
+    path.strip_prefix("~").or_else(|_| path.strip_prefix("$HOME")).ok()
+}
+
+/// The Markdown file a link points to, `file://` links (OSC 8) included.
+/// `remote` says the link came from a terminal on another machine.
+pub fn markdown_file(target: &Target, remote: bool) -> Option<PathBuf> {
+    let path = match target {
+        Target::File(path) => path.clone(),
+        Target::Url(url) => file_url(url, remote)?,
+    };
+    is_markdown(&path).then_some(path)
+}
+
+fn file_url(url: &str, remote: bool) -> Option<PathBuf> {
+    let (host, path) = gpui_shell::file_url(url)?;
+    let path = PathBuf::from(path);
+    // `ls --hyperlink` names the machine. Another machine's terminal means that
+    // machine; here, a name we can't place counts only if the file is on this disk.
+    (matches!(host, "" | "localhost") || remote || path.exists()).then_some(path)
+}
+
+/// Whether a name from a terminal's text is a Markdown file on this disk.
+pub fn on_disk(word: &str, cwd: Option<&Path>) -> bool {
+    resolve(word, cwd).and_then(|target| markdown_file(&target, false)).is_some_and(|path| path.exists())
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum Target {
     Url(String),
@@ -304,6 +385,83 @@ mod tests {
         assert_eq!(&text[range.clone()], "build.box/t1");
         assert_eq!(terminal_address(&text[range.clone()], "t2", ["box/t1"]), None);
         assert_eq!(terminal_address(&text[range], "t2", ["box/t1", "build.box/t1"]), Some("build.box/t1".into()));
+    }
+
+    #[test]
+    fn finds_markdown_names_with_and_without_a_slash() {
+        let words = |text: &'static str| markdown_words(text).into_iter().map(|r| &text[r]).collect::<Vec<_>>();
+        assert_eq!(words("see README.md, then docs/plan.MD."), ["README.md", "docs/plan.MD"]);
+        assert_eq!(words("read @docs/plan.md and (notes.markdown)"), ["docs/plan.md", "notes.markdown"]);
+        assert_eq!(words("./a.mdx ../b.mdown ~/c.mkd /d/e.md"), ["./a.mdx", "../b.mdown", "~/c.mkd", "/d/e.md"]);
+        assert_eq!(words("src/main.rs README.mdk .md md"), Vec::<&str>::new());
+        assert_eq!(words("https://example.com/a.md"), Vec::<&str>::new());
+        assert_eq!(words("see file:///x/y.md and file://localhost/z.md."), ["file:///x/y.md", "file://localhost/z.md"]);
+        assert_eq!(words("a.md:12 b.md:3:4"), ["a.md", "b.md"]);
+        assert_eq!(words("文档/说明.md"), ["文档/说明.md"]);
+    }
+
+    #[test]
+    fn the_files_panel_reads_the_same_extensions() {
+        let panel = include_str!("../defaults/mods/files/markdown.js");
+        assert!(panel.contains(&format!("\\.({})$", MARKDOWN.join("|"))));
+    }
+
+    #[test]
+    fn the_word_under_the_pointer() {
+        let text = "open README.md now";
+        assert_eq!(markdown_word(text, 5).map(|r| &text[r]), Some("README.md"));
+        assert_eq!(markdown_word(text, 13).map(|r| &text[r]), Some("README.md"));
+        assert_eq!(markdown_word(text, 14), None);
+        assert_eq!(markdown_word(text, 0), None);
+    }
+
+    #[test]
+    fn markdown_targets_include_file_links() {
+        let (md, path) = if cfg!(windows) { (PathBuf::from("C:/a b/c.md"), "/C:/a%20b/c.md") } else { (PathBuf::from("/a b/c.md"), "/a%20b/c.md") };
+        assert_eq!(markdown_file(&Target::File(md.clone()), false), Some(md.clone()));
+        assert_eq!(markdown_file(&Target::Url(format!("file://{path}")), false), Some(md.clone()));
+        assert_eq!(markdown_file(&Target::Url(format!("file://localhost{path}#top")), false), Some(md));
+        assert_eq!(markdown_file(&Target::File("/a/b.rs".into()), false), None);
+        assert_eq!(markdown_file(&Target::Url("https://a.com/c.md".into()), false), None);
+        assert_eq!(markdown_file(&Target::Url("file://other-host/c.md".into()), false), None);
+        assert!(markdown_file(&Target::Url("file://vps/c.md".into()), true).is_some(), "its terminal is on that machine");
+    }
+
+    #[cfg(not(windows))]
+    #[test]
+    fn a_file_link_naming_this_machine_counts_when_the_file_is_here() {
+        let dir = std::env::temp_dir().join(format!("zaki-host-links-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let md = dir.join("c.md");
+        std::fs::write(&md, "").unwrap();
+        let url = format!("file://this-mac/{}", md.display().to_string().trim_start_matches('/'));
+        assert_eq!(markdown_file(&Target::Url(url.clone()), false), Some(md.clone()), "ls --hyperlink names the machine");
+        assert!(on_disk(&format!("file://{}", md.display()), None));
+        std::fs::remove_file(&md).unwrap();
+        assert_eq!(markdown_file(&Target::Url(url), false), None);
+        assert!(!on_disk(&format!("file://{}", md.display()), None));
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn remote_paths_stay_as_written_there() {
+        let cwd = Path::new("/srv/app");
+        assert_eq!(remote_path("docs/a.md", Some(cwd)), Some(cwd.join("docs/a.md")));
+        assert_eq!(remote_path("/etc/a.md", None), Some(PathBuf::from("/etc/a.md")));
+        assert_eq!(remote_path("a.md", None), None);
+        assert_eq!(remote_path("$PWD/a.md", Some(cwd)), Some(cwd.join("a.md")));
+        assert_eq!(remote_path("~/a.md", None), Some(PathBuf::from("~/a.md")));
+        assert_eq!(remote_path("$HOME/a.md", None), Some(PathBuf::from("$HOME/a.md")));
+        assert_eq!(remote_path("~other/a.md", Some(cwd)), None);
+        assert_eq!(remote_path("$NOTES/a.md", Some(cwd)), None);
+    }
+
+    #[test]
+    fn a_path_can_name_its_home() {
+        assert_eq!(under_home(Path::new("~/docs/a.md")), Some(Path::new("docs/a.md")));
+        assert_eq!(under_home(Path::new("$HOME/a.md")), Some(Path::new("a.md")));
+        assert_eq!(under_home(Path::new("/home/me/a.md")), None);
+        assert_eq!(under_home(Path::new("~other/a.md")), None);
     }
 
     #[test]

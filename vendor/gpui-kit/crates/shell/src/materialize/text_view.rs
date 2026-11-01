@@ -4,6 +4,7 @@
 use std::{
     collections::HashSet,
     io::Cursor,
+    path::{Path, PathBuf},
     rc::Rc,
     sync::{
         Arc,
@@ -29,8 +30,18 @@ const IMAGE_TIMEOUT: Duration = Duration::from_secs(30);
 
 type ImageResult = Result<Arc<RenderImage>, ImageCacheError>;
 
-pub(super) fn with_policy(view: TextView, policy: Rc<Policy>) -> impl IntoElement {
-    PolicyTextView { view, policy }
+// HERDR: `folder`, for a retained document's local images.
+// HERDR: `folder` is where a document's relative images are.
+pub(super) fn with_policy(
+    view: TextView,
+    policy: Rc<Policy>,
+    folder: Option<PathBuf>,
+) -> impl IntoElement {
+    PolicyTextView {
+        view,
+        policy,
+        folder,
+    }
 }
 
 /// CLI check constructs elements without drawing. Only layout may initialize
@@ -38,6 +49,8 @@ pub(super) fn with_policy(view: TextView, policy: Rc<Policy>) -> impl IntoElemen
 struct PolicyTextView {
     view: TextView,
     policy: Rc<Policy>,
+    // HERDR: where a retained document's relative images are.
+    folder: Option<PathBuf>,
 }
 
 impl IntoElement for PolicyTextView {
@@ -67,7 +80,14 @@ impl Element for PolicyTextView {
         window: &mut Window,
         cx: &mut App,
     ) -> (LayoutId, Self::RequestLayoutState) {
-        self.view = image_sources(self.view.clone(), self.policy.clone(), window, cx);
+        // HERDR: `folder`.
+        self.view = image_sources(
+            self.view.clone(),
+            self.policy.clone(),
+            self.folder.clone(),
+            window,
+            cx,
+        );
         self.view.request_layout(id, inspector_id, window, cx)
     }
 
@@ -99,9 +119,11 @@ impl Element for PolicyTextView {
     }
 }
 
+// HERDR: `folder`, as for `with_policy`.
 fn image_sources(
     view: TextView,
     policy: Rc<Policy>,
+    folder: Option<PathBuf>,
     window: &mut Window,
     cx: &mut App,
 ) -> TextView {
@@ -124,6 +146,7 @@ fn image_sources(
         .detach();
         DocumentImages {
             policy,
+            folder,
             used: HashSet::new(),
         }
     });
@@ -142,6 +165,8 @@ fn image_sources(
 struct DocumentImages {
     // Retaining the immutable policy also keeps its identity from being reused.
     policy: Rc<Policy>,
+    // HERDR: `folder`, as for `with_policy`.
+    folder: Option<PathBuf>,
     used: HashSet<SharedUri>,
 }
 
@@ -157,14 +182,19 @@ impl Asset for DocumentImage {
         (owner, uri): Self::Source,
         cx: &mut App,
     ) -> impl Future<Output = ImageResult> + Send + 'static {
-        let capabilities = owner
-            .upgrade()
-            .map(|images| images.read(cx).policy.capabilities().clone());
+        // HERDR: local images read from the document's folder.
+        let owned = owner.upgrade().map(|images| {
+            let images = images.read(cx);
+            (images.policy.capabilities().clone(), images.folder.clone())
+        });
         let client = cx.http_client();
         let renderer = cx.svg_renderer();
         let timeout = cx.background_executor().timer(IMAGE_TIMEOUT);
         async move {
-            let capabilities = capabilities.ok_or_else(denied_image)?;
+            let (capabilities, folder) = owned.ok_or_else(denied_image)?;
+            if let Some(path) = folder.and_then(|folder| local_image(&folder, uri.as_ref())) {
+                return decode_image(read_local_image(&path)?, renderer);
+            }
             let url = image_url(&capabilities, uri.as_ref())?;
             smol::future::race(
                 async move {
@@ -181,6 +211,37 @@ impl Asset for DocumentImage {
             .await
         }
     }
+}
+
+/// HERDR: where a document's image is on disk: relative to its folder, or a
+/// `file:` link. Anything with another scheme is a URL's business.
+fn local_image(folder: &Path, value: &str) -> Option<PathBuf> {
+    if let Some((_, path)) = crate::markdown::file_url(value) {
+        return Some(PathBuf::from(path));
+    }
+    let value = value.split(['#', '?']).next().unwrap_or(value);
+    (!has_scheme(value)).then(|| folder.join(crate::markdown::percent_decoded(value)))
+}
+
+// HERDR: images from disk.
+fn has_scheme(value: &str) -> bool {
+    value.split_once(':').is_some_and(|(scheme, _)| {
+        scheme.len() > 1
+            && scheme
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || "+-.".contains(c))
+    })
+}
+
+// HERDR: images from disk.
+fn read_local_image(path: &Path) -> Result<Vec<u8>, ImageCacheError> {
+    let failed = |error: std::io::Error| ImageCacheError::Asset(error.to_string().into());
+    if std::fs::metadata(path).map_err(failed)?.len() > MAX_IMAGE_BYTES {
+        return Err(ImageCacheError::Asset(
+            "TextView image exceeds the size limit".into(),
+        ));
+    }
+    std::fs::read(path).map_err(failed)
 }
 
 fn denied_image() -> ImageCacheError {

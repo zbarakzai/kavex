@@ -1,14 +1,17 @@
-// A lazy file browser for the focused pane's folder, with bounded read-only previews. Right-click
-// opens `file-menu`, whose rows come back here as commands. With props { file, on } it's a pane or
-// tab showing that one file.
+// A lazy file browser for the focused pane's folder, with bounded read-only previews, Markdown
+// rendered or raw. Right-click opens `file-menu`, whose rows come back here as commands. With props
+// { file, on } it's a pane or tab showing that one file. `file.preview` asks through shared
+// "files.open": a file a terminal or agent named.
 import { View, div, svg } from "gpui-kit";
-import { v_flex, h_flex, Editor, EditorState, InputState, Input } from "gpui-base";
-import { spaces, panes, focused, terminals, exec, readTextFile, watchFolder, theme, window, props, run, notify, openOverlay, nextCommand, shared } from "herdr";
+import { v_flex, h_flex, Editor, InputState, Input } from "gpui-base";
+import { spaces, panes, focused, terminals, exec, readTextFile, watchFolder, theme, window, props, run, notify, openOverlay, nextCommand, shared, setShared } from "herdr";
 import * as fs from "fs/promises";
 import { look, MONO } from "./look.js";
 import { typeTag } from "./filetypes.js";
 import { panelHeader } from "./panel.js";
 import { baseName, parentOf, native, quoted, badName, create, move, trash, reveal, cd, WASTE } from "./ops.js";
+import { isMarkdown, isAbsolute, forwardSlashes, tidy, linkTarget } from "./markdown.js";
+import { Reader, rememberedMode, codeState, iconButton } from "./reader.js";
 
 function location() {
   const space = spaces().find(s => s.active), f = focused();
@@ -17,8 +20,9 @@ function location() {
   return { cwd: pane?.cwd || f?.cwd || space?.folder, on, space: space?.id };
 }
 const key = () => JSON.stringify(location());
-const LANG = { ts: "js", tsx: "js", mts: "js", cts: "js", jsx: "js", mjs: "js", toml: "yaml", jsonc: "json", svelte: "html", vue: "html" };
 const PER_FOLDER = 500, TOTAL = 5000;
+// No watching another machine's folders: an open file there is read this often.
+const RECHECK_REMOTE = 10000;
 
 async function directory(path, on) {
   if (!on && window()?.platform === "windows") {
@@ -44,10 +48,12 @@ export default class Files extends View {
   init(_props, cx) {
     this.saved = new Map();
     this.entries = new Map(); this.folders = new Set(); this.pending = new Set(); this.marks = {};
+    this.trail = [];
     const { file, on } = props() ?? {};
     if (file) {
       this.pinned = true; this.root = parentOf(file); this.on = on ?? null; this.context = {};
       this.show(baseName(file), cx);
+      if (this.on) cx.timer.every(RECHECK_REMOTE, cx => this.reload(cx));
       return;
     }
     this.refresh(cx);
@@ -87,14 +93,15 @@ export default class Files extends View {
 
   refresh(cx) {
     const { cwd, on } = location(), next = key();
+    this.reload(cx);
     if (next !== this.context?.key) {
-      if (this.context) this.saved.set(this.context.key, { folders: this.folders, file: this.file });
+      if (this.context) this.saved.set(this.context.key, { folders: this.folders, shown: this.shownFile() });
       const saved = this.saved.get(next);
       this.context = { key: next, cwd, on }; this.root = cwd; this.on = on; this.entries = new Map(); this.folders = new Set(saved?.folders);
       this.pending = new Set(); this.marks = {}; this.show(null); this.watched = null; this.error = null; this.limited = false;
-      this.edit = null; this.target = null;
+      this.edit = null; this.target = null; this.trail = [];
       this.loading = false;
-      if (saved?.file) this.show(saved.file, cx);
+      if (saved?.shown.file) this.reopen(saved.shown, cx);
     }
     if (!cwd || this.loading) return;
     const context = this.context;
@@ -151,27 +158,100 @@ export default class Files extends View {
     cx.notify();
   }
 
-  show(path, cx) {
-    this.code?.release(); this.code = null; this.file = path; this.fileError = null;
+  shownFile() { return { file: this.file, on: this.fileOn }; }
+
+  reopen({ file, on }, cx) { this.show(file, cx, { on }); }
+
+  closeFile() {
+    this.code?.release(); this.reader?.release();
+    this.code = null; this.reader = null;
+  }
+
+  // `file` runs from the folder shown, or is absolute when it's from anywhere else.
+  get elsewhere() { return isAbsolute(this.file); }
+
+  show(path, cx, { on = this.on, mode = rememberedMode(), anchor } = {}) {
+    if (path && path === this.file && this.reader) {
+      this.reader.setMode(mode);
+      if (anchor) this.reader.jump(anchor, cx);
+      return this.reload(cx);
+    }
+    this.closeFile(); this.file = path; this.fileOn = on; this.fileError = null;
     if (!path || !cx) return;
-    const context = this.context, root = this.root, on = this.on;
+    const context = this.context, full = this.full(path);
     cx.spawn(async cx => {
       try {
-        const text = await readTextFile(`${root}/${path}`, { on });
+        const text = await readTextFile(full, { on });
         if (this.file !== path || !this.current(context)) return;
         if (text === null) { this.fileError = "This file is no longer available"; return; }
         if (text.includes("\0")) { this.fileError = "Binary file · no text preview"; return; }
-        const t = theme(), ext = path.includes(".") ? path.split(".").pop() : "txt";
-        this.code = EditorState.new({ language: LANG[ext] ?? ext, readonly: true,
-          value: text.length > 400000 ? text.slice(0, 400000) + "\n… (file truncated)" : text,
-          font_family: MONO, font_size: 11.5,
-          syntax: { keyword: t.ansi5, string: t.ansi2, comment: t.dim, function: t.ansi4, type: t.ansi3, number: t.ansi1, constant: t.ansi6 } });
+        if (!isMarkdown(path)) { this.code = codeState(path, text); return; }
+        this.reader = new Reader({ path, text, mode, folder: on ? undefined : parentOf(full), onLink: (url, cx) => this.follow(url, cx) });
+        if (anchor) this.reader.jump(anchor, cx);
+        if (!on && (this.pinned || this.elsewhere)) this.watchFile(parentOf(full), cx);
       } catch { if (this.file === path && this.current(context)) this.fileError = "Cannot preview this file (binary, too large, or unreadable)"; }
       finally { cx.notify(); }
     });
   }
 
-  full(path) { return path ? `${this.root}/${path}` : this.root; }
+  watchFile(folder, cx) {
+    const reader = this.reader;
+    cx.spawn(async cx => {
+      try { while (this.reader === reader) { await watchFolder(folder); this.reload(cx); } }
+      catch {}
+    });
+  }
+
+  // A document someone is reading follows its file, and they keep their place in it. A change
+  // that lands mid-read is read again: nothing else would ever pick it up.
+  reload(cx) {
+    const reader = this.reader;
+    if (!reader) return;
+    if (this.reloading) { this.reloadAgain = true; return; }
+    this.reloading = true;
+    const path = this.file;
+    cx.spawn(async cx => {
+      try {
+        const text = await readTextFile(this.full(path), { on: this.fileOn });
+        if (reader === this.reader && text !== null && !text.includes("\0")) reader.update(text, cx);
+      } catch {}
+      finally {
+        this.reloading = false;
+        if (this.reloadAgain) { this.reloadAgain = false; this.reload(cx); }
+      }
+    });
+  }
+
+  inside(path) {
+    const root = forwardSlashes(this.root), file = forwardSlashes(path);
+    return root && file.startsWith(`${root}/`) ? file.slice(root.length + 1) : file;
+  }
+
+  // What `file.preview` asked for: a file named from outside, maybe outside the folder shown.
+  openAsked(ask, cx) {
+    setShared("files.open", null);
+    this.trail = [];
+    this.show(this.inside(ask.file), cx, { on: ask.on ?? this.on, mode: "preview" });
+  }
+
+  back(cx) {
+    const last = this.trail.pop();
+    if (last) this.reopen(last, cx);
+    else this.show(null);
+    cx.notify();
+  }
+
+  follow(url, cx) {
+    const here = tidy(this.full(this.file)), to = linkTarget(url, parentOf(here));
+    if (to.web) return cx.open_url(to.web);
+    if (to.other) return notify({ title: "Files", body: `Can't open ${to.other} from here`, level: "error" });
+    if (to.file && to.file !== here) {
+      this.trail.push(this.shownFile());
+      this.show(this.inside(to.file), cx, { on: this.fileOn, anchor: to.anchor });
+    } else if (to.anchor) this.reader?.jump(to.anchor, cx);
+  }
+
+  full(path) { return path ? (isAbsolute(path) ? path : `${this.root}/${path}`) : this.root; }
 
   menu(path, dir, cx) {
     this.target = { path, dir, context: this.context, at: Date.now() };
@@ -318,7 +398,7 @@ export default class Files extends View {
       const mark = this.marks[`${this.root}/${path}`];
       const row = h_flex().id(`file-${path}`).h(28).flex_none().pr(8).items_center().rounded(7).cursor_pointer().hover(s => s.bg(t.hover)).text_size(12.5)
         .when(this.menuOpen(shown), el => el.bg(t.hover))
-        .on_click((_e, cx) => entry.dir ? this.toggle(path, cx) : this.show(path, cx))
+        .on_click((_e, cx) => { if (entry.dir) return this.toggle(path, cx); this.trail = []; this.show(path, cx); })
         .on_mouse_down("right", (_e, cx) => { cx.stop_propagation(); this.menu(shown, entry.dir, cx); })
         .when(!this.on, el => el.drag_paths(`${this.root}/${path}`));
       out.push(entry.dir
@@ -337,22 +417,38 @@ export default class Files extends View {
     this.draft(depth, h_flex().w(18).flex_none().child(svg("mods/workspace-chrome/icons/file-new.svg").size(16).text_color(t.label)), out, t);
   }
 
+  title(t) {
+    const file = this.file ?? "", folder = this.elsewhere ? "" : parentOf(file);
+    return h_flex().flex_1().min_w(0).overflow_hidden().items_center()
+      .when(Boolean(folder), el => el.child(div().min_w(0).truncate().text_color(t.muted).child(`${folder}/`)))
+      .child(div().flex_none().child(baseName(file)));
+  }
+
+  viewer(t) {
+    if (this.reader) return this.reader.body(t);
+    if (this.code) return Editor.new(this.code).flex_1().min_h(0);
+    return div().p(12).text_color(t.label).child(this.fileError || "Loading file…");
+  }
+
   render(cx) {
     if (!this.pinned && key() !== this.context?.key) this.refresh(cx);
+    const ask = this.pinned ? null : shared("files.open");
+    if (ask?.file) this.openAsked(ask, cx);
     const t = look(theme());
-    const card = v_flex().flex_1().min_w(0).min_h(0).h_full().rounded(18).overflow_hidden().bg(t.card).border_1().border_color(t.card_border)
-      .when(Boolean(this.file), el => el.child(h_flex().h(40).flex_none().pl(this.pinned ? 16 : 10).pr(14).gap(8).items_center()
-        .when(!this.pinned, el => el.child(h_flex().id("files-back").size(28).flex_none().items_center().justify_center().rounded(7).text_color(t.muted).hover(s => s.bg(t.hover_strong).text_color(t.foreground))
-          .on_click((_e, cx) => { this.show(null); cx.notify(); }).child(svg("mods/workspace-chrome/icons/chevron-left.svg").size(16))))
+    const card = v_flex().id("files-card").flex_1().min_w(0).min_h(0).h_full().rounded(18).overflow_hidden().bg(t.card).border_1().border_color(t.card_border)
+      .when(Boolean(this.reader), el => el.on_key_down((e, cx) => this.reader?.key(e, cx)))
+      .when(Boolean(this.file), el => el.child(h_flex().h(46).flex_none().pl(this.pinned && !this.trail.length ? 16 : 10).pr(10).gap(8).items_center()
+        .when(!this.pinned || this.trail.length > 0, el => el.child(iconButton("files-back", "chevron-left", t, { size: 28, radius: 7 }).on_click((_e, cx) => this.back(cx))))
         .child(typeTag(this.file ?? "", t.accent))
-        .child(div().flex_1().min_w(0).truncate().child(this.file ?? ""))))
+        .child(this.title(t))
+        .when(Boolean(this.reader), el => el.child(this.reader.tools(t)))))
       .when(!this.file, el => el.child(v_flex().id("files-tree").flex_1().min_h(0).overflow_y_scrollbar().px(8).py(8)
         .when(Boolean(this.root), el => el.on_mouse_down("right", (_e, cx) => this.menu("", true, cx)))
         .children(this.rows("", 0, [], t))
         .when(Boolean(this.error) || !this.entries.get("")?.length, el => el.child(div().p(8).text_size(12).text_color(t.label).child(this.error || (this.loading ? "Loading files…" : this.root ? "No files" : "No folder"))))
         .when(this.limited, el => el.child(div().p(8).text_size(11).text_color(t.label).child("File list limited to 500 entries per folder and 5,000 total")))))
-      .when(Boolean(this.file), el => el.child(this.code ? Editor.new(this.code).flex_1().min_h(0) : div().p(12).text_color(t.label).child(this.fileError || "Loading file…")));
-    if (this.pinned) return card.text_color(t.foreground).text_size(13);
+      .when(Boolean(this.file), el => el.child(this.viewer(t)));
+    if (this.pinned) return card.size_full().text_color(t.foreground).text_size(13);
     return v_flex().id("files").size_full().min_h(0).rounded(20).overflow_hidden().bg(t.panel).border_1().border_color(t.panel_border).text_color(t.foreground).text_size(13)
       .child(panelHeader(t, "files"))
       .child(h_flex().flex_1().min_h(0).px(8).pb(8).child(card));

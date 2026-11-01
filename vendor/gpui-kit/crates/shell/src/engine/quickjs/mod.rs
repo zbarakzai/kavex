@@ -25,7 +25,7 @@ use anyhow::{Context as _, Result, anyhow};
 use gpui::{App, AppContext as _, ClickEvent, Entity, Global, Subscription, WeakEntity, Window};
 use rquickjs::{
     Array, Context as JsContext, Ctx, Error as JsError, Exception, FromJs, Function, Object,
-    Persistent, Result as JsResult, Value,
+    Persistent, Result as JsResult, TypedArray, Value,
     function::{Args as JsArgs, Func, Opt, This},
     loader::{BuiltinResolver, ImportAttributes, Loader, ModuleLoader, Resolver},
     module::Declared,
@@ -1186,6 +1186,7 @@ pub(crate) mod exports {
         // HERDR: source editor exports in gpui-base.
         "Editor",
         "EditorState",
+        "MarkdownState",
         "Textarea",
         "TextView",
         "TextareaState",
@@ -6088,13 +6089,45 @@ globalThis.__gpui = (() => {
       if (closed) builder.close();
       return builder;
     };
-    builder.build = () => Object.freeze({
-      __path: true,
-      fill,
-      width,
-      commands: Object.freeze(commands.slice()),
-    });
+    builder.build = () => {
+      const path = Object.freeze({
+        __path: true,
+        fill,
+        width,
+        commands: Object.freeze(commands.slice()),
+      });
+      pathSteps.set(path, compilePath(path.commands));
+      return path;
+    };
     return builder;
+  };
+
+  // HERDR: a path is replayed on every render, and one host call per point spent
+  // the whole render budget on a detailed drawing. Runs of plain points go over
+  // in one packed call instead, as [0 move_to | 1 line_to, x, y] triples, worked
+  // out when the path is built, so the first render doesn't pay for it. Anything
+  // else keeps its place between those runs.
+  const pathSteps = new WeakMap();
+  const compilePath = (commands) => {
+    const steps = [];
+    let points = [];
+    const flush = () => {
+      if (points.length > 0) steps.push(new Float64Array(points));
+      points = [];
+    };
+    for (const command of commands) {
+      const [name, x, y] = command;
+      const plain = (name === "move_to" || name === "line_to") && command.length === 3
+        && typeof x === "number" && typeof y === "number";
+      if (plain) {
+        points.push(name === "line_to" ? 1 : 0, x, y);
+      } else {
+        flush();
+        steps.push(command);
+      }
+    }
+    flush();
+    return steps;
   };
 
   const paintPath = (pathValue, paintValue) => {
@@ -6108,7 +6141,14 @@ globalThis.__gpui = (() => {
       paint.colorSpace,
       pathValue.width,
     ));
-    for (const [name, ...args] of pathValue.commands) __apply(object.__id, name, args);
+    for (const step of pathSteps.get(pathValue) ?? compilePath(pathValue.commands)) {
+      if (Array.isArray(step)) {
+        const [name, ...args] = step;
+        __apply(object.__id, name, args);
+      } else {
+        __path_points(object.__id, step);
+      }
+    }
     return object;
   };
 
@@ -7028,6 +7068,26 @@ globalThis.__gpui = (() => {
       },
     },
     Editor: { new: (state) => element(__editor_element(state.__handle)) },
+    // HERDR: a Markdown document kept with its parse, scroll and find.
+    MarkdownState: {
+      new: (options = {}) => {
+        const handle = __markdown_state_new(JSON.stringify(options));
+        return {
+          __handle: handle,
+          set_value: (value) => __markdown_set_value(handle, String(value)),
+          set_look: (look) => __markdown_set_look(handle, JSON.stringify(look)),
+          outline: () => JSON.parse(__markdown_outline(handle)),
+          scroll_to: (block) => __markdown_scroll_to(handle, Number(block)),
+          find: (query) => __markdown_find(handle, String(query)),
+          find_step: (by) => __markdown_find_step(handle, Number(by)),
+          find_again: () => {
+            const again = __markdown_find_again(handle);
+            return again == null ? null : JSON.parse(again);
+          },
+          release: () => __markdown_release(handle),
+        };
+      },
+    },
     TextareaState: {
       new: (options) =>
         textareaState(
@@ -7044,6 +7104,8 @@ globalThis.__gpui = (() => {
     TextView: {
       html: (id, text) => element(__text_view(String(id), String(text), "html")),
       markdown: (id, text) => element(__text_view(String(id), String(text), "markdown")),
+      // HERDR: a document kept in a MarkdownState.
+      state: (state) => element(__markdown_element(state.__handle)),
     },
     CalendarState: { new: () => calendarState(__calendar_state_new()) },
     SliderState: {
@@ -7709,6 +7771,17 @@ impl ShellRuntime {
                 ),
             )?;
 
+            let path_points_runtime = runtime.clone();
+            globals.set(
+                "__path_points",
+                Func::from(
+                    move |ctx: Ctx<'_>, id: u32, points: TypedArray<'_, f64>| {
+                        let runtime = upgrade(&path_points_runtime, &ctx)?;
+                        runtime.apply_path_points(&ctx, id, &points)
+                    },
+                ),
+            )?;
+
             // Templates. `begin` swaps the description being recorded for a
             // fresh one so the body's ids start at zero, `end` takes it back
             // out, and `abort` puts the interrupted one back when the body
@@ -7929,6 +8002,30 @@ impl ShellRuntime {
         style::apply_param(name, &args, Default::default())
             .map_err(|error| Exception::throw_type(ctx, error.message()))?;
         self.push_op_checked(ctx, self.push_op(id, SpecOp::ParamStyle(name, args)))
+    }
+
+    /// HERDR: records the packed `[kind, x, y]` triples of `paintPath`'s plain
+    /// points as the same operations one `__apply` per point would have.
+    fn apply_path_points(
+        &self,
+        ctx: &Ctx<'_>,
+        id: SpecId,
+        points: &TypedArray<'_, f64>,
+    ) -> JsResult<()> {
+        let number = |bytes: &[u8]| {
+            f64::from_ne_bytes(bytes.try_into().expect("chunked to eight bytes"))
+        };
+        let Some(bytes) = points.as_bytes() else {
+            return Err(Exception::throw_type(ctx, "path points were detached"));
+        };
+        for point in bytes.chunks_exact(3 * size_of::<f64>()) {
+            let (kind, position) = point.split_at(size_of::<f64>());
+            let (x, y) = position.split_at(size_of::<f64>());
+            let name = if number(kind) == 0.0 { "move_to" } else { "line_to" };
+            let args = smallvec::smallvec![Bridged::Number(number(x)), Bridged::Number(number(y))];
+            self.push_op_checked(ctx, self.push_op(id, SpecOp::Method(name, args)))?;
+        }
+        Ok(())
     }
 
     fn apply(&self, ctx: &Ctx<'_>, id: SpecId, method: &str, args: Arguments) -> JsResult<()> {

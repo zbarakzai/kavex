@@ -66,6 +66,9 @@ mod component_registry;
 mod input_tokens;
 // HERDR: syntax highlighting shipped with script editors.
 mod syntax;
+// HERDR: a retained Markdown document.
+mod markdown;
+pub use markdown::{file_url, percent_decoded};
 pub use input_tokens::{
     InlineTokenCallbacks, inline_token_click_data, inline_token_context_data,
     inline_token_hover_data, input_token_state_methods, textarea_token_state_methods,

@@ -571,6 +571,44 @@ struct Behavior {
     aria_active_descendant: bool,
 }
 
+/// HERDR: what a script sets on any `TextView`, split out for retained documents.
+fn text_view_behavior(
+    mut view: TextView,
+    behavior: &Behavior,
+    runtime: &Rc<ShellRuntime>,
+    refinement: &StyleRefinement,
+) -> TextView {
+    if let Some(selectable) = behavior.selectable {
+        view = view.selectable(selectable);
+    }
+    if let Some(scrollable) = behavior.text_scrollable {
+        view = view.scrollable(scrollable);
+    }
+    if let Some(callback) = behavior.on_link_click {
+        let route =
+            crate::script_callback::ScriptCallbackRoute::new(Rc::downgrade(runtime), callback);
+        view = view.on_link_click(move |url, _event, window, cx| {
+            route.emit(crate::HostValue::from(url.to_string()), window, cx);
+        });
+    } else {
+        view = view.on_link_click(|url, event, _, cx| {
+            // Preserve Base's activation behavior, but apply Shell's URL rules.
+            let activate = match event {
+                gpui::ClickEvent::Mouse(click) => {
+                    matches!(click.up.button, MouseButton::Left | MouseButton::Middle)
+                }
+                gpui::ClickEvent::Keyboard(_) => true,
+                gpui::ClickEvent::Touch(click) => !click.long_press,
+            };
+            if activate && is_openable_url(url) {
+                cx.open_url(url);
+            }
+        });
+    }
+    Styled::style(&mut view).refine(refinement);
+    view
+}
+
 impl Behavior {
     /// Whether anything asked for a pointer listener, and so for the box every
     /// pointer position is reported against.
@@ -1103,43 +1141,24 @@ fn materialize_component(
                 cx,
             )
         }
+        // HERDR: shares `text_view_behavior` with `Component::Markdown`.
         Component::TextView(spec) => {
-            let mut view = match spec.format {
+            let view = match spec.format {
                 crate::spec::TextViewFormat::Html => TextView::html(spec.id, spec.text),
                 crate::spec::TextViewFormat::Markdown => TextView::markdown(spec.id, spec.text),
             }
             .style(TextViewStyle::from_theme(&Theme::global(cx)));
-            if let Some(selectable) = behavior.selectable {
-                view = view.selectable(selectable);
-            }
-            if let Some(scrollable) = behavior.text_scrollable {
-                view = view.scrollable(scrollable);
-            }
-            if let Some(callback) = behavior.on_link_click {
-                let route = crate::script_callback::ScriptCallbackRoute::new(
-                    Rc::downgrade(runtime),
-                    callback,
-                );
-                view = view.on_link_click(move |url, _event, window, cx| {
-                    route.emit(crate::HostValue::from(url.to_string()), window, cx);
-                });
-            } else {
-                view = view.on_link_click(|url, event, _, cx| {
-                    // Preserve Base's activation behavior, but apply Shell's URL rules.
-                    let activate = match event {
-                        gpui::ClickEvent::Mouse(click) => {
-                            matches!(click.up.button, MouseButton::Left | MouseButton::Middle)
-                        }
-                        gpui::ClickEvent::Keyboard(_) => true,
-                        gpui::ClickEvent::Touch(click) => !click.long_press,
-                    };
-                    if activate && is_openable_url(url) {
-                        cx.open_url(url);
-                    }
-                });
-            }
-            Styled::style(&mut view).refine(&refinement);
-            text_view::with_policy(view, spec.policy).into_any_element()
+            let view = text_view_behavior(view, &behavior, runtime, &refinement);
+            text_view::with_policy(view, spec.policy, None).into_any_element()
+        }
+        // HERDR: a retained Markdown document.
+        Component::Markdown(spec) => {
+            let Some(document) = runtime.entities().markdown(spec.handle) else {
+                tracing::error!("Markdown handle {} is no longer live", spec.handle);
+                return div().into_any_element();
+            };
+            let view = text_view_behavior(document.view(), &behavior, runtime, &refinement);
+            text_view::with_policy(view, spec.policy, document.folder.clone()).into_any_element()
         }
         Component::Text(value) => {
             // A text run, not a `div` holding one. GPUI implements

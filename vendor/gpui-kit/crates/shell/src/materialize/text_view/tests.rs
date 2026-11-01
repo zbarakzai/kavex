@@ -393,3 +393,15 @@ fn document_svg_images_cannot_read_local_files(cx: &mut TestAppContext) {
     let decoded = cx.update(|cx| decode_image(svg.as_bytes().to_vec(), cx.svg_renderer()));
     assert!(decoded.is_ok());
 }
+
+#[test]
+fn a_document_image_is_beside_it_or_where_a_file_link_says() {
+    let folder = Path::new("/docs");
+    assert_eq!(local_image(folder, "a%20b.png?x"), Some(folder.join("a b.png")));
+    assert_eq!(local_image(folder, "https://a.com/b.png"), None);
+    #[cfg(not(windows))]
+    {
+        assert_eq!(local_image(folder, "file:///x/b.png"), Some(PathBuf::from("/x/b.png")));
+        assert_eq!(local_image(folder, "file://localhost/x/b.png#top"), Some(PathBuf::from("/x/b.png")));
+    }
+}

@@ -20,7 +20,8 @@ mod utils;
 use gpui::{App, ElementId, IntoElement, RenderOnce, SharedString, Window};
 pub use inline_element::*;
 pub use markdown_ext::*;
-pub use node::{CodeBlock, TableData};
+// HERDR: `Alert`.
+pub use node::{Alert, CodeBlock, TableData};
 pub use range_highlight::{RangeHighlight, RangeHighlightError, RenderedText};
 pub use state::*;
 pub use stream_fade::TextViewMotion;

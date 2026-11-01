@@ -278,6 +278,52 @@ fn shipped_initial_descriptions(cx: &mut TestAppContext) {
 }
 
 #[gpui::test]
+fn packed_path_points_keep_their_order_around_other_commands(cx: &mut TestAppContext) {
+    cx.update(gpui_shell::init);
+    let staged = Staged::new();
+    let folder = staged.0.join("mods/path-order");
+    std::fs::create_dir_all(&folder).unwrap();
+    std::fs::write(
+        folder.join("main.js"),
+        r##"
+import { div, View, PathBuilder } from "gpui-kit";
+const path = PathBuilder.stroke(1)
+  .move_to(1, 2)
+  .line_to(3, 4)
+  .line_to("50%", 5)
+  .dash_array([2])
+  .line_to(6, 7)
+  .close()
+  .build();
+export default class PathOrder extends View {
+  render() {
+    return div()
+      .child(window.paint_path(path, "#000").w(200).h(80))
+      .child(window.paint_path(path, "#000").w(200).h(80));
+  }
+}
+"##,
+    )
+    .unwrap();
+    let tree = describe(cx, &staged, "mods/path-order", false, props(), updates("current", "current"), None).unwrap();
+    let order = [
+        "move_to[Number(1.0), Number(2.0)]",
+        "line_to[Number(3.0), Number(4.0)]",
+        "line_to[Str(\"50%\"), Number(5.0)]",
+        "dash_array[Number(2.0)]",
+        "line_to[Number(6.0), Number(7.0)]",
+        "close[]",
+    ];
+    let mut rest = tree.as_str();
+    for _ in 0..2 {
+        for op in order {
+            let at = rest.find(op).unwrap_or_else(|| panic!("{op} out of order in {tree}"));
+            rest = &rest[at + op.len()..];
+        }
+    }
+}
+
+#[gpui::test]
 fn tabs_leave_room_for_macos_traffic_lights(cx: &mut TestAppContext) {
     cx.update(gpui_shell::init);
     let staged = Staged::new();
