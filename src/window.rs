@@ -4591,11 +4591,11 @@ mod tests {
         let mut layout: crate::layout::Node = serde_json::from_str(include_str!("../defaults/layouts/main.json")).unwrap();
         let context = cx.add_empty_window();
         for (macos, titlebar, width, zoom, expected) in [
-            (true, crate::layout::Titlebar::Layout, 44.0, 1.0, 42.0),
-            (true, crate::layout::Titlebar::Layout, 90.0, 0.75, 42.0),
+            (true, crate::layout::Titlebar::Layout, 44.0, 1.0, 39.0),
+            (true, crate::layout::Titlebar::Layout, 90.0, 0.75, 39.0),
             (true, crate::layout::Titlebar::Layout, 60.0, 1.5, 0.0),
-            (true, crate::layout::Titlebar::Layout, 60.0, 1.0, 42.0),
-            (true, crate::layout::Titlebar::Layout, 76.0, 1.0, 42.0),
+            (true, crate::layout::Titlebar::Layout, 60.0, 1.0, 39.0),
+            (true, crate::layout::Titlebar::Layout, 76.0, 1.0, 39.0),
             (true, crate::layout::Titlebar::Layout, 268.0, 1.0, 0.0),
             (false, crate::layout::Titlebar::Layout, 44.0, 1.0, 0.0),
             (true, crate::layout::Titlebar::System, 44.0, 1.0, 0.0),

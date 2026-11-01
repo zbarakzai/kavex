@@ -146,9 +146,8 @@ the highlighted line shows where it will land.
   a list too long for the column can leave the keyboard's row out of view.
   A person right-clicks a tab or a group's name (the `tab-menu` mod), clicks a
   name to fold, drags a tab in or out of a group and a name to move the group,
-  and Cmd-clicks (Ctrl-clicks) or Shift-clicks to pick several tabs. The bar makes
-  room as a tab is carried and the column shows a line where it will land, in the
-  target group's color; pulled far from either, the tab goes back
+  and Cmd-clicks (Ctrl-clicks) or Shift-clicks to pick several tabs. The bar or
+  column makes room as a tab is carried; pulled far from it, the tab goes back
   (`tab-drag`, a clear layer over the window, carries the pointer meanwhile; its prop
   `to` names the mod that gets the positions). A mouse wheel over them steps through
   tabs and stops at the ends; a trackpad scrolls. A terminal started with the label

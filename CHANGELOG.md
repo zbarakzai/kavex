@@ -4,10 +4,11 @@
 
 ### New
 - **A new design.** A new default dark theme, a redrawn sidebar, tab bar and panels, and Geist Mono 13 as the terminal font. Your own theme and font settings stay. The status bar is gone, tab groups come in blue, violet and teal, and colors set on single tabs and folders are kept but no longer shown.
-- **Tabs on the right.** Move your tabs into a column beside your terminals, with the switch in the tab bar or in Settings > Look. Loose tabs come first, then each group. Drag a tab to reorder it or move it into a group, and a line shows where it will land.
+- **Tabs on the right.** Move your tabs into a column beside your terminals, with the switch in the tab bar or in Settings > Look. Loose tabs come first, then each group. Drag a tab to reorder it or move it into a group, and the rows slide apart to make room.
 - **The Tabs column from the keyboard.** With tabs on the right, `cmd-shift-r` (`ctrl-shift-r`) moves the keyboard onto the column: arrows move, Enter opens a tab or folds a group, Esc goes back to the terminal. On a new install it just works. An existing `keys.json` needs `"cmd-shift-r": "tabs-column.focus"` (`"ctrl-shift-r"` on Linux and Windows) added under `layout:main`.
 - **Files uses the Changes tree.** The Files panel now has the same tree as Changes, with file types, folds and single-folder paths on one line.
 - **Switch branch from Changes.** The branch pill shows your branch and switches it, and refuses to overwrite uncommitted work.
+- **A new logo.** The ram is now Zaki's app icon, and it sits beside the name at the top of the sidebar.
 - **New interface icons.** One matching set across the app. Personal mods can load them from `mods/workspace-chrome/icons/`. The old icon paths still work in this release and will be removed in the next one.
 - **Language logos in the file trees.** Files and Changes show each file's real logo, such as React, Python or Rust, in your theme's color.
 

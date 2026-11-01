@@ -1,4 +1,4 @@
-import { View, div, svg } from "gpui-kit";
+import { View, div, image, svg } from "gpui-kit";
 import { h_flex, HoverCard } from "gpui-base";
 import { theme, run, props, window, shared, setShared, updates, layout, agents, spaces } from "herdr";
 import { look, spaced } from "./look.js";
@@ -60,8 +60,9 @@ export default class WorkspaceChrome extends View {
     const t = theme();
     if (props()?.footer) return this.footer(t);
     const collapsed = narrow(), mac = window()?.platform === "macos";
-    return h_flex().size_full().pl(mac && !collapsed ? 70 : 8).gap(8).items_center()
-      .when(!collapsed, el => el.child(div().flex_1().text_size(16).font_medium().text_color(t.foreground).child("Zaki"))
+    return h_flex().size_full().pl(mac && !collapsed ? 76 : 8).gap(8).items_center()
+      .when(!collapsed, el => el.child(image("mods/workspace-chrome/logo.png").size(22).flex_none())
+        .child(div().flex_1().min_w(0).truncate().text_size(16).font_medium().text_color(t.foreground).child("Zaki"))
         .child(this.button("search", svg("mods/workspace-chrome/icons/search.svg").size(16), () => run("mod.open", { name: "picker" }), t)))
       // On the macOS rail the traffic lights fill the row; the agents list's » unfolds it.
       .when(collapsed && !mac, el => el.child(this.button("sidebar-toggle", svg("mods/workspace-chrome/icons/sidebar.svg").size(15), toggleSidebar, t)));

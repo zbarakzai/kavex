@@ -177,7 +177,7 @@ export default class Agents extends View {
       .when(on, (el) => el.bg(t.raised))
       .hover((s) => s.bg(t.hover))
       .on_click(() => this.peek(k.address))
-      .children(s.lines.map(l => div().self_start().mt(-4).w(9).h(17).mr(4).flex_none()
+      .children(s.lines.map(l => div().self_start().mt(-6).w(9).h(19).mr(4).flex_none()
         .when(Boolean(l), el => el.border_l(1.5).border_color(t.input))
         .when(l === "└" || l === "├", el => el.border_b(1.5).rounded_bl(6))))
       .child(div().mr(8).child(icon(k.program, 14, t.foreground)))
@@ -388,7 +388,7 @@ export default class Agents extends View {
       .when(list.length === 0 && !collapsed, (el) =>
         el.child(div().px(10).text_size(12).text_color(k.label).child("No agent status yet. Agents show up here when they report their status. Older versions and agents inside tmux may not.")),
       )
-      .child(v_flex().id("ag-list").flex_1().min_h(0).overflow_y_scrollbar().mode("always").children(rows))
+      .child(v_flex().id("ag-list").flex_1().min_h(0).gap(2).overflow_y_scrollbar().mode("always").children(rows))
       .when(collapsed, (el) =>
         el.child(h_flex().h(28).items_center().justify_center()
           .child(div().id("collapse").text_size(13).text_color(t.dim).hover((s) => s.text_color(t.foreground)).on_click(toggleSidebar).child(svg("mods/workspace-chrome/icons/sidebar.svg").size(15)))),

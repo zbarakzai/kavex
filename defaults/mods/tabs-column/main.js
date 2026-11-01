@@ -21,7 +21,6 @@ const START = 4; // px of travel before a press is a drag
 const FAR = 90; // px off the column where a drag lets go of its target and heads home
 const EDGE = 16; // px from the list's ends that mean its first and last place
 const HEADER = 56, INSET = 8; // the column's header; the list's side padding
-const LINE_INSET = 10; // px the drop line stops short of a row's sides
 
 const duration = (ms) => {
   const m = Math.floor(ms / 60000);
@@ -156,13 +155,11 @@ export default class TabsColumn extends View {
     if (places.length < 2) return;
     this.press = null;
     this.over = null;
-    const { size, gap } = this.held(moving, v), room = size + gap, home = places.indexOf(columnHome(places, list, groups, moving));
+    const { size, gap } = this.held(moving, v), start = columnHome(places, list, groups, moving);
     const order = list.filter((c) => (moving.tabs ?? []).includes(c.id)).map((c) => c.id);
     const held = this.held({ tabs: order.slice(0, Math.max(0, order.indexOf(anchor))) }, v).size;
-    // The room stays open where it was, so what's below it sits a room lower than `places` says.
-    const slots = places.map((s, i) => ({ ...s, base: s.y, y: s.y + (i > home ? room : 0), line: s.line + (i > home ? room : 0) }));
     this.drag = {
-      n: ++this.drags, moving, slots, slot: slots[home], home: slots[home], size, room,
+      n: ++this.drags, moving, slots: places, slot: start, home: start, size, room: size + gap,
       startX: from.x / z, x: from.x / z, y: from.y / z, grab: (from.y - top) / z + (held > 0 ? held + gap : 0),
       listY: top / z - columnSlots(list, groups, {}).find((p) => p.key === anchor).y,
     };
@@ -227,10 +224,10 @@ export default class TabsColumn extends View {
     if (next) run("tab.select", { id: next.id });
   }
 
-  // In a drag, every place it could land is a room. The one it left stays open until it's let
-  // go, then the one it lands in takes over. A fold has no room to land in.
+  // In a drag, every place it could land is a room, shut but for the one it's over. A tab let
+  // go on a fold goes in with the rest, so that room shuts as it fades.
   room(key) {
-    const d = this.drag, open = !d.landing || d.slot === d.home ? d.home.key : d.slot.fold ? null : d.slot.key;
+    const d = this.drag, open = d.landing && d.slot.fold && d.slot !== d.home ? null : d.slot.key;
     return div().id(`room-${d.n}-${key}`).flex_none().w_full().h(open === key ? d.room : 0).spring("height", SLIDE);
   }
 
@@ -328,7 +325,7 @@ export default class TabsColumn extends View {
   // What's being carried, lifted off the list. It heads for its place when let go.
   ghost(v) {
     const d = this.drag, { k } = v, top = this.rootY + HEADER, bottom = this.rootY + this.rootH;
-    const y = d.landing ? d.slot.base + d.listY : Math.max(top, Math.min(d.y - d.grab, bottom - d.size));
+    const y = d.landing ? d.slot.y + d.listY : Math.max(top, Math.min(d.y - d.grab, bottom - d.size));
     const carried = v.list.filter((c) => d.moving.tabs?.includes(c.id)), { sections } = columnRuns(v.list, v.groups);
     const inGroup = (c) => sections.some((x) => x.tabs.includes(c));
     const group = d.moving.group, tabs = group ? v.list.filter((c) => v.groups[group].tabs.includes(c.id)) : [];
@@ -342,13 +339,6 @@ export default class TabsColumn extends View {
       .when(Boolean(d.moving.tabs), (el) => el.children(carried.map((c) => this.row(c, v, inGroup(c), "row"))));
   }
 
-  // Where it will land, in the color of the group it would join.
-  line(v) {
-    const d = this.drag, { k, groups } = v;
-    const color = d.slot.group ? groupHue(k, groups[d.slot.group].color).text : k.status.working.fg;
-    return div().absolute().left(INSET + LINE_INSET).right(INSET + LINE_INSET).top(Math.max(HEADER, d.slot.line + d.listY - this.rootY)).h(2).rounded(1).bg(color);
-  }
-
   render() {
     const t = theme(), k = look(t), space = spaces().find((p) => p.active), list = space?.tabs ?? [];
     const groups = shared("tab.groups") ?? {}, order = list.map((c) => c.id), active = list.find((c) => c.active);
@@ -357,7 +347,6 @@ export default class TabsColumn extends View {
     const v = { k, groups, space, list, picks, ps: panes(), words: new Map(terminals().map((x) => [x.address, x.status])), now: Date.now() };
     const { loose, sections } = columnRuns(list, groups), going = d?.moving.tabs ?? [];
     const stay = loose.filter((c) => !going.includes(c.id)), shown = sections.filter((c) => c.group !== d?.moving.group);
-    const dropping = d?.lifted && !d.far && !d.landing && d.slot !== d.home;
     const tool = (id, icon, action, on = false) => h_flex().id(id).size(32).flex_none().items_center().justify_center().rounded(9).text_color(on ? k.accent : k.muted).hover((s) => s.bg(k.hover_strong).text_color(k.foreground)).on_mouse_down("left", (e) => { this.toolAt = e.bounds; }).on_click(action).child(svg(icon).size(14));
     return v_flex().id("tabs-column").relative().size_full().min_h(0).rounded(14).overflow_hidden().bg(k.surface).text_color(k.foreground).text_size(13)
       .on_size_change((size) => { this.rootH = size.height / settings().zoom; })
@@ -379,7 +368,6 @@ export default class TabsColumn extends View {
           .children(stay.map((c, i) => this.roomed(this.row(c, v, false), c.id, i === stay.length - 1 ? "loose-end" : null)))
           .when(!stay.length && Boolean(d), (el) => el.child(this.room("loose-end")))))
         .children(shown.map((c, i) => this.roomed(this.section(c.group, c.tabs, v), `before:${c.group}`, i === shown.length - 1 ? "end" : null))))
-      .when(Boolean(d), (el) => el.child(this.ghost(v)))
-      .when(Boolean(dropping), (el) => el.child(this.line(v)));
+      .when(Boolean(d), (el) => el.child(this.ghost(v)));
   }
 }

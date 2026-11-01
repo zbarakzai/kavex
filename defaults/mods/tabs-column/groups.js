@@ -163,9 +163,6 @@ export function labeled(groups, tab, name, colors, id) {
 // The Tabs column, as it draws: a row, a tab in a group, a group's name, and the gaps.
 export const COLUMN = { row: 32, inRow: 30, head: 30, rowGap: 2, gap: 14 };
 
-// Where the drop line sits in a gap between sections: its middle.
-const BETWEEN = (COLUMN.gap + COLUMN.rowGap) / 2;
-
 // Loose tabs, then each group's section, in tab order. A group is one section even while split.
 export function columnRuns(tabs, groups) {
   const loose = [], sections = [];
@@ -191,9 +188,9 @@ export function columnStops(tabs, groups) {
 }
 
 // Where a drag can land in the column, top to bottom, with what's moving taken out. Each has
-// `y`, where what's moving would sit, `line`, where the drop line shows, its place among the
-// tabs left (`at`), and the group it would join, as `slots` has for the bar, so `landed` takes
-// either. Moving nothing gives every place, the shown tab of a folded group too, to find what's held.
+// `y`, where what's moving would sit, its place among the tabs left (`at`), and the group it
+// would join, as `slots` has for the bar, so `landed` takes either. Moving nothing gives every
+// place, the shown tab of a folded group too, to find what's held.
 export function columnSlots(tabs, groups, moving) {
   const ids = moving.tabs ?? groups[moving.group]?.tabs ?? [], going = (c) => ids.includes(c.id);
   const { loose, sections } = columnRuns(tabs, groups), rest = tabs.filter((c) => !going(c));
@@ -201,31 +198,30 @@ export function columnSlots(tabs, groups, moving) {
   const past = (c) => before(c) + (going(c) ? 0 : 1);
   const placing = !moving.group, stacking = !moving.tabs, out = [];
   const { row, inRow, head, rowGap, gap } = COLUMN;
-  const place = (key, y, at, group) => out.push({ key, y, line: y - rowGap, at, group });
   let y = 0;
   const stay = loose.filter((c) => !going(c));
   if (stay.length || moving.tabs) {
     stay.forEach((c) => {
-      if (placing) place(c.id, y, before(c), null);
+      if (placing) out.push({ key: c.id, y, at: before(c), group: null });
       y += row + rowGap;
     });
-    if (placing) place("loose-end", y, loose.length ? past(loose.at(-1)) : rest.length, null);
+    if (placing) out.push({ key: "loose-end", y, at: loose.length ? past(loose.at(-1)) : rest.length, group: null });
     if (loose.length) y += stay.length ? gap - rowGap : gap;
   }
   for (const section of sections) {
     if (section.group === moving.group) continue;
     const g = groups[section.group], left = section.tabs.filter((c) => !going(c)), shown = shownIn(g, left), end = past(section.tabs.at(-1));
-    if (stacking) out.push({ key: `before:${section.group}`, y, line: y - BETWEEN, at: before(section.tabs[0]), group: null });
-    if (placing && g.folded) out.push({ key: `fold:${section.group}`, y, line: y + head, at: end, group: section.group, fold: true });
+    if (stacking) out.push({ key: `before:${section.group}`, y, at: before(section.tabs[0]), group: null });
+    if (placing && g.folded) out.push({ key: `fold:${section.group}`, y, at: end, group: section.group, fold: true });
     y += head + rowGap;
     shown.forEach((c) => {
-      if (placing && (!g.folded || !moving.tabs)) place(c.id, y, before(c), section.group);
+      if (placing && (!g.folded || !moving.tabs)) out.push({ key: c.id, y, at: before(c), group: section.group });
       y += inRow + rowGap;
     });
-    if (placing && !g.folded) place(`in:${section.group}`, y, end, section.group);
+    if (placing && !g.folded) out.push({ key: `in:${section.group}`, y, at: end, group: section.group });
     y += gap - rowGap;
   }
-  if (stacking) out.push({ key: "end", y, line: y - BETWEEN, at: rest.length, group: null });
+  if (stacking) out.push({ key: "end", y, at: rest.length, group: null });
   return out;
 }
 

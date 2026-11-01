@@ -282,10 +282,10 @@ fn tabs_leave_room_for_macos_traffic_lights(cx: &mut TestAppContext) {
     cx.update(gpui_shell::init);
     let staged = Staged::new();
     for (platform, titlebar, fullscreen, width, lights, zoom, expected) in [
-        ("macos", "none", false, 44, true, 1.0, 32),
-        ("macos", "none", false, 44, true, 0.5, 108),
+        ("macos", "none", false, 44, true, 1.0, 38),
+        ("macos", "none", false, 44, true, 0.5, 120),
         ("macos", "none", false, 44, true, 2.0, 10),
-        ("macos", "none", false, 60, true, 1.0, 16),
+        ("macos", "none", false, 60, true, 1.0, 22),
         ("macos", "none", false, 76, true, 1.0, 10),
         ("macos", "none", false, 268, true, 1.0, 10),
         ("macos", "none", true, 44, true, 1.0, 10),
@@ -650,7 +650,7 @@ fn shipped_layouts_and_keys() {
         layouts.insert(path.file_stem().unwrap().to_str().unwrap().to_owned());
     }
     assert_eq!(layouts, crate::window::shipped_layouts().into_iter().map(str::to_owned).collect());
-    let mod_commands = ["ribbon.next", "tabs.group", "tabs.fold"];
+    let mod_commands = ["ribbon.next", "tabs.group", "tabs.fold", "tabs-column.focus"];
     for text in [
         include_str!("../../defaults/keys.json"),
         include_str!("../../defaults/keys.macos.json"),

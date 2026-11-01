@@ -36,7 +36,6 @@ Contents, left to right, with a 9px gap: the agent tile (the agent's official ic
 | Active + hover | `#282828` | inset 1px `#333333` | `#F2F2F2`, 500 |
 | Keyboard focus (`:focus-visible` only) | unchanged | outline 2px `#EC6F3E`, offset −2px | unchanged |
 | Dragging (the row being moved) | `#262626` | inset 1px `#333333` + shadow `0 8px 24px rgba(0,0,0,0.45)` | `#F2F2F2` |
-| Drop target | 2px line, radius 1, inset 10px from both sides, in the **target group's colour** | | |
 
 Background changes ease over 120ms. A row's status never changes its background; only the badge shows status.
 
@@ -51,13 +50,13 @@ Background changes ease over 120ms. A row's status never changes its background;
 | Collapsed | chevron rotated −90°, tabs hidden, except the current tab (see Amendments) |
 | Focus | outline 2px `#EC6F3E`, offset −2px |
 
-Group colours (name text and drop line): blue `#8C9CF5`, violet `#B9A8F7`, teal `#6FCFAE`. Orange is never a group colour.
+Group colours (name text): blue `#8C9CF5`, violet `#B9A8F7`, teal `#6FCFAE`. Orange is never a group colour.
 
 ## Behaviour
 
 - Clicking a row opens that tab and makes it the active row.
 - Clicking a group header folds or unfolds the group.
-- Drag a row to reorder it, or move it into another group. The drop line shows where it will land, in the target group's colour.
+- Drag a row to reorder it, or move it into another group. The rows slide apart to make room where it will land, as in the tab bar.
 - Loose tabs (not in a group) always come first, then groups in the user's order.
 
 ## Amendments
@@ -65,7 +64,7 @@ Group colours (name text and drop line): blue `#8C9CF5`, violet `#B9A8F7`, teal 
 Agreed with Zakiullah on 2026-11-01. These override the sections above.
 
 - **Folded group holding the current tab:** show the group header and, under it, only the current tab's row in its active style.
-- **Drop line with no group colour** (a loose-tab target, or a moved group): `#E6E6E6`, the WORKING badge's colour (`tokens.status.working.fg`).
+- **No drop line:** the rows sliding apart show where a tab will land, as in the tab bar. Over a folded group, a room opens under its header.
 - **Dragging shadow:** the `shadow_2xl` preset, not `0 8px 24px rgba(0,0,0,0.45)`, which mods can't set.
 - **Keyboard focus:** `tabs-column.focus` (`cmd-shift-r`, `ctrl-shift-r`) brings the keyboard to the column. Up and down move, left and right fold and unfold a group, Enter opens a tab or folds a group, Esc returns to the terminal. The focus outline shows only then, never from the mouse.
 - **New tokens:** `#E2E2E2`, `#202020`, `#282828`, `#262626` and `#333333` are the theme's `row_name`, `row_pressed`, `row_active_hover`, `row_dragging` and `row_ring`.

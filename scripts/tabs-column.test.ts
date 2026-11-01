@@ -223,31 +223,47 @@ const aim = (view: any, key: string) => {
   view.command(`drag:100,${slot.y + view.drag.grab + view.drag.listY}`, cx);
   expect(view.drag.slot.key).toBe(key);
 };
-const lineOf = (root: El) => root.kids.map(mine).find((k) => arg(k!, "h") === 2 && arg(k!, "rounded") === 1);
+const roomOf = (view: any, root: El, key: string) => arg(byId(root, `room-${view.drag.n}-${key}`)!, "h");
 
-test("a dragged row has the spec's look, and nothing shows a line until it would move", () => {
+test("a dragged row has the spec's look, and its room stays open where it was", () => {
   const { view, draw } = lifted("column-b", 110), root = draw(), ghost = byId(root, `ghost-${view.drag.n}`)!;
   const row = all(ghost).find((e) => arg(e, "id") === "column-b")!;
   expect([arg(row, "bg"), has(row, "shadow_2xl"), rings(row).map((r) => arg(r, "border_color")), arg(nameOf(row), "text_color")]).toEqual(["#262626", true, ["#333333"], "#F2F2F2"]);
-  expect(lineOf(draw())).toBeUndefined();
+  expect(roomOf(view, root, view.drag.home.key)).toBe(view.drag.room);
   expect(state.overlays[0]).toMatchObject({ mod: "tab-drag", props: { to: "tabs-column" } });
 });
 
-test("the drop line is the target group's color, inset 10 from a row, and the WORKING color elsewhere", () => {
-  const { view, draw } = lifted("column-b", 110);
+test("rows slide apart where the drag is: one room open, the rest shut, on a spring", () => {
+  const { view, draw } = lifted("column-b", 110), home = view.drag.home.key;
   aim(view, "d");
-  const line = lineOf(draw())!;
-  expect([arg(line, "bg"), arg(line, "left"), arg(line, "right")]).toEqual(["#8C9CF5", 18, 18]);
-  aim(view, "fold:shut");
-  expect(arg(lineOf(draw())!, "bg")).toBe("#6FCFAE");
+  const root = draw();
+  expect([roomOf(view, root, "d"), roomOf(view, root, home)]).toEqual([view.drag.room, 0]);
+  expect(byId(root, `room-${view.drag.n}-d`)!.calls.some(([k, a]) => k === "spring" && a[0] === "height")).toBe(true);
   aim(view, "a");
-  expect(arg(lineOf(draw())!, "bg")).toBe("#E6E6E6");
+  const next = draw();
+  expect([roomOf(view, next, "a"), roomOf(view, next, "d")]).toEqual([view.drag.room, 0]);
 });
 
-test("a far pull shows no line and goes home", () => {
+test("nothing draws a drop line", () => {
+  const { view, draw } = lifted("column-b", 110);
+  aim(view, "d");
+  expect(all(draw()).some((e) => arg(e, "h") === 2)).toBe(false);
+});
+
+test("over a folded group a room opens under its name, and shuts as the tab goes in", () => {
+  const { view, draw } = lifted("column-b", 110);
+  aim(view, "fold:shut");
+  expect(roomOf(view, draw(), "fold:shut")).toBe(view.drag.room);
+  view.command(`drop:100,${view.drag.slot.y + view.drag.grab + view.drag.listY}`, cx);
+  expect(roomOf(view, draw(), "fold:shut")).toBe(0);
+});
+
+test("a far pull goes home", () => {
   const { view, draw } = lifted("column-b", 110), root = draw();
+  aim(view, "d");
   move(root, 300, 400);
-  expect([view.drag.slot === view.drag.home, lineOf(draw())]).toEqual([true, undefined]);
+  expect(view.drag.slot === view.drag.home).toBe(true);
+  expect(roomOf(view, draw(), view.drag.home.key)).toBe(view.drag.room);
 });
 
 test("dropping a tab on a group's row moves it there", () => {
@@ -273,10 +289,10 @@ test("the current tab of a folded group can be picked up", () => {
   expect(arg(byId(root, `room-${view.drag.n}-fold:shut`)!, "h")).toBe(view.drag.room);
 });
 
-test("a dragged group carries its header, and its line has no group color", () => {
+test("a dragged group carries its header, and sections slide apart for it", () => {
   const { view, draw } = lifted("column-fold-shut", 200);
   aim(view, "before:blue");
   const root = draw(), ghost = byId(root, `ghost-${view.drag.n}`)!;
   expect([arg(ghost, "bg"), has(ghost, "shadow_2xl")]).toEqual(["#262626", true]);
-  expect(arg(lineOf(root)!, "bg")).toBe("#E6E6E6");
+  expect(roomOf(view, root, "before:blue")).toBe(view.drag.room);
 });

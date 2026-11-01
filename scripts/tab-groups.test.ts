@@ -231,17 +231,6 @@ test("the spec's sizes", () => {
   expect(COLUMN).toEqual({ row: 32, inRow: 30, head: 30, rowGap: 2, gap: 14 });
 });
 
-test("a drop line sits in the gap: 2px between rows, the middle between sections", () => {
-  const list = columnSlots(col, cg, { tabs: ["a"] }), { row, inRow, head, rowGap, gap } = COLUMN;
-  expect(key(list, "g").line).toBe(key(list, "g").y - rowGap);
-  expect(key(list, "loose-end").line).toBe(2 * row + rowGap);
-  expect(key(list, "d").line).toBe(key(list, "c").y + inRow);
-  expect(key(list, "in:one").line).toBe(key(list, "d").y + inRow);
-  expect(key(list, "fold:two").line).toBe(key(list, "fold:two").y + head);
-  const moving = { group: "two" }, groupsOnly = columnSlots(col, cg, moving);
-  expect(key(groupsOnly, "before:one").line).toBe(key(groupsOnly, "before:one").y - (gap + rowGap) / 2);
-});
-
 test("a tab with nothing loose above it doesn't shift the list when picked up", () => {
   const tabs = ["c", "d", "e"].map((id) => ({ id, active: id === "c", status: null }));
   const groups = { one: { name: "one", color: "blue", folded: false, tabs: ["c", "d", "e"] } };
