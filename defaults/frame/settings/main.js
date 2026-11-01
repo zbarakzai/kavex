@@ -380,6 +380,21 @@ export default class Settings extends View {
     setShared("workspace.panels", PANELS.map(([p]) => p).filter((p) => (p === id ? !on : shown.includes(p))));
   }
 
+  usageOn() {
+    return shared("usage.enabled") !== false;
+  }
+
+  // Off leaves nothing behind, so turning it back on asks OpenCode's question again. Clearing "usage"
+  // also takes the mark a check running now would need to save (`checkUsage`).
+  toggleUsage() {
+    const on = this.usageOn();
+    setShared("usage.enabled", !on);
+    if (on) {
+      setShared("usage", null);
+      setShared("usage.opencode", null);
+    }
+  }
+
   themePicker(t, light) {
     const s = settings();
     const current = light ? s.theme_light : s.theme_dark;
@@ -521,6 +536,7 @@ export default class Settings extends View {
               t,
               this.row(t, "Tabs", "A bar on top, or a column on the right.", this.tabsPicker(t)),
               ...PANELS.map(([id, title, about]) => this.row(t, title, about, this.toggle(t, `st-panel-${id}`, this.panels().includes(id), () => this.togglePanel(id)))),
+              this.row(t, "Usage limits", "Your subscriptions' limits in the sidebar, checked every 15 minutes.", this.toggle(t, "st-usage", this.usageOn(), () => this.toggleUsage())),
             ),
           ),
         ),

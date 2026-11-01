@@ -275,6 +275,13 @@ under a minute old, and the refresh button checks at once: `workspace-chrome.che
 `workspace-chrome.refresh-usage`, run by the footer so that closing the popover doesn't cut a check
 off. A failed check keeps the last numbers with their age, or reads "Could not check" with none.
 `shared("usage")` holds the numbers and a short fingerprint of the account, never an email or login.
+The footer also checks by itself, 5 seconds after it starts and every 15 minutes, whether the popover
+was opened or not; only a layout with that footer does, so not Terminals or Zaki 98. A limit at 90%
+used or more turns its bar orange and puts an orange dot on the gauge, until it's past its reset time.
+The Usage limits row in Settings > Look, under Workspace, turns all of this off: `shared("usage.enabled")`
+is `false` (anything else is on), the gauge goes, no check runs, and `shared("usage")` and
+`shared("usage.opencode")` are cleared; a check still running then runs nothing more and saves nothing.
+Turned back on, the gauge returns and limits are checked within a minute.
 
 **Zaki's own layouts and mods are read-only.** They are replaced whole
 on every start. Use settings.json for look (fonts, sizes, theme, colors,

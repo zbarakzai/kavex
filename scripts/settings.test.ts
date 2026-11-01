@@ -126,4 +126,20 @@ test("panels and tabs are only offered in the layout that has them", () => {
   const root = open().draw();
   expect(byId(root, "st-panel-files")).toBeUndefined();
   expect(byId(root, "st-tabs-On top")).toBeUndefined();
+  expect(byId(root, "st-usage")).toBeUndefined();
+});
+
+test("Usage limits starts on, and off leaves nothing saved behind", () => {
+  state.shared.usage = { checkedAt: 1, entries: {} };
+  state.shared["usage.opencode"] = true;
+  const { draw } = open();
+  expect(knob(draw(), "st-usage")).toBe(18);
+  click(draw(), "st-usage");
+  expect(state.shared).toMatchObject({ "usage.enabled": false, usage: null, "usage.opencode": null });
+  expect(knob(draw(), "st-usage")).toBe(2);
+
+  state.shared.usage = { checkedAt: 2, entries: {} };
+  click(draw(), "st-usage");
+  expect(state.shared["usage.enabled"]).toBe(true);
+  expect(state.shared.usage).toEqual({ checkedAt: 2, entries: {} });
 });

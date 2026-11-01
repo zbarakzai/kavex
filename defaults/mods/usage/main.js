@@ -1,7 +1,7 @@
 import { View, div, svg } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
 import { props, run, setShared, shared, theme } from "herdr";
-import { checking, subscriptions, usedNow } from "./checks.js";
+import { checking, NEAR, subscriptions, usedNow } from "./checks.js";
 import { look, MONO, sectionLabel, tile } from "./look.js";
 
 const PAD = 14;
@@ -43,7 +43,7 @@ export default class Usage extends View {
         .child(div().flex_none().font_family(MONO).text_color(k.foreground).child(`${used}%`))
         .when(left > 0, (el) => el.child(div().flex_none().text_color(k.text_faint).child(`resets in ${span(left)}`))))
       .child(div().w(BAR).h(4).rounded(2).overflow_hidden().bg(k.hover_strong)
-        .child(div().id(`bar-${id}`).h_full().rounded(2).bg(k.muted).w((BAR * Math.min(used, 100)) / 100).transition("width", 240)));
+        .child(div().id(`bar-${id}`).h_full().rounded(2).bg(used >= NEAR ? k.blocked : k.muted).w((BAR * Math.min(used, 100)) / 100).transition("width", 240)));
   }
 
   row(row, k, now) {

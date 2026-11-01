@@ -1,7 +1,7 @@
 import { test, expect, mock, beforeEach, afterEach, setSystemTime } from "bun:test";
 import { readFileSync } from "node:fs";
 
-// The real footer button, popover and checks, with only the outside world faked: what `exec`,
+// The real footer button, popover, Settings row and checks, with only the outside world faked: what `exec`,
 // `knownAgents` and `machines` answer, and what's in shared storage. All data here is made up.
 //
 // To teach it a new agent, add its commands to `state.says` (a piece of the command line, and what
@@ -72,7 +72,8 @@ globalThis.fetch = (async (url: string, init?: RequestInit) => {
 }) as typeof fetch;
 
 mock.module("gpui-kit", () => ({ View: class {}, div: make, image: icon, svg: icon }));
-mock.module("gpui-base", () => ({ h_flex: make, v_flex: make, HoverCard: { new: make } }));
+const input = { on: () => {}, value: () => "", focus: () => {}, set_value: () => {}, set_selected_range: () => {} };
+mock.module("gpui-base", () => ({ h_flex: make, v_flex: make, HoverCard: { new: make }, InputState: { new: () => input }, Input: { new: make } }));
 mock.module("herdr", () => ({
   exec,
   knownAgents: async ({ on }: { on?: string | null } = {}) => {
@@ -85,12 +86,21 @@ mock.module("herdr", () => ({
   setShared: (k: string, v: any) => { state.shared[k] = v === undefined ? v : JSON.parse(JSON.stringify(v)); },
   props: () => state.props,
   theme: () => colors,
-  settings: () => ({ zoom: 1 }),
+  settings: () => ({ zoom: 1, font_family: "Geist Mono", font_size: 13, ui_font_family: "Geist", theme_dark: "zaki", theme_light: "paper" }),
   window: () => ({ platform: "macos" }),
   home: () => "/home/person",
+  appHome: () => "/home/person/.config/zaki",
   readTextFile: async () => null,
+  writeTextFile: async () => {},
+  hc: async () => ({ code: 0, stdout: '{"machines":[]}', stderr: "" }),
+  themes: () => [],
+  fonts: () => ["Geist"],
+  telemetry: () => null,
+  layouts: () => ["main"],
+  playSound: () => {},
+  closeOverlay: () => {},
   layout: () => ({ id: "root", children: [{ id: "sidebar", size: { px: state.sidebar } }] }),
-  updates: () => ({ app: { ready: false } }),
+  updates: () => ({ app: { ready: false, version: "0.4.0", updates: true }, core: { version: "0.1.15" }, checks: true }),
   agents: () => Array.from({ length: state.agentsShown }, () => ({})),
   spaces: () => (state.space ? [state.space] : []),
   openOverlay: (spec: any) => (state.overlays.push(spec), `overlay-${state.overlays.length}`),
@@ -107,10 +117,39 @@ mock.module("herdr", () => ({
 }));
 const { default: WorkspaceChrome } = await import("../defaults/mods/workspace-chrome/main.js");
 const { default: Usage } = await import("../defaults/mods/usage/main.js");
+const { default: Settings } = await import("../defaults/frame/settings/main.js");
 
-const ticks: number[] = [];
-const cx: any = { notify: () => {}, stop_propagation: () => {}, spawn: (f: (cx: any) => unknown) => void f(cx), timer: { every: (ms: number) => void ticks.push(ms), after: () => {} } };
+// A mod copy's context. Its timers run as `wait` moves the clock, and stop when the copy closes.
+type Copy = { closed: boolean; notified: number; every: number[] };
+let timers: { at: number; every?: number; run: (cx: any) => void; cx: any; copy: Copy }[] = [];
+function copyContext() {
+  const copy: Copy = { closed: false, notified: 0, every: [] };
+  const start = (ms: number, run: (cx: any) => void, every?: number) => void timers.push({ at: Date.now() + ms, every, run, cx: context, copy });
+  const context: any = {
+    notify: () => { copy.notified += 1; },
+    stop_propagation: () => {},
+    spawn: (f: (cx: any) => unknown) => void f(context),
+    timer: { every: (ms: number, run: (cx: any) => void) => { copy.every.push(ms); start(ms, run, ms); }, after: (ms: number, run: (cx: any) => void) => start(ms, run) },
+  };
+  return { copy, context };
+}
+const cx = copyContext().context;
 const settle = () => Bun.sleep(0);
+
+async function wait(ms: number) {
+  const end = Date.now() + ms;
+  for (;;) {
+    const due = timers.filter((timer) => !timer.copy.closed && timer.at <= end).sort((a, b) => a.at - b.at)[0];
+    if (!due) break;
+    setSystemTime(due.at);
+    due.run(due.cx);
+    if (due.every) due.at += due.every;
+    else timers.splice(timers.indexOf(due), 1);
+    await settle();
+  }
+  setSystemTime(end);
+  await settle();
+}
 
 const NOW = Date.UTC(2026, 10, 1, 12, 0);
 const WEEK = "Current week (all models): 12% used · resets Nov 6 at 7:59pm (UTC)";
@@ -135,10 +174,10 @@ const trackOf = (limit: El) => all(limit).find((e) => e.kids.some((kid) => mine(
 const filled = (limit: El) => Math.round((arg(barOf(limit), "w") / arg(trackOf(limit), "w")) * 100);
 
 function footer() {
-  const view: any = new WorkspaceChrome();
+  const view: any = new WorkspaceChrome(), { copy, context } = copyContext();
   state.props = { footer: true };
-  view.init?.({}, cx);
-  return { draw: () => { state.props = { footer: true }; return view.render(cx).el as El; } };
+  view.init?.({}, context);
+  return { copy, draw: () => { state.props = { footer: true }; return view.render(context).el as El; }, close: () => { copy.closed = true; } };
 }
 
 // A press closes an open popup first (`between`), then the click lands on what's under it.
@@ -153,14 +192,21 @@ function press(f: ReturnType<typeof footer>, id: string, between?: () => void) {
 // What the app does when an overlay opens: a new copy of its mod, with the spec's props.
 function openPopover() {
   const spec = state.overlays.at(-1), own = { ...spec.props, overlay: `overlay-${state.overlays.length}` };
-  const view: any = new Usage();
+  const view: any = new Usage(), { copy, context } = copyContext();
   state.props = own;
-  view.init(own, cx);
+  view.init(own, context);
   return {
     view,
+    copy,
     draw: () => { state.props = own; return view.render(cx).el as El; },
     close: () => view.close(cx),
   };
+}
+
+// The popover as it looks with nothing more asked of it: checks made so far, none started.
+function openedAfter() {
+  state.overlays.push({ props: { from: "usage" } });
+  return openPopover();
 }
 
 // Opened the way a person opens it, with the footer running: `settled` waits for the check.
@@ -174,7 +220,7 @@ async function opened(settled = true) {
 
 beforeEach(() => {
   setSystemTime(NOW);
-  ticks.length = 0;
+  timers = [];
   state = {
     says: {},
     agents: {},
@@ -362,7 +408,7 @@ test("a check started under a minute ago still counts as running", async () => {
 test("while open, the time left is redrawn every 30 seconds", async () => {
   claude(SESSION);
   const { popover } = await opened();
-  expect(ticks).toEqual([30_000]);
+  expect(popover.copy.every).toEqual([30_000]);
   expect(words(limits(popover.draw())[0])).toContain("resets in 3h 30m");
   setSystemTime(NOW + 31 * 60_000);
   expect(words(limits(popover.draw())[0])).toContain("resets in 2h 59m");
@@ -592,4 +638,382 @@ test("the line beside the buttons gives up the gauge's width", () => {
   const letters = words(footer().draw()).filter((word) => word.length === 1).join("").replaceAll(" ", " ");
   // 25 letters fitted beside two buttons: 22 px more at 5.9 px a letter takes four.
   expect(letters).toBe("THIS COM… · 12 AGENTS");
+});
+
+test("the first background check starts 5 seconds after launch, with nothing opened", async () => {
+  claude(WEEK);
+  footer();
+  await wait(4_999);
+  expect(checks()).toBe(0);
+  await wait(1);
+  expect(checks()).toBe(1);
+});
+
+test("limits are checked every 15 minutes with the popover closed, and not sooner", async () => {
+  claude(WEEK);
+  const f = footer();
+  await wait(5_000);
+  press(f, "usage");
+  await settle();
+  const popover = openPopover();
+  await settle();
+  popover.close();
+  popover.copy.closed = true;
+
+  await wait(15 * 60_000 - 1);
+  expect(checks()).toBe(1);
+  await wait(60_000);
+  expect(checks()).toBe(2);
+  await wait(15 * 60_000);
+  expect(checks()).toBe(3);
+  await wait(15 * 60_000);
+  expect(checks()).toBe(4);
+});
+
+test("two footers make one check, whichever notices first and however far apart they started", async () => {
+  claude(WEEK);
+  footer();
+  await wait(7 * 60_000 + 11_000);
+  footer();
+  await wait(60 * 60_000);
+  // At launch, then one for each 15 minutes.
+  expect(checks()).toBe(1 + 4);
+});
+
+test("two footers that come due together still start one check", async () => {
+  const usage = held();
+  claude(WEEK);
+  state.says["claude -p /usage"] = usage.answer;
+  footer();
+  footer();
+  await wait(5_000);
+  expect(checks()).toBe(1);
+  usage.release(ANSWER);
+});
+
+test("when the footer that has been checking closes, the other carries on", async () => {
+  claude(WEEK);
+  const first = footer();
+  await wait(5_000);
+  const second = footer();
+  await wait(5_000);
+  expect(checks()).toBe(1);
+
+  first.close();
+  await wait(16 * 60_000);
+  expect(checks()).toBe(2);
+  expect(second.copy.closed).toBe(false);
+});
+
+test("a footer started over, by a layout switch or a reload, checks on as before", async () => {
+  claude(WEEK);
+  const first = footer();
+  await wait(5_000);
+  first.close();
+
+  footer();
+  await wait(5_000);
+  expect(checks()).toBe(1);
+  await wait(16 * 60_000);
+  expect(checks()).toBe(2);
+});
+
+test("a footer cut off in the middle of a check doesn't stop the next footer checking", async () => {
+  const usage = held();
+  claude(WEEK);
+  state.says["claude -p /usage"] = usage.answer;
+  const first = footer();
+  await wait(5_000);
+  first.close();
+
+  claude(WEEK);
+  footer();
+  await wait(60_000);
+  expect(checks()).toBe(2);
+  expect(words(openedAfter().draw())).toContain("Updated just now");
+});
+
+const AT = (percent: number) => `Current week (all models): ${percent}% used · resets Nov 6 at 7:59pm (UTC)`;
+const dotOn = (root: El) => all(byId(root, "usage")!).find((e) => e.calls.some(([name]) => name === "rounded_full"));
+
+test("the gauge has no dot at 89% used and the orange one at 90%, with nothing opened", async () => {
+  claude(AT(89));
+  const f = footer();
+  await wait(5_000);
+  expect(dotOn(f.draw())).toBeUndefined();
+
+  claude(AT(90));
+  await wait(16 * 60_000);
+  const dot = dotOn(f.draw())!;
+  expect(arg(dot, "bg")).toBe(colors.blocked);
+});
+
+test("any one limit at 90% is enough for the dot", async () => {
+  claude(AT(12), "Current week (Sonnet only): 95% used · resets Nov 3 at 12:30pm (UTC)");
+  const f = footer();
+  await wait(5_000);
+  expect(dotOn(f.draw())).toBeDefined();
+});
+
+test("a bar turns orange at 90%, and not at 89%", async () => {
+  claude(AT(89), "Current week (Sonnet only): 90% used · resets Nov 3 at 12:30pm (UTC)");
+  const { popover } = await opened();
+  const [week, sonnet] = limits(popover.draw());
+  expect(arg(barOf(week), "bg")).not.toBe(colors.blocked);
+  expect(arg(barOf(sonnet), "bg")).toBe(colors.blocked);
+});
+
+test("the dot clears once its limit passes the reset time, before any new check", async () => {
+  claude("Current session: 96% used · resets 3:30pm (UTC)");
+  const f = footer();
+  await wait(5_000);
+  expect(dotOn(f.draw())).toBeDefined();
+  state.says["claude -p /usage"] = new Error("no more checks");
+
+  setSystemTime(NOW + 4 * 3600_000);
+  expect(dotOn(f.draw())).toBeUndefined();
+});
+
+test("a bar past its reset time isn't orange", async () => {
+  claude("Current session: 96% used · resets 3:30pm (UTC)");
+  const { popover } = await opened();
+  setSystemTime(NOW + 4 * 3600_000);
+  expect(arg(barOf(limits(popover.draw())[0]), "bg")).not.toBe(colors.blocked);
+});
+
+test("the footer redraws by itself when a limit resets, and not for every look at the clock", async () => {
+  claude("Current session: 96% used · resets 12:30pm (UTC)");
+  const f = footer();
+  await wait(5_000);
+  state.says["claude -p /usage"] = new Error("no newer numbers");
+  f.draw();
+  await wait(5 * 60_000);
+  expect(f.copy.notified).toBe(0);
+
+  await wait(30 * 60_000);
+  expect(f.copy.notified).toBe(1);
+  expect(dotOn(f.draw())).toBeUndefined();
+  await wait(5 * 60_000);
+  expect(f.copy.notified).toBe(1);
+});
+
+function settingsPage() {
+  state.shared.layout ??= "main";
+  const view: any = new Settings();
+  view.init({}, { ...cx, spawn: () => {}, focus_handle: () => ({ focus: () => {} }) });
+  view.section = "look";
+  view.machineList = [];
+  return view.render(cx).el as El;
+}
+const flip = () => handler(byId(settingsPage(), "st-usage")!, "on_click")({}, cx);
+
+test("Settings has a Usage limits row in its Workspace group, on until turned off", () => {
+  const root = settingsPage();
+  expect(words(root)).toContain("Usage limits");
+  const card = all(root).filter((e) => byId(e, "st-tabs-On top") && byId(e, "st-usage")).at(-1)!;
+  expect(arg(card, "bg")).toBe(colors.card);
+  expect(arg(byId(root, "st-usage-knob")!, "left")).toBe(18);
+  flip();
+  expect(state.shared["usage.enabled"]).toBe(false);
+  expect(arg(byId(settingsPage(), "st-usage-knob")!, "left")).toBe(2);
+});
+
+test("turned off, the gauge goes and the line takes back its room", () => {
+  state.agentsShown = 12;
+  flip();
+  const f = footer(), root = f.draw();
+  expect(byId(root, "usage")).toBeUndefined();
+  expect(byId(root, "machine")).toBeDefined();
+  expect(byId(root, "settings")).toBeDefined();
+  const letters = words(root).filter((word) => word.length === 1).join("").replace(/\s/g, " ");
+  expect(letters).toBe("THIS COMPUTER · 12 AGENTS");
+});
+
+test("turned off, nothing runs: not at launch, not on the timer, not when asked", async () => {
+  claude(WEEK);
+  flip();
+  const f = footer(), popover = openedAfter();
+  await settle();
+  refresh(popover);
+  await settle();
+  await wait(2 * 3600_000);
+  expect(state.runs).toEqual([]);
+  expect(state.fetched).toEqual([]);
+  expect(byId(f.draw(), "usage")).toBeUndefined();
+});
+
+test("turning it off clears the saved numbers and the OpenCode answer, and with them the dot", async () => {
+  claude(AT(95));
+  state.shared["usage.opencode"] = false;
+  const f = footer();
+  await wait(5_000);
+  expect(dotOn(f.draw())).toBeDefined();
+
+  flip();
+  expect(state.shared.usage ?? null).toBeNull();
+  expect(state.shared["usage.opencode"] ?? null).toBeNull();
+  expect(byId(f.draw(), "usage")).toBeUndefined();
+});
+
+test("turning it back on shows the gauge and checks again, with no old numbers", async () => {
+  claude(AT(95));
+  const f = footer();
+  await wait(5_000);
+  flip();
+  await wait(5 * 60_000);
+  expect(checks()).toBe(1);
+
+  claude(AT(20));
+  flip();
+  expect(byId(f.draw(), "usage")).toBeDefined();
+  expect(dotOn(f.draw())).toBeUndefined();
+  await wait(60_000);
+  expect(checks()).toBe(2);
+  expect(state.shared.usage.entries["claude|"].limits[0].used).toBe(20);
+});
+
+test("turning it back on asks OpenCode's question again", async () => {
+  state.says["printenv PATH"] = "/made/up/bin\n";
+  state.agents[""] = [{ ...CLAUDE, key: "opencode", name: "OpenCode", icon: "icons/opencode.svg" }];
+  state.shared["usage.opencode"] = false;
+  footer();
+  await wait(5_000);
+  expect(state.shared.usage.entries).toEqual({});
+
+  flip();
+  flip();
+  await wait(60_000);
+  expect(Object.values(state.shared.usage.entries).map((entry: any) => entry.ask)).toEqual([true]);
+});
+
+test("a check running when it's turned off saves nothing", async () => {
+  const usage = held();
+  claude(WEEK);
+  state.says["claude -p /usage"] = usage.answer;
+  footer();
+  await wait(5_000);
+  flip();
+  usage.release(ANSWER);
+  await settle();
+  expect(state.shared.usage ?? null).toBeNull();
+});
+
+test("off alone is enough: a check running when anything sets it saves nothing", async () => {
+  const usage = held();
+  claude(WEEK);
+  state.says["claude -p /usage"] = usage.answer;
+  footer();
+  await wait(5_000);
+  state.shared["usage.enabled"] = false;
+  const saved = JSON.stringify(state.shared.usage);
+  usage.release(ANSWER);
+  await settle();
+  expect(JSON.stringify(state.shared.usage)).toBe(saved);
+});
+
+test("a check running through off and on again can't bring cleared numbers back", async () => {
+  const usage = held();
+  claude(WEEK);
+  footer();
+  await wait(5_000);
+  claude(AT(95));
+  state.says["claude -p /usage"] = usage.answer;
+  await wait(16 * 60_000);
+  flip();
+  flip();
+  usage.release(usageAnswer(AT(95)));
+  await settle();
+  expect(state.shared.usage ?? null).toBeNull();
+});
+
+test("nor can it overwrite what a new check found since, even in the same instant", async () => {
+  const late = held();
+  claude(WEEK);
+  state.says["claude -p /usage"] = late.answer;
+  footer();
+  await wait(5_000);
+  flip();
+  flip();
+  claude(AT(20));
+  await wait(60_000);
+  expect(state.shared.usage.entries["claude|"].limits[0].used).toBe(20);
+
+  late.release(usageAnswer(AT(95)));
+  await settle();
+  expect(state.shared.usage.entries["claude|"].limits[0].used).toBe(20);
+});
+
+test("turned off midway, the check stops: what it had left to ask is never asked", async () => {
+  const auth = held();
+  claude(WEEK);
+  state.says["claude auth status"] = auth.answer;
+  footer();
+  await wait(5_000);
+  flip();
+  auth.release(JSON.stringify(ACCOUNT));
+  await settle();
+  expect(checks()).toBe(0);
+});
+
+test("turned off before an agent is reached, none of its commands run", async () => {
+  const shell = held();
+  claude(WEEK);
+  state.says["printenv PATH"] = shell.answer;
+  footer();
+  await wait(5_000);
+  flip();
+  shell.release("/made/up/bin\n");
+  await settle();
+  expect(state.runs.map((run) => run.line).filter((line) => line.includes("claude"))).toEqual([]);
+});
+
+test("a key already read isn't sent once it's turned off, even if it's turned back on", async () => {
+  const keys = held();
+  state.says["printenv PATH"] = "/made/up/bin\n";
+  state.says["sqlite3"] = keys.answer;
+  state.agents[""] = [{ ...CLAUDE, key: "opencode", name: "OpenCode", icon: "icons/opencode.svg" }];
+  state.shared["usage.opencode"] = true;
+  footer();
+  await wait(5_000);
+  flip();
+  flip();
+  await wait(60_000);
+  keys.release(JSON.stringify({ type: "key", key: "made-up-key" }));
+  await settle();
+  expect(state.fetched).toEqual([]);
+  expect(JSON.stringify(state.shared)).not.toContain("made-up-key");
+});
+
+test("a slow check still saves when a later one started beside it, so slow checks can't go on forever", async () => {
+  const slow = held();
+  claude(WEEK);
+  state.says["claude -p /usage"] = slow.answer;
+  footer();
+  await wait(5_000);
+  state.says["claude -p /usage"] = held().answer;
+  await wait(2 * 60_000);
+  expect(checks()).toBe(2);
+
+  slow.release(ANSWER);
+  await settle();
+  expect(state.shared.usage.entries["claude|"].limits[0].used).toBe(12);
+  await wait(10 * 60_000);
+  expect(checks()).toBe(2);
+});
+
+test("one check finishing doesn't stop another that's running", async () => {
+  const first = held(), second = held();
+  claude(WEEK);
+  state.says["claude auth status"] = first.answer;
+  footer();
+  await wait(5_000);
+  state.says["claude auth status"] = second.answer;
+  await wait(2 * 60_000);
+
+  first.release(JSON.stringify({ loggedIn: false }));
+  await settle();
+  second.release(JSON.stringify(ACCOUNT));
+  await settle();
+  expect(checks()).toBe(1);
+  expect(state.shared.usage.entries["claude|"].limits[0].used).toBe(12);
 });
