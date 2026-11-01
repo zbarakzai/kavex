@@ -61,6 +61,7 @@ let state: {
   ran: string[];
   commands: string[];
   waiting: ((command: string) => void) | null;
+  notes: { title: string; body: string; level: string }[];
 };
 
 // `solid` and its text are made for every theme by src/settings.rs, not written in the file.
@@ -115,6 +116,7 @@ mock.module("herdr", () => ({
   layouts: () => ["main"],
   playSound: () => {},
   closeOverlay: () => {},
+  notify: (note: any) => void state.notes.push(note),
   layout: () => ({ id: "root", children: [{ id: "sidebar", size: { px: state.sidebar } }] }),
   updates: () => ({ app: { ready: false, version: "0.4.0", updates: true }, core: { version: "0.1.15" }, checks: true }),
   agents: () => Array.from({ length: state.agentsShown }, () => ({})),
@@ -258,6 +260,7 @@ beforeEach(() => {
     ran: [],
     commands: [],
     waiting: null,
+    notes: [],
   };
 });
 afterEach(() => { setSystemTime(); });
@@ -315,7 +318,7 @@ test("weekly limits come first, then model limits, then the 5-hour limit", async
   expect(limits(popover.draw()).map((limit) => words(limit))).toEqual([
     ["THIS WEEK", "12%", "RESETS IN 5D 7H"],
     ["SONNET", "4%", "RESETS IN 2D 0H"],
-    ["5 HOURS", "33%", "RESETS IN 3H 30M"],
+    ["5 HOURS", "33%", "RESETS IN 3H 30M", "RUNS OUT IN 3H 2M AT THIS PACE"],
   ]);
 });
 
@@ -709,7 +712,7 @@ test("a Codex subscription shows its tier and every limit: weekly, then a model'
   expect(limits(root).map((limit) => words(limit))).toEqual([
     ["THIS WEEK", "12%", "RESETS IN 5D 7H"],
     ["GPT-5-SPARK", "20%", "RESETS IN 1D 6H"],
-    ["5 HOURS", "33%", "RESETS IN 3H 30M"],
+    ["5 HOURS", "33%", "RESETS IN 3H 30M", "RUNS OUT IN 3H 2M AT THIS PACE"],
     ["GPT-5-SPARK · 5 HOURS", "30%", "RESETS IN 1H 0M"],
   ]);
 });
@@ -1469,6 +1472,241 @@ test("the footer redraws by itself when a limit resets, and not for every look a
   expect(dotOn(f.draw())).toBeUndefined();
   await wait(5 * 60_000);
   expect(f.copy.notified).toBe(1);
+});
+
+const lineOf = (root: El, limit: number) => words(limits(root)[limit]);
+const PACE = (percent: number) => `Current week (all models): ${percent}% used · resets Nov 4 at 12:00pm (UTC)`;
+
+test("a limit on course to run out before it resets says when, at the pace so far", async () => {
+  claude(PACE(80));
+  const { popover } = await opened();
+  expect(lineOf(popover.draw(), 0)).toEqual(["THIS WEEK", "80%", "RESETS IN 3D 0H", "RUNS OUT IN 1D 0H AT THIS PACE"]);
+});
+
+test("a limit that lasts to its reset says nothing more", async () => {
+  claude(PACE(57), WEEK);
+  const { popover } = await opened();
+  expect(lineOf(popover.draw(), 0)).toEqual(["THIS WEEK", "57%", "RESETS IN 3D 0H"]);
+  expect(lineOf(popover.draw(), 1)).toEqual(["THIS WEEK", "12%", "RESETS IN 5D 7H"]);
+});
+
+test("the first 5% of a window gives no estimate, as its pace says little yet", async () => {
+  claude("Current week (all models): 50% used · resets Nov 8 at 4:00am (UTC)");
+  const { popover } = await opened();
+  expect(lineOf(popover.draw(), 0)).toEqual(["THIS WEEK", "50%", "RESETS IN 6D 16H"]);
+  state.says["claude -p /usage"] = usageAnswer("Current week (all models): 50% used · resets Nov 8 at 3:00am (UTC)");
+  refresh(popover);
+  await settle();
+  expect(lineOf(popover.draw(), 0)).toEqual(["THIS WEEK", "50%", "RESETS IN 6D 15H", "RUNS OUT IN 9H 0M AT THIS PACE"]);
+});
+
+test("the estimate is worked out from when the numbers were checked, and counts down between checks", async () => {
+  claude(PACE(80));
+  const { popover } = await opened();
+  setSystemTime(NOW + 3 * 3600_000);
+  expect(lineOf(popover.draw(), 0).at(-1)).toBe("RUNS OUT IN 21H 0M AT THIS PACE");
+});
+
+test("old numbers whose estimate has passed say nothing about it", async () => {
+  claude(PACE(80));
+  const { popover } = await opened();
+  setSystemTime(NOW + 25 * 3600_000);
+  expect(lineOf(popover.draw(), 0)).toEqual(["THIS WEEK", "80%", "RESETS IN 1D 23H"]);
+});
+
+test("a limit at 0% or used up gives no estimate", async () => {
+  claude(PACE(0));
+  const { popover } = await opened();
+  expect(lineOf(popover.draw(), 0)).toEqual(["THIS WEEK", "0%", "RESETS IN 3D 0H"]);
+  state.says["claude -p /usage"] = usageAnswer(PACE(100));
+  refresh(popover);
+  await settle();
+  expect(lineOf(popover.draw(), 0)).toEqual(["THIS WEEK", "100%", "RESETS IN 3D 0H"]);
+});
+
+test("numbers saved before estimates existed still draw, with none", async () => {
+  claude(WEEK);
+  const { popover } = await opened();
+  state.shared.usage.entries["claude|"].limits = [{ label: "This week", used: 80, resetsAt: NOW + 3 * 86_400_000 }];
+  expect(lineOf(popover.draw(), 0)).toEqual(["THIS WEEK", "80%", "RESETS IN 3D 0H"]);
+});
+
+test("Claude's 5-hour limit goes by its own length", async () => {
+  claude("Current session: 80% used · resets 2:00pm (UTC)");
+  const { popover } = await opened();
+  expect(lineOf(popover.draw(), 0).at(-1)).toBe("RUNS OUT IN 45M AT THIS PACE");
+});
+
+test("Codex's limits go by the length it reports, and one with none gives no estimate", async () => {
+  codex(PRO, { rateLimits: bucket("codex", null, window_(80, 300, 1), window_(99, null, 72)) });
+  const { popover } = await opened();
+  expect(lineOf(popover.draw(), 0)).toEqual(["5 HOURS", "80%", "RESETS IN 1H 0M"]);
+  expect(lineOf(popover.draw(), 1)).toEqual(["LIMIT", "99%", "RESETS IN 3D 0H"]);
+
+  state.says["app-server"] = codexSays(PRO, { rateLimits: bucket("codex", null, window_(80, 10080, 72)) });
+  refresh(popover);
+  await settle();
+  expect(lineOf(popover.draw(), 0).at(-1)).toBe("RUNS OUT IN 1D 0H AT THIS PACE");
+});
+
+test("OpenCode's limits go by their windows' lengths", async () => {
+  opencode();
+  state.shared["usage.opencode"] = true;
+  state.answers[GO] = go({ usage: { weekly: { percent: 80, resetsAt: "2026-11-04T12:00:00Z" }, rolling: { percent: 80, resetInSec: 3600 }, monthly: { percent: 80, resetsAt: "2026-11-11T12:00:00Z" } } });
+  const { popover } = await opened();
+  expect(limits(popover.draw()).map((limit) => words(limit).at(-1))).toEqual(["RUNS OUT IN 1D 0H AT THIS PACE", "RESETS IN 1H 0M", "RUNS OUT IN 5D 0H AT THIS PACE"]);
+});
+
+test("a limit's estimate adds to its height, so a list that no longer fits scrolls", async () => {
+  const scrolls = (root: El) => byId(root, "usage-rows")!.calls.some(([name]) => name === "overflow_y_scrollbar");
+  const row = (used: number, who: string) => ({ agent: "claude", name: "Claude Code", icon: "icons/claude.svg", machine: null, who, checkedAt: NOW,
+    limits: ["a", "b", "c"].map((label) => ({ label, used, resetsAt: NOW + 3 * 86_400_000, minutes: 10080 })) });
+  claude(WEEK);
+  const { popover } = await opened();
+  state.shared.usage = { checkedAt: NOW, entries: { one: row(10, "one"), two: row(10, "two") } };
+  expect(scrolls(popover.draw())).toBe(false);
+  const short = arg(limits(popover.draw())[0], "h");
+
+  state.shared.usage = { checkedAt: NOW, entries: { one: row(80, "one"), two: row(80, "two") } };
+  expect(scrolls(popover.draw())).toBe(true);
+  expect(arg(limits(popover.draw())[0], "h")).toBeGreaterThan(short);
+});
+
+test("reaching 90% raises one toast saying which limit and when it resets", async () => {
+  claude(AT(92));
+  footer();
+  await wait(5_000);
+  expect(state.notes).toEqual([{ title: "Claude Code limit at 92%", body: "This week, resets in 5d 7h", level: "warning" }]);
+});
+
+test("under 90% raises none, and neither does the check after it that stays under", async () => {
+  claude(AT(89));
+  footer();
+  await wait(5_000 + 15 * 60_000);
+  expect(state.notes).toEqual([]);
+  expect(state.shared["usage.warned"] ?? []).toEqual([]);
+});
+
+test("a limit past 90 warns once, however many checks and however its reset time drifts", async () => {
+  claude(PACE(70));
+  const f = footer();
+  await wait(5_000);
+  expect(state.notes).toEqual([]);
+  state.says["claude -p /usage"] = usageAnswer("Current week (all models): 91% used · resets Nov 4 at 12:00pm (UTC)");
+  await wait(16 * 60_000);
+  expect(state.notes.length).toBe(1);
+  state.says["claude -p /usage"] = usageAnswer("Current week (all models): 95% used · resets Nov 4 at 12:01pm (UTC)");
+  await wait(16 * 60_000);
+  state.says["claude -p /usage"] = usageAnswer("Current week (all models): 99% used · resets Nov 4 at 11:59am (UTC)");
+  await wait(16 * 60_000);
+  expect(state.notes.length).toBe(1);
+  f.close();
+});
+
+test("a restart doesn't repeat it: what's been warned about is saved", async () => {
+  claude(AT(92));
+  const first = footer();
+  await wait(5_000);
+  first.close();
+  await wait(2 * 60_000);
+  footer();
+  await wait(5_000);
+  expect(state.notes.length).toBe(1);
+});
+
+test("after its reset, the next time it reaches 90% warns again", async () => {
+  claude(PACE(92));
+  footer();
+  await wait(5_000);
+  expect(state.notes.length).toBe(1);
+  state.says["claude -p /usage"] = usageAnswer(PACE(3));
+  await wait(16 * 60_000);
+  expect(state.shared["usage.warned"]).toEqual([]);
+  state.says["claude -p /usage"] = usageAnswer(PACE(90));
+  await wait(16 * 60_000);
+  expect(state.notes.map((note) => note.title)).toEqual(["Claude Code limit at 92%", "Claude Code limit at 90%"]);
+});
+
+test("each limit warns for itself", async () => {
+  claude(AT(92));
+  footer();
+  await wait(5_000);
+  state.says["claude -p /usage"] = usageAnswer(AT(93), "Current session: 96% used · resets 3:30pm (UTC)");
+  await wait(16 * 60_000);
+  expect(state.notes.map((note) => note.body.split(",")[0])).toEqual(["This week", "5 hours"]);
+});
+
+test("a failed check repeats nothing, and neither do the numbers it keeps", async () => {
+  claude(AT(92));
+  footer();
+  await wait(5_000);
+  state.says["claude -p /usage"] = new Error("no answer");
+  await wait(16 * 60_000);
+  expect(state.notes.length).toBe(1);
+  expect(state.shared["usage.warned"].length).toBe(1);
+});
+
+test("one account on two machines warns once, and a limit with no reset time still can", async () => {
+  claude("Current week (all models): 92% used");
+  state.machines = [{ name: null, layout: "ready" }, { name: "studio", layout: "ready" }];
+  state.agents.studio = [CLAUDE];
+  state.on.studio = state.says;
+  footer();
+  await wait(5_000);
+  expect(state.notes).toEqual([{ title: "Claude Code (This computer, studio) limit at 92%", body: "This week", level: "warning" }]);
+});
+
+test("different accounts warn apart, though their limits share a name", async () => {
+  claude(AT(92));
+  state.machines = [{ name: null, layout: "ready" }, { name: "studio", layout: "ready" }];
+  state.agents.studio = [CLAUDE];
+  state.on.studio = { ...state.says, "claude auth status": JSON.stringify({ ...ACCOUNT, email: "other@example.test" }) };
+  footer();
+  await wait(5_000);
+  expect(state.notes.map((note) => note.title).sort()).toEqual(["Claude Code (This computer) limit at 92%", "Claude Code (studio) limit at 92%"]);
+});
+
+test("what's saved about a warning holds no login, email or organisation", async () => {
+  claude(AT(92));
+  footer();
+  await wait(5_000);
+  const saved = JSON.stringify(state.shared["usage.warned"]);
+  for (const secret of [ACCOUNT.email, ACCOUNT.orgId, ACCOUNT.orgName]) expect(saved).not.toContain(secret);
+  expect(saved).toContain("This week");
+});
+
+test("turning it off clears the warnings too, so turned back on it warns again", async () => {
+  claude(AT(92));
+  footer();
+  await wait(5_000);
+  expect(state.notes.length).toBe(1);
+  flip();
+  expect(state.shared["usage.warned"] ?? null).toBeNull();
+  flip();
+  await wait(61_000);
+  expect(state.notes.length).toBe(2);
+});
+
+test("a check cut off by turning it off raises nothing", async () => {
+  let answer: (reply: string) => void = () => {};
+  claude(AT(92));
+  state.says["claude -p /usage"] = () => new Promise<Reply>((resolve) => { answer = resolve; });
+  footer();
+  await wait(5_000);
+  flip();
+  answer(usageAnswer(AT(92)));
+  await settle();
+  expect(state.notes).toEqual([]);
+});
+
+test("OpenCode's limits warn too, as soon as Allow brings them", async () => {
+  opencode();
+  state.answers[GO] = go({ usage: { weekly: { percent: 94, resetsAt: "2026-11-03T12:00:00Z" } } });
+  const { popover } = await opened();
+  expect(state.notes).toEqual([]);
+  reply(popover, ALLOW);
+  await settle();
+  expect(state.notes).toEqual([{ title: "OpenCode limit at 94%", body: "This week, resets in 2d 0h", level: "warning" }]);
 });
 
 function settingsPage() {

@@ -135,7 +135,7 @@ test("Usage limits starts on, and off leaves nothing saved behind", () => {
   const { draw } = open();
   expect(knob(draw(), "st-usage")).toBe(18);
   click(draw(), "st-usage");
-  expect(state.shared).toMatchObject({ "usage.enabled": false, usage: null, "usage.opencode": null });
+  expect(state.shared).toMatchObject({ "usage.enabled": false, usage: null, "usage.opencode": null, "usage.warned": null });
   expect(knob(draw(), "st-usage")).toBe(2);
 
   state.shared.usage = { checkedAt: 2, entries: {} };
