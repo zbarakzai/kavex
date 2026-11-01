@@ -200,7 +200,9 @@ the highlighted line shows where it will land.
   use `machine/address` for another machine. Names and non-live addresses aren't links.
 - **Session context**: a Claude Code, Codex or Pi row in the agents list, and such a sub-agent's, on
   any machine, shows how full its session's context is as a small percent between the name and the
-  time, orange from 90%. Clicking its logo opens a dropdown that follows the session: the model running
+  time, orange from 90%. Its tab in the right-hand Tabs panel shows the same, the fullest agent if the
+  tab has several, read from `shared("agents.contexts")`, `{ address: percent or "–" }`, which the
+  agents list keeps. Clicking its logo opens a dropdown that follows the session: the model running
   now, a context bar with tokens used, the total and the percent, the API cost, and input, output and
   cached tokens. It neither focuses the agent nor folds anything; the chevron folds sub-agents. Any
   other agent shows no percent, and its logo acts like its row.

@@ -1254,6 +1254,28 @@ test("a Codex keeps its file open, so its numbers arrive with no change from the
   expect(rowPercents(draw, "t1")).toEqual(["50%"]);
 });
 
+test("the Agents list tells the Tabs panel each agent's context, and only when it changes", async () => {
+  await codexRow(uuid(1), [metaOf(uuid(1)), turn(), spent(uuid(1), { input: 73600 })]);
+  expect(state.shared["agents.contexts"]).toEqual({ t1: 25 });
+  const before = state.shared["agents.contexts"];
+  await ticks();
+  expect(state.shared["agents.contexts"]).toBe(before);
+  codexWrites(uuid(1), [spent(uuid(1), { input: 135200 })]);
+  await ticks();
+  expect(state.shared["agents.contexts"]).toEqual({ t1: 50 });
+});
+
+test("an agent that hasn't reported is a dash to the Tabs panel, and one that's gone leaves it", async () => {
+  await quietCodex();
+  await works();
+  await ticks();
+  expect(state.shared["agents.contexts"]).toEqual({ t1: "–" });
+  state.terminals = [];
+  state.agents = [];
+  await ticks();
+  expect(state.shared["agents.contexts"]).toEqual({});
+});
+
 test("a Codex with nothing new costs a size check, not a read of its lines", async () => {
   await codexRow(uuid(1), [metaOf(uuid(1)), turn(), spent(uuid(1), { input: 73600 })]);
   await ticks();

@@ -20,6 +20,7 @@ const WORKED = ["working", "done"];
 const EVERY = 2000;
 const EVERY_ADDED = 30000;
 const TOTALS = "agents.totals";
+const CONTEXTS = "agents.contexts";
 const SETUP = "agents.setup";
 const KEPT = 86400000;
 const RETRY = 600000;
@@ -81,6 +82,12 @@ export class Sessions {
     return { ...found, context: total >= used ? { used, total, percent: Math.round((used / total) * 100) } : { used } };
   }
 
+  // What a row says of its context: a percent, a dash for an agent yet to report, or nothing.
+  contextOf(address) {
+    const { state, context } = this.shown(address);
+    return state === "waiting" ? "–" : context?.percent ?? null;
+  }
+
   // A pass that's still reading is left alone. `reading` holds a time because a stopped script
   // can't clear a flag, and it names the one pass per machine that may touch a session: one the
   // machine slept through wakes to find itself replaced, and leaves its old lines unread.
@@ -99,8 +106,18 @@ export class Sessions {
         if (!this.only) this.setUp(pass.machine, term.program.key, AGENTS[term.program.key], cx);
         if (this.current(pass) && !(on && offline(on))) await this.follow(term, pass, cx);
       }
-      if (this.current(pass)) this.reading.delete(on);
+      if (!this.current(pass)) return;
+      this.reading.delete(on);
+      this.share();
     });
+  }
+
+  // For the Tabs panel, which can't import this. Only a change goes out, as every mod redraws on one.
+  share() {
+    if (this.only) return;
+    const said = [...this.live.keys()].sort().map((address) => [address, this.contextOf(address)]);
+    const contexts = Object.fromEntries(said.filter(([, context]) => context !== null));
+    if (JSON.stringify(contexts) !== JSON.stringify(shared(CONTEXTS) ?? {})) setShared(CONTEXTS, contexts);
   }
 
   async machine(on) {

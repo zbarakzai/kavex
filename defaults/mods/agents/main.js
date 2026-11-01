@@ -82,10 +82,9 @@ export default class Agents extends View {
   }
 
   percent(t, k, address) {
-    const { state, context } = this.sessions.shown(address);
-    const percent = context?.percent;
-    const text = state === "waiting" ? "–" : percent === undefined ? null : `${percent}%`;
-    return text ? [div().flex_none().font_family(MONO).text_size(10).text_color(percent >= 90 ? t.blocked : k.label).child(text)] : [];
+    const context = this.sessions.contextOf(address);
+    if (context === null) return [];
+    return [div().flex_none().font_family(MONO).text_size(10).text_color(context >= 90 ? t.blocked : k.label).child(typeof context === "number" ? `${context}%` : context)];
   }
 
   // `none` has nothing true to say, so its logo is part of the row, as for an agent with no numbers.
