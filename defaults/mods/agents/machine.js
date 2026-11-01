@@ -42,7 +42,7 @@ function unix(on) {
     sizes: async (files) => sizesFrom((await exec("sh", ["-c", 'wc -c "$@" 2>/dev/null', "sh", ...files], { on })).stdout),
     inside: async (folder) => sizesFrom((await exec("sh", ["-c", 'wc -c "$1"/*.jsonl 2>/dev/null', "sh", folder], { on })).stdout),
     find: async (folder, names) => (await exec("find", [folder, ...names.flatMap((name, i) => [...(i ? ["-o"] : []), "-name", `*${name}`])], { on })).stdout.split("\n").filter(Boolean),
-    processes: async (pid) => [pid],
+    processes: async (pid) => [{ pid }],
   };
 }
 
@@ -104,20 +104,22 @@ foreach ($hit in [regex]::Matches($text, $find)) {
 const SIZES = "$a.Split([char]10) | ForEach-Object { $one = Get-Item -LiteralPath $_ -ErrorAction SilentlyContinue; if ($one) { say ([string]$one.Length + ' ' + $_) } }";
 const SIZES_INSIDE = "if (Test-Path -LiteralPath $a) { Get-ChildItem -LiteralPath $a -Filter *.jsonl -File | ForEach-Object { say ([string]$_.Length + ' ' + $_.FullName) } }";
 const ALL_SESSIONS = "Get-ChildItem -LiteralPath $a -Filter *.jsonl -File -Recurse | ForEach-Object { say $_.FullName }";
-const PROCESSES = "Get-CimInstance Win32_Process -Property ProcessId, ParentProcessId | ForEach-Object { say ([string]$_.ProcessId + ' ' + $_.ParentProcessId) }";
+const PROCESSES = "Get-CimInstance Win32_Process -Property ProcessId, ParentProcessId, CreationDate | ForEach-Object { say ([string]$_.ProcessId + ' ' + $_.ParentProcessId + ' ' + $(if ($_.CreationDate) { ([DateTimeOffset]$_.CreationDate).ToUnixTimeMilliseconds() })) }";
 
 // A pseudo console has no foreground group, so a terminal's foreground is the program it started,
 // usually a shell, and the agent is somewhere under it: parents first, as an agent's own
 // tools are under it.
 function underneath(root, table) {
-  const kids = new Map();
+  const kids = new Map(), started = new Map();
   for (const line of table.split("\n")) {
-    const [pid, parent] = line.trim().split(" ").map(Number);
-    if (pid) kids.set(parent, [...(kids.get(parent) ?? []), pid]);
+    const [pid, parent, at] = line.trim().split(" ").map(Number);
+    if (!pid) continue;
+    kids.set(parent, [...(kids.get(parent) ?? []), pid]);
+    started.set(pid, at);
   }
   const found = [root];
   for (const pid of found) found.push(...(kids.get(pid) ?? []).filter((kid) => !found.includes(kid)));
-  return found;
+  return found.map((pid) => ({ pid, started: started.get(pid) ?? NaN }));
 }
 
 const WALKED = 30000;

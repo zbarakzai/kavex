@@ -86,7 +86,7 @@ const printed = (stdout: string) => ({ code: 0, stdout, stderr: "" });
 
 function powershell(script: string, [a, b, c, d, e]: string[]) {
   if (script.includes("say $HOME")) return printed(`${state.win.home}\n`);
-  if (script.includes("Win32_Process")) return printed(state.win.processes.map(([pid, parent]: number[]) => `${pid} ${parent}\n`).join(""));
+  if (script.includes("Win32_Process")) return printed(state.win.processes.map(([pid, parent, started = 0]: number[]) => `${pid} ${parent} ${started}\n`).join(""));
   if (script.includes("-Recurse")) return printed(walk(onDisk(a)).filter((path) => path.endsWith(".jsonl")).map((path) => `${asWindows(path)}\n`).join(""));
   if (script.includes("Get-ChildItem")) return printed(walk(onDisk(a)).filter((path) => path.endsWith(".jsonl")).map((path) => `${statSync(path).size} ${asWindows(path)}\n`).join(""));
   if (script.includes("Get-Item")) return printed(a.split("\n").filter((path) => existsSync(onDisk(path))).map((path) => `${statSync(onDisk(path)).size} ${path}\n`).join(""));
@@ -245,10 +245,10 @@ const running = (address: string, pid: number | null, program: any = CLAUDE, mor
 const listed = (term: any) => ({ address: term.address, pane: `p-${term.address}`, space: "s", space_name: "one", tab: "tb", tab_index: 1, status: "idle", program: term.program, seq: 1, focused: false });
 
 const folderOf = (cwd: string) => cwd.replace(/[^a-zA-Z0-9]/g, "-");
-const recordOf = (pid: number, sessionId: string, cwd = "/work/project", at = home) => {
+const recordOf = (pid: number, sessionId: string, cwd = "/work/project", at = home, startedAt: number | undefined = 1) => {
   const path = join(at, ".claude", "sessions", `${pid}.json`);
   mkdirSync(dirname(path), { recursive: true });
-  writeFileSync(path, JSON.stringify({ pid, sessionId, cwd, startedAt: 1, version: "2.1.316", kind: "interactive", entrypoint: "cli", status: "idle" }));
+  writeFileSync(path, JSON.stringify({ pid, sessionId, cwd, startedAt, version: "2.1.316", kind: "interactive", entrypoint: "cli", status: "idle" }));
 };
 const fileOf = (sessionId: string, cwd = "/work/project", at = home) => join(at, ".claude", "projects", folderOf(cwd), `${sessionId}.jsonl`);
 
@@ -3528,6 +3528,70 @@ test("Claude's /context runs through cmd on Windows, which finds an npm claude.c
   await claudeOnWindows([said({ id: "m1", read: 100000 })]);
   expect(args[0].slice(0, 2)).toEqual(["-p", "/context"]);
   expect(args[0].at(-1)).toBe("");
+});
+
+// Pids come back fast on Windows, and a crash leaves its record behind. Tested here against the
+// process table the mod is given: PowerShell itself has never run on this.
+const staleOnWindows = async () => {
+  const root = onWindows();
+  const term = running("t1", 900, CLAUDE, { foreground: { pid: 900, name: "powershell.exe", argv: ["powershell.exe"], cwd: WINDOWS_CWD } });
+  state.terminals = [term];
+  state.agents = [listed(term)];
+  writes("gone", [said({ id: "x", read: 900000 })], WINDOWS_CWD, root);
+  writes("real", [said({ id: "m1", read: 100000 })], WINDOWS_CWD, root);
+  return root;
+};
+const showsOnWindows = async () => {
+  const { draw } = await open();
+  await ticks();
+  return rowPercents(draw, "t1");
+};
+
+test("a record older than its process is a crashed session's, and the real Claude under it still shows", async () => {
+  const root = await staleOnWindows();
+  state.win.processes = [[900, 4, 4000], [901, 900, 5000], [902, 900, 5500]];
+  recordOf(901, "gone", WINDOWS_CWD, root, 1000);
+  recordOf(902, "real", WINDOWS_CWD, root, 6000);
+  expect(await showsOnWindows()).toEqual(["10%"]);
+});
+
+test("a stale record alone shows no number rather than another session's", async () => {
+  const root = await staleOnWindows();
+  state.win.processes = [[900, 4, 4000], [901, 900, 5000]];
+  recordOf(901, "gone", WINDOWS_CWD, root, 1000);
+  expect(await showsOnWindows()).toEqual([]);
+});
+
+test("a record with no start time can't be shown to be this process's, so it doesn't count on Windows", async () => {
+  const root = await staleOnWindows();
+  state.win.processes = [[900, 4, 4000], [901, 900, 5000]];
+  recordOf(901, "gone", WINDOWS_CWD, root, undefined);
+  expect(await showsOnWindows()).toEqual([]);
+});
+
+test("a process whose start can't be read doesn't count on Windows", async () => {
+  const root = await staleOnWindows();
+  state.powershell = (script: string) => (script.includes("Win32_Process") ? printed("900 4 4000\n901 900 \n") : null);
+  recordOf(901, "gone", WINDOWS_CWD, root, 1000);
+  expect(await showsOnWindows()).toEqual([]);
+});
+
+test("a process list that can't be had shows no number on Windows", async () => {
+  const root = await staleOnWindows();
+  state.powershell = (script: string) => (script.includes("Win32_Process") ? { code: 4, stdout: "", stderr: "" } : null);
+  recordOf(900, "gone", WINDOWS_CWD, root, 1000);
+  expect(await showsOnWindows()).toEqual([]);
+});
+
+test("Mac and Linux match a record by its pid alone, as they always have", async () => {
+  const term = running("t1", 101);
+  state.terminals = [term];
+  state.agents = [listed(term)];
+  recordOf(101, "one", undefined, undefined, undefined);
+  writes("one", [said({ id: "m1", read: 100000 })]);
+  const { draw } = await open();
+  await ticks();
+  expect(rowPercents(draw, "t1")).toEqual(["10%"]);
 });
 
 test("an added Windows machine is told by having no sh, and its home and session come from there", async () => {
