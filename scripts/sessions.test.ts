@@ -2978,6 +2978,10 @@ test("a machine connecting but not answering holds up nothing here", async () =>
   await ticks();
   expect(rowPercents(draw, "t2")).toEqual(["30%"]);
   expect(rowPercents(draw, "vps/t1")).toEqual([]);
+  writes("two", [said({ id: "m3", read: 400000 })]);
+  changed(fileOf("two"));
+  await ticks();
+  expect(rowPercents(draw, "t2")).toEqual(["40%"]);
   state.parked -= 1;
   state.away.vps.stuck = null;
   free();
