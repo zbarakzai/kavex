@@ -1873,6 +1873,64 @@ test("a second footer told of the same Allow sends nothing more", async () => {
   expect(state.fetched.length).toBe(1);
 });
 
+// Allow's request hung past a minute, so a later check has started beside it, knowing no numbers yet.
+async function hungAllow() {
+  opencode();
+  const request = heldGo();
+  const { popover } = await opened();
+  reply(popover, ALLOW);
+  await settle();
+  setSystemTime(NOW + 61_000);
+  return { popover, request };
+}
+
+test("a failed check can't replace with \"Could not check\" the numbers a hung Allow saved as it ran", async () => {
+  const { popover, request } = await hungAllow();
+  const later = heldGo();
+  refresh(popover);
+  await settle();
+  expect(state.fetched.length).toBe(2);
+
+  request.release(go()());
+  await settle();
+  later.release(new Error("offline"));
+  await settle();
+  expect(limits(popover.draw()).length).toBe(3);
+  expect(words(popover.draw())).not.toContain("Could not check");
+});
+
+test("nor can a hung Allow failing at last replace the numbers a later check found", async () => {
+  const { popover, request } = await hungAllow();
+  state.answers[GO] = go();
+  refresh(popover);
+  await settle();
+  expect(limits(popover.draw()).length).toBe(3);
+
+  request.release(new Error("offline"));
+  await settle();
+  expect(limits(popover.draw()).length).toBe(3);
+  expect(words(popover.draw())).not.toContain("Could not check");
+});
+
+test("any agent's failed check keeps numbers saved since it began, marked with their age", async () => {
+  const first = held(), second = held();
+  claude(WEEK);
+  state.says["claude -p /usage"] = first.answer;
+  footer();
+  await wait(5_000);
+  state.says["claude -p /usage"] = second.answer;
+  await wait(2 * 60_000);
+  expect(checks()).toBe(2);
+
+  first.release(ANSWER);
+  await settle();
+  second.release(new Error("no"));
+  await settle();
+  const root = openedAfter().draw();
+  expect(words(limits(root)[0])).toContain("12%");
+  expect(words(root)).toContain("Last checked just now");
+});
+
 const { run: zakiDo } = await import("herdr");
 
 test("Allow's press is the answer: saved at once, with the card gone and no false \"none\" while the check starts", async () => {

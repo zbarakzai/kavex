@@ -282,6 +282,10 @@ function withOpencode(entries, entry) {
   return entry ? { ...others, [OPENCODE]: entry } : others;
 }
 
+// A failure knows only what was saved when its check began. A check hung past a minute has another
+// beside it, which may have saved numbers since, and those mustn't turn into "Could not check".
+const orSaved = (entry, saved) => (entry?.failed && saved?.limits.length ? { ...saved, failed: true } : entry);
+
 // `era` names one stretch of Usage being on, and goes with the numbers when it's turned off. A pass
 // saves only into the era it started in, so one from before can't bring cleared numbers back, even
 // with Usage on again. It isn't one mark per pass: a pass over a minute long has another start beside
@@ -295,9 +299,10 @@ export async function checkUsage({ force = false, within = REUSE } = {}) {
   const names = [...new Set([null, ...machines().map((machine) => machine.name)])];
   const results = await Promise.all(names.map((on) => checkMachine(on, last.entries ?? {}, now)));
   if (shared("usage.enabled") === false || shared("usage")?.era !== era) return;
+  const saved = shared("usage").entries ?? {}, found = Object.assign({}, ...results);
+  for (const id in found) found[id] = orSaved(found[id], saved[id]);
   // Answered midway, OpenCode's entry is no longer this pass's to save: Allow runs its own check.
-  const found = Object.assign({}, ...results), entries = shared("usage.opencode") === answer ? found : withOpencode(found, shared("usage").entries?.[OPENCODE]);
-  setShared("usage", { era, checkedAt: now, entries });
+  setShared("usage", { era, checkedAt: now, entries: shared("usage.opencode") === answer ? found : withOpencode(found, saved[OPENCODE]) });
 }
 
 // Consent is the person's press, saved by the popover: any agent can run this command, so all it can
@@ -313,7 +318,7 @@ export async function allowOpencode() {
   const found = await opencode().then((report) => report && { ...base, ...report, checkedAt: Date.now() }, () => ({ ...base, limits: [], failed: true }));
   const current = shared("usage");
   if (shared("usage.enabled") === false || current?.era !== usage.era) return;
-  setShared("usage", { ...current, startedAt: current.startedAt === mine ? null : current.startedAt, entries: withOpencode(current.entries, found) });
+  setShared("usage", { ...current, startedAt: current.startedAt === mine ? null : current.startedAt, entries: withOpencode(current.entries, orSaved(found, current.entries?.[OPENCODE])) });
 }
 
 // A limit past its reset time has started over, whatever the last check said.
