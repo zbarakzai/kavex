@@ -28,7 +28,7 @@ const text = (e: El) => e.kids.filter((k) => typeof k === "string").join("");
 const handler = (e: El, name: string, button?: string) => e.calls.find(([k, a]) => k === name && (!button || a[0] === button))?.[1].at(-1);
 const rings = (e: El) => e.kids.map(mine).filter((k): k is El => Boolean(k) && has(k!, "border_color") && has(k!, "inset_0"));
 
-let state: { tabs: any[]; shared: Record<string, any>; ran: [string, any][]; focused: boolean; overlays: any[]; terminals?: any[] };
+let state: { tabs: any[]; shared: Record<string, any>; ran: [string, any][]; focused: boolean; overlays: any[]; terminals?: any[]; panes?: any[] };
 const colors = JSON.parse(readFileSync(new URL("../defaults/themes/zaki.json", import.meta.url), "utf8")).colors;
 const flex = () => make();
 const icon = (path: string) => { const s = make(); s.el.calls.push(["path", [path]]); return s; };
@@ -36,7 +36,7 @@ mock.module("gpui-kit", () => ({ View: class {}, div: make, image: make, svg: ic
 mock.module("gpui-base", () => ({ h_flex: flex, v_flex: flex }));
 mock.module("herdr", () => ({
   spaces: () => [{ id: "s", active: true, machine: null, tabs: state.tabs }],
-  panes: () => state.tabs.map((c) => ({ tab: c.id, pane: `p-${c.id}`, terminal: `t-${c.id}`, focused: true, program: { name: c.id } })),
+  panes: () => state.panes ?? state.tabs.map((c) => ({ tab: c.id, pane: `p-${c.id}`, terminal: `t-${c.id}`, focused: true, program: { name: c.id } })),
   terminals: () => state.terminals ?? [],
   theme: () => colors,
   layout: () => null,
@@ -50,6 +50,7 @@ mock.module("herdr", () => ({
   window: () => ({ platform: "macos" }),
 }));
 const { default: TabsColumn } = await import("../defaults/mods/tabs-column/main.js");
+const { look } = await import("../defaults/mods/tabs-column/look.js");
 
 const timers: (() => void)[] = [];
 const cx: any = {
@@ -135,6 +136,42 @@ test("a row's status never changes its background, only the badge shows it", () 
   const root = column().draw(), row = byId(root, "column-d")!;
   expect(shown(row)).toEqual(shown(byId(root, "column-c")!));
   expect(all(row).some((e) => e.kids.some((k) => mine(k) && text(mine(k)!) === "N"))).toBe(true);
+});
+
+const contextOf = (row: El) => all(row).filter((e) => /^(\d+%|–)$/.test(text(e)));
+
+test("a tab shows its agent's context from the Agents list, between its name and the time", () => {
+  state.tabs = [tab("a", { active: true, changed_at: Date.now() - 300000 }), tab("b")];
+  state.shared["agents.contexts"] = { "t-a": 64 };
+  const root = column().draw(), row = byId(root, "column-a")!, [percent] = contextOf(row);
+  expect(text(percent)).toBe("64%");
+  expect(arg(percent, "text_size")).toBe(10);
+  expect(arg(percent, "text_color")).toBe(look(colors).label);
+  const kids = row.kids.map(mine).filter(Boolean) as El[];
+  expect(kids.indexOf(percent)).toBeGreaterThan(kids.findIndex((k) => has(k, "truncate")));
+  expect(kids.indexOf(percent)).toBeLessThan(kids.findIndex((k) => text(k) === "5m"));
+  expect(contextOf(byId(root, "column-b")!)).toEqual([]);
+});
+
+test("a tab at 90% turns the blocked color, and 89% doesn't", () => {
+  state.tabs = [tab("a", { active: true }), tab("b")];
+  state.shared["agents.contexts"] = { "t-a": 90, "t-b": 89 };
+  const root = column().draw();
+  expect(arg(contextOf(byId(root, "column-a")!)[0], "text_color")).toBe(colors.blocked);
+  expect(arg(contextOf(byId(root, "column-b")!)[0], "text_color")).toBe(look(colors).label);
+});
+
+test("a tab whose agent hasn't reported shows the dash", () => {
+  state.tabs = [tab("a", { active: true })];
+  state.shared["agents.contexts"] = { "t-a": "–" };
+  expect(text(contextOf(byId(column().draw(), "column-a")!)[0])).toBe("–");
+});
+
+test("a tab with several agents shows the fullest", () => {
+  state.tabs = [tab("a", { active: true })];
+  state.panes = ["t-1", "t-2", "t-3"].map((terminal) => ({ tab: "a", pane: terminal, terminal, focused: true, program: { name: "x" } }));
+  state.shared["agents.contexts"] = { "t-1": 20, "t-2": "–", "t-3": 71 };
+  expect(text(contextOf(byId(column().draw(), "column-a")!)[0])).toBe("71%");
 });
 
 test("a working tab shows the loader in the theme's accent, played natively, beside its badge", () => {

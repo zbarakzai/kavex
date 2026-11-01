@@ -56,6 +56,8 @@ pub struct Theme {
     pub bg: Rgb,
     pub cursor: Rgb,
     pub selection_bg: Rgb,
+    /// What an agent's gray bars are drawn in, if the theme has it.
+    pub agent_bar: Option<Rgb>,
     pub palette16: [Rgb; 16],
     pub minimum_contrast: f32,
 }
@@ -69,7 +71,15 @@ pub fn theme() -> Theme {
     for (i, c) in palette16.iter_mut().enumerate() {
         *c = get(&format!("ansi{i}"));
     }
-    Theme { fg: get("terminal_foreground"), bg: get("background"), cursor: get("cursor"), selection_bg: get("selection"), palette16, minimum_contrast: crate::settings::get().minimum_contrast }
+    Theme { fg: get("terminal_foreground"), bg: get("background"), cursor: get("cursor"), selection_bg: get("selection"), agent_bar: t.get("hover").map(|c| rgb(c)), palette16, minimum_contrast: crate::settings::get().minimum_contrast }
+}
+
+/// A bar an agent paints behind the person's words and its input: a plain gray near the terminal's
+/// background. Agents work it out for themselves and most have no setting for it, and it's as
+/// loud as the selection on a dark theme. Colored bars, such as diffs, aren't this.
+fn is_agent_bar(bg: Rgb, terminal: Rgb) -> bool {
+    let (r, g, b) = (i16::from(bg.0), i16::from(bg.1), i16::from(bg.2));
+    r.max(g).max(b) - r.min(g).min(b) <= 12 && (16..=64).contains(&(r - i16::from(terminal.0)).abs())
 }
 
 #[derive(Clone, Default, PartialEq)]
@@ -78,6 +88,8 @@ pub struct Cell {
     pub text: String,
     pub fg: Rgb,
     pub bg: Option<Rgb>,
+    /// Part of an agent's bar, painted as one rounded shape rather than cell by cell.
+    pub bar: bool,
     pub bold: bool,
     pub italic: bool,
     pub faint: bool,
@@ -475,6 +487,7 @@ pub struct Vt {
     /// The rows read last frame by libghostty's row id, with their selection:
     /// one that isn't dirty is the same row and isn't read again.
     seen: HashMap<[u64; 2], (Rc<Vec<Cell>>, Option<(u16, u16)>)>,
+    agent: bool,
     /// The width and colors they were read with: a change reads every row.
     seen_with: (u16, u64),
     placements_cache: RefCell<Option<Vec<Placement>>>,
@@ -619,12 +632,21 @@ impl Vt {
                 release,
                 drawn: Default::default(),
                 seen: HashMap::new(),
+                agent: false,
                 seen_with: (0, 0),
                 placements_cache: RefCell::new(None),
                 win32: Default::default(),
             };
             vt.apply_theme();
             vt
+        }
+    }
+
+    /// An agent runs here, so its gray bars take the theme's color.
+    pub fn set_agent(&mut self, agent: bool) {
+        if self.agent != agent {
+            self.agent = agent;
+            self.seen.clear();
         }
     }
 
@@ -1271,6 +1293,11 @@ impl Vt {
                 .then(|| Rgb::from(bg));
 
             let (mut fg, mut bg) = (fg, bg);
+            let mut bar = false;
+            if self.agent && !style.inverse && bg.is_some_and(|c| is_agent_bar(c, self.theme.bg)) && self.theme.agent_bar.is_some() {
+                bg = self.theme.agent_bar;
+                bar = true;
+            }
             if style.inverse {
                 let new_fg = bg.unwrap_or(self.theme.bg);
                 bg = Some(fg);
@@ -1278,6 +1305,7 @@ impl Vt {
             }
             if selected {
                 bg = Some(self.theme.selection_bg);
+                bar = false;
             }
             let mut text = String::new();
             if wide != GHOSTTY_CELL_WIDE_SPACER_TAIL && wide != GHOSTTY_CELL_WIDE_SPACER_HEAD && !style.invisible {
@@ -1305,6 +1333,7 @@ impl Vt {
                 text,
                 fg,
                 bg,
+                bar,
                 bold: style.bold,
                 italic: style.italic,
                 faint: style.faint,
@@ -1575,6 +1604,26 @@ mod tests {
         assert_eq!(vt.encode_key(GHOSTTY_KEY_ARROW_UP, 0, 0, None, None), b"\x1b[A");
         vt.write(b"\x1b[?1h"); // application cursor keys
         assert_eq!(vt.encode_key(GHOSTTY_KEY_ARROW_UP, 0, 0, None, None), b"\x1bOA");
+    }
+
+    #[test]
+    fn an_agents_gray_bars_take_the_themes_color() {
+        let bar_of = |agent: bool, sgr: &[u8]| {
+            let mut vt = Vt::new(20, 2);
+            vt.set_agent(agent);
+            vt.write(sgr);
+            vt.write(b"hi\x1b[0m");
+            vt.frame().rows[0][0].bg
+        };
+        let soft = theme().agent_bar;
+        assert!(soft.is_some());
+        for gray in [b"\x1b[48;2;50;50;50m" as &[u8], b"\x1b[48;2;59;59;59m", b"\x1b[48;2;55;55;55m", b"\x1b[48;2;65;60;65m"] {
+            assert_eq!(bar_of(true, gray), soft, "an agent's bar");
+            assert_ne!(bar_of(false, gray), soft, "anything else keeps its own");
+        }
+        assert_eq!(bar_of(true, b"\x1b[48;2;34;80;40m"), Some(Rgb(34, 80, 40)), "a diff's color stays");
+        assert_eq!(bar_of(true, b"\x1b[48;2;255;255;255m"), Some(Rgb(255, 255, 255)), "far from a bar");
+        assert_ne!(bar_of(true, b"\x1b[7m"), soft, "a block cursor stays");
     }
 
     #[test]

@@ -25,6 +25,13 @@ const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 // GPUI has no inset ring or outline: a border drawn over the row paints the same pixels.
 const ring = (color, width, radius) => div().absolute().inset_0().rounded(radius).border(width).border_color(color);
 
+// The agents mod's word on a tab's context: the fullest agent in it, as its status is the most urgent.
+function contextOf(c, ps, contexts) {
+  const said = ps.filter((p) => p.tab === c.id).map((p) => contexts[p.terminal]).filter((context) => context !== undefined);
+  const percents = said.filter((context) => typeof context === "number");
+  return percents.length ? Math.max(...percents) : said[0] ?? null;
+}
+
 // Only opacity can ease, so each background is a sheet of its own and one shows at a time.
 const sheet = (id, color, on) => div().id(id).absolute().inset_0().rounded(10).bg(color).opacity(on ? 1 : 0).transition("opacity", EASE);
 
@@ -243,7 +250,7 @@ export default class TabsColumn extends View {
   // `carried`: "row" when it's what's being dragged, "group" inside a dragged group.
   row(c, v, inGroup, carried) {
     const { k, ps, words, space, picks } = v, { program, cwd, name } = shows(c, ps);
-    const status = failed(c, ps, words);
+    const status = failed(c, ps, words), context = contextOf(c, ps, v.contexts);
     const since = c.working_since ?? c.changed_at, picked = picks.length > 1 && picks.includes(c.id);
     const over = !this.drag && this.over === c.id, down = !this.drag && this.press?.anchor === c.id;
     const state = down && !c.active ? "pressed" : c.active ? (over ? "active_hover" : "active") : over ? "hover" : "default";
@@ -268,6 +275,7 @@ export default class TabsColumn extends View {
         .child(sheet(`column-active-hover-${c.id}`, shade.lit, state === "active_hover")))
       .child(tile(program, inGroup ? 20 : 22, k))
       .child(div().flex_1().min_w(0).truncate().text_size(13).font_weight(c.active ? 500 : 400).text_color(state === "default" && !carried ? k.row_name : k.foreground).child(name))
+      .when(context !== null, (el) => el.child(div().flex_none().font_family(MONO).text_size(10).text_color(context >= 90 ? k.status.blocked.dot : k.label).child(typeof context === "number" ? `${context}%` : context)))
       .when(Boolean(since), (el) => el.child(div().flex_none().font_family(MONO).text_size(10).text_color(k.label).child(duration(v.now - since))))
       .when(status === "working", (el) => el.child(loader(k.accent)))
       .when(Boolean(status), (el) => el.child(badge(k, status)))
@@ -329,7 +337,7 @@ export default class TabsColumn extends View {
     const groups = shared("tab.groups") ?? {}, order = list.map((c) => c.id), active = list.find((c) => c.active);
     if (this.drag?.next && same(order, this.drag.next)) this.drag = null;
     const d = this.drag, picks = list.filter((c) => c.active || (shared("tabs.picked") ?? []).includes(c.id)).map((c) => c.id);
-    const v = { k, groups, colors: shared("tab.colors") ?? {}, space, list, picks, ps: panes(), words: new Map(terminals().map((x) => [x.address, x.status])), now: Date.now() };
+    const v = { k, groups, colors: shared("tab.colors") ?? {}, contexts: shared("agents.contexts") ?? {}, space, list, picks, ps: panes(), words: new Map(terminals().map((x) => [x.address, x.status])), now: Date.now() };
     const { loose, sections } = columnRuns(list, groups), going = d?.moving.tabs ?? [];
     const stay = loose.filter((c) => !going.includes(c.id)), shown = sections.filter((c) => c.group !== d?.moving.group);
     const tool = (id, icon, action, on = false) => h_flex().id(id).size(32).flex_none().items_center().justify_center().rounded(9).text_color(on ? k.foreground : k.muted).hover((s) => s.bg(k.hover_strong).text_color(k.foreground)).on_mouse_down("left", (e) => { this.toolAt = e.bounds; this.toolDown = Date.now(); }).on_click(() => { if (!reopening(shared("popup.closed"), id, this.toolDown)) action(); }).child(svg(icon).size(16));

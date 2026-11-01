@@ -142,6 +142,7 @@ jobs:
           ~/.bun/bin/bun test scripts/file-menu.test.ts
           ~/.bun/bin/bun test scripts/reader.test.ts
           ~/.bun/bin/bun test scripts/start.test.ts
+          ~/.bun/bin/bun test scripts/sessions.test.ts
 
   # Keep the required check name stable while requiring every platform.
   test:

@@ -6,6 +6,8 @@ import { v_flex, h_flex } from "gpui-base";
 import { agents, terminals, focused, spaces, run, theme, shared, setShared, setAgentOrder, openOverlay, closeOverlay, props, window, layout } from "herdr";
 import { look, badge, duration, sectionLabel, tile, MONO } from "./look.js";
 import { loader } from "./loader.js";
+import { dropdown } from "./dropdown.js";
+import { Sessions, hasSession } from "./sessions.js";
 
 function find(node, id) {
   if (node?.id === id) return node;
@@ -52,11 +54,48 @@ function icon(p, size, color) {
 export default class Agents extends View {
   init(_props, cx) {
     if (props()?.sortMenu) return;
+    if (props()?.session) return this.initDropdown(cx);
     this.folded = new Set();
     // Each agent's last state and when it changed (ms), kept across restarts.
     this.changed = JSON.parse(localStorage.getItem("changed") ?? "{}");
     this.pins = JSON.parse(localStorage.getItem("pins") ?? "[]");
+    this.sessions = new Sessions();
+    this.sessions.start(cx);
     cx.timer.every(30000, (cx) => cx.notify());
+  }
+
+  initDropdown(cx) {
+    const { session, overlay } = props();
+    this.sessions = new Sessions(session);
+    this.sessions.start(cx);
+    cx.timer.every(2000, () => {
+      if (!terminals().some((t) => t.address === session)) closeOverlay(overlay);
+    });
+  }
+
+  // Until its own first read, a dropdown shows what the row knew. A row can also know an agent
+  // has worked, which this copy can't: it started after that.
+  drawDropdown(t) {
+    const { session, first } = props();
+    const shown = this.sessions.shown(session);
+    return dropdown(t, shown.state === "none" || (shown.state === "empty" && first.state === "waiting") ? first : shown);
+  }
+
+  percent(t, k, address) {
+    const context = this.sessions.contextOf(address);
+    if (context === null) return [];
+    return [div().flex_none().font_family(MONO).text_size(10).text_color(context >= 90 ? t.blocked : k.label).child(typeof context === "number" ? `${context}%` : context)];
+  }
+
+  // `none` has nothing true to say, so its logo is part of the row, as for an agent with no numbers.
+  logo(a, inner) {
+    return div()
+      .id(`logo-${a.address}`)
+      .when(hasSession(a) && this.sessions.shown(a.address).state !== "none", (el) => el.cursor_pointer().on_click((_e, cx) => {
+        cx.stop_propagation();
+        openOverlay({ mod: "agents", kind: "popup", width: 290, height: 190, props: { session: a.address, first: this.sessions.shown(a.address) } });
+      }))
+      .child(inner);
   }
 
   // Stamps agents whose state changed. Done and idle count as one: looking at a
@@ -170,8 +209,9 @@ export default class Agents extends View {
       .children(s.lines.map(l => div().self_start().mt(-6).w(9).h(19).mr(4).flex_none()
         .when(Boolean(l), el => el.border_l(1.5).border_color(t.input))
         .when(l === "└" || l === "├", el => el.border_b(1.5).rounded_bl(6))))
-      .child(div().mr(8).child(icon(k.program, 14, t.foreground)))
+      .child(this.logo(k, icon(k.program, 14, t.foreground)).mr(8))
       .child(div().flex_1().truncate().text_color(on ? t.foreground : t.muted).child(k.name || k.template || k.program?.name || k.address))
+      .children(this.percent(t, look(t), k.address).map((p) => p.mr(6)))
       .child(this.status(t, { status: st }));
   }
 
@@ -185,6 +225,7 @@ export default class Agents extends View {
   render(cx) {
     const t = theme();
     if (props()?.sortMenu) return this.sortMenu(t);
+    if (props()?.session) return this.drawDropdown(t);
     const collapsed = narrow();
     const sort = sortOf();
     let list = agents();
@@ -290,17 +331,13 @@ export default class Agents extends View {
           cx.notify();
         })
         .on_click(() => run("pane.focus", { pane: a.pane }))
-        .child(div().id(`agent-fold-${a.address}`)
-          .when(subs.length > 0, el => el.on_click((_e, cx) => {
-            cx.stop_propagation();
-            this.folded.has(a.address) ? this.folded.delete(a.address) : this.folded.add(a.address);
-            cx.notify();
-          })).child(tile(a.program, 22, k)))
+        .child(this.logo(a, tile(a.program, 22, k)))
         .child(h_flex().flex_1().min_w(0).gap(4).items_center()
           .child(div().min_w(0).truncate().child(a.space_name || a.program?.name || ""))
           .child(div().flex_none().text_color(k.label).child(`\u00b7 ${a.tab_index}`)))
         .when(Boolean(machine), el => el.child(div().text_size(10).text_color(k.label).child(machine)))
         .when(subs.length > 0, el => el.child(fold(a, subs)))
+        .children(this.percent(t, k, a.address))
         .when(this.hovered === a.address, el => el.child(pin))
         .when(this.hovered !== a.address && Boolean(when), el => el.child(div().flex_none().font_family(MONO).text_size(10).text_color(k.label).child(duration(now - when))))
         .child(this.status(t, { status: failed(a, words) }));

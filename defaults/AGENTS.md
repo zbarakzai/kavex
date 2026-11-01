@@ -198,6 +198,50 @@ the highlighted line shows where it will land.
   peek at it. The same click on a Markdown file opens it in the Files panel; any other
   file or URL goes to the system. Bare addresses refer to the machine of the terminal showing them;
   use `machine/address` for another machine. Names and non-live addresses aren't links.
+- **Session context**: a Claude Code, Codex or Pi row in the agents list, and such a sub-agent's, on
+  any machine, shows how full its session's context is as a small percent between the name and the
+  time, orange from 90%. Its tab in the right-hand Tabs panel shows the same, the fullest agent if the
+  tab has several, read from `shared("agents.contexts")`, `{ address: percent or "–" }`, which the
+  agents list keeps. Clicking its logo opens a dropdown that follows the session: the model running
+  now, a context bar with tokens used, the total and the percent, the API cost, and input, output and
+  cached tokens. It neither focuses the agent nor folds anything; the chevron folds sub-agents. Any
+  other agent shows no percent, and its logo acts like its row.
+  - **States:** a new agent shows no percent and "No usage yet". `–` is an agent that hasn't reported
+    its session, with what to do in its dropdown. A session that can't be read shows no percent and no
+    error, and its logo acts like its row.
+  - **Numbers:** from each agent's own files on its machine, read through `sh` (PowerShell on Windows).
+    Nothing leaves your own machines and no login is read. Helpers count in the cost and tokens, not
+    in context. `/clear` starts over, `/compact` lowers context and keeps the cost, and resuming keeps both.
+  - **API cost:** what the tokens would cost at API prices in US dollars, not what anyone paid, and
+    the dropdown says so. Claude Code's and Codex's come from `mods/agents/prices.js`, never fetched, so
+    a new model waits for a release; Pi stores its own. A model with no exact price, a helper Zaki can't
+    count, or a usage line it can't read shows "no price", and the token counts stay. It counts tokens
+    only, and can read a little under Claude's own `/cost`.
+  - **Claude Code's total:** `claude -p "/context"`, which spends no tokens, once per model per machine,
+    kept for a day in `shared("agents.totals")`. Until then the dropdown shows tokens alone and the row
+    shows nothing.
+  - **Codex:** **Zaki adds a hook by itself** the first time it sees a Codex on a machine: a new group at
+    the end of `SessionStart` in `~/.codex/hooks.json`, running `~/.zaki/codex-session.sh` (`.ps1` on
+    Windows). Other hooks keep their place and approval, a hook file that can't be read or understood
+    is left alone, and a hook the person removes stays removed until Zaki's setup changes. **Zaki never
+    approves it**: the person trusts it in `/hooks`, once per machine, and restarts that Codex. It runs
+    on a session's first message and labels the terminal `zaki.session=<session file>`, removed once
+    it's back at its shell. After `/clear`, `/new` or `/fork` the old numbers stay until that first message.
+  - **Pi:** **Zaki adds an extension by itself** the first time it sees a Pi on a machine:
+    `~/.pi/agent/extensions/zaki-session.ts`, a file of its own, which stays removed if the person
+    removes it, until Zaki's setup changes. Pi loads it with nothing to approve; a Pi already running
+    needs `/reload` or a restart. When a session starts or another model is picked, it labels the
+    terminal `zaki.session=<session file>` and `zaki.total=<the model's context total>`, removed once
+    it's back at its shell. After compacting the row shows nothing and the dropdown `?`, until Pi's next answer.
+    `--no-session` and `PI_CODING_AGENT_DIR` leave it at `–`.
+  - **Added machines:** all of this happens on that machine, under its home. The hook and the extension
+    go in through `hc file write --on`, so its Codex is approved there; `<machine>/<model>` and
+    `<machine>/codex` are the keys in `shared("agents.totals")` and `shared("agents.setup")`. Rows refresh
+    every 30 seconds while listed, and an offline machine keeps its last numbers. With no `hc` where the
+    hook and the extension look (PATH, then Zaki's usual folders), its row stays at `–`.
+  - **Windows:** Claude's record is found among the processes under the terminal's shell, and one older
+    than its process is ignored. `claude -p "/context"` runs through `cmd`. Anything that fails there
+    shows no percent and no error.
 - **Agent navigation order** belongs to the mods. A mod displaying agents calls
   `setAgentOrder(list.map(a => a.address))` on render so `agent.next` /
   `agent.prev` follow its list.
