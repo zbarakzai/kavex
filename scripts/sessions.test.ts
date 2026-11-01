@@ -105,8 +105,10 @@ function powershell(script: string, [a, b, c, d, e]: string[]) {
   if (!existsSync(onDisk(a))) return { code: 3, stdout: "", stderr: "" };
   const all = readFileSync(onDisk(a));
   if (String(all.length) === d) return printed(`${all.length}\n`);
-  const window = all.subarray(Number(b) * BLOCK, (Number(b) + Number(e)) * BLOCK).toString("latin1");
-  const kept = window.split("\n").filter((line) => c.split("\n").some((needle) => line.includes(needle)));
+  const edge = (Number(b) + Number(e)) * BLOCK;
+  const lineEnd = edge < all.length ? all.indexOf(10, edge) : -1;
+  const window = all.subarray(Number(b) * BLOCK, lineEnd < 0 ? edge : lineEnd + 1).toString("latin1");
+  const kept = window.split("\n").filter((line) => line && c.split("\n").some((needle) => line.includes(needle)));
   return printed(Buffer.from(`${all.length}\n${kept.map((line) => `${line}\n`).join("")}`, "latin1").toString("utf8"));
 }
 
@@ -2617,6 +2619,105 @@ test("no network, no login, and nothing of Pi's read but its session: all a pass
   expect(state.reads).toEqual([extensionPath()]);
   expect(state.written).toEqual([extensionPath()]);
   expect(readFileSync(extensionPath(), "utf8")).not.toMatch(/\bfetch\(|WebSocket|https?:/);
+});
+
+const filler = (bytes: number) => entry("custom", { customType: "made-up", data: "x".repeat(bytes) });
+const longAnswer = (bytes: number, used: PiUsed) => piSaid({ ...used, text: "z".repeat(bytes) });
+const spanningWindows = (id: string) => [piStart(id), piSaid({ read: 2000, cost: 1 }), filler(Math.floor(5.5 * BLOCK)), longAnswer(4 * BLOCK, { input: 40000, cost: 1 })];
+
+test("an answer longer than the overlap, across a window's edge, is counted whole", async () => {
+  const id = piId(1);
+  const { draw } = await piRow(id, [...spanningWindows(id), filler(3 * BLOCK), piSaid({ read: 60000, cost: 1 })]);
+  expect(rowPercents(draw, "t1")).toEqual(["30%"]);
+  expect(await card(draw)).toContain("$3.00");
+});
+
+test("a long newest answer across a window's edge is the context, not the one before it", async () => {
+  const id = piId(1);
+  const { draw } = await piRow(id, spanningWindows(id));
+  expect(rowPercents(draw, "t1")).toEqual(["20%"]);
+  expect(await card(draw)).toContain("$2.00");
+});
+
+test("a read that later starts inside a long answer counts nothing twice and loses nothing", async () => {
+  const id = piId(1);
+  const { draw } = await piRow(id, spanningWindows(id));
+  await piChanges(id, [piSaid({ read: 60000, cost: 1 })]);
+  expect(rowPercents(draw, "t1")).toEqual(["30%"]);
+  expect(await card(draw)).toContain("$3.00");
+});
+
+test("an added machine's smaller windows count a long answer across their edge too", async () => {
+  const at = addMachine();
+  const id = piId(1);
+  piWrites(id, [piStart(id), piSaid({ read: 2000, cost: 1 }), filler(Math.floor(2.5 * BLOCK)), longAnswer(3 * BLOCK, { input: 40000, cost: 1 }), filler(BLOCK)], undefined, at);
+  const term = aPi("vps/t1", { labels: { "zaki.session": piFile(id, undefined, at), "zaki.limit": "200000" } });
+  state.terminals = [term];
+  state.agents = [listed(term)];
+  const { draw } = await open();
+  await ticks();
+  expect(rowPercents(draw, "vps/t1")).toEqual(["20%"]);
+  clicks(byId(draw(), "logo-vps/t1")!);
+  expect(words((await dropdown()).draw())).toContain("$2.00");
+});
+
+test("a usage line that can't be parsed means no percent and no price, with the tokens still there", async () => {
+  const id = piId(1);
+  const { draw } = await piRow(id, [piSaid({ input: 2000, cost: 1 }), '{"type":"message","id":"cut","message":{"usage":{"cacheRead":5,', piSaid({ read: 40000, cost: 1 })]);
+  expect(rowPercents(draw, "t1")).toEqual([]);
+  const seen = await card(draw);
+  expect(seen).toContain("no price");
+  expect(seen).toContain("? / 200k");
+  expect(seen).toContain("in 2k · out 0 · cached 40k");
+});
+
+test("a Pi session that's nothing but a broken usage line doesn't claim no usage", async () => {
+  const id = piId(1);
+  const { draw } = await piRow(id, ['{"type":"message","id":"cut","message":{"usage":{"cacheRead":5,']);
+  const seen = await card(draw);
+  expect(seen).not.toContain("No usage yet");
+  expect(seen).toContain("no price");
+});
+
+test("an answer caught half written reads no price until the rest of it lands", async () => {
+  const id = piId(1);
+  const whole = piSaid({ input: 40000, cost: 1 });
+  const cut = whole.indexOf('"cacheRead":') + 14;
+  piWrites(id, [piSaid({ read: 2000, cost: 1 })]);
+  appendFileSync(piFile(id), whole.slice(0, cut));
+  const { draw } = await piRow(id, []);
+  expect(rowPercents(draw, "t1")).toEqual([]);
+  expect(await card(draw)).toContain("no price");
+
+  await piChanges(id, [whole.slice(cut)]);
+  expect(rowPercents(draw, "t1")).toEqual(["20%"]);
+  expect(await card(draw)).toContain("$2.00");
+});
+
+test("an answer too big for exec to hand over never shows a low number", async () => {
+  const id = piId(1);
+  const { draw } = await piRow(id, [piSaid({ read: 2000, cost: 1 }), longAnswer(9 * BLOCK, { input: 40000, cost: 1 })]);
+  expect(rowPercents(draw, "t1")).toEqual([]);
+  expect(await card(draw)).toContain("no price");
+});
+
+test("a broken Claude line is still skipped: one bad line doesn't blank a session", async () => {
+  const { draw } = await one([said({ id: "m1", read: 100000 }), '{"type":"assistant","message":{"usa', said({ id: "m2", read: 150000 })]);
+  expect(rowPercents(draw, "t1")).toEqual(["15%"]);
+  expect(await card(draw)).not.toContain("no price");
+});
+
+test("on Windows too a long answer across a window's edge is counted whole", async () => {
+  const root = onWindows();
+  const id = piId(1);
+  piWrites(id, spanningWindows(id), undefined, root);
+  const term = aPi("t1", { labels: { "zaki.session": asWindows(piFile(id, undefined, root)), "zaki.limit": "200000" } });
+  state.terminals = [term];
+  state.agents = [listed(term)];
+  const { draw } = await open();
+  await ticks();
+  expect(rowPercents(draw, "t1")).toEqual(["20%"]);
+  expect(await card(draw)).toContain("$2.00");
 });
 
 test("a 100 MB Pi session is read whole, past lines bigger than a window, and after that only what's new", async () => {

@@ -10,7 +10,7 @@
 import { agents, hc, machines, setShared, shared, terminals, watchFolder } from "herdr";
 import { claude } from "./claude.js";
 import { codex } from "./codex.js";
-import { BLOCK, machineOn } from "./machine.js";
+import { BLOCK, NO_FILE, machineOn } from "./machine.js";
 import { pi } from "./pi.js";
 
 const AGENTS = { claude, codex, pi };
@@ -153,7 +153,7 @@ export class Sessions {
       const found = await agent.locate(term, term.labels?.[LABEL], term.labels?.[LIMIT], run.machine);
       if (this.reading.get(run.on) !== run) return;
       if (found && found.id !== session?.id) {
-        session = { ...found, facts: agent.facts(), files: new Map(), changes: 1, done: 0 };
+        session = { ...found, facts: agent.facts(), files: new Map(), torn: new Set(), changes: 1, done: 0 };
         this.live.set(term.address, session);
       } else if (found && found.limit !== session.limit) {
         session.limit = found.limit;
@@ -211,9 +211,13 @@ export class Sessions {
   }
 
   // Reads a file's new lines into the session's facts, or returns false if it isn't there. A
-  // window starts one block back, which reads again a line cut by the last window's edge or caught
-  // half written; lines count once, so that's harmless. After its first read, only a file's end
-  // is read, and on an added machine only if it has grown.
+  // window starts one block back, which reads again a line caught half written; lines count once,
+  // so that's harmless. After its first read, only a file's end is read, and on an added machine
+  // only if it has grown.
+  //
+  // `torn` holds kept lines that wouldn't parse until the whole line turns up: their usage is
+  // missing, which an agent can't tell from none. A window's first line is the exception, as it
+  // starts inside a line the window before read whole.
   async take(session, file, agent, run, helper = false) {
     const { machine } = run;
     for (;;) {
@@ -221,19 +225,25 @@ export class Sessions {
       const block = kept?.block ?? 0;
       const { code, stdout } = await machine.lines(file, block, machine.window, agent.filter, machine.on && kept?.done ? kept.size : "");
       this.still(run);
-      if (code === 3) return false;
+      if (code === NO_FILE) return false;
       const lines = stdout.split("\n");
       const size = Number(lines[0]);
       if (!lines[0] || !Number.isFinite(size)) throw new Error("no size");
       if (size < block * BLOCK) {
         session.facts = agent.facts();
         session.files.clear();
+        session.torn.clear();
         continue;
       }
       for (let i = 1; i < lines.length; i++) {
+        const text = lines[i];
+        if (!text) continue;
         try {
-          agent.add(session.facts, JSON.parse(lines[i]), helper, file);
-        } catch {}
+          agent.add(session.facts, JSON.parse(text), helper, file);
+          for (const part of session.torn) if (text.startsWith(part)) session.torn.delete(part);
+        } catch {
+          if (i > 1 || block === 0) session.torn.add(text);
+        }
       }
       const end = block + machine.window;
       const last = Math.floor(size / BLOCK);

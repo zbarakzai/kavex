@@ -7,27 +7,27 @@
 import { exec, home, readTextFile, window, writeTextFile } from "herdr";
 
 export const BLOCK = 1048576;
+export const NO_FILE = 3;
 
-// A session is read in windows no bigger than exec's 8 MiB, each its own script step. An added
-// machine's output comes back as base64 inside that same 8 MiB, so its windows are half as big.
-const HERE = 8;
+// A session is read in windows that fit exec's 8 MiB with a long line on top, each its own script
+// step. An added machine's output comes back as base64 inside that same 8 MiB.
+const HERE = 7;
 const AWAY = 4;
 
-// `dd` because BSD `head -c` takes five times as long. `known`, a size already read, saves sending
-// the same lines again.
-const NEW_LINES = `[ -f "$1" ] || exit 3
+// `dd` because BSD `head -c` takes five times as long. A window reads on to the end of its last
+// line, or a line longer than the one block windows overlap by would never be seen whole. `known`,
+// a size already read, saves sending the same lines again.
+const NEW_LINES = `[ -f "$1" ] || exit ${NO_FILE}
 size=$(($(wc -c < "$1")))
 echo "$size"
 [ "$size" != "$4" ] || exit 0
-dd if="$1" bs=${BLOCK} skip="$2" count="$5" 2>/dev/null | LC_ALL=C grep -aF -- "$3"`;
+{ dd if="$1" bs=${BLOCK} skip="$2" count="$5"; dd if="$1" bs=${BLOCK} skip=$(($2 + $5)) | head -n 1; } 2>/dev/null | LC_ALL=C grep -aF -- "$3"`;
 
 // What `wc -c` said about some session files, or Windows' same thing: `[{ file, size }]`.
 const sizesFrom = (stdout) => stdout.split("\n").flatMap((line) => {
   const [, size, file] = line.match(/^\s*(\d+)\s(.+\.jsonl)$/) ?? [];
   return file ? [{ file, size: Number(size) }] : [];
 });
-
-const NO_FILE = 3;
 
 // Only the system's own words mean a file isn't there: a folder that can't be entered hides a file
 // from `test -e` just as a missing one would.
@@ -63,7 +63,7 @@ function powershell(on, script, ...args) {
 // file's lines would run into exec's 8 MiB, where it cuts them off and says nothing: usage would go
 // missing and the numbers would read low. So it's the file itself: shared, as an agent is writing
 // it, and each byte is one letter of Latin-1, which leaves the session's own text alone.
-const NEW_LINES_WINDOWS = `if (-not [IO.File]::Exists($a)) { exit 3 }
+const NEW_LINES_WINDOWS = `if (-not [IO.File]::Exists($a)) { exit ${NO_FILE} }
 $file = [IO.File]::Open($a, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]'ReadWrite, Delete')
 $size = [string]$file.Length
 say $size
@@ -75,6 +75,20 @@ while ($got -lt $bytes.Length) {
   $read = $file.Read($bytes, $got, $bytes.Length - $got)
   if ($read -le 0) { break }
   $got += $read
+}
+if ($got -eq $bytes.Length) {
+  $rest = New-Object IO.MemoryStream
+  $chunk = New-Object byte[] 65536
+  do {
+    $read = $file.Read($chunk, 0, 65536)
+    $cut = [Array]::IndexOf($chunk, [byte]10, 0, $read)
+    $rest.Write($chunk, 0, $(if ($cut -ge 0) { $cut + 1 } else { $read }))
+  } while ($read -gt 0 -and $cut -lt 0)
+  $whole = New-Object byte[] ($got + [int]$rest.Length)
+  [Array]::Copy($bytes, $whole, $got)
+  [Array]::Copy($rest.ToArray(), 0, $whole, $got, [int]$rest.Length)
+  $bytes = $whole
+  $got = $whole.Length
 }
 $text = [Text.Encoding]::GetEncoding(28591).GetString($bytes, 0, $got)
 $find = ($c.Split([char]10) | ForEach-Object { [regex]::Escape($_) }) -join '|'
@@ -127,7 +141,7 @@ function windows(on) {
     // failure throws, however much it printed first.
     async lines(file, block, count, filter, known = "") {
       const result = await powershell(on, NEW_LINES_WINDOWS, file, block, filter, known, count);
-      if (result.code !== 0 && result.code !== 3) throw new Error("PowerShell failed.");
+      if (result.code !== 0 && result.code !== NO_FILE) throw new Error("PowerShell failed.");
       return result;
     },
     sizes: async (files) => sizesFrom(await output(SIZES, files.join("\n"))),

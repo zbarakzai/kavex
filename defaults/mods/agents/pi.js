@@ -115,5 +115,5 @@ export const pi = {
     facts.used = contextOf(message) || facts.used;
   },
 
-  numbers: (facts, { limit }) => facts.spent && { model: facts.model ?? "Pi", context: context(facts.used, limit), tokens: { ...facts.tokens }, cost: facts.unpriced ? undefined : facts.cost },
+  numbers: (facts, { limit, torn }) => (facts.spent || torn.size > 0) && { model: facts.model ?? "Pi", context: context(torn.size ? null : facts.used, limit), tokens: { ...facts.tokens }, cost: facts.unpriced || torn.size ? undefined : facts.cost },
 };
