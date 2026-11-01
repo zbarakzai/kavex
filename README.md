@@ -86,6 +86,8 @@ Zaki sends no telemetry, and no feedback unless you send it.
 
 Usage limits shows how much of your subscriptions is left by running Claude Code's and Codex's own commands, on the machine each one is signed in on. Your logins stay with those agents, and Zaki sends nothing for them. OpenCode has no such command, so it is the one exception: only after you press Allow, Zaki reads your OpenCode key and sends it to `opencode.ai`, and nowhere else, to ask for your Go plan's limits. The key is never saved. Settings → Look turns Usage limits off. [Security and privacy](docs/security.md#usage-limits) says exactly what it reads, runs and sends.
 
+Session context and API cost come from the files agents already write on their own machine, and nothing is sent anywhere. To tell agents apart, Zaki adds a small hook to Codex, which you approve in `/hooks`, and a small extension to Pi.
+
 Mods are trusted code, not sandboxed extensions. Read [security and privacy](docs/security.md) before installing someone else's mod.
 
 ## For agents

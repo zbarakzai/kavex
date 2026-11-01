@@ -16,6 +16,16 @@
 - **A new logo.** The ram is now Zaki's app icon, and it sits beside the name at the top of the sidebar. (#3)
 - **New interface icons.** One matching set across the app. Personal mods can load them from `mods/workspace-chrome/icons/`. The old icon paths still work in this release and will be removed in the next one, and so will the status bar's mod, kept for layouts you cloned. (#3)
 - **Language logos in the file trees.** Files and Changes show each file's real logo, such as React, Python or Rust, in your theme's color. (#3)
+- **Context on every agent.** Each Claude Code, Codex and Pi row in Agents, and its tab in the Tabs column, shows how full its session's context is, orange from 90%. (#8)
+- **A dropdown on the agent's logo.** Click an agent's logo to see its model, a context bar, its API cost and its token counts. On a subscription, API cost is what the session would cost on the API, not what you paid. The chevron still folds sub-agents. (#8)
+- **Zaki adds a hook to Codex.** To tell agents apart, Zaki adds a small hook to `~/.codex/hooks.json` by itself, keeping your own hooks, and keeps its script in `~/.zaki`. Zaki never approves it: run `/hooks` in Codex once, trust Zaki's hook and restart that Codex. Until then its row shows `–`. (#8)
+- **Zaki adds an extension to Pi.** To tell agents apart, Zaki adds a small extension at `~/.pi/agent/extensions/zaki-session.ts` by itself, keeping your other extensions. There's nothing to approve. A Pi already running needs `/reload`, and until then its row shows `–`. (#8)
+- **Softer bars from agents.** The gray bars agents draw behind your messages and their input box are now soft, rounded and the same height. (#8)
+- **Usage limits in the sidebar.** A gauge in the sidebar's footer shows how much of your Claude Code, Codex and OpenCode Go subscriptions is left, each limit with its time to reset. Settings turns it off. (#6)
+- **A warning before you run out.** Usage limits say when you'd run out at your current pace, and a toast warns you at 90%. (#7)
+- **A Markdown reader.** Read Markdown files in the Files panel, opened from any terminal. (#5)
+- **A new loader and start screen.** Working agents show a triangle loader, and with no space open you get an animated ram and a code trail. (#4)
+- **The picker and Add a machine in the new design.** Both now look like the rest of Zaki. (#6)
 
 ## [0.3.0] - 2026-10-31
 
