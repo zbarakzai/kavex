@@ -293,9 +293,9 @@ Turned back on, the gauge returns and limits are checked within a minute.
 OpenCode has no such command, so it is the one thing Usage sends itself, and only with the person's
 say. It's checked on this computer only. Installed with no answer yet, it shows a card in the popover:
 "Zaki reads your OpenCode key and sends it only to opencode.ai, to ask for your Go plan's limits."
-Until it's answered no key is read. Allow (`workspace-chrome.allow-opencode`, which only acts while the
-card is waiting) sets `shared("usage.opencode")` to `true` and checks OpenCode at once, even during a
-running check; Not now sets it to `false`, reads nothing and stops asking. Turning Usage off and on is
+Until it's answered no key is read, and only the person's press answers: no command does, so never
+set `shared("usage.opencode")` for them. Allow sets it to `true` and checks OpenCode at once, even
+during a running check; Not now sets it to `false`, reads nothing and stops asking. Turning Usage off and on is
 how to change the answer: it asks again. Keys come only from OpenCode's `auth.json` and the `credential`
 table of its database, and go only to `opencode.ai`, as a Bearer header; one written as a variable or a
 command is never sent. Go's limits show weekly first, then 5 hours and the month. A key it refuses (401

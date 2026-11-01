@@ -1822,6 +1822,56 @@ test("a second footer told of the same Allow sends nothing more", async () => {
   expect(state.fetched.length).toBe(1);
 });
 
+const { run: zakiDo } = await import("herdr");
+
+test("Allow's press is the answer: saved at once, with the card gone and no false \"none\" while the check starts", async () => {
+  opencode();
+  state.answers[GO] = go();
+  const { popover } = await opened();
+  reply(popover, ALLOW);
+  expect(state.shared["usage.opencode"]).toBe(true);
+  expect(state.ran).toContain("workspace-chrome.allow-opencode");
+  expect(words(popover.draw())).not.toContain(ASKS);
+  expect(words(popover.draw())).not.toContain(NONE);
+  await settle();
+  expect(limits(popover.draw()).length).toBe(3);
+});
+
+test("the footer's command alone is no consent: no answer saved, no key read, nothing sent, the card still up", async () => {
+  opencode();
+  state.answers[GO] = go();
+  const { popover } = await opened();
+  zakiDo("workspace-chrome.allow-opencode");
+  await settle();
+  expect(state.shared["usage.opencode"] ?? null).toBeNull();
+  expect(keysRead()).toBe(0);
+  expect(state.fetched).toEqual([]);
+  expect(words(popover.draw())).toContain(ASKS);
+});
+
+test("nor does the command undo Not now", async () => {
+  opencode();
+  state.answers[GO] = go();
+  const { popover } = await opened();
+  reply(popover, NOT_NOW);
+  zakiDo("workspace-chrome.allow-opencode");
+  await settle();
+  expect(state.shared["usage.opencode"]).toBe(false);
+  expect(keysRead()).toBe(0);
+  expect(state.fetched).toEqual([]);
+});
+
+test("the command after Allow's check starts nothing more", async () => {
+  opencode();
+  state.answers[GO] = go();
+  const { popover } = await opened();
+  reply(popover, ALLOW);
+  await settle();
+  zakiDo("workspace-chrome.allow-opencode");
+  await settle();
+  expect(state.fetched.length).toBe(1);
+});
+
 test("Allow during a check that saves nothing when turned off: its own check saves nothing either", async () => {
   opencode();
   const request = heldGo();

@@ -287,15 +287,15 @@ export async function checkUsage({ force = false, within = REUSE } = {}) {
   setShared("usage", { era, checkedAt: now, entries });
 }
 
-// Allow doesn't wait for a pass: one under way may have asked before the answer came, and the next
-// is up to 15 minutes off. It checks OpenCode alone, so no agent starts twice, and like a pass it
-// saves only into the era it began in. The answer is taken here, in one step with the row that
-// replaces the card, so a second footer told the same thing finds it answered and does nothing.
+// Consent is the person's press, saved by the popover: any agent can run this command, so all it can
+// do is start the check for an answer already given. Allow doesn't wait for a pass: one under way may
+// have asked before the answer came, and the next is up to 15 minutes off. It checks OpenCode alone,
+// so no agent starts twice, and like a pass it saves only into the era it began in. The row replacing
+// the card is taken here, so a second footer told the same thing finds nothing left to do.
 export async function allowOpencode() {
   const usage = shared("usage") ?? {}, now = Date.now(), { ask, ...base } = usage.entries?.[OPENCODE] ?? {};
-  if (shared("usage.enabled") === false || !ask || shared("usage.opencode") != null) return;
+  if (shared("usage.enabled") === false || !ask || shared("usage.opencode") !== true) return;
   const mine = checking(usage, now) ? null : now;
-  setShared("usage.opencode", true);
   setShared("usage", { ...usage, startedAt: mine ?? usage.startedAt, entries: { ...usage.entries, [OPENCODE]: { ...base, limits: [] } } });
   const found = await opencode().then((report) => report && { ...base, ...report, checkedAt: Date.now() }, () => ({ ...base, limits: [], failed: true }));
   const current = shared("usage");
