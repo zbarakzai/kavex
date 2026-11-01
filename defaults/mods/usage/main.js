@@ -1,7 +1,7 @@
 import { View, div, svg } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
 import { props, run, setShared, shared, theme } from "herdr";
-import { checking, NEAR, POPOVER_HEIGHT, POPOVER_WIDTH, subscriptions, usedNow } from "./checks.js";
+import { checking, NEAR, POPOVER_HEIGHT, POPOVER_WIDTH, runsOut, subscriptions, timeText, usedNow } from "./checks.js";
 import { loader } from "./loader.js";
 import { look, spaced, tile } from "./look.js";
 
@@ -14,28 +14,26 @@ const FOOTER = 46;
 const ROOM = POPOVER_HEIGHT - HEADER - FOOTER - FRAME * 2;
 
 const LIMIT_TALL = 34;
+const ESTIMATE_TALL = 14;
 const LIMIT_GAP = 14;
 const CARD_GAP = 12;
 const BAR = POPOVER_WIDTH - (FRAME + GUTTER + FRAME + PAD) * 2;
 const BAR_TALL = 7;
 const BAR_GAP = 3;
+const DOT = 7;
+const DOT_GAP = 8;
 
 // Claude wears the primary orange. On any other agent, orange means a limit that's nearly used.
 const hueOf = (agent, k) => ({ claude: k.accent, codex: k.groups.blue.text, opencode: k.groups.teal.text })[agent] ?? k.muted;
 const ASK_TALL = 148;
 const ASKS = "Zaki reads your OpenCode key and sends it only to opencode.ai, to ask for your Go plan's limits.";
 
-function timeText(ms) {
-  const minutes = Math.floor(ms / 60_000), hours = Math.floor(minutes / 60), days = Math.floor(hours / 24);
-  if (days) return `${days}d ${hours % 24}h`;
-  if (hours) return `${hours}h ${minutes % 60}m`;
-  return minutes ? `${minutes}m` : "<1m";
-}
+const limitTall = (limit, row, now) => LIMIT_TALL + (runsOut(limit, row.checkedAt, now) ? ESTIMATE_TALL : 0);
 
 // A popup is as tall as its content, and a scroller adds nothing to that: it collapses to no height.
 // So the list only becomes a scroller, at the full room, when this rough height says it won't fit.
-function tall(row) {
-  const count = row.limits.length, limits = count * LIMIT_TALL + (count - 1) * LIMIT_GAP;
+function tall(row, now) {
+  const count = row.limits.length, limits = row.limits.reduce((sum, limit) => sum + limitTall(limit, row, now), (count - 1) * LIMIT_GAP);
   return (PAD + FRAME) * 2 + (row.place ? 38 : 26) + (count ? CARD_GAP + limits : 0) + (row.failed ? CARD_GAP + 14 : 0);
 }
 
@@ -73,15 +71,17 @@ export default class Usage extends View {
       .when(used < 100, (el) => el.child(part().flex_1().min_w(0).ml(used > 0 ? BAR_GAP : 0).bg(k.row_ring)));
   }
 
-  limit(id, limit, hue, k, now) {
-    const used = usedNow(limit, now), left = limit.resetsAt ? limit.resetsAt - now : 0, near = used >= NEAR;
-    return v_flex().id(`limit-${id}`).h(LIMIT_TALL).flex_none().gap(8)
+  limit(id, limit, row, hue, k, now) {
+    const used = usedNow(limit, now), left = limit.resetsAt ? limit.resetsAt - now : 0, near = used >= NEAR, out = runsOut(limit, row.checkedAt, now);
+    return v_flex().id(`limit-${id}`).h(limitTall(limit, row, now)).flex_none().gap(8)
       .child(this.bar(id, used, near ? k.blocked : hue, k))
-      .child(h_flex().gap(8).items_center()
-        .child(div().size(7).flex_none().rounded_full().bg(near ? k.blocked : hue))
-        .child(div().flex_1().min_w(0).overflow_hidden().child(caption(limit.label, k.muted)))
-        .child(div().flex_none().text_size(14).font_medium().text_color(near ? k.accent_text : k.foreground).child(`${used}%`))
-        .when(left > 0, (el) => el.child(div().flex_none().child(caption(`Resets in ${timeText(left)}`, k.text_faint)))));
+      .child(v_flex()
+        .child(h_flex().gap(DOT_GAP).items_center()
+          .child(div().size(DOT).flex_none().rounded_full().bg(near ? k.blocked : hue))
+          .child(div().flex_1().min_w(0).overflow_hidden().child(caption(limit.label, k.muted)))
+          .child(div().flex_none().text_size(14).font_medium().text_color(near ? k.accent_text : k.foreground).child(`${used}%`))
+          .when(left > 0, (el) => el.child(div().flex_none().child(caption(`Resets in ${timeText(left)}`, k.text_faint)))))
+        .when(Boolean(out), (el) => el.child(div().pl(DOT + DOT_GAP).child(caption(`Runs out in ${timeText(out - now)} at this pace`, k.text_secondary)))));
   }
 
   row(row, k, now) {
@@ -95,7 +95,7 @@ export default class Usage extends View {
           .when(Boolean(row.place), (el) => el.child(div().min_w(0).overflow_hidden().child(caption(row.place, k.text_faint)))))
         .when(Boolean(row.plan), (el) => el.child(h_flex().h(22).px(8).flex_none().items_center().rounded_full().border_1().border_color(k.pill_ring).child(caption(row.plan, k.muted)))))
       .when(row.limits.length > 0, (el) => el.child(v_flex().gap(LIMIT_GAP)
-        .children(row.limits.map((limit) => this.limit(`${id}-${limit.label}`, limit, hue, k, now)))))
+        .children(row.limits.map((limit) => this.limit(`${id}-${limit.label}`, limit, row, hue, k, now)))))
       .when(Boolean(note), (el) => el.child(caption(note, row.limits.length ? k.text_faint : k.failed_text)));
   }
 
@@ -119,7 +119,7 @@ export default class Usage extends View {
     const k = look(theme()), usage = shared("usage") ?? {}, now = Date.now(), found = subscriptions(usage.entries);
     const answer = shared("usage.opencode"), rows = found.filter((row) => !row.ask), waiting = answer === false ? null : found.find((row) => row.ask);
     const asking = answer == null ? waiting : null;
-    const needs = rows.reduce((sum, row) => sum + tall(row) + GUTTER, (asking ? ASK_TALL : 0) + GUTTER);
+    const needs = rows.reduce((sum, row) => sum + tall(row, now) + GUTTER, (asking ? ASK_TALL : 0) + GUTTER);
     const none = !rows.length && !waiting && Boolean(usage.checkedAt);
     return v_flex().id("usage").w_full().min_h(0).rounded(13).bg(k.canvas).text_color(k.foreground)
       .child(h_flex().h(HEADER).flex_none().px(EDGE).items_center().text_size(14).font_medium().child("Usage limits"))

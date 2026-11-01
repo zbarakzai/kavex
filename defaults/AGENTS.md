@@ -266,7 +266,9 @@ button, Enter or `cmd-enter` (`ctrl-enter`).
 
 The gauge in the sidebar footer opens Usage limits (the `usage` popup mod): each Claude Code, Codex
 and OpenCode Go subscription, with its tier and each limit's percent used and time to reset, weekly
-first. A limit past its reset reads 0%. At 90% used its percent turns orange and the gauge gets a dot.
+first. A limit past its reset reads 0%. At 90% used its percent turns orange, the gauge gets a dot and
+a toast says so, once until the limit falls below 90% again. A limit whose pace so far would use it up
+before it resets also says when, from 5% of the way through its window: a straight line, not a forecast.
 
 - **Numbers:** each agent's own commands on its machine, in that machine's shell PATH: `claude auth
   status`, `claude -p /usage` (no hooks, plugins, MCP or saved session), and `codex app-server`'s
@@ -281,10 +283,11 @@ first. A limit past its reset reads 0%. At 90% used its percent turns orange and
 - **Failure:** a failed check or an unreachable machine keeps the last numbers with their age, or
   reads "Could not check" with none.
 - **Saved:** `shared("usage")` holds the numbers and an account fingerprint, never an email, login,
-  key or anything made from a key.
+  key or anything made from a key. `shared("usage.warned")` names the limits already warned about.
 - **Off:** the Usage limits row in Settings > Look, under Workspace. `shared("usage.enabled")` is
   `false` (anything else is on): the gauge goes, no check runs, one still running saves nothing, and
-  `shared("usage")` and `shared("usage.opencode")` are cleared. Back on, it checks within a minute.
+  `shared("usage")`, `shared("usage.warned")` and `shared("usage.opencode")` are cleared. Back on, it
+  checks within a minute.
 - **OpenCode** has no such command, so it's the one thing Usage sends itself, on this computer only.
   A card in the popover asks first, and no key is read until it's answered. Allow sets
   `shared("usage.opencode")` to `true` and checks at once; Not now sets it to `false` and stops

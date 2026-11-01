@@ -3,7 +3,7 @@
 // scripts/look.test.ts keeps them equal.
 
 import { createHash } from "crypto";
-import { exec as execute, home, knownAgents, machines, readTextFile, setShared, shared, window } from "herdr";
+import { exec as execute, home, knownAgents, machines, notify, readTextFile, setShared, shared, window } from "herdr";
 
 export const EVERY = 15 * 60_000;
 export const NEAR = 90;
@@ -13,7 +13,10 @@ export const POPOVER_HEIGHT = 540;
 const REUSE = 60_000;
 const BUSY = 60_000;
 const DAY = 24 * 3600_000;
+const SESSION_MINUTES = 300;
 const WEEK_MINUTES = 7 * 1440;
+const MONTH_MINUTES = 30 * 1440;
+const SETTLING = 0.05;
 const HERE = "This computer";
 
 const entryId = (agent, machine) => `${agent}|${machine ?? ""}`;
@@ -24,7 +27,14 @@ const CODEX_PLANS = {
   pro: "Pro 200", prolite: "Pro 100", promax: "Pro 500", team: "Business", self_serve_business_usage_based: "Business", self_serve_business_prolite: "Business Premium",
   ent26: "Enterprise", enterprise_cbp_automation: "Enterprise", enterprise_cbp_usage_based: "Enterprise", edu_plus: "Edu Plus", edu_pro: "Edu Pro", unknown: "",
 };
-const GO_WINDOWS = [["weekly", "This week"], ["rolling", "5 hours"], ["monthly", "This month"]];
+const GO_WINDOWS = [["weekly", "This week", WEEK_MINUTES], ["rolling", "5 hours", SESSION_MINUTES], ["monthly", "This month", MONTH_MINUTES]];
+
+export function timeText(ms) {
+  const minutes = Math.floor(ms / 60_000), hours = Math.floor(minutes / 60), days = Math.floor(hours / 24);
+  if (days) return `${days}d ${hours % 24}h`;
+  if (hours) return `${hours}h ${minutes % 60}m`;
+  return minutes ? `${minutes}m` : "<1m";
+}
 
 const titled = (word) => word.replaceAll("_", " ").replace(/^./, (c) => c.toUpperCase());
 const fingerprint = (...parts) => (parts[0] ? createHash("sha256").update(parts.join("|")).digest("hex").slice(0, 16) : undefined);
@@ -59,7 +69,7 @@ function claudeLimits(text, now) {
   for (const line of text.split("\n")) {
     const m = /^Current (session|week \((.+?)\)): (\d+)% used(?:\W+resets (.+))?$/.exec(line.trim());
     if (!m) continue;
-    const scope = m[2], limit = { used: Number(m[3]), resetsAt: m[4] ? resetTime(m[4], now) : null };
+    const scope = m[2], minutes = m[1] === "session" ? SESSION_MINUTES : WEEK_MINUTES, limit = { used: Number(m[3]), resetsAt: m[4] ? resetTime(m[4], now) : null, minutes };
     if (m[4] && limit.resetsAt === null) continue;
     if (m[1] === "session") session.push({ label: "5 hours", ...limit });
     else if (scope === "all models") week.push({ label: "This week", ...limit });
@@ -87,7 +97,7 @@ function codexLimits(rates) {
     });
   });
   limits.sort((a, b) => rank(a) - rank(b) || b.minutes - a.minutes || Boolean(a.model) - Boolean(b.model));
-  return limits.map(({ label, used, resetsAt }) => ({ label, used, resetsAt }));
+  return limits.map(({ label, used, resetsAt, minutes }) => ({ label, used, resetsAt, minutes }));
 }
 
 function codexReport(output) {
@@ -110,12 +120,12 @@ function codexReport(output) {
 // Go's answer nests the windows under "usage"; another deployment spells them "<window>Usage".
 function goLimits(answer) {
   const usage = answer?.usage ?? answer ?? {};
-  return GO_WINDOWS.flatMap(([name, label]) => {
+  return GO_WINDOWS.flatMap(([name, label, minutes]) => {
     const window = usage[name] ?? answer?.[`${name}Usage`];
     const percent = window?.percent ?? window?.usagePercent;
     if (!Number.isFinite(percent)) return [];
     const resetsAt = window.resetsAt ? Date.parse(window.resetsAt) : window.resetInSec ? Date.now() + window.resetInSec * 1000 : null;
-    return [{ label, used: window.status === "rate-limited" ? 100 : Math.round(percent), resetsAt: Number.isFinite(resetsAt) ? resetsAt : null }];
+    return [{ label, used: window.status === "rate-limited" ? 100 : Math.round(percent), resetsAt: Number.isFinite(resetsAt) ? resetsAt : null, minutes }];
   });
 }
 
@@ -293,6 +303,23 @@ function withOpencode(entries, entry) {
 // beside it, which may have saved numbers since, and those mustn't turn into "Could not check".
 const orSaved = (entry, saved) => (entry?.failed && saved?.limits.length ? { ...saved, failed: true } : entry);
 
+// A limit warns once on reaching NEAR, and can again only after falling below it. Going by that and
+// not by the reset time means no window to track: resets drift by seconds between checks.
+function warnNear() {
+  const now = Date.now(), warned = shared("usage.warned") ?? [], near = [];
+  for (const row of subscriptions(shared("usage")?.entries)) {
+    for (const limit of row.limits) {
+      const used = usedNow(limit, now), id = `${row.who ?? entryId(row.agent, row.machine)}|${limit.label}`;
+      if (used < NEAR) continue;
+      near.push(id);
+      if (warned.includes(id)) continue;
+      const where = row.place ? ` (${row.place})` : "", resets = limit.resetsAt ? `, resets in ${timeText(limit.resetsAt - now)}` : "";
+      notify({ title: `${row.name}${where} limit at ${used}%`, body: `${limit.label}${resets}`, level: "warning" });
+    }
+  }
+  if (String(near) !== String(warned)) setShared("usage.warned", near);
+}
+
 // `era` names one stretch of Usage being on, and goes with the numbers when it's turned off. A pass
 // saves only into the era it started in, so one from before can't bring cleared numbers back, even
 // with Usage on again. It isn't one mark per pass: a pass over a minute long has another start beside
@@ -310,6 +337,7 @@ export async function checkUsage({ force = false, within = REUSE } = {}) {
   for (const id in found) found[id] = orSaved(found[id], saved[id]);
   // Answered midway, OpenCode's entry is no longer this pass's to save: Allow runs its own check.
   setShared("usage", { era, checkedAt: now, entries: shared("usage.opencode") === answer ? found : withOpencode(found, saved[OPENCODE]) });
+  warnNear();
 }
 
 // Consent is the person's press, saved by the popover. Any agent can run this command, so it only
@@ -325,9 +353,20 @@ export async function allowOpencode() {
   const current = shared("usage");
   if (usageOff() || current?.era !== usage.era) return;
   setShared("usage", { ...current, startedAt: current.startedAt === mine ? null : current.startedAt, entries: withOpencode(current.entries, orSaved(found, current.entries?.[OPENCODE])) });
+  warnNear();
 }
 
 export const usedNow = (limit, now) => (limit.resetsAt && limit.resetsAt <= now ? 0 : limit.used);
+
+// The pace so far, carried straight on. It's taken at the check, as `used` dates from then, so the
+// answer stands still while the clock moves. Early in a window that pace says little, so there's none.
+export function runsOut(limit, checkedAt, now) {
+  if (!limit.minutes || !limit.resetsAt || !checkedAt || limit.used <= 0 || limit.used >= 100) return null;
+  const length = limit.minutes * 60_000, spent = length - (limit.resetsAt - checkedAt);
+  if (spent < length * SETTLING) return null;
+  const at = checkedAt + ((100 - limit.used) * spent) / limit.used;
+  return at > now && at < limit.resetsAt ? at : null;
+}
 
 export function subscriptions(entries) {
   const rows = new Map();

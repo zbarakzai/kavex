@@ -392,6 +392,7 @@ export default class Settings extends View {
     if (on) {
       setShared("usage", null);
       setShared("usage.opencode", null);
+      setShared("usage.warned", null);
     }
   }
 
