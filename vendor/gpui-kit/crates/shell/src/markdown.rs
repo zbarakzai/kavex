@@ -19,7 +19,8 @@ use gpui::{
     StatefulInteractiveElement as _, StyleRefinement, Styled as _, Window, div, px, rems, svg,
 };
 use gpui_base::text::{
-    CodeBlock, MarkdownExtensions, RangeHighlight, TextView, TextViewState, TextViewStyle,
+    AlertColors, CodeBlock, MarkdownExtensions, RangeHighlight, TextView, TextViewState,
+    TextViewStyle,
 };
 
 use crate::{syntax::SyntaxStyles, value::Bridged};
@@ -42,6 +43,16 @@ pub(crate) struct MarkdownOptions {
     pub folder: Option<String>,
 }
 
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct AlertsSpec {
+    note: String,
+    tip: String,
+    important: String,
+    warning: String,
+    caution: String,
+}
+
 /// A document's look, as the script gives it: colors from its theme.
 #[derive(serde::Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -55,7 +66,7 @@ pub(crate) struct LookSpec {
     border: String,
     hover: String,
     selection: String,
-    alerts: [String; 5],
+    alerts: AlertsSpec,
     mark: String,
     mark_active: String,
     syntax: HashMap<String, String>,
@@ -88,10 +99,13 @@ impl MarkdownLook {
     pub(crate) fn new(spec: LookSpec) -> crate::error::Result<Self> {
         let (foreground, heading) = (color(&spec.foreground)?, color(&spec.heading)?);
         let (muted, border) = (color(&spec.muted)?, color(&spec.border)?);
-        let mut alerts = [Hsla::default(); 5];
-        for (slot, value) in alerts.iter_mut().zip(&spec.alerts) {
-            *slot = color(value)?;
-        }
+        let alerts = AlertColors {
+            note: color(&spec.alerts.note)?,
+            tip: color(&spec.alerts.tip)?,
+            important: color(&spec.alerts.important)?,
+            warning: color(&spec.alerts.warning)?,
+            caution: color(&spec.alerts.caution)?,
+        };
         let mut syntax = HashMap::new();
         for (name, value) in &spec.syntax {
             syntax.insert(name.clone(), color(value)?);
@@ -143,6 +157,7 @@ impl MarkdownLook {
 
 #[derive(Default)]
 struct Found {
+    query: String,
     ranges: Vec<Range<usize>>,
     active: usize,
 }
@@ -191,21 +206,47 @@ impl MarkdownDocument {
 
     /// Marks every match, ignoring ASCII case, and shows the first. Returns how many.
     pub(crate) fn find(&self, query: &str, cx: &mut App) -> usize {
-        let text = self.state.read(cx).rendered_text();
-        let ranges = if query.is_empty() {
-            Vec::new()
-        } else {
-            // Lowercasing ASCII moves no byte, so offsets hold for the original.
-            let (text, query) = (text.as_str().to_ascii_lowercase(), query.to_ascii_lowercase());
-            text.match_indices(&query)
-                .take(MAX_FOUND)
-                .map(|(at, _)| at..at + query.len())
-                .collect()
-        };
+        let ranges = self.matches(query, cx);
         let count = ranges.len();
-        *self.found.borrow_mut() = Found { ranges, active: 0 };
-        self.show_found(cx);
+        *self.found.borrow_mut() = Found {
+            query: query.to_owned(),
+            ranges,
+            active: 0,
+        };
+        self.show_found(true, cx);
         count
+    }
+
+    /// Finds again in text that changed, leaving the reader's place alone. Returns
+    /// how many there are and which is current, or nothing until the parse lands.
+    pub(crate) fn find_again(&self, cx: &mut App) -> Option<(usize, usize)> {
+        if !self.state.read(cx).is_parsed() {
+            return None;
+        }
+        let query = self.found.borrow().query.clone();
+        let ranges = self.matches(&query, cx);
+        let count = ranges.len();
+        let active = {
+            let mut found = self.found.borrow_mut();
+            found.ranges = ranges;
+            found.active = found.active.min(count.saturating_sub(1));
+            found.active
+        };
+        self.show_found(false, cx);
+        Some((count, if count == 0 { 0 } else { active + 1 }))
+    }
+
+    fn matches(&self, query: &str, cx: &App) -> Vec<Range<usize>> {
+        if query.is_empty() {
+            return Vec::new();
+        }
+        let text = self.state.read(cx).rendered_text();
+        // Lowercasing ASCII moves no byte, so offsets hold for the original.
+        let (text, query) = (text.as_str().to_ascii_lowercase(), query.to_ascii_lowercase());
+        text.match_indices(&query)
+            .take(MAX_FOUND)
+            .map(|(at, _)| at..at + query.len())
+            .collect()
     }
 
     /// Moves to another match, wrapping around. Returns its number from 1, or 0.
@@ -218,11 +259,11 @@ impl MarkdownDocument {
             }
             found.active = (found.active as i64 + by as i64).rem_euclid(count as i64) as usize;
         }
-        self.show_found(cx);
+        self.show_found(true, cx);
         self.found.borrow().active + 1
     }
 
-    fn show_found(&self, cx: &mut App) {
+    fn show_found(&self, reveal: bool, cx: &mut App) {
         let found = self.found.borrow();
         let Some(look) = self.look.borrow().clone() else {
             return;
@@ -237,14 +278,13 @@ impl MarkdownDocument {
                 RangeHighlight::new(range.clone(), if active { look.mark_active } else { look.mark })
             });
             let _ = state.set_range_highlights(marks.collect::<Vec<_>>(), cx);
-            if let Some(range) = found.ranges.get(found.active) {
+            if let Some(range) = found.ranges.get(found.active).filter(|_| reveal) {
                 let _ = state.reveal_range(range.clone(), cx);
             }
         });
     }
 }
 
-/// `%20` and the like, in a path from a link.
 pub fn percent_decoded(value: &str) -> String {
     let bytes = value.as_bytes();
     let mut out = Vec::with_capacity(bytes.len());
@@ -268,7 +308,15 @@ pub fn percent_decoded(value: &str) -> String {
     String::from_utf8_lossy(&out).into_owned()
 }
 
-/// The corner of a code block: its language and a copy button.
+/// The host and path of a `file://` link. The host is empty when it names none.
+pub fn file_url(url: &str) -> Option<(&str, String)> {
+    let rest = url.strip_prefix("file://")?;
+    let (host, path) = rest.split_at(rest.find('/')?);
+    let path = percent_decoded(path.split(['#', '?']).next()?);
+    // Windows' `file:///C:/x` has no folder called `/C:`.
+    Some((host, if cfg!(windows) { path.trim_start_matches('/').to_owned() } else { path }))
+}
+
 fn code_controls(
     controls: &Controls,
     block: &CodeBlock,
@@ -331,4 +379,55 @@ fn code_controls(
                 ),
         )
         .into_any_element()
+}
+
+#[cfg(test)]
+mod tests {
+    use gpui::TestAppContext;
+
+    use super::*;
+
+    #[test]
+    fn a_file_url_splits_its_host_from_a_decoded_path() {
+        let expected = if cfg!(windows) { "a b/c.md" } else { "/a b/c.md" };
+        assert_eq!(file_url("file:///a%20b/c.md#top"), Some(("", expected.to_owned())));
+        assert_eq!(file_url("file://localhost/a%20b/c.md"), Some(("localhost", expected.to_owned())));
+        assert_eq!(file_url("file://this-mac/a%20b/c.md?x"), Some(("this-mac", expected.to_owned())));
+        assert_eq!(file_url("file://nothing"), None);
+        assert_eq!(file_url("https://a.com/c.md"), None);
+    }
+
+    #[gpui::test]
+    fn finding_again_waits_for_the_parse_and_keeps_the_current_match(cx: &mut TestAppContext) {
+        let options = MarkdownOptions {
+            value: "one two one\n\none\n".into(),
+            folder: None,
+        };
+        let document = cx.update(|cx| MarkdownDocument::new(options, cx));
+        cx.run_until_parked();
+        cx.update(|cx| {
+            assert_eq!(document.find("one", cx), 3);
+            assert_eq!(document.find_step(1, cx), 2);
+            document
+                .state
+                .update(cx, |state, cx| state.set_text("one two one\n\none\n\none more\n", cx));
+            assert_eq!(document.find_again(cx), None, "its parse hasn't landed");
+        });
+        cx.run_until_parked();
+        cx.update(|cx| assert_eq!(document.find_again(cx), Some((4, 2))));
+        cx.update(|cx| {
+            document
+                .state
+                .update(cx, |state, cx| state.set_text("one\n", cx));
+        });
+        cx.run_until_parked();
+        cx.update(|cx| assert_eq!(document.find_again(cx), Some((1, 1))));
+        cx.update(|cx| {
+            document
+                .state
+                .update(cx, |state, cx| state.set_text("nothing\n", cx));
+        });
+        cx.run_until_parked();
+        cx.update(|cx| assert_eq!(document.find_again(cx), Some((0, 0))));
+    }
 }

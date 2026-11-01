@@ -28,16 +28,23 @@ pub struct MarkdownRefs {
     wraps: Vec<bool>,
     refs: Vec<Reference>,
     known: HashMap<String, bool>,
-    pub asking: bool,
-    pub rechecking: bool,
+    asking: bool,
+    rechecking: bool,
 }
 
-/// What the disk says about `words`. Slow: not for the main thread.
-pub fn ask(words: Vec<String>, cwd: Option<PathBuf>) -> HashMap<String, bool> {
+/// The names to look up, and whether that starts the rechecks.
+pub struct Lookup {
+    pub words: Vec<String>,
+    pub cwd: Option<PathBuf>,
+    pub start_rechecking: bool,
+}
+
+/// Which names are on disk. Slow: not for the main thread.
+pub fn on_disk(words: Vec<String>, cwd: Option<PathBuf>) -> HashMap<String, bool> {
     words
         .into_iter()
         .map(|word| {
-            let found = links::resolve(&word, cwd.as_deref()).is_some();
+            let found = links::on_disk(&word, cwd.as_deref());
             (word, found)
         })
         .collect()
@@ -52,8 +59,28 @@ impl MarkdownRefs {
         }
     }
 
-    pub fn cwd(&self) -> Option<PathBuf> {
-        self.cwd.clone()
+    /// The lookup to run now, unless one is running or nothing shows.
+    pub fn start_lookup(&mut self) -> Option<Lookup> {
+        let words = self.words();
+        if self.asking || words.is_empty() {
+            return None;
+        }
+        self.asking = true;
+        let start_rechecking = !std::mem::replace(&mut self.rechecking, true);
+        Some(Lookup { words, cwd: self.cwd.clone(), start_rechecking })
+    }
+
+    /// Takes a lookup's answers. Returns whether what's underlined changed and
+    /// whether new names came in the meantime.
+    pub fn finish_lookup(&mut self, answers: HashMap<String, bool>) -> (bool, bool) {
+        self.asking = false;
+        (self.learn(answers), self.has_unknown())
+    }
+
+    /// Whether rechecks go on, for a terminal that is or isn't on screen.
+    pub fn keep_rechecking(&mut self, shown: bool) -> bool {
+        self.rechecking = shown && !self.refs.is_empty();
+        self.rechecking
     }
 
     /// Finds the names on screen, if its text changed. `wraps` says which rows
@@ -112,19 +139,18 @@ impl MarkdownRefs {
         }
     }
 
-    /// Where to underline: the names the disk knows.
     pub fn spans(&self) -> Spans {
         self.refs.iter().filter(|r| self.known.get(&r.word).copied().unwrap_or(false)).flat_map(|r| r.spans.iter().copied()).collect()
     }
 
-    pub fn words(&self) -> Vec<String> {
+    fn words(&self) -> Vec<String> {
         let mut words: Vec<String> = self.refs.iter().map(|r| r.word.clone()).collect();
         words.sort();
         words.dedup();
         words
     }
 
-    pub fn has_unknown(&self) -> bool {
+    fn has_unknown(&self) -> bool {
         self.refs.iter().any(|r| !self.known.contains_key(&r.word))
     }
 
@@ -132,17 +158,12 @@ impl MarkdownRefs {
         !self.refs.is_empty() && (!self.rechecking || (!self.asking && self.has_unknown()))
     }
 
-    /// Takes the disk's answers. Returns whether what's underlined changed.
-    pub fn learn(&mut self, answers: HashMap<String, bool>) -> bool {
+    fn learn(&mut self, answers: HashMap<String, bool>) -> bool {
         let changed = answers.iter().any(|(word, found)| self.known.get(word).copied().unwrap_or(false) != *found);
         self.known.extend(answers);
         let refs = &self.refs;
         self.known.retain(|word, _| refs.iter().any(|r| r.word == *word));
         changed
-    }
-
-    pub fn shows_any(&self) -> bool {
-        !self.refs.is_empty()
     }
 }
 
@@ -172,8 +193,8 @@ mod tests {
     }
 
     fn checked(refs: &mut MarkdownRefs) -> bool {
-        let answers = ask(refs.words(), refs.cwd());
-        refs.learn(answers)
+        let lookup = refs.start_lookup().expect("names to look up");
+        refs.finish_lookup(on_disk(lookup.words, lookup.cwd)).0
     }
 
     #[test]
@@ -257,7 +278,36 @@ mod tests {
         let mut refs = MarkdownRefs::default();
         refs.set_place(Some(&dir), true);
         refs.read(&[row("README.md")], &[false]);
-        assert!(!refs.shows_any() && !refs.wants_asking());
+        assert!(!refs.wants_asking() && refs.start_lookup().is_none());
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn one_lookup_runs_at_a_time_and_rechecks_end_with_the_names() {
+        let dir = cwd_with(&["a.md"]);
+        let mut refs = refs_in(&dir);
+        refs.read(&[row("a.md")], &[false]);
+        assert!(refs.start_lookup().is_some_and(|lookup| lookup.start_rechecking));
+        assert!(refs.start_lookup().is_none());
+        refs.finish_lookup(HashMap::new());
+        assert!(refs.start_lookup().is_some_and(|lookup| !lookup.start_rechecking));
+        refs.finish_lookup(HashMap::new());
+        assert!(refs.keep_rechecking(true));
+        assert!(!refs.keep_rechecking(false), "off screen");
+        refs.read(&[row("nothing here")], &[false]);
+        assert!(!refs.keep_rechecking(true), "no names");
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[cfg(not(windows))]
+    #[test]
+    fn a_file_link_is_underlined_whole_when_its_file_exists() {
+        let dir = cwd_with(&["a.md"]);
+        let mut refs = refs_in(&dir);
+        let link = format!("file://{}", dir.join("a.md").display());
+        refs.read(&[row(&link), row("file:///nowhere/gone.md")], &[false, false]);
+        checked(&mut refs);
+        assert_eq!(refs.spans(), [(0, 0, link.len() as u16 - 1)]);
         std::fs::remove_dir_all(dir).unwrap();
     }
 

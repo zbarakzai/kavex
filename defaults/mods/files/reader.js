@@ -7,7 +7,7 @@ import { theme } from "herdr";
 import { MONO, soft } from "./look.js";
 import { READER_FONT, headingFor } from "./markdown.js";
 
-const OUTLINE_ROWS = 500, TIP_DELAY = 500, HEADING_TRIES = 12, HEADING_WAIT = 120;
+const OUTLINE_ROWS = 500, TIP_DELAY = 500, PARSE_TRIES = 12, PARSE_WAIT = 120;
 
 const syntaxColors = (t) => ({ keyword: t.ansi5, string: t.ansi2, comment: t.dim, function: t.ansi4, type: t.ansi3, number: t.ansi1, constant: t.ansi6 });
 
@@ -23,7 +23,7 @@ export const readerLook = (t) => ({
   hover: t.hover_strong,
   // Selections paint over the glyphs, so a solid color hides what's selected.
   selection: soft(t.foreground, "26"),
-  alerts: [t.ansi4, t.ansi2, t.ansi5, t.ansi3, t.failed],
+  alerts: { note: t.ansi4, tip: t.ansi2, important: t.ansi5, warning: t.ansi3, caution: t.failed },
   mark: soft(t.ansi3, "40"),
   mark_active: soft(t.ansi4, "80"),
   syntax: syntaxColors(t),
@@ -49,7 +49,7 @@ export class Reader {
     Object.assign(this, { path, text, mode, onLink });
     this.doc = MarkdownState.new({ value: text, folder });
     this.raw = mode === "raw" ? codeState(path, text) : null;
-    this.popup = null; this.finding = false; this.findInput = null; this.found = 0; this.foundAt = 0;
+    this.outlineOpen = false; this.finding = false; this.findInput = null; this.found = 0; this.foundAt = 0;
   }
 
   release() {
@@ -58,31 +58,40 @@ export class Reader {
   }
 
   // Both views take new text themselves, so the panel doesn't redraw for it.
-  update(text) {
+  update(text, cx) {
     if (text === this.text) return;
     this.text = text;
     this.doc.set_value(text);
     this.raw?.set_value(text);
+    if (this.finding) this.findAgain(cx);
   }
 
-  show(mode) {
-    this.mode = mode; this.popup = null;
+  // Matches are places in the text that was there; the new ones exist once its parse lands.
+  findAgain(cx, tries = PARSE_TRIES) {
+    if (this.released || !this.finding) return;
+    const again = this.doc.find_again();
+    if (again) { this.found = again.found; this.foundAt = again.at; return cx.notify(); }
+    if (tries > 0) cx.timer.after(PARSE_WAIT, cx => this.findAgain(cx, tries - 1));
+  }
+
+  setMode(mode) {
+    this.mode = mode; this.outlineOpen = false;
     if (this.finding) this.endFind();
     if (mode === "raw" && !this.raw) this.raw = codeState(this.path, this.text);
   }
 
   choose(mode, cx) {
     localStorage.setItem("markdown", mode);
-    this.show(mode);
+    this.setMode(mode);
     cx.notify();
   }
 
   // A document's headings exist once its parse lands, which a large one does a little later.
-  jump(anchor, cx, tries = HEADING_TRIES) {
+  jump(anchor, cx, tries = PARSE_TRIES) {
     if (this.released) return;
     const heading = headingFor(this.doc.outline(), anchor);
     if (heading) return this.doc.scroll_to(heading.block);
-    if (tries > 0) cx.timer.after(HEADING_WAIT, cx => this.jump(anchor, cx, tries - 1));
+    if (tries > 0) cx.timer.after(PARSE_WAIT, cx => this.jump(anchor, cx, tries - 1));
   }
 
   key(e, cx) {
@@ -118,13 +127,13 @@ export class Reader {
 
   tipped(id, tip, trigger, t) {
     return HoverCard.new(`tip-${id}`).open_delay(TIP_DELAY).close_delay(0).trigger(trigger)
-      .when(!this.popup, el => el.content(div().mt(6).px(9).py(5).rounded(8).bg(t.raised).border_1().border_color(t.border).shadow_md().text_size(12).text_color(t.foreground).whitespace_nowrap().child(tip)));
+      .when(!this.outlineOpen, el => el.content(div().mt(6).px(9).py(5).rounded(8).bg(t.raised).border_1().border_color(t.border).shadow_md().text_size(12).text_color(t.foreground).whitespace_nowrap().child(tip)));
   }
 
   outline(t) {
-    const open = this.popup === "outline";
+    const open = this.outlineOpen;
     return this.tipped("files-outline", "Outline", Popover.new("files-outline-menu").anchor("top_right").open(open)
-      .on_open_change((next, cx) => { this.popup = next ? "outline" : null; cx.notify(); })
+      .on_open_change((next, cx) => { this.outlineOpen = next; cx.notify(); })
       .trigger(iconButton("files-outline", "file-tree", t, { active: open })).when(open, el => el.content(this.headings(t))), t);
   }
 
@@ -134,7 +143,7 @@ export class Reader {
       .when(!rows.length, el => el.child(div().px(10).py(6).text_color(t.dim).child("No headings")))
       .children(rows.map((row, i) => h_flex().id(`files-heading-${i}`).h(30).flex_none().pl(10 + (row.level - top) * 14).pr(10).items_center().rounded(8).cursor_pointer().hover(s => s.bg(t.hover))
         .text_color(row.level === top ? t.foreground : t.muted)
-        .on_click((_e, cx) => { this.popup = null; this.doc.scroll_to(row.block); cx.notify(); })
+        .on_click((_e, cx) => { this.outlineOpen = false; this.doc.scroll_to(row.block); cx.notify(); })
         .child(div().flex_1().min_w(0).truncate().child(row.text))));
   }
 

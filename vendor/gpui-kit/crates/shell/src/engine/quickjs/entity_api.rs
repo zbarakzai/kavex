@@ -651,6 +651,21 @@ pub fn install(ctx: &Ctx<'_>, module: &Object<'_>, runtime: Weak<ShellRuntime>) 
         ),
     )?;
 
+    let again_markdown = runtime.clone();
+    globals.set(
+        "__markdown_find_again",
+        Func::from(
+            move |ctx: Ctx<'_>, handle: EntityHandle| -> JsResult<Option<String>> {
+                let document = live_markdown(&ctx, &again_markdown, handle)?;
+                let found = scope::with_current_app(|cx| document.find_again(cx))
+                    .ok_or_else(|| needs_call(&ctx, "find_again()"))?;
+                Ok(found.map(|(count, at)| {
+                    serde_json::json!({ "found": count, "at": at }).to_string()
+                }))
+            },
+        ),
+    )?;
+
     let discard_markdown = runtime.clone();
     globals.set(
         "__markdown_release",
@@ -1427,6 +1442,7 @@ fn live_editor(
         .ok_or_else(|| Exception::throw_type(ctx, "this editor state has been released"))
 }
 
+// HERDR: never resolve a Markdown document as another kind of state.
 fn live_markdown(
     ctx: &Ctx<'_>,
     runtime: &Weak<ShellRuntime>,

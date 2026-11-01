@@ -7041,6 +7041,10 @@ globalThis.__gpui = (() => {
           scroll_to: (block) => __markdown_scroll_to(handle, Number(block)),
           find: (query) => __markdown_find(handle, String(query)),
           find_step: (by) => __markdown_find_step(handle, Number(by)),
+          find_again: () => {
+            const again = __markdown_find_again(handle);
+            return again == null ? null : JSON.parse(again);
+          },
           release: () => __markdown_release(handle),
         };
       },

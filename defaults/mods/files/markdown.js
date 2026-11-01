@@ -31,7 +31,7 @@ function decoded(text) {
 export function linkTarget(url, folder) {
   if (url.startsWith("#")) return { anchor: decoded(url.slice(1)) };
   if (/^https?:\/\//i.test(url)) return { web: url };
-  const local = url.replace(/^file:\/\/(localhost)?/i, "");
+  const local = url.replace(/^file:\/\/[^/]*/i, "");
   if (/^[a-z][a-z0-9+.-]+:/i.test(local)) return { other: url };
   const [path, anchor] = local.split("#"), file = decoded(path.split("?")[0]);
   return { file: tidy(isAbsolute(file) ? file : `${folder}/${file}`), anchor: anchor ? decoded(anchor) : undefined };

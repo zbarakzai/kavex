@@ -95,13 +95,13 @@ export default class Files extends View {
     const { cwd, on } = location(), next = key();
     this.reload(cx);
     if (next !== this.context?.key) {
-      if (this.context) this.saved.set(this.context.key, { folders: this.folders, file: this.file, on: this.fileOn });
+      if (this.context) this.saved.set(this.context.key, { folders: this.folders, shown: this.shownFile() });
       const saved = this.saved.get(next);
       this.context = { key: next, cwd, on }; this.root = cwd; this.on = on; this.entries = new Map(); this.folders = new Set(saved?.folders);
       this.pending = new Set(); this.marks = {}; this.show(null); this.watched = null; this.error = null; this.limited = false;
       this.edit = null; this.target = null; this.trail = [];
       this.loading = false;
-      if (saved?.file) this.show(saved.file, cx, { on: saved.on });
+      if (saved?.shown.file) this.reopen(saved.shown, cx);
     }
     if (!cwd || this.loading) return;
     const context = this.context;
@@ -158,6 +158,10 @@ export default class Files extends View {
     cx.notify();
   }
 
+  shownFile() { return { file: this.file, on: this.fileOn }; }
+
+  reopen({ file, on }, cx) { this.show(file, cx, { on }); }
+
   closeFile() {
     this.code?.release(); this.reader?.release();
     this.code = null; this.reader = null;
@@ -168,7 +172,7 @@ export default class Files extends View {
 
   show(path, cx, { on = this.on, mode = rememberedMode(), anchor } = {}) {
     if (path && path === this.file && this.reader) {
-      this.reader.show(mode);
+      this.reader.setMode(mode);
       if (anchor) this.reader.jump(anchor, cx);
       return this.reload(cx);
     }
@@ -209,7 +213,7 @@ export default class Files extends View {
     cx.spawn(async cx => {
       try {
         const text = await readTextFile(this.full(path), { on: this.fileOn });
-        if (reader === this.reader && text !== null && !text.includes("\0")) reader.update(text);
+        if (reader === this.reader && text !== null && !text.includes("\0")) reader.update(text, cx);
       } catch {}
       finally {
         this.reloading = false;
@@ -232,7 +236,7 @@ export default class Files extends View {
 
   back(cx) {
     const last = this.trail.pop();
-    if (last) this.show(last.file, cx, { on: last.on });
+    if (last) this.reopen(last, cx);
     else this.show(null);
     cx.notify();
   }
@@ -242,7 +246,7 @@ export default class Files extends View {
     if (to.web) return cx.open_url(to.web);
     if (to.other) return notify({ title: "Files", body: `Can't open ${to.other} from here`, level: "error" });
     if (to.file && to.file !== here) {
-      this.trail.push({ file: this.file, on: this.fileOn });
+      this.trail.push(this.shownFile());
       this.show(this.inside(to.file), cx, { on: this.fileOn, anchor: to.anchor });
     } else if (to.anchor) this.reader?.jump(to.anchor, cx);
   }

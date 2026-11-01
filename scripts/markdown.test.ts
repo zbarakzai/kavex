@@ -33,6 +33,7 @@ test("Links go to the web, a heading here, or a file beside the document", () =>
   expect(linkTarget("my%20notes.md?plain=1", folder)).toEqual({ file: "/repo/docs/my notes.md", anchor: undefined });
   expect(linkTarget("/etc/motd.md", folder)).toEqual({ file: "/etc/motd.md", anchor: undefined });
   expect(linkTarget("file:///repo/x.md", folder)).toEqual({ file: "/repo/x.md", anchor: undefined });
+  expect(linkTarget("file://this-mac/repo/x.md", folder)).toEqual({ file: "/repo/x.md", anchor: undefined });
   expect(linkTarget("mailto:a@b.c", folder)).toEqual({ other: "mailto:a@b.c" });
   expect(linkTarget("javascript:alert(1)", folder)).toEqual({ other: "javascript:alert(1)" });
 });

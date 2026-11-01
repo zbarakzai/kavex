@@ -504,6 +504,7 @@ impl EntityStore {
         })
     }
 
+    // HERDR: never resolve a Markdown document as another kind of state.
     pub(crate) fn markdown(
         &self,
         handle: EntityHandle,

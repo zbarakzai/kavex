@@ -1203,6 +1203,7 @@ fn ast_to_node(source: &str, value: mdast::Node, cx: &mut NodeContext) -> BlockN
     }
 }
 
+// HERDR: alerts.
 #[cfg(test)]
 mod alert_tests {
     use super::*;

@@ -4,6 +4,16 @@ use gpui::{HighlightStyle, Hsla, Rems, StyleRefinement, rems};
 
 use crate::ColorTokens;
 
+/// HERDR: the color of each kind of GitHub alert.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct AlertColors {
+    pub note: Hsla,
+    pub tip: Hsla,
+    pub important: Hsla,
+    pub warning: Hsla,
+    pub caution: Hsla,
+}
+
 /// TextViewStyle used to customize the style for [`super::TextView`].
 ///
 /// The fields are private because this type crosses the `gpui-base` seam:
@@ -29,8 +39,8 @@ pub struct TextViewStyle {
     /// [`Self::on_text_color`] sets it, to let a table on an inverted surface
     /// show that surface.
     table_background: Option<Hsla>,
-    // HERDR: note, tip, important, warning, caution.
-    alerts: [Hsla; 5],
+    // HERDR: alerts.
+    alerts: AlertColors,
     is_dark: bool,
 }
 
@@ -96,7 +106,13 @@ impl TextViewStyle {
             },
             table_background: None,
             // HERDR: alerts.
-            alerts: [colors.primary; 5],
+            alerts: AlertColors {
+                note: colors.primary,
+                tip: colors.primary,
+                important: colors.primary,
+                warning: colors.primary,
+                caution: colors.primary,
+            },
             is_dark,
         }
     }
@@ -204,8 +220,8 @@ impl TextViewStyle {
         self
     }
 
-    /// HERDR: sets the colors of alerts: note, tip, important, warning, caution.
-    pub fn with_alerts(mut self, colors: [Hsla; 5]) -> Self {
+    /// HERDR: sets the colors of alerts.
+    pub fn with_alerts(mut self, colors: AlertColors) -> Self {
         self.alerts = colors;
         self
     }
@@ -284,7 +300,14 @@ impl TextViewStyle {
 
     /// HERDR: the color of an alert's bar and title.
     pub(crate) fn alert(&self, alert: crate::text::Alert) -> Hsla {
-        self.alerts[alert as usize]
+        use crate::text::Alert;
+        match alert {
+            Alert::Note => self.alerts.note,
+            Alert::Tip => self.alerts.tip,
+            Alert::Important => self.alerts.important,
+            Alert::Warning => self.alerts.warning,
+            Alert::Caution => self.alerts.caution,
+        }
     }
 
     /// Whether content-specific assets should use their dark variant.

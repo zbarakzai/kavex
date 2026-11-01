@@ -99,6 +99,8 @@ pub struct TerminalView {
     was_focused: bool,
     /// The window frame this terminal was last put on screen in (`FRAME`).
     shown_in: Cell<u64>,
+    /// The window it last drew in.
+    window: Option<AnyWindowHandle>,
     /// When the person last typed here: output right after is shown at once.
     typed_at: Cell<Option<Instant>>,
     /// Scrolled this gesture, in lines, toward the next whole one.
@@ -186,6 +188,7 @@ impl TerminalView {
             focus: cx.focus_handle(),
             was_focused: false,
             shown_in: Cell::new(0),
+            window: None,
             typed_at: Cell::new(None),
             scrolled: 0.0,
             _reader: None,
@@ -596,23 +599,12 @@ impl TerminalView {
     }
 
     fn ask_markdown(&mut self, cx: &mut Context<Self>) {
-        let mut g = self.grid.borrow_mut();
-        let words = g.markdown.words();
-        if g.markdown.asking || words.is_empty() {
-            return;
-        }
-        g.markdown.asking = true;
-        let cwd = g.markdown.cwd();
-        let start_rechecking = !std::mem::replace(&mut g.markdown.rechecking, true);
-        drop(g);
+        let Some(lookup) = self.grid.borrow_mut().markdown.start_lookup() else { return };
+        let (words, cwd) = (lookup.words, lookup.cwd);
         cx.spawn(async move |this, cx| {
-            let answers = cx.background_spawn(async move { crate::markdown_refs::ask(words, cwd) }).await;
+            let answers = cx.background_spawn(async move { crate::markdown_refs::on_disk(words, cwd) }).await;
             let _ = this.update(cx, |this, cx| {
-                let mut g = this.grid.borrow_mut();
-                g.markdown.asking = false;
-                let changed = g.markdown.learn(answers);
-                let unknown = g.markdown.has_unknown();
-                drop(g);
+                let (changed, unknown) = this.grid.borrow_mut().markdown.finish_lookup(answers);
                 if changed {
                     cx.notify();
                 }
@@ -622,14 +614,17 @@ impl TerminalView {
             });
         })
         .detach();
-        if start_rechecking {
+        if lookup.start_rechecking {
             cx.spawn(async move |this, cx| {
                 loop {
                     cx.background_executor().timer(crate::markdown_refs::RECHECK).await;
+                    // A hidden window draws nothing, so frames can't say it's gone.
+                    let window = this.read_with(cx, |this, _| this.window).ok().flatten();
+                    let hidden = window.is_some_and(|w| cx.update_window(w, |_, window, _| !window.is_visible()).unwrap_or(false));
                     let again = this.update(cx, |this, cx| {
-                        let keep = this.shown_in.get() == FRAME.load(Ordering::Relaxed) && this.grid.borrow().markdown.shows_any();
-                        this.grid.borrow_mut().markdown.rechecking = keep;
-                        if keep {
+                        let shown = this.shown_in.get() == FRAME.load(Ordering::Relaxed);
+                        let keep = this.grid.borrow_mut().markdown.keep_rechecking(shown);
+                        if keep && !hidden {
                             this.ask_markdown(cx);
                         }
                         keep
@@ -650,7 +645,9 @@ impl TerminalView {
         let (col, row) = (x / f32::from(g.cell.width), y / f32::from(g.cell.height));
         let mut target = None;
         let hit = g.vt.link_at(col as u16, row as u16, |text, at| {
+            // On another machine `~` and variables aren't this one's.
             if let Some(range) = links::find(text, at)
+                && !(self.remote() && text[range.clone()].starts_with(['~', '$']))
                 && let Some(link) = links::resolve(&text[range.clone()], self.cwd.as_deref())
             {
                 target = Some(LinkTarget::External(link));
@@ -1373,6 +1370,7 @@ impl Render for TerminalView {
                 g.core.focus(ch, focused);
             }
         }
+        self.window = Some(window.window_handle());
         let cell = cell_size(window);
         let hover = self.grid.borrow().hover;
         self.grid.borrow_mut().markdown.set_place(self.cwd.as_deref(), self.remote());
@@ -1419,7 +1417,7 @@ impl Render for TerminalView {
                     && let Some((target, _)) = this.link_at(ev.position)
                 {
                     match target {
-                        LinkTarget::External(target) => match links::markdown_file(&target) {
+                        LinkTarget::External(target) => match links::markdown_file(&target, this.remote()) {
                             Some(path) => cx.emit(TerminalEvent::Preview(path)),
                             None => links::open(&target),
                         },

@@ -2444,8 +2444,7 @@ const BASE: &str = r#"  /** A row. */
     /** Behind a code block's copy button under the pointer. */
     hover: string;
     selection: string;
-    /** note, tip, important, warning, caution. */
-    alerts: [string, string, string, string, string];
+    alerts: { note: string; tip: string; important: string; warning: string; caution: string };
     /** Behind what `find` marks; `mark_active` is the one shown. */
     mark: string;
     mark_active: string;
@@ -2465,6 +2464,8 @@ const BASE: &str = r#"  /** A row. */
     find(query: string): number;
     /** Moves to another match, wrapping around. Returns its number from 1, or 0. */
     find_step(by: number): number;
+    /** Finds again after `set_value`, leaving the scroll alone. Null until the parse lands. */
+    find_again(): { found: number; at: number } | null;
     release(): boolean;
   }
   export const MarkdownState: {

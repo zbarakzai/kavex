@@ -240,7 +240,7 @@ Links stay in the reader: another file (the back arrow returns), a heading, or t
 web. Mermaid diagrams and math show as their source.
 
 In a terminal, a Markdown file named in its text, with or without a slash (`README.md`,
-`@docs/plan.md`), gets a soft underline while it exists, also when a long path wraps. On another
+`@docs/plan.md`) or as a `file://` link, gets a soft underline while it exists, also when a long path wraps. On another
 machine that can't be checked, so there's no underline, but the click still works. Cmd-click
 (Ctrl-click) opens it in the reader, and `zaki do file.preview --file plan.md` does the same for an
 agent. In a layout without the panel it opens in a pane beside the focused one, and the next file
@@ -653,7 +653,8 @@ The main ones:
   programs such as yazi; partial images and scrolling follow the placeholder cells.
 - Agents: `agent.next`, `agent.prev`, `agent.focus {terminal}`.
 - Files: `file.preview {file, on?}` (shows a file in the Files panel, Markdown rendered; the path
-  is absolute or from the focused terminal's folder, `on` is the machine it's on; a layout
+  is absolute or from the focused terminal's folder, `on` is the machine it's on; `zaki do` from
+  a shell means that shell's folder on this computer unless `on` says otherwise; a layout
   without the panel uses the tab's Files pane, or opens one beside).
 - Layout: `layout.switch {name?}`, `layout.toggle {id}`, `layout.show {id}`, `layout.hide {id}`
   (a node with a px size slides open and shut; its mod keeps its full size throughout),
@@ -974,7 +975,7 @@ them. Text: `TextView.markdown(id, text)` renders markdown, for a few lines; to 
 document, keep `MarkdownState.new({ value, folder })` on the view (as `files` does) and draw
 `TextView.state(doc).scrollable(true)`: the text stays native however long it is, parsing runs off
 the main thread and only what's on screen draws. It has `set_value`, `set_look`, `outline`,
-`scroll_to`, `find`, `find_step` and `release`. `folder` is where its relative images are. `EditorState.new({
+`scroll_to`, `find`, `find_step`, `find_again` and `release`. `folder` is where its relative images are. `EditorState.new({
 language, value, readonly, font_family: settings().font_family, syntax: {
 keyword: theme().ansi5, ... } })` + `Editor.new(state)` is a code view (readonly)
 or editor with syntax highlighting, line numbers and folding. A viewer opens

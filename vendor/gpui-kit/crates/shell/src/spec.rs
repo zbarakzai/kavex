@@ -700,6 +700,7 @@ impl Component {
             Component::VFlex => "v_flex",
             Component::Module(_) => "module_component",
             Component::TextView(_) => "TextView",
+            // HERDR: a retained Markdown document.
             Component::Markdown(_) => "TextView",
             Component::ChildView(_) => "child_view",
             Component::Text(_) => "text",
@@ -1409,6 +1410,7 @@ impl SpecArena {
                 out.push_str(&format!(" {:?} \u{d7}{}", spec.id(), spec.item_count()))
             }
             Component::ChildView(spec) => out.push_str(&format!(" #{}", spec.handle())),
+            // HERDR: a retained Markdown document.
             Component::Markdown(spec) => out.push_str(&format!(" #{}", spec.handle)),
             Component::Slider(handle)
             | Component::SliderTrack(handle)

@@ -243,6 +243,7 @@ impl TextViewState {
             // scrollbar jitter as more blocks get measured during scrolling.
             list_state: ListState::new(0, gpui::ListAlignment::Top, px(1000.)).measure_all(),
             text_view_style: Arc::default(),
+            // HERDR: see `set_keep_place`.
             keep_place: false,
             code_block_actions: None,
             code_block_highlighter: None,
@@ -680,6 +681,12 @@ impl TextViewState {
             self.reset_selection_and_adapter(cx);
         }
         cx.notify();
+    }
+
+    /// HERDR: whether the last text set has been parsed, so that
+    /// [`Self::rendered_text`] has it.
+    pub fn is_parsed(&self) -> bool {
+        self.committed_revision >= self.revision
     }
 
     /// The text this view renders, which [`RangeHighlight`] ranges index.
@@ -1148,11 +1155,15 @@ impl Render for TextViewState {
         // HERDR: a replaced document keeps the reader's place, and a long one
         // measures only what shows.
         let blocks = self.parsed_content.document.blocks.len();
+        let long = self.keep_place && self.scrollable && blocks > ALL_MEASURED_BLOCKS;
+        if long {
+            // Appended blocks get here with the list's count already right.
+            self.list_state.measure_visible();
+        }
         if self.keep_place && self.scrollable && self.list_state.item_count() != blocks {
             let top = self.list_state.logical_scroll_top();
-            if blocks > ALL_MEASURED_BLOCKS {
+            if long {
                 let size = window.text_style().font_size.to_pixels(window.rem_size());
-                self.list_state.measure_visible();
                 self.list_state.reset_with_uniform_height(
                     blocks,
                     estimated_block_height(
@@ -1421,6 +1432,7 @@ fn parse_content(
     Ok(content)
 }
 
+// HERDR: outline, keep place and long documents.
 #[cfg(test)]
 mod reader_tests {
     use gpui::{Entity, TestAppContext, VisualTestContext, div};
@@ -1512,6 +1524,25 @@ mod reader_tests {
     }
 
     #[gpui::test]
+    fn a_document_appended_past_the_long_mark_keeps_the_place(cx: &mut TestAppContext) {
+        let (state, cx) = open(&sections(100), true, cx);
+        assert_eq!(jump_then_replace(&state, 100, &sections(150), cx), 100);
+        let count = state.read_with(cx, |state, _| state.list_state.item_count());
+        assert!(count > ALL_MEASURED_BLOCKS, "{count} blocks");
+        assert_eq!(jump_then_replace(&state, 200, &edited(150), cx), 200);
+    }
+
+    #[gpui::test]
+    fn an_appended_text_is_parsed_once_its_parse_lands(cx: &mut TestAppContext) {
+        let (state, cx) = open(&sections(5), true, cx);
+        assert!(state.read_with(cx, |state, _| state.is_parsed()));
+        state.update(cx, |state, cx| state.set_text(&sections(6), cx));
+        assert!(!state.read_with(cx, |state, _| state.is_parsed()));
+        settle(cx);
+        assert!(state.read_with(cx, |state, _| state.is_parsed()));
+    }
+
+    #[gpui::test]
     fn a_document_cut_short_keeps_a_place_inside_it(cx: &mut TestAppContext) {
         let (state, cx) = open(&sections(50), true, cx);
         assert!(jump_then_replace(&state, 40, &sections(5), cx) < 10);
@@ -1531,6 +1562,7 @@ mod reader_tests {
     }
 }
 
+// HERDR: the height a long document's blocks start from.
 #[cfg(test)]
 mod estimate_tests {
     use super::*;

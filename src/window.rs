@@ -1393,10 +1393,7 @@ impl AppWindow {
             let (block, addr) = (id.clone(), address.clone());
             let sub = cx.subscribe_in(&view, window, move |this, _, ev: &TerminalEvent, window, cx| match ev {
                 TerminalEvent::Peek(address) => this.peek_terminal(address, window, cx),
-                TerminalEvent::Preview(path) => {
-                    let on = crate::mirror::machine(&addr);
-                    this.run("file.preview", json!({ "file": path, "on": on }), window, cx);
-                }
+                TerminalEvent::Preview(path) => this.preview_from_terminal(path.clone(), crate::mirror::machine(&addr).map(str::to_owned), window, cx),
                 TerminalEvent::TitleChanged => this.publish(cx),
                 TerminalEvent::Ended => this.terminal_ended(&block, window, cx),
                 TerminalEvent::ContextMenu(at) => {
@@ -2330,12 +2327,29 @@ impl AppWindow {
         Ok(json!({ "pane": new, "terminal": addr }))
     }
 
-    /// A mod as a pane beside the target (a viewer next to the shell).
+    /// A click on a Markdown file in a terminal. Only another machine knows its
+    /// home, and asking it takes longer than a frame.
+    fn preview_from_terminal(&mut self, path: PathBuf, on: Option<String>, window: &mut Window, cx: &mut Context<Self>) {
+        let Some((machine, under_home)) = on.clone().zip(crate::links::under_home(&path).map(PathBuf::from)) else {
+            return self.run("file.preview", json!({ "file": path, "on": on }), window, cx);
+        };
+        cx.spawn_in(window, async move |this, cx| {
+            let asked = machine.clone();
+            let home = cx.background_spawn(async move { mods::run_on(&asked, "sh", &["-c".into(), r#"printf %s "$HOME""#.into()]) }).await;
+            let _ = this.update_in(cx, |this, window, cx| match home.filter(|home| !home.is_empty()) {
+                Some(home) => this.run("file.preview", json!({ "file": PathBuf::from(home).join(under_home), "on": machine }), window, cx),
+                None => this.show_failure("file.preview", &format!("cannot find the home folder on {machine}"), window, cx),
+            });
+        })
+        .detach();
+    }
+
     fn files_panel_docked(&self) -> bool {
         let allowed = mods::shared("workspace.panels").and_then(|p| p.as_array().cloned()).is_none_or(|p| p.iter().any(|id| id == "files"));
         allowed && self.chrome.find("panel-body").is_some_and(|n| n.find("files").is_some())
     }
 
+    /// A mod as a pane beside the target (a viewer next to the shell).
     fn split_mod(&mut self, pane: Option<String>, axis: Axis, name: String, props: Value) -> Result<Value, String> {
         let target = pane.or_else(|| self.model.focused_pane()).ok_or("no pane to split")?;
         if self.model.tab_of(&target).is_none() {
@@ -2571,9 +2585,13 @@ impl AppWindow {
     fn run(&mut self, name: &str, args: Value, window: &mut Window, cx: &mut Context<Self>) {
         // A click or key has nobody to read the reply: show why it failed.
         if let Some(error) = self.run_as(name, args, true, window, cx).get("error").and_then(Value::as_str) {
-            let spec = json!({"kind":"toast", "notification":{"title":format!("{name} failed"),"body":error,"level":"error"}});
-            self.open_overlay(mods::new_overlay_id(), spec, window, cx);
+            self.show_failure(name, error, window, cx);
         }
+    }
+
+    fn show_failure(&mut self, name: &str, error: &str, window: &mut Window, cx: &mut Context<Self>) {
+        let spec = json!({"kind":"toast", "notification":{"title":format!("{name} failed"),"body":error,"level":"error"}});
+        self.open_overlay(mods::new_overlay_id(), spec, window, cx);
     }
 
     /// Runs a command and says what it made or why not. Scripts and agents
@@ -3056,13 +3074,14 @@ impl AppWindow {
             }
             "file.preview" => {
                 // A mod pane can hold the focus: the tab's terminal still says where we are.
-                let focused = self.focused_terminal(window).map(|t| t.address.clone())
-                    .or_else(|| self.model.active_tab()?.root.panes().into_iter().find_map(|p| self.model.address_of(&p.id)));
+                let focused = self.focused_terminal(window).map(|t| t.address.clone()).or_else(|| self.model.active_terminal());
                 let machine = focused.as_deref().and_then(crate::mirror::machine).map(str::to_owned);
                 let folder = focused.and_then(|t| self.cwds.get(&t).cloned());
                 let asked = Self::arg(a, "file").unwrap_or_default();
                 let path = folder.map_or_else(|| asked.into(), |f| std::path::Path::new(&f).join(asked));
-                let file = json!({ "file": path, "on": Self::owned(a, "on").or(machine) });
+                // An explicit null is this computer, whichever terminal has the focus.
+                let on = a.get("on").map_or(machine, |on| on.as_str().map(str::to_owned));
+                let file = json!({ "file": path, "on": on });
                 let shown = if self.files_panel_docked() {
                     mods::set_shared("files.open".into(), file);
                     self.run_as("layout.select", json!({ "stack": "panel-body", "child": "files" }), false, window, cx);
@@ -3070,7 +3089,7 @@ impl AppWindow {
                 } else if let Some(pane) = self.model.set_active_mod_props("files", file.clone()) {
                     json!({ "pane": pane })
                 } else {
-                    self.run_as("pane.split", json!({ "direction": "right", "mod": "files", "props": file }), false, window, cx)
+                    self.run_as("pane.split", preview_split(self.model.focused_pane(), file), false, window, cx)
                 };
                 self.reply = Some(shown);
             }
@@ -4323,6 +4342,11 @@ fn terminal_block<'a>(chrome: &'a Node, focused: Option<&str>) -> Option<&'a Nod
     chrome.visible_blocks().into_iter().find(|n| n.id == id && n.terminal().is_some())
 }
 
+/// Names its pane, as a layout terminal block can hold the focus and a click must still preview.
+fn preview_split(pane: Option<String>, file: Value) -> Value {
+    json!({ "direction": "right", "mod": "files", "props": file, "pane": pane })
+}
+
 fn needs_model_pane(name: &str, args: &Value) -> bool {
     match name {
         "pane.split" | "pane.close" | "pane.zoom" | "terminal.show" => AppWindow::arg(args, "pane").is_none(),
@@ -4772,6 +4796,14 @@ mod tests {
         for id in [None, Some("hidden"), Some("tabs"), Some("source-pane"), Some("overlay:term")] {
             assert!(super::terminal_block(&chrome, id).is_none());
         }
+    }
+
+    #[test]
+    fn a_preview_names_the_pane_it_splits_so_a_focused_terminal_block_cant_stop_it() {
+        use serde_json::json;
+        let args = super::preview_split(Some("pane-1".into()), json!({ "file": "/a.md" }));
+        assert!(!super::needs_model_pane("pane.split", &args));
+        assert_eq!(args["props"]["file"], "/a.md");
     }
 
     #[test]

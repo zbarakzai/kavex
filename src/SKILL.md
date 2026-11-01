@@ -41,8 +41,7 @@ when asked. It renders there and follows the file as you save it:
 zaki do file.preview --file plan.md
 ```
 
-A relative path starts at the focused terminal's folder. Add `--on vps` for a file on
-another machine. Cmd-click (Ctrl-click) on a Markdown file's name in terminal text does the
+A relative path starts at your own folder. Add `--on vps` for a file on another machine. Cmd-click (Ctrl-click) on a Markdown file's name in terminal text does the
 same, so naming a file that exists in your output lets the person open it themselves.
 
 Tab groups and colors belong to the person. `zaki do tabs.group`, `tabs.fold`,

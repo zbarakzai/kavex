@@ -27,7 +27,7 @@ mock.module("gpui-base", () => ({
   EditorState: { new: (options: any) => { const editor = { options, values: [options.value], released: false, set_value(v: string) { editor.values.push(v); }, release() { editor.released = true; } }; state.editors.push(editor); return editor; } },
   MarkdownState: { new: (options: any) => {
     const doc: Doc & Record<string, any> = { options, values: [options.value], scrolled: [], released: false, outlined: state.outline, looks: 0,
-      set_value(v: string) { doc.values.push(v); }, set_look() { doc.looks++; }, outline: () => doc.outlined, scroll_to(b: number) { doc.scrolled.push(b); }, find: () => 0, find_step: () => 0, release() { doc.released = true; } };
+      set_value(v: string) { doc.values.push(v); }, set_look() { doc.looks++; }, outline: () => doc.outlined, scroll_to(b: number) { doc.scrolled.push(b); }, find: () => 0, find_step: () => 0, find_again: () => null, release() { doc.released = true; } };
     state.docs.push(doc);
     return doc;
   } },
@@ -117,6 +117,24 @@ test("Leaving a file releases what it held", async () => {
   expect(f.file).toBeNull();
   expect(state.docs[0].released).toBe(true);
   expect(editors()[0].released).toBe(true);
+});
+
+test("A save during a find counts again once its parse lands, and a closed find asks nothing", async () => {
+  const { f, cx } = await panel();
+  f.show("README.md", cx);
+  await settled();
+  let asked = 0;
+  state.docs[0].find_again = () => (++asked < 3 ? null : { found: 4, at: 2 });
+  f.reader.openFind(cx);
+  f.reader.found = 9; f.reader.foundAt = 7;
+  state.files["/repo/README.md"] = "# Hi\n\nmore\n";
+  f.reload(cx);
+  await settled();
+  expect(asked).toBe(3);
+  expect([f.reader.found, f.reader.foundAt]).toEqual([4, 2]);
+  f.reader.closeFind(cx);
+  f.reader.update("# Other\n", cx);
+  expect(asked).toBe(3);
 });
 
 test("A document follows its file; the same text does nothing", async () => {
@@ -265,7 +283,7 @@ test("Going elsewhere and back keeps the machine too", async () => {
   await settled();
   const context = f.context.key;
   expect(f.fileOn).toBe("vps");
-  f.saved.set(context, { folders: f.folders, file: f.file, on: f.fileOn });
+  f.saved.set(context, { folders: f.folders, shown: f.shownFile() });
   f.context = { key: "elsewhere" };
   f.refresh(cx);
   await settled();
@@ -330,7 +348,7 @@ test("The look only uses the theme's colors, each one a color, and marks in no o
   const look = readerLook(colors);
   const values = Object.entries(look).filter(([key]) => !key.endsWith("_icon")).flatMap(([, value]) => (typeof value === "string" ? [value] : Object.values(value as object)));
   for (const color of values) expect(color).toMatch(/^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/);
-  expect(look.alerts).toHaveLength(5);
+  expect(Object.keys(look.alerts)).toEqual(["note", "tip", "important", "warning", "caution"]);
   // Selections paint over the glyphs: opaque, they hide what's selected.
   expect(look.selection).toMatch(/^#[0-9a-fA-F]{8}$/);
   expect(look.mark_active.slice(0, 7).toLowerCase()).not.toBe(colors.accent.toLowerCase());

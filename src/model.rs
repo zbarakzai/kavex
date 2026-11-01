@@ -288,6 +288,11 @@ impl Model {
 
     /// Gives the active tab's first pane showing mod `name` new props, and so a
     /// fresh copy. Returns the pane.
+    /// The first terminal of the shown tab, for when no terminal holds the focus.
+    pub fn active_terminal(&self) -> Option<String> {
+        self.active_tab()?.root.panes().into_iter().find_map(|p| self.address_of(&p.id))
+    }
+
     pub fn set_active_mod_props(&mut self, name: &str, props: Value) -> Option<String> {
         let tab = self.active_tab()?.id.clone();
         let tab = self.tab_mut(&tab)?;
