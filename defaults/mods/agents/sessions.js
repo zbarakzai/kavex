@@ -1,16 +1,24 @@
 // What each agent's session shows on its row and in its dropdown. An agent here is a small
 // object (see claude.js): `locate` finds a terminal's session, `helpers` its helpers' files,
 // `filter`, `facts` and `add` read their lines, `numbers` says what they add up to (cost included,
-// or left out for "no price"), and `limit` asks how big its model's context is.
+// or left out for "no price"), and `limit` asks how big its model's context is, unless `numbers`
+// knows and gives `context` itself. One that labels its own terminal is marked `reports`, and
+// one with files of its own to set up has `setup`, a version, and `install`.
 
-import { exec, setShared, shared, terminals, watchFolder } from "herdr";
+import { exec, hc, home, readTextFile, setShared, shared, terminals, watchFolder, writeTextFile } from "herdr";
 import { claude } from "./claude.js";
+import { codex } from "./codex.js";
 
-const AGENTS = { claude };
+const AGENTS = { claude, codex };
 
+const LABEL = "zaki.session";
 const NONE = { state: "none" };
+const EMPTY = { state: "empty" };
+const WAITING = { state: "waiting" };
+const WORKED = ["working", "done"];
 const EVERY = 2000;
 const LIMITS = "agents.limits";
+const SETUP = "agents.setup";
 const KEPT = 86400000;
 const RETRY = 600000;
 
@@ -33,6 +41,7 @@ export class Sessions {
     this.live = new Map();
     this.folders = new Set();
     this.asked = new Map();
+    this.tried = new Map();
   }
 
   start(cx) {
@@ -42,7 +51,7 @@ export class Sessions {
 
   shown(address) {
     const found = this.live.get(address)?.result ?? NONE;
-    if (found.state !== "ready") return found;
+    if (found.state !== "ready" || found.context) return found;
     const { asked, used, ...rest } = found;
     const total = shared(LIMITS)?.[asked]?.total;
     // More used than the total means the total is wrong: no percent rather than a wrong one.
@@ -57,12 +66,39 @@ export class Sessions {
     if (Date.now() - (this.reading ?? 0) < 60000) return;
     const run = (this.reading = Date.now());
     cx.spawn(async (cx) => {
-      const listed = terminals().filter((t) => t.state === "live" && hasSession(t) && (!this.only || t.address === this.only));
+      const all = terminals();
+      const listed = all.filter((t) => t.state === "live" && hasSession(t) && (!this.only || t.address === this.only));
       for (const a of this.live.keys()) if (!listed.some((t) => t.address === a)) this.live.delete(a);
+      if (!this.only) await this.tidy(all);
       for (const term of listed) {
+        if (!this.only) this.setUp(term.program.key, AGENTS[term.program.key], cx);
         if (this.reading === run) await this.follow(term, run, cx);
       }
       if (this.reading === run) this.reading = 0;
+    });
+  }
+
+  // A label outlives the agent that set it, and the next one only sets its own on its first
+  // message: back at the shell, it goes, so that one can't show the last one's numbers.
+  async tidy(all) {
+    for (const t of all) {
+      if (t.state !== "live" || !t.program?.shell || !t.labels?.[LABEL]) continue;
+      try {
+        await hc(["label", t.address, `${LABEL}=`]);
+      } catch {}
+    }
+  }
+
+  // An agent's own files, once per `agent.setup` per machine. `name` keys that, so a machine
+  // can have its own. One that couldn't be done waits before the next try.
+  setUp(name, agent, cx) {
+    const now = Date.now();
+    if (agent.setup === undefined || shared(SETUP)?.[name] === agent.setup) return;
+    if (now - (this.tried.get(name) ?? -RETRY) < RETRY) return;
+    this.tried.set(name, now);
+    cx.spawn(async () => {
+      const done = await agent.install({ home: home(), read: readTextFile, write: writeTextFile }).catch(() => false);
+      if (done) setShared(SETUP, { ...shared(SETUP), [name]: agent.setup });
     });
   }
 
@@ -72,22 +108,33 @@ export class Sessions {
     const agent = AGENTS[term.program.key];
     let session = this.live.get(term.address);
     try {
-      const found = await agent.locate(term);
+      const found = await agent.locate(term, term.labels?.[LABEL]);
       if (this.reading !== run) return;
       if (found && found.id !== session?.id) {
         session = { ...found, facts: agent.facts(), files: new Map(), changes: 1, done: 0 };
         this.live.set(term.address, session);
       }
+      if (agent.reports && !session?.file) return this.unreported(term, cx);
       if (!session || (session.done === session.changes && this.folders.has(session.folder))) return;
       const { changes } = session;
       const had = JSON.stringify(session.result);
       const result = await this.read(session, agent, run);
       if (result) session.done = changes;
-      session.result = result ?? session.result ?? { state: "empty" };
+      session.result = result ?? session.result ?? EMPTY;
       this.watch(session, cx);
-      if (session.result.state === "ready" && !this.only) this.ask(agent, session.result.asked, cx);
+      if (session.result.state === "ready" && !this.only && agent.limit) this.ask(agent, session.result.asked, cx);
       if (JSON.stringify(session.result) !== had) cx.notify();
     } catch {}
+  }
+
+  // An agent that reports its own session and hasn't. Codex's hook runs on its first message, not
+  // at launch, so one that hasn't worked yet may simply be new; only one that has is waiting.
+  unreported(term, cx) {
+    const had = this.live.get(term.address);
+    const worked = had?.worked || WORKED.includes(term.status);
+    const result = worked ? WAITING : EMPTY;
+    this.live.set(term.address, { worked, result });
+    if (had?.result !== result) cx.notify();
   }
 
   // A pass that has been replaced stops here, before it touches anything.
@@ -96,20 +143,24 @@ export class Sessions {
   }
 
   // What a session comes to, or null while it has no file. Helpers add to its facts, and only
-  // those that have grown are read; one found rewritten starts the whole session over.
+  // those that have grown are read; one found rewritten starts the whole session over, and a
+  // helper can name more of them.
   async read(session, agent, run) {
     for (;;) {
       if (!(await this.take(session, session.file, agent, run))) return null;
       const { facts } = session;
-      const helpers = (await agent.helpers?.(session)) ?? [];
-      this.still(run);
-      for (const { file, size } of helpers) {
-        if (session.files.get(file)?.size !== size) await this.take(session, file, agent, run, true);
+      for (let again = Boolean(agent.helpers); again && session.facts === facts; ) {
+        const helpers = await agent.helpers(session);
+        this.still(run);
+        again = helpers.some(({ file }) => !session.files.has(file));
+        for (const { file, size } of helpers) {
+          if (session.files.get(file)?.size !== size) await this.take(session, file, agent, run, true);
+        }
       }
       if (session.facts === facts) break;
     }
     const numbers = agent.numbers(session.facts);
-    return numbers ? { state: "ready", ...numbers } : { state: "empty" };
+    return numbers ? { state: "ready", ...numbers } : EMPTY;
   }
 
   // Reads a file's new lines into the session's facts, or returns false if it isn't there.
@@ -129,7 +180,7 @@ export class Sessions {
       }
       for (let i = 1; i < lines.length; i++) {
         try {
-          agent.add(session.facts, JSON.parse(lines[i]), helper);
+          agent.add(session.facts, JSON.parse(lines[i]), helper, file);
         } catch {}
       }
       const end = block + WINDOW;
@@ -149,7 +200,7 @@ export class Sessions {
       try {
         for (;;) {
           const changed = await watchFolder(folder);
-          for (const s of this.live.values()) if (changed.some((path) => path.includes(s.id))) s.changes++;
+          for (const s of this.live.values()) if (s.file && changed.some((path) => path.includes(s.id) || s.files.has(path))) s.changes++;
         }
       } catch {
         this.folders.delete(folder);

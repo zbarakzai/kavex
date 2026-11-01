@@ -198,12 +198,12 @@ the highlighted line shows where it will land.
   peek at it. The same click on a Markdown file opens it in the Files panel; any other
   file or URL goes to the system. Bare addresses refer to the machine of the terminal showing them;
   use `machine/address` for another machine. Names and non-live addresses aren't links.
-- **Session context**: in the agents list, a Claude Code row on this computer, and a Claude
+- **Session context**: in the agents list, a Claude Code or Codex row on this computer, and such a
   sub-agent's, shows how full its session's context is, as a small percent between the name and the
   time, orange from 90%. Clicking its logo opens a dropdown with the model running now, a context
   bar with tokens used, the total and the percent, the API cost, and input, output and cached
   tokens. It follows the session while open, and neither focuses the agent nor folds anything; the
-  chevron folds sub-agents. The numbers come from Claude's own files on this computer, read through
+  chevron folds sub-agents. The numbers come from the agent's own files on this computer, read through
   `sh`, and each agent's are its own, even with several in one folder. Context is the newest message
   of the agent's own conversation, so its helpers don't count, and `/compact` lowers it with Claude's
   next message. The API cost is what the session's tokens would cost at API prices, in US dollars,
@@ -220,6 +220,23 @@ the highlighted line shows where it will land.
   row shows nothing. A new agent shows no percent and "No usage yet", and an unreadable session
   shows no percent and no error. Nothing is sent over the network and no login is read. Any other
   agent, and one on another machine, shows no percent, and its logo acts like its row.
+
+  Codex differs in a few ways. Nothing on disk ties a running Codex to its session, so **Zaki adds a
+  hook to Codex by itself**, the first time it sees one on this computer: a new group at the end of
+  `SessionStart` in `~/.codex/hooks.json`, running `~/.zaki/codex-session.sh` (`.ps1` on Windows).
+  Other hooks keep their place and their approval, a hook file that can't be understood is left
+  alone, and a hook the person removes stays removed until Zaki's setup changes. **Zaki never
+  approves it**: Codex runs it only once the person trusts it in `/hooks`, once per computer, and a
+  Codex already running needs a restart. It does nothing outside a Zaki terminal. It runs when a
+  session starts, which for Codex means its first message, and labels the terminal
+  `zaki.session=<session file>`. So a new Codex shows no percent and "No usage yet", and one that has
+  worked and reported nothing shows `–`, with what to do in its dropdown. A terminal back at its
+  shell loses the label. `/clear`, `/new` and `/fork` start the numbers over with the new session's
+  first message, and until then the old ones stay. `/compact` lowers context at once. The total is
+  in the session's own lines, and the percent is Codex's own sum, which leaves a base of 12,000 tokens
+  out of both sides: it's 100 minus Codex's "% context left", a few points under used over total. The
+  API cost is per response: cached input apart, and Fast and long context (over 272K input) at their
+  own prices. Cache writes read "no price": Codex gives one figure and the page prices two kinds.
 - **Agent navigation order** belongs to the mods. A mod displaying agents calls
   `setAgentOrder(list.map(a => a.address))` on render so `agent.next` /
   `agent.prev` follow its list.

@@ -2,6 +2,7 @@
 
 import { exec, home, readTextFile } from "herdr";
 import { PRICES, REGIONS, priced } from "./prices.js";
+import { sizes } from "./sizes.js";
 
 const folderName = (cwd) => cwd.replace(/[^a-zA-Z0-9]/g, "-");
 
@@ -39,10 +40,7 @@ export const claude = {
   // A helper has a file of its own beside the session. One `wc` says how big they all are.
   async helpers({ folder, id }) {
     const { stdout } = await exec("sh", ["-c", 'wc -c "$1"/*.jsonl 2>/dev/null', "sh", `${folder}/${id}/subagents`]);
-    return stdout.split("\n").flatMap((line) => {
-      const [, size, file] = line.match(/^\s*(\d+)\s(.+\.jsonl)$/) ?? [];
-      return file ? [{ file, size: Number(size) }] : [];
-    });
+    return sizes(stdout);
   },
 
   // Running totals: reading a session comes down to `add`, so `numbers` stays cheap however long

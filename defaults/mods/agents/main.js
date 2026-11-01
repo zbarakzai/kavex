@@ -74,16 +74,21 @@ export default class Agents extends View {
     });
   }
 
-  // Until its own first read, a dropdown shows what the row knew.
+  // Until its own first read, a dropdown shows what the row knew. A row can also know an agent
+  // has worked, which this copy can't: it started after that.
   drawDropdown(t) {
-    const shown = this.sessions.shown(props().session);
-    return dropdown(t, shown.state === "none" ? props().first : shown);
+    const { session, first } = props();
+    const shown = this.sessions.shown(session);
+    return dropdown(t, shown.state === "none" || (shown.state === "empty" && first.state === "waiting") ? first : shown);
   }
 
   // How full an agent's session is, in the time's small text. Orange means "needs you".
+  // A dash is an agent that has yet to report its session.
   percent(t, k, address) {
-    const percent = this.sessions.shown(address).context?.percent;
-    return percent === undefined ? [] : [div().flex_none().font_family(MONO).text_size(10).text_color(percent >= 90 ? t.blocked : k.label).child(`${percent}%`)];
+    const { state, context } = this.sessions.shown(address);
+    const percent = context?.percent;
+    const text = state === "waiting" ? "–" : percent === undefined ? null : `${percent}%`;
+    return text ? [div().flex_none().font_family(MONO).text_size(10).text_color(percent >= 90 ? t.blocked : k.label).child(text)] : [];
   }
 
   // A logo with a session behind it opens its dropdown; any other is part of the row.

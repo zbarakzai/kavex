@@ -1,5 +1,5 @@
 import { test, expect, mock, beforeEach, afterAll, setSystemTime, spyOn } from "bun:test";
-import { appendFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { appendFileSync, chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
@@ -58,6 +58,21 @@ mock.module("herdr", () => ({
     if (state.brokenFiles) throw new Error("no such thing");
     try { return readFileSync(path, "utf8"); } catch { return null; }
   },
+  // Refuses a changed file as the real one does, and anything outside the scratch home.
+  writeTextFile: async (path: string, text: string, expected: string | null) => {
+    if (!path.startsWith(`${home}/`)) throw new Error(`outside the scratch home: ${path}`);
+    if (state.brokenWrites) throw new Error("can't write");
+    if ((existsSync(path) ? readFileSync(path, "utf8") : null) !== expected) throw new Error("The file changed while saving.");
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, text);
+    state.written.push(path);
+    return null;
+  },
+  hc: async (args: string[]) => {
+    state.hc.push(args);
+    if (state.brokenHc) throw new Error("no hc");
+    return { code: 0, stdout: "", stderr: "" };
+  },
   watchFolder: (folder: string) => {
     if (state.brokenWatch) throw new Error("can't watch");
     state.watched.push(folder);
@@ -68,7 +83,7 @@ mock.module("herdr", () => ({
     state.execs.push([cmd, ...args]);
     if (cmd === "claude") return state.claude(args);
     if (state.brokenExec) throw new Error("cannot run");
-    const r = Bun.spawnSync([cmd, ...args]);
+    const r = Bun.spawnSync([cmd, ...args], { env: { ...process.env, HOME: home } });
     const stdout = r.stdout.toString();
     state.outputs.push(stdout.length);
     if (state.asleep) await state.asleep;
@@ -149,11 +164,12 @@ const open = async () => {
 const shows = (draw: () => El, address: string) => words(byId(draw(), `ag-${address}`)!);
 
 beforeEach(() => {
-  rmSync(join(home, ".claude"), { recursive: true, force: true });
+  for (const folder of [".claude", ".codex", ".zaki"]) rmSync(join(home, folder), { recursive: true, force: true });
   state = {
     agents: [], terminals: [], ran: [], shared: {}, opened: [], closed: [], props: {}, layout: null,
     reads: [], watched: [], watchers: [], execs: [], running: 0, parked: 0, timers: [], notified: 0, stopped: 0,
-    outputs: [], brokenFiles: false, brokenExec: false, brokenWatch: false,
+    outputs: [], brokenFiles: false, brokenExec: false, brokenWatch: false, brokenWrites: false, brokenHc: false,
+    written: [], hc: [], totals: {}, ordinal: 0,
     claude: () => ({ code: 0, stdout: contextReply("13.7k / 1m (1%)"), stderr: "" }),
   };
 });
@@ -601,7 +617,7 @@ test("every color the row and the dropdown use comes from the theme", async () =
   for (const e of [...all(root), ...all(byId(draw(), "ag-t1")!)]) {
     for (const [k, a] of e.calls) if (["text_color", "bg", "border_color"].includes(k) && a[0] !== undefined) expect(named.has(a[0])).toBe(true);
   }
-  for (const file of ["main.js", "sessions.js", "claude.js", "dropdown.js", "prices.js"]) {
+  for (const file of ["main.js", "sessions.js", "claude.js", "codex.js", "sizes.js", "dropdown.js", "prices.js"]) {
     expect(readFileSync(new URL(`../defaults/mods/agents/${file}`, import.meta.url), "utf8")).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
   }
 });
@@ -1038,7 +1054,855 @@ test("no network, no login: all a pass touches is the session and Claude's own /
   expect([...new Set(state.execs.map(([cmd]: string[]) => cmd))].sort()).toEqual(["claude", "sh"]);
   const touched = [...state.reads, ...state.execs.flat()].join("\n");
   expect(touched).not.toMatch(/credential|keychain|oauth|\.netrc|security/i);
-  for (const file of ["main.js", "sessions.js", "claude.js", "dropdown.js", "prices.js"]) {
+  for (const file of ["main.js", "sessions.js", "claude.js", "codex.js", "sizes.js", "dropdown.js", "prices.js"]) {
     expect(readFileSync(new URL(`../defaults/mods/agents/${file}`, import.meta.url), "utf8")).not.toMatch(/\bfetch\(|WebSocket|https?:/);
   }
+});
+
+// Codex, from here on. Lines have the keys real session files have, with made-up words.
+const CODEX = { key: "codex", name: "Codex", icon: "icons/codex.svg", tint: false, tile: null, color: null, agent: true, shell: false };
+const SHELL = { key: "shell", name: "Shell", icon: null, tint: false, tile: null, color: null, agent: false, shell: true };
+const sessionsRoot = () => join(home, ".codex", "sessions");
+const uuid = (n: number) => `01a19000-0000-7000-8000-${String(n).padStart(12, "0")}`;
+const rollout = (id: string, day = "01") => join(sessionsRoot(), "2026", "11", day, `rollout-2026-11-${day}T10-00-00-${id}.jsonl`);
+const labelled = (id: string, day?: string) => ({ "zaki.session": rollout(id, day) });
+const aCodex = (address: string, more: any = {}) => running(address, 201, CODEX, { foreground: { pid: 201, name: "codex", argv: ["codex"], cwd: "/work/project" }, ...more });
+
+const envelope = (type: string, payload: any) => JSON.stringify({ timestamp: "2026-11-01T10:00:00.000Z", ordinal: state.ordinal++, type, payload });
+const metaOf = (id: string, more: any = {}) => envelope("session_meta", { id, session_id: id, timestamp: "2026-11-01T10:00:00.000Z", cwd: "/work/project", originator: "codex-tui", cli_version: "0.166.0", source: "cli", model_provider: "openai", base_instructions: { text: "made up" }, history_mode: "full", ...more });
+const turn = (model = "gpt-6.1-sol") => envelope("turn_context", { turn_id: "t", cwd: "/work/project", approval_policy: "on-request", model, effort: "high", summary: "auto" });
+const tier = (service_tier: string) => envelope("event_msg", { type: "thread_settings_applied", thread_settings: { model: "gpt-6.1-sol", service_tier, cwd: "/work/project" } });
+const noise = (text = "made up") => envelope("response_item", { type: "message", role: "assistant", content: [{ type: "output_text", text }] });
+const started = (kid: string, kind = "started") => envelope("event_msg", { type: "item_completed", item: { type: "SubAgentActivity", id: "i", kind, agent_thread_id: kid, agent_path: "/root/made_up" } });
+
+// One response: `input` holds `cached`, as Codex writes it, and the file keeps a running total.
+type Used = { input?: number; cached?: number; write?: number; output?: number; reasoning?: number; window?: number | null };
+const usageOf = ({ input = 0, cached = 0, write = 0, output = 0, reasoning = 0 }: Used) => ({ input_tokens: input, cached_input_tokens: cached, cache_write_input_tokens: write, output_tokens: output, reasoning_output_tokens: reasoning, total_tokens: input + output });
+const tokenCount = (total: any, last: any, window: number | null) => envelope("event_msg", { type: "token_count", info: { total_token_usage: total, last_token_usage: last, model_context_window: window }, rate_limits: { limit_id: "codex", primary: { used_percent: 1, window_minutes: 300, resets_at: 1 }, plan_type: "made-up" } });
+const spent = (id: string, used: Used) => {
+  const last = usageOf(used);
+  const total: any = (state.totals[id] ??= usageOf({}));
+  for (const key of Object.keys(last) as (keyof typeof last)[]) total[key] += last[key];
+  return tokenCount({ ...total }, last, used.window === undefined ? 258400 : used.window);
+};
+
+const codexWrites = (id: string, lines: string[], day?: string) => {
+  mkdirSync(dirname(rollout(id, day)), { recursive: true });
+  appendFileSync(rollout(id, day), lines.map((l) => `${l}\n`).join(""));
+};
+const codexRow = async (id: string, lines: string[], address = "t1") => {
+  const term = aCodex(address, { labels: labelled(id) });
+  state.terminals = [term];
+  state.agents = [listed(term)];
+  if (lines.length) codexWrites(id, lines);
+  const list = await open();
+  await ticks();
+  return list;
+};
+
+test("a Codex row shows its session from the terminal's label, with Codex's own sum", async () => {
+  // Codex leaves a 12,000 token base out of both sides: 61,600 of 246,400 is 25% used.
+  const { draw } = await codexRow(uuid(1), [metaOf(uuid(1)), turn(), spent(uuid(1), { input: 73600 })]);
+  expect(rowPercents(draw, "t1")).toEqual(["25%"]);
+});
+
+const HOOKS_MESSAGE = "Run `/hooks` in Codex, trust Zaki's hook, then restart this Codex.";
+const quietCodex = async (more: any = {}) => {
+  const term = aCodex("t1", more);
+  state.terminals = [term];
+  state.agents = [listed(term)];
+  const list = await open();
+  await ticks();
+  return list;
+};
+const works = async (more: any = {}) => {
+  state.terminals = [aCodex("t1", { status: "working", ...more })];
+  await ticks();
+};
+
+test("a Codex that has worked and reported no session shows a dash, and its dropdown says what to do", async () => {
+  const { draw } = await quietCodex();
+  await works();
+  state.terminals = [aCodex("t1", { status: "idle" })];
+  await ticks();
+  expect(shows(draw, "t1")).toContain("–");
+  expect(rowPercents(draw, "t1")).toEqual([]);
+  clicks(byId(draw(), "logo-t1")!);
+  expect(words((await dropdown()).draw())).toEqual([HOOKS_MESSAGE]);
+});
+
+test("a new Codex shows no percent before its first message, and No usage yet, because its hook hasn't had a turn to run in", async () => {
+  const { draw } = await quietCodex();
+  expect(shows(draw, "t1")).not.toContain("–");
+  expect(rowPercents(draw, "t1")).toEqual([]);
+  clicks(byId(draw(), "logo-t1")!);
+  expect(words((await dropdown()).draw())).toEqual(["No usage yet"]);
+});
+
+test("the dash is in the time's small text and stays on hover", async () => {
+  const { view, draw } = await quietCodex();
+  await works();
+  view.changed.t1 = { s: "idle", at: Date.now() - 300000 };
+  const row = byId(draw(), "ag-t1")!;
+  const dash = all(row).find((e) => e.kids.includes("–"))!;
+  const time = all(row).find((e) => e.kids.includes("5m"))!;
+  expect([arg(dash, "font_family"), arg(dash, "text_size"), arg(dash, "text_color")]).toEqual([arg(time, "font_family"), arg(time, "text_size"), arg(time, "text_color")]);
+  row.calls.find(([k]) => k === "on_hover")![1][0](true, cx);
+  expect(words(byId(draw(), "ag-t1")!)).toContain("–");
+});
+
+test("after approving and restarting, the same agent shows its numbers, and an open dropdown follows", async () => {
+  const { draw } = await quietCodex();
+  await works();
+  clicks(byId(draw(), "logo-t1")!);
+  const { draw: card } = await dropdown();
+  expect(words(card())).toEqual([HOOKS_MESSAGE]);
+
+  codexWrites(uuid(1), [metaOf(uuid(1)), turn(), spent(uuid(1), { input: 73600, output: 10 })]);
+  await works({ labels: labelled(uuid(1)) });
+  expect(rowPercents(draw, "t1")).toEqual(["25%"]);
+  expect(words(card())).toContain("73.6k / 258k");
+});
+
+test("a dropdown opened on a waiting Codex says so from the start, though it hasn't seen it work", async () => {
+  const { draw } = await quietCodex();
+  await works();
+  state.terminals = [aCodex("t1", { status: "idle" })];
+  await ticks();
+  clicks(byId(draw(), "logo-t1")!);
+  expect(words((await dropdown()).draw())).toEqual([HOOKS_MESSAGE]);
+});
+
+test("only a real session file in the label counts", async () => {
+  for (const label of ["hello", "/etc/passwd", join(sessionsRoot(), "notes.jsonl"), join(home, "2026", "11", "01", `rollout-x-${uuid(1)}.jsonl`), `${rollout(uuid(1))}.bak`, join(sessionsRoot(), "2026", "11", "01", "rollout-made-up.jsonl")]) {
+    const { draw } = await quietCodex({ labels: { "zaki.session": label } });
+    await works({ labels: { "zaki.session": label } });
+    expect(shows(draw, "t1")).toContain("–");
+    expect(state.execs).toEqual([]);
+  }
+});
+
+test("a label pointing at a file that isn't there yet reads as no usage", async () => {
+  const { draw } = await codexRow(uuid(1), []);
+  expect(shows(draw, "t1")).not.toContain("–");
+  clicks(byId(draw(), "logo-t1")!);
+  expect(words((await dropdown()).draw())).toEqual(["No usage yet"]);
+  codexWrites(uuid(1), [metaOf(uuid(1)), turn(), spent(uuid(1), { input: 73600 })]);
+  await ticks();
+  expect(rowPercents(draw, "t1")).toEqual(["25%"]);
+});
+
+test("a session with no token record yet reads as no usage", async () => {
+  const { draw } = await codexRow(uuid(1), [metaOf(uuid(1)), turn(), noise()]);
+  expect(rowPercents(draw, "t1")).toEqual([]);
+  clicks(byId(draw(), "logo-t1")!);
+  expect(words((await dropdown()).draw())).toEqual(["No usage yet"]);
+});
+
+test("two Codex agents in one folder each show their own numbers", async () => {
+  const a = aCodex("t1", { labels: labelled(uuid(1)) }), b = aCodex("t2", { labels: labelled(uuid(2)) });
+  state.terminals = [a, b];
+  state.agents = [listed(a), listed(b)];
+  codexWrites(uuid(1), [metaOf(uuid(1)), turn(), spent(uuid(1), { input: 73600 })]);
+  codexWrites(uuid(2), [metaOf(uuid(2)), turn(), spent(uuid(2), { input: 135200 })]);
+  const { draw } = await open();
+  await ticks();
+  expect(rowPercents(draw, "t1")).toEqual(["25%"]);
+  expect(rowPercents(draw, "t2")).toEqual(["50%"]);
+});
+
+test("a record with no context window shows tokens and no percent, and a real zero window isn't divided by", async () => {
+  for (const window of [null, 0]) {
+    const { draw } = await codexRow(uuid(1), [metaOf(uuid(1)), turn(), spent(uuid(1), { input: 5000, output: 100, window })]);
+    expect(rowPercents(draw, "t1")).toEqual([]);
+    clicks(byId(draw(), "logo-t1")!);
+    const seen = words((await dropdown()).draw());
+    expect(seen).toContain("5.1k");
+    expect(percents((await dropdown()).draw())).toEqual([]);
+    rmSync(rollout(uuid(1)));
+  }
+});
+
+test("more used than the window means the window is wrong, so no percent shows", async () => {
+  const { draw } = await codexRow(uuid(1), [turn(), spent(uuid(1), { input: 300000, window: 258400 })]);
+  expect(rowPercents(draw, "t1")).toEqual([]);
+});
+
+test("a Codex percent turns the blocked color from 90%", async () => {
+  const { draw } = await codexRow(uuid(1), [turn(), spent(uuid(1), { input: 231000 })]);
+  const color = (text: string) => arg(all(byId(draw(), "ag-t1")!).find((e) => e.kids.includes(text))!, "text_color");
+  expect(color("89%")).not.toBe(colors.blocked);
+  codexWrites(uuid(1), [spent(uuid(1), { input: 236000 })]);
+  changed(rollout(uuid(1)));
+  await ticks();
+  expect(color("91%")).toBe(colors.blocked);
+});
+
+test("the dropdown names the newest turn's model and the newest record's context", async () => {
+  const id = uuid(1);
+  const { draw } = await codexRow(id, [metaOf(id), turn("gpt-5.6-sol"), spent(id, { input: 100000, cached: 90000, output: 2000 }), turn("gpt-6.1-sol"), spent(id, { input: 120000, cached: 100000, output: 3000 })]);
+  const seen = await card(draw);
+  expect(seen).toContain("GPT-6.1 Sol");
+  expect(seen).toContain("123k / 258k");
+  expect(seen).toContain("45%");
+  expect(seen).toContain("in 30k · out 5k · cached 190k");
+  expect(seen).toContain("What this would cost on the API, not what you paid.");
+});
+
+test("a model name Zaki can't tidy stays as Codex wrote it", async () => {
+  const id = uuid(1);
+  expect(await card((await codexRow(id, [turn("o3-made-up"), spent(id, { input: 100000 })])).draw)).toContain("o3-made-up");
+});
+
+test("API cost treats cached input apart, and reasoning is only part of output", async () => {
+  const id = uuid(1);
+  const seen = await card((await codexRow(id, [turn("gpt-6.1-sol"), spent(id, { input: 1000000, cached: 400000, output: 1000000, reasoning: 500000, window: 2000000 })])).draw);
+  // GPT-6.1 Sol over 272K in: $4 in, $0.20 cached, $15 out. 600k × $4 + 400k × $0.20 + 1M × $15.
+  expect(seen).toContain("$17.48");
+  expect(seen).toContain("in 600k · out 1M · cached 400k");
+});
+
+test("each model's prices are the page's, short and long", async () => {
+  const short = { input: 240000, cached: 200000, output: 120000 };
+  const long = { input: 400000, cached: 100000, output: 100000, window: 2000000 };
+  const rows: [string, string, string][] = [
+    ["gpt-6-astra", "$6.60", "$13.70"],
+    ["gpt-6.1-sol", "$1.30", "$2.72"],
+    ["gpt-6.1-terra", "$0.65", "$1.36"],
+    ["gpt-6-luna", "$0.07", "$0.14"],
+    ["gpt-6-sol", "$1.32", "$2.74"],
+    ["gpt-5.6-sol", "$2.64", "$5.48"],
+    ["gpt-5.6-terra", "$1.56", "$3.04"],
+    ["gpt-5.6-luna", "$0.16", "$0.30"],
+    ["gpt-5.5", "$3.90", "$7.60"],
+    ["gpt-5.4", "$1.95", "$3.80"],
+  ];
+  for (const [model, small, big] of rows) {
+    const id = uuid(1);
+    state.totals = {};
+    const { draw } = await codexRow(id, [turn(model), spent(id, short)]);
+    expect([model, ...(await card(draw))]).toContain(small);
+    rmSync(rollout(id));
+    state.totals = {};
+    const { draw: larger } = await codexRow(id, [turn(model), spent(id, long)]);
+    expect([model, ...(await card(larger))]).toContain(big);
+    rmSync(rollout(id));
+  }
+});
+
+test("exactly 272K in is still the short price, by the response and not by the session", async () => {
+  const id = uuid(1);
+  const seen = await card((await codexRow(id, [turn("gpt-6.1-sol"), spent(id, { input: 272000 }), spent(id, { input: 272000 }), spent(id, { input: 272001, window: 2000000 })])).draw);
+  // $0.544 + $0.544 + 272,001 × $4 a million = $2.176.
+  expect(seen).toContain("$2.18");
+});
+
+test("a session on several models counts each at its own price, and one with no price makes it all no price", async () => {
+  const id = uuid(1);
+  const seen = await card((await codexRow(id, [turn("gpt-6.1-sol"), spent(id, { input: 100000 }), turn("gpt-5.6-sol"), spent(id, { input: 100000 })])).draw);
+  expect(seen).toContain("$0.60");
+  expect(seen).toContain("GPT-5.6 Sol");
+  rmSync(rollout(id));
+  state.totals = {};
+  const { draw } = await codexRow(id, [turn("gpt-6.1-sol"), spent(id, { input: 100000 }), turn("gpt-6.1-sol-2027-01-01"), spent(id, { input: 100, output: 7 })]);
+  const none = await card(draw);
+  expect(none).toContain("no price");
+  expect(none.join(" ")).not.toContain("$");
+  expect(none).toContain("in 100k · out 7 · cached 0");
+});
+
+test("Fast has its own prices, default doesn't change them, and any other tier reads no price", async () => {
+  const id = uuid(1);
+  const used = { input: 100000, output: 10000 };
+  const cost = async (lines: string[]) => {
+    state.totals = {};
+    const seen = await card((await codexRow(id, [...lines, spent(id, used)])).draw);
+    rmSync(rollout(id));
+    return seen;
+  };
+  expect(await cost([turn(), tier("default")])).toContain("$0.30");
+  expect(await cost([turn(), tier("fast")])).toContain("$0.60");
+  expect(await cost([turn(), tier("priority")])).toContain("$0.60");
+  expect(await cost([turn(), tier("flex")])).toContain("no price");
+  expect(await cost([turn("gpt-5.5"), tier("fast")])).toContain("$2.00");
+  state.totals = {};
+  const big = await card((await codexRow(id, [turn("gpt-5.5"), tier("fast"), spent(id, { input: 300000, window: 2000000 })])).draw);
+  expect(big).toContain("no price");
+});
+
+test("Fast counts from when it was turned on", async () => {
+  const id = uuid(1);
+  const seen = await card((await codexRow(id, [turn(), spent(id, { input: 100000 }), tier("fast"), spent(id, { input: 100000 }), tier("default"), spent(id, { input: 100000 })])).draw);
+  // $0.20 + $0.40 + $0.20.
+  expect(seen).toContain("$0.80");
+});
+
+test("cache writes read no price: Codex gives one figure and the page prices two kinds", async () => {
+  const id = uuid(1);
+  const seen = await card((await codexRow(id, [turn(), spent(id, { input: 100000, write: 5000 })])).draw);
+  expect(seen).toContain("no price");
+});
+
+test("a repeated token record counts once", async () => {
+  const id = uuid(1);
+  const last = usageOf({ input: 1000000 });
+  const line = tokenCount(last, last, 2000000);
+  expect(await card((await codexRow(id, [turn(), line, line, tokenCount(last, last, 2000000)])).draw)).toContain("$4.00");
+});
+
+test("a token record with nothing in it changes nothing", async () => {
+  const id = uuid(1);
+  const empty = envelope("event_msg", { type: "token_count", info: null, rate_limits: {} });
+  const { draw } = await codexRow(id, [turn(), spent(id, { input: 73600 }), empty]);
+  expect(rowPercents(draw, "t1")).toEqual(["25%"]);
+  expect(await card(draw)).toContain("$0.15");
+});
+
+test("a running total that falls back to zero mid-session loses no cost, as happens on real files", async () => {
+  const id = uuid(1);
+  const a = usageOf({ input: 1000000 }), b = usageOf({ input: 73600 });
+  const seen = await card((await codexRow(id, [turn(), tokenCount(a, a, 2000000), tokenCount(b, b, 258400)])).draw);
+  // $4 for the first at the long price, $0.1472 for the second.
+  expect(seen).toContain("$4.15");
+  expect(seen).toContain("25%");
+});
+
+test("what a tool printed about tokens is never read as a record", async () => {
+  const id = uuid(1);
+  const talk = noise(`said "type":"token_count" and "type":"turn_context" ${JSON.stringify({ type: "event_msg", payload: { type: "token_count", info: { last_token_usage: { total_tokens: 900000 } } } })}`);
+  const { draw } = await codexRow(id, [turn(), spent(id, { input: 73600 }), talk]);
+  expect(rowPercents(draw, "t1")).toEqual(["25%"]);
+});
+
+test("a new session in the terminal starts over, for /clear, /new and /fork alike", async () => {
+  const one = uuid(1), two = uuid(2);
+  const { draw } = await codexRow(one, [turn(), spent(one, { input: 135200, output: 100 })]);
+  expect(rowPercents(draw, "t1")).toEqual(["50%"]);
+  codexWrites(two, [metaOf(two), turn(), spent(two, { input: 73600, output: 5 })]);
+  state.terminals = [aCodex("t1", { labels: labelled(two) })];
+  await ticks();
+  expect(rowPercents(draw, "t1")).toEqual(["25%"]);
+  expect(await card(draw)).toContain("in 73.6k · out 5 · cached 0");
+});
+
+test("the new session's file may not be there yet when its label lands", async () => {
+  const one = uuid(1), two = uuid(2);
+  const { draw } = await codexRow(one, [turn(), spent(one, { input: 135200 })]);
+  state.terminals = [aCodex("t1", { labels: labelled(two) })];
+  await ticks();
+  expect(rowPercents(draw, "t1")).toEqual([]);
+  clicks(byId(draw(), "logo-t1")!);
+  expect(words((await dropdown()).draw())).toEqual(["No usage yet"]);
+});
+
+test("/compact lowers context with Codex's next record, and tokens and cost carry on", async () => {
+  const id = uuid(1);
+  const { draw } = await codexRow(id, [metaOf(id), turn(), spent(id, { input: 135200, output: 50 }), envelope("compacted", { message: "made up", replacement_history: [] })]);
+  expect(rowPercents(draw, "t1")).toEqual(["50%"]);
+  codexWrites(id, [turn(), spent(id, { input: 20000, output: 25 })]);
+  changed(rollout(id));
+  await ticks();
+  expect(rowPercents(draw, "t1")).toEqual(["3%"]);
+  expect(await card(draw)).toContain("in 155k · out 75 · cached 0");
+});
+
+test("compacting drops context at once: Codex writes the new size with no new usage, and it costs nothing", async () => {
+  const id = uuid(1);
+  const { draw } = await codexRow(id, [metaOf(id), turn(), spent(id, { input: 135200, output: 50 })]);
+  const total = { ...state.totals[id] };
+  codexWrites(id, [envelope("compacted", { message: "made up", replacement_history: [] }), tokenCount(total, { ...usageOf({}), total_tokens: 73600 }, 258400)]);
+  changed(rollout(id));
+  await ticks();
+  expect(rowPercents(draw, "t1")).toEqual(["25%"]);
+  const seen = await card(draw);
+  expect(seen).toContain("in 135k · out 50 · cached 0");
+  expect(seen).toContain("$0.27");
+});
+
+test("a resumed session keeps its numbers in the same file, also after Zaki restarts", async () => {
+  const id = uuid(1);
+  const { draw } = await codexRow(id, [metaOf(id), turn(), spent(id, { input: 1000000, window: 2000000 })]);
+  codexWrites(id, [turn(), spent(id, { input: 500000, window: 2000000 })]);
+  changed(rollout(id));
+  await ticks();
+  expect(await card(draw)).toContain("$6.00");
+  const restarted = await open();
+  await ticks();
+  expect(await card(restarted.draw)).toContain("$6.00");
+});
+
+const helperFirst = (id: string, parent: string, more: any = {}) => metaOf(id, { forked_from_id: parent, parent_thread_id: parent, source: { subagent: { thread_spawn: { parent_thread_id: parent, depth: 1, agent_path: "/root/made_up" } } }, ...more });
+
+test("a helper is found through its parent, on any day, and counts in cost and tokens but not context", async () => {
+  const one = uuid(1), kid = uuid(2);
+  codexWrites(kid, [helperFirst(kid, one), metaOf(one), turn("gpt-5.6-luna"), spent(kid, { input: 200000, output: 1000 })], "02");
+  const { draw } = await codexRow(one, [metaOf(one), turn(), started(kid), spent(one, { input: 73600, output: 10 })]);
+  expect(rowPercents(draw, "t1")).toEqual(["25%"]);
+  const seen = await card(draw);
+  expect(seen).toContain("73.6k / 258k");
+  expect(seen).toContain("GPT-6.1 Sol");
+  expect(seen).toContain("in 274k · out 1k · cached 0");
+  // $0.1472 + $0.0001 for the agent, $0.04 + $0.0012 at Luna's prices for its helper.
+  expect(seen).toContain("$0.19");
+});
+
+test("a helper's helpers count too, however deep, and in one read", async () => {
+  const one = uuid(1), kid = uuid(2), grandkid = uuid(3);
+  codexWrites(grandkid, [helperFirst(grandkid, kid), turn(), spent(grandkid, { input: 1000000, window: 2000000 })]);
+  codexWrites(kid, [helperFirst(kid, one), turn(), started(grandkid), spent(kid, { input: 1000000, window: 2000000 })]);
+  const { draw } = await codexRow(one, [turn(), started(kid), spent(one, { input: 1000000, window: 2000000 })]);
+  expect(known(draw)).toContain("$12.00");
+});
+
+test("activity that names the agent itself, or names a helper many times, counts nothing twice", async () => {
+  const one = uuid(1), kid = uuid(2);
+  codexWrites(kid, [helperFirst(kid, one), turn(), started(one, "interacted"), spent(kid, { input: 1000000, window: 2000000 })]);
+  const { draw } = await codexRow(one, [turn(), started(kid), started(kid, "interacted"), started(kid, "completed"), spent(one, { input: 1000000, window: 2000000 })]);
+  expect(await card(draw)).toContain("$8.00");
+});
+
+test("a helper's tier and model are its own, and don't leak into its parent's next record", async () => {
+  const one = uuid(1), kid = uuid(2);
+  codexWrites(kid, [helperFirst(kid, one), turn("gpt-5.6-sol"), tier("fast"), spent(kid, { input: 100000 })]);
+  const { draw } = await codexRow(one, [turn(), started(kid), spent(one, { input: 100000 })]);
+  expect(known(draw)).toContain("$1.00");
+  codexWrites(one, [spent(one, { input: 100000 })]);
+  changed(rollout(one));
+  await ticks();
+  // $0.20 + $0.80 and a further $0.20 at GPT-6.1 Sol, not Fast GPT-5.6 Sol's $0.80.
+  expect(known(draw)).toContain("$1.20");
+  expect(known(draw)).toContain("GPT-6.1 Sol");
+});
+
+test("a helper with no price makes the session no price", async () => {
+  const one = uuid(1), kid = uuid(2);
+  codexWrites(kid, [helperFirst(kid, one), turn("gpt-9"), spent(kid, { input: 5 })]);
+  const seen = await card((await codexRow(one, [turn(), started(kid), spent(one, { input: 100000 })])).draw);
+  expect(seen).toContain("no price");
+  expect(seen).toContain("in 100k · out 0 · cached 0");
+});
+
+test("a helper that starts later and grows wakes its parent's row, and only what changed is read", async () => {
+  const one = uuid(1), kid = uuid(2), still = uuid(3);
+  codexWrites(still, [helperFirst(still, one), turn(), spent(still, { input: 1000000, window: 2000000 })]);
+  const { draw } = await codexRow(one, [turn(), started(still), spent(one, { input: 1000000, window: 2000000 })]);
+  expect(known(draw)).toContain("$8.00");
+
+  codexWrites(kid, [helperFirst(kid, one), turn(), spent(kid, { input: 1000000, window: 2000000 })]);
+  codexWrites(one, [started(kid)]);
+  changed(rollout(one));
+  await ticks();
+  expect(known(draw)).toContain("$12.00");
+
+  const before = realReads();
+  codexWrites(kid, [spent(kid, { input: 500000, window: 2000000 })]);
+  changed(rollout(kid));
+  await ticks();
+  expect(known(draw)).toContain("$14.00");
+  // The session itself and that one helper.
+  expect(realReads()).toBe(before + 2);
+});
+
+test("a helper whose file can't be found yet is looked for again", async () => {
+  const one = uuid(1), kid = uuid(2);
+  const { draw } = await codexRow(one, [turn(), started(kid), spent(one, { input: 1000000, window: 2000000 })]);
+  expect(known(draw)).toContain("$4.00");
+  codexWrites(kid, [helperFirst(kid, one), turn(), spent(kid, { input: 1000000, window: 2000000 })]);
+  codexWrites(one, [noise()]);
+  changed(rollout(one));
+  await ticks();
+  expect(known(draw)).toContain("$8.00");
+});
+
+test("a session with no helpers looks for none", async () => {
+  const id = uuid(1);
+  await codexRow(id, [turn(), spent(id, { input: 100000 })]);
+  expect(state.execs.filter(([cmd, , script]: string[]) => cmd !== "sh" || !script.includes("dd if="))).toEqual([]);
+});
+
+// Setting up. All of it stays in the scratch home: the fake writer refuses anything else.
+const hooksPath = () => join(home, ".codex", "hooks.json");
+const scriptPath = () => join(home, ".zaki", "codex-session.sh");
+const hookCommand = () => `sh '${scriptPath()}'`;
+const hooksFile = (text: string) => {
+  mkdirSync(dirname(hooksPath()), { recursive: true });
+  writeFileSync(hooksPath(), text);
+};
+const sessionStart = () => JSON.parse(readFileSync(hooksPath(), "utf8")).hooks.SessionStart;
+const ours = (group: any) => group.hooks.some((h: any) => h.command === hookCommand());
+const seesCodex = async () => {
+  await quietCodex();
+  await settle();
+};
+const oldHook = { hooks: [{ command: "bash '/made/up/other-hook.sh' session", timeout: 10, type: "command" }] };
+
+test("the hook goes in when Zaki first sees Codex, as a group of its own, with its script", async () => {
+  await seesCodex();
+  const groups = sessionStart();
+  expect(groups).toHaveLength(1);
+  expect(groups[0].matcher).toBeUndefined();
+  expect(groups[0].hooks).toHaveLength(1);
+  expect(groups[0].hooks[0]).toMatchObject({ type: "command", command: hookCommand(), timeout: 10 });
+  expect(groups[0].hooks[0].commandWindows).toContain(".zaki/codex-session.ps1");
+  expect(existsSync(scriptPath())).toBe(true);
+  expect(state.shared["agents.setup"]).toEqual({ codex: 1 });
+});
+
+test("with no Codex in sight nothing is set up", async () => {
+  await one([said({ id: "m1", read: 100000 })]);
+  expect(existsSync(hooksPath())).toBe(false);
+  expect(state.written).toEqual([]);
+  expect(state.shared["agents.setup"]).toBeUndefined();
+});
+
+test("a Codex on another machine sets up nothing here", async () => {
+  const term = aCodex("vps/t1");
+  state.terminals = [term];
+  state.agents = [listed(term)];
+  await open();
+  await ticks();
+  expect(state.written).toEqual([]);
+});
+
+test("an empty hook file, or one that's only an empty object, takes the hook", async () => {
+  for (const text of ["", "  \n", "{}", '{"hooks":{}}', '{"hooks":{"SessionStart":[]}}']) {
+    hooksFile(text);
+    state.shared = {};
+    await seesCodex();
+    expect(sessionStart().filter(ours)).toHaveLength(1);
+    expect(sessionStart()).toHaveLength(1);
+  }
+});
+
+test("other hooks stay exactly as they were, in their places", async () => {
+  const file = {
+    version: 3,
+    hooks: {
+      PreToolUse: [{ matcher: "Bash", hooks: [{ type: "command", command: "guard" }] }],
+      SessionStart: [oldHook, { matcher: "resume", hooks: [{ type: "command", command: "second", statusMessage: "made up" }] }],
+      Stop: [{ hooks: [{ type: "command", command: "bye" }] }],
+    },
+    custom: { kept: true },
+  };
+  hooksFile(JSON.stringify(file));
+  await seesCodex();
+  const after = JSON.parse(readFileSync(hooksPath(), "utf8"));
+  expect(after.hooks.SessionStart.slice(0, 2)).toEqual(file.hooks.SessionStart);
+  expect(ours(after.hooks.SessionStart[2])).toBe(true);
+  expect(after.hooks.SessionStart).toHaveLength(3);
+  expect({ ...after, hooks: { ...after.hooks, SessionStart: null } }).toEqual({ ...file, hooks: { ...file.hooks, SessionStart: null } });
+  expect(Object.keys(after.hooks)).toEqual(["PreToolUse", "SessionStart", "Stop"]);
+});
+
+test("a second run changes nothing", async () => {
+  hooksFile(JSON.stringify({ hooks: { SessionStart: [oldHook] } }));
+  await seesCodex();
+  const before = readFileSync(hooksPath(), "utf8");
+  const script = readFileSync(scriptPath(), "utf8");
+  state.written = [];
+  state.shared = {};
+  await seesCodex();
+  expect(state.written).toEqual([]);
+  expect(readFileSync(hooksPath(), "utf8")).toBe(before);
+  expect(readFileSync(scriptPath(), "utf8")).toBe(script);
+  expect(state.shared["agents.setup"]).toEqual({ codex: 1 });
+});
+
+test("once set up, nothing is even read again, so a hook the person removed stays removed", async () => {
+  await seesCodex();
+  hooksFile("{}");
+  state.reads = [];
+  state.written = [];
+  await seesCodex();
+  expect(state.reads).toEqual([]);
+  expect(readFileSync(hooksPath(), "utf8")).toBe("{}");
+});
+
+test("a new version of the setup runs again, and a changed script leaves the hook alone, so nothing asks for approval", async () => {
+  hooksFile(JSON.stringify({ hooks: { SessionStart: [oldHook] } }));
+  await seesCodex();
+  const hooks = readFileSync(hooksPath(), "utf8");
+  const script = readFileSync(scriptPath(), "utf8");
+  writeFileSync(scriptPath(), "# an older script\n");
+  state.written = [];
+  state.shared = { "agents.setup": { codex: 0 } };
+  await seesCodex();
+  expect(readFileSync(scriptPath(), "utf8")).toBe(script);
+  expect(readFileSync(hooksPath(), "utf8")).toBe(hooks);
+  expect(state.written).toEqual([scriptPath()]);
+});
+
+test("a hook file that isn't valid is left alone, setup waits, and the row stays a dash", async () => {
+  for (const text of ["{ not json", "[]", "3", "null", '{"hooks":[]}', '{"hooks":{"SessionStart":{}}}']) {
+    hooksFile(text);
+    state.shared = {};
+    state.written = [];
+    const { draw } = await quietCodex();
+    await works();
+    expect(readFileSync(hooksPath(), "utf8")).toBe(text);
+    expect(state.written.filter((path: string) => path === hooksPath())).toEqual([]);
+    expect(state.shared["agents.setup"]).toBeUndefined();
+    expect(shows(draw, "t1")).toContain("–");
+  }
+});
+
+test("a hook file put right is picked up on a later try, without a restart", async () => {
+  const start = Date.now();
+  hooksFile("{ not json");
+  await seesCodex();
+  await ticks();
+  hooksFile("{}");
+  await ticks();
+  expect(readFileSync(hooksPath(), "utf8")).toBe("{}");
+  setSystemTime(new Date(start + 11 * 60000));
+  await ticks();
+  await settle();
+  setSystemTime();
+  expect(sessionStart().filter(ours)).toHaveLength(1);
+});
+
+test("a write that fails isn't taken for done", async () => {
+  state.brokenWrites = true;
+  await seesCodex();
+  expect(state.shared["agents.setup"]).toBeUndefined();
+  expect(existsSync(hooksPath())).toBe(false);
+});
+
+test("a dropdown never sets anything up", async () => {
+  const { draw } = await quietCodex();
+  await settle();
+  clicks(byId(draw(), "logo-t1")!);
+  state.written = [];
+  state.shared = {};
+  await dropdown();
+  expect(state.written).toEqual([]);
+  expect(state.shared).toEqual({});
+});
+
+test("Zaki never writes Codex's approval record, and doesn't even read it", async () => {
+  const config = `[hooks.state."${hooksPath()}:session_start:0:0"]\ntrusted_hash = "made-up"\n`;
+  hooksFile(JSON.stringify({ hooks: { SessionStart: [oldHook] } }));
+  writeFileSync(join(home, ".codex", "config.toml"), config);
+  await seesCodex();
+  expect(readFileSync(join(home, ".codex", "config.toml"), "utf8")).toBe(config);
+  expect(state.written.sort()).toEqual([hooksPath(), scriptPath(), scriptPath().replace(/\.sh$/, ".ps1")].sort());
+  expect(state.reads.filter((path: string) => path.endsWith("config.toml"))).toEqual([]);
+  for (const file of ["main.js", "sessions.js", "codex.js", "dropdown.js"]) {
+    expect(readFileSync(new URL(`../defaults/mods/agents/${file}`, import.meta.url), "utf8")).not.toMatch(/trusted_hash|hooks\.state|config\.toml|hook-trust/);
+  }
+});
+
+test("a home with a quote in its name still gets a command the shell can run", async () => {
+  const odd = join(home, "o'neil");
+  state.home = odd;
+  mkdirSync(odd, { recursive: true });
+  await seesCodex();
+  state.home = undefined;
+  const command = JSON.parse(readFileSync(join(odd, ".codex", "hooks.json"), "utf8")).hooks.SessionStart[0].hooks[0].command;
+  expect(Bun.spawnSync(["sh", "-c", command], { env: { PATH: "/usr/bin:/bin" } }).exitCode).toBe(0);
+  rmSync(odd, { recursive: true, force: true });
+});
+
+// The script itself, as Codex runs it: real `sh`, a fake `hc` that writes down what it was told.
+const fakeHc = (folder: string, code = 0) => {
+  mkdirSync(folder, { recursive: true });
+  const path = join(folder, "hc");
+  // Real hc answers on stdout, and whatever a hook prints goes to Codex's model.
+  writeFileSync(path, `#!/bin/sh\nprintf '%s\\n' "$@" >> "${join(home, "hc-said")}"\necho '{"address":"t7","labels":{}}'\nexit ${code}\n`);
+  chmodSync(path, 0o755);
+};
+const hcSaid = () => (existsSync(join(home, "hc-said")) ? readFileSync(join(home, "hc-said"), "utf8").trim().split("\n") : null);
+const payload = (more: any = {}) => JSON.stringify({ session_id: uuid(1), transcript_path: rollout(uuid(1)), cwd: "/work/project", hook_event_name: "SessionStart", model: "gpt-6.1-sol", permission_mode: "default", source: "startup", ...more });
+const hook = (stdin: string, env: Record<string, string>) => Bun.spawnSync(["sh", "-lc", hookCommand()], { stdin: Buffer.from(stdin), env: { HOME: home, PATH: "/usr/bin:/bin", ...env } });
+const bare = { HC_TERMINAL_ID: "t7" };
+const onPath = (folder: string) => ({ ...bare, PATH: `${folder}:/usr/bin:/bin` });
+
+const resetHc = () => {
+  for (const path of [join(home, "hc-said"), join(home, "bin"), join(home, ".local")]) rmSync(path, { recursive: true, force: true });
+};
+
+test("the hook does nothing outside a Zaki terminal", async () => {
+  await seesCodex();
+  resetHc();
+  fakeHc(join(home, "bin"));
+  const r = hook(payload(), { PATH: `${join(home, "bin")}:/usr/bin:/bin` });
+  expect(r.exitCode).toBe(0);
+  expect(r.stdout.toString()).toBe("");
+  expect(hcSaid()).toBeNull();
+});
+
+test("every way a session starts labels the terminal with its session file, and the hook says nothing to Codex", async () => {
+  await seesCodex();
+  for (const source of ["startup", "resume", "clear", "compact", "fork"]) {
+    resetHc();
+    fakeHc(join(home, "bin"));
+    const r = hook(payload({ source }), onPath(join(home, "bin")));
+    expect(r.exitCode).toBe(0);
+    expect(r.stdout.toString()).toBe("");
+    expect(r.stderr.toString()).toBe("");
+    expect(hcSaid()).toEqual(["label", "t7", `zaki.session=${rollout(uuid(1))}`]);
+  }
+});
+
+test("the label the hook sets is one the mod takes", async () => {
+  await seesCodex();
+  resetHc();
+  fakeHc(join(home, "bin"));
+  hook(payload(), onPath(join(home, "bin")));
+  const label = hcSaid()![2].slice("zaki.session=".length);
+  rmSync(join(home, "hc-said"));
+  const id = uuid(1);
+  const { draw } = await quietCodex();
+  codexWrites(id, [turn(), spent(id, { input: 73600 })]);
+  await works({ labels: { "zaki.session": label } });
+  expect(rowPercents(draw, "t1")).toEqual(["25%"]);
+});
+
+test("a home with spaces stays whole in the label", async () => {
+  await seesCodex();
+  resetHc();
+  fakeHc(join(home, "bin"));
+  const path = join(home, "first last", ".codex", "sessions", "2026", "11", "01", `rollout-x-${uuid(1)}.jsonl`);
+  hook(payload({ transcript_path: path }), onPath(join(home, "bin")));
+  expect(hcSaid()).toEqual(["label", "t7", `zaki.session=${path}`]);
+});
+
+test("no transcript, or a payload the hook can't read, labels nothing and fails nothing", async () => {
+  await seesCodex();
+  resetHc();
+  fakeHc(join(home, "bin"));
+  for (const stdin of [payload({ transcript_path: null }), "", "not json at all"]) {
+    const r = hook(stdin, onPath(join(home, "bin")));
+    expect(r.exitCode).toBe(0);
+    expect(r.stdout.toString()).toBe("");
+    expect(hcSaid()).toBeNull();
+  }
+});
+
+// The script's usual folders include fixed ones. A machine with a real hc in one could reach a real
+// core from these, so they don't run there.
+const systemHc = ["/opt/homebrew/bin/hc", "/usr/local/bin/hc", "/run/current-system/sw/bin/hc"].some((path) => existsSync(path));
+
+test.skipIf(systemHc)("the hook finds hc where the app does when PATH doesn't have it, as after a Dock launch", async () => {
+  await seesCodex();
+  for (const folder of [".local/bin", ".local/share/mise/shims", ".nix-profile/bin", ".cargo/bin"]) {
+    resetHc();
+    rmSync(join(home, ".cargo"), { recursive: true, force: true });
+    rmSync(join(home, ".nix-profile"), { recursive: true, force: true });
+    fakeHc(join(home, folder));
+    const r = hook(payload(), bare);
+    expect(r.exitCode).toBe(0);
+    expect(hcSaid()).toEqual(["label", "t7", `zaki.session=${rollout(uuid(1))}`]);
+  }
+  rmSync(join(home, ".cargo"), { recursive: true, force: true });
+  rmSync(join(home, ".nix-profile"), { recursive: true, force: true });
+});
+
+test("PATH wins over the usual folders", async () => {
+  await seesCodex();
+  resetHc();
+  const decoy = join(home, ".local", "bin", "hc");
+  fakeHc(join(home, ".local", "bin"));
+  writeFileSync(decoy, "#!/bin/sh\nexit 9\n");
+  fakeHc(join(home, "bin"));
+  expect(hook(payload(), onPath(join(home, "bin"))).exitCode).toBe(0);
+  expect(hcSaid()).not.toBeNull();
+});
+
+test.skipIf(systemHc)("with hc nowhere, or failing, the hook still gets out of Codex's way", async () => {
+  await seesCodex();
+  resetHc();
+  const gone = hook(payload(), bare);
+  expect(gone.exitCode).toBe(0);
+  expect(gone.stdout.toString()).toBe("");
+  expect(gone.stderr.toString()).toBe("");
+  fakeHc(join(home, "bin"), 1);
+  const failed = hook(payload(), onPath(join(home, "bin")));
+  expect(failed.exitCode).toBe(0);
+  expect(failed.stdout.toString()).toBe("");
+});
+
+test("a terminal back at its shell loses its label, so the next Codex there can't show the last one's numbers", async () => {
+  const id = uuid(1);
+  const { draw } = await codexRow(id, [turn(), spent(id, { input: 73600 })]);
+  expect(state.hc).toEqual([]);
+  state.terminals = [aCodex("t1", { program: SHELL, labels: labelled(id) })];
+  await ticks();
+  expect(state.hc).toEqual([["label", "t1", "zaki.session="]]);
+
+  state.hc = [];
+  state.terminals = [aCodex("t1")];
+  await ticks();
+  expect(state.hc).toEqual([]);
+  expect(rowPercents(draw, "t1")).toEqual([]);
+  expect(shows(draw, "t1")).not.toContain("–");
+});
+
+test("hc failing to clear a label breaks nothing, and it's tried again", async () => {
+  const id = uuid(1);
+  state.brokenHc = true;
+  await codexRow(id, [turn(), spent(id, { input: 73600 })]);
+  state.terminals = [aCodex("t1", { program: SHELL, labels: labelled(id) }), aCodex("t2", { labels: labelled(uuid(2)) })];
+  await ticks();
+  await ticks();
+  expect(state.hc.length).toBeGreaterThanOrEqual(2);
+});
+
+test("a new Codex in a terminal that held a working one starts as new, not waiting", async () => {
+  const { draw } = await quietCodex();
+  await works();
+  expect(shows(draw, "t1")).toContain("–");
+  state.terminals = [aCodex("t1", { program: SHELL })];
+  await ticks();
+  state.terminals = [aCodex("t1", { status: "idle" })];
+  await ticks();
+  expect(shows(draw, "t1")).not.toContain("–");
+});
+
+test("a 100 MB Codex session is read whole, past lines bigger than a window, and after that only what's new", async () => {
+  const id = uuid(1), kid = uuid(2);
+  const talk = noise(`she said "type":"token_count" ${"x".repeat(77000)}`);
+  const compacted = envelope("compacted", { message: "y".repeat(17 * 1024 * 1024), replacement_history: [] });
+  const chunks = [metaOf(id), turn("gpt-5.6-sol"), started(kid)];
+  for (let i = 1; i <= 1100; i++) {
+    chunks.push(spent(id, { input: i === 1100 ? 73600 : 1000, cached: 100, output: 5 }), talk);
+    if (i === 550) chunks.push(compacted, turn("gpt-6.1-sol"));
+  }
+  codexWrites(id, chunks);
+  codexWrites(kid, [helperFirst(kid, id), turn(), spent(kid, { input: 1000000, window: 2000000 })]);
+  expect(statSync(rollout(id)).size).toBeGreaterThan(100000000);
+
+  const { draw } = await codexRow(id, []);
+  expect(rowPercents(draw, "t1")).toEqual(["25%"]);
+  const seen = await card(draw);
+  expect(seen).toContain("in 2.1M · out 5.5k · cached 110k");
+  // 550 at GPT-5.6 Sol: 900 in, 100 cached, 5 out, $0.00374 each. 549 at GPT-6.1 Sol: $0.00186
+  // each. The last at $0.14706, and the helper's 1M at the long $4: $7.2252.
+  expect(seen).toContain("$7.23");
+  expect(Math.max(...state.outputs)).toBeLessThanOrEqual(EXEC_OUTPUT);
+
+  state.execs = [];
+  state.outputs = [];
+  codexWrites(id, [spent(id, { input: 135200, output: 5 })]);
+  changed(rollout(id));
+  await ticks();
+  expect(rowPercents(draw, "t1")).toEqual(["50%"]);
+  expect(Math.max(...state.outputs)).toBeLessThan(200000);
+  rmSync(rollout(id));
+}, 60000);
+
+test("no network, no login, and Codex's own files only read: all a pass touches is the session", async () => {
+  const net = spyOn(globalThis, "fetch");
+  const id = uuid(1), kid = uuid(2);
+  await seesCodex();
+  codexWrites(kid, [helperFirst(kid, id), turn(), spent(kid, { input: 5 })]);
+  const { draw } = await codexRow(id, [turn(), started(kid), spent(id, { input: 73600 })]);
+  clicks(byId(draw(), "logo-t1")!);
+  await dropdown();
+  await ticks();
+  expect(net).not.toHaveBeenCalled();
+  net.mockRestore();
+  expect([...new Set(state.execs.map(([cmd]: string[]) => cmd))].sort()).toEqual(["find", "sh"]);
+  const touched = [...state.reads, ...state.execs.flat(), ...state.written].join("\n");
+  expect(touched).not.toMatch(/auth\.json|credential|keychain|oauth|\.netrc|security|login/i);
 });

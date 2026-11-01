@@ -18,7 +18,8 @@ function money(cost) {
 }
 
 export function dropdown(t, session) {
-  if (session.state !== "ready") return div().w_full().p(12).text_size(12.8).text_color(t.muted).child("No usage yet");
+  const waiting = session.state === "waiting";
+  if (session.state !== "ready") return div().w_full().p(12).text_size(12.8).text_color(t.muted).child(waiting ? "Run `/hooks` in Codex, trust Zaki's hook, then restart this Codex." : "No usage yet");
   const k = look(t);
   const { used, total, percent } = session.context;
   const known = percent !== undefined;
