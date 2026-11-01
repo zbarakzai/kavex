@@ -270,8 +270,8 @@ each one's tier and each limit's percent used, bar and time to reset: weekly fir
 own, then shorter windows such as the 5-hour limit. A limit past its reset time reads 0% before the
 next check. Numbers come from each agent's own commands, on the machine it's signed in on (`claude
 auth status` and `claude -p /usage`; `codex app-server`'s `account/read` and
-`account/rateLimits/read`, read-only), started the way programs.json's `run` says, in that machine's
-shell PATH. Claude's run with no hooks, plugins, MCP or saved session. Neither spends tokens, and for
+`account/rateLimits/read`, read-only), in that machine's shell PATH. From programs.json's `run` they
+take only a path to the agent's own program, never its flags or a program of another name. Claude's run with no hooks, plugins, MCP or saved session. Neither spends tokens, and for
 these two the mod reads no login and sends no request. Signed out, on an API key or not installed, an agent gets
 no row. One account on several machines is one row naming them all, with the newest numbers, and
 different accounts stay apart. A row names its machine unless it's on this computer alone, with no

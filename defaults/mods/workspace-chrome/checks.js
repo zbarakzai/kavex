@@ -144,7 +144,14 @@ function inShell({ on, path }, posix, powershell) {
 // also ends a quoted string at a curly quote.
 const posixWords = (run) => run.map((word) => (/^[\w@%+:,./-]+$/.test(word) ? word : `'${word.replaceAll("'", `'\\''`)}'`)).join(" ");
 const powershellWord = (word) => `'${word.replace(/['‘’‚‛]/g, "$&$&")}'`;
-const powershellCall = (run) => `& ${run.map(powershellWord).join(" ")}`;
+const powershellCall = (program) => `& ${powershellWord(program)}`;
+
+// `run` counts only as the agent's own program at a path of its own. Its flags would land in a
+// background check, ahead of `auth status`, where nobody can say what they'd spend.
+function programOf({ key, run }) {
+  const name = run[0].split(/[\\/]/).pop().replace(/\.(exe|cmd)$/i, "");
+  return name === key ? run[0] : key;
+}
 
 const HAS = "zaki-has:", ASKED = "zaki-asked";
 
@@ -168,7 +175,7 @@ async function shellFinds(where, programs) {
 const CLAUDE_USAGE = "-p /usage --output-format json --no-session-persistence --strict-mcp-config --setting-sources=";
 
 async function claude(where, now) {
-  const posix = posixWords(where.run), powershell = powershellCall(where.run);
+  const posix = posixWords([where.program]), powershell = powershellCall(where.program);
   const auth = JSON.parse((await inShell(where, `${posix} auth status`, `${powershell} auth status`)).stdout);
   if (!auth.loggedIn || auth.authMethod !== "claude.ai") return null;
   const usage = await inShell(where, `env TZ=UTC ${posix} ${CLAUDE_USAGE}`, `$env:TZ='UTC'; ${powershell} ${CLAUDE_USAGE}`);
@@ -185,15 +192,15 @@ const CODEX_REQUESTS = [
 ].map((request) => JSON.stringify(request));
 
 // The server stops answering once its input ends, so the input stays open until the last answer is in.
-const codexPosix = (run) => `out=$(mktemp) || exit 1
+const codexPosix = (program) => `out=$(mktemp) || exit 1
 { printf '%s\\n' ${CODEX_REQUESTS.map((line) => `'${line}'`).join(" ")}
   i=0; while [ $i -lt 75 ] && ! grep -q '"id":3' "$out"; do sleep 0.2; i=$((i+1)); done
-} | ${posixWords(run)} -s read-only -a never app-server >"$out" 2>/dev/null
+} | ${posixWords([program])} -s read-only -a never app-server >"$out" 2>/dev/null
 cat "$out"; rm -f "$out"`;
-const codexWindows = (run) => `& { ${CODEX_REQUESTS.map((line) => `'${line}'`).join("; ")}; Start-Sleep 6 } | ${powershellCall(run)} -s read-only -a never app-server 2>$null`;
+const codexWindows = (program) => `& { ${CODEX_REQUESTS.map((line) => `'${line}'`).join("; ")}; Start-Sleep 6 } | ${powershellCall(program)} -s read-only -a never app-server 2>$null`;
 
 async function codex(where) {
-  return codexReport((await inShell(where, codexPosix(where.run), codexWindows(where.run))).stdout);
+  return codexReport((await inShell(where, codexPosix(where.program), codexWindows(where.program))).stdout);
 }
 
 // Turning Usage off takes the consent back, and that can happen at any step of reading or sending.
@@ -250,14 +257,16 @@ async function checkMachine(on, last, now) {
   const [agents, path] = await Promise.all([knownAgents({ on }).catch(() => []), shellPath(on)]);
   if (!agents.length) return keepAll();
   // The key can't leave for another machine's sake: OpenCode is checked on this computer only.
-  const ours = agents.filter((agent) => CHECKS[agent.key] && (agent.key !== "opencode" || !on));
-  const finds = await shellFinds({ on, path }, ours.filter((agent) => !agent.installed).map((agent) => agent.run[0]));
+  const ours = agents.filter((agent) => CHECKS[agent.key] && (agent.key !== "opencode" || !on)).map((agent) => ({ ...agent, program: programOf(agent) }));
+  // `installed` is about run[0], which may not be what runs here.
+  const sure = (agent) => agent.installed && agent.program === agent.run[0];
+  const finds = await shellFinds({ on, path }, ours.filter((agent) => !sure(agent)).map((agent) => agent.program));
   const found = await Promise.all(ours.map(async (agent) => {
     const id = `${agent.key}|${on ?? ""}`, base = { agent: agent.key, name: agent.name, icon: agent.icon, tint: agent.tint, machine: on };
-    if (!agent.installed && !finds?.has(agent.run[0])) return finds ? null : kept(id);
+    if (!sure(agent) && !finds?.has(agent.program)) return finds ? null : kept(id);
     if (agent.key === "opencode" && shared("usage.opencode") !== true) return shared("usage.opencode") === false ? null : [id, { ...base, ask: true, limits: [] }];
     try {
-      const report = await CHECKS[agent.key]({ on, path, run: agent.run }, now);
+      const report = await CHECKS[agent.key]({ on, path, program: agent.program }, now);
       return report && [id, { ...base, ...report, checkedAt: Date.now() }];
     } catch {
       return kept(id) ?? [id, { ...base, limits: [], failed: true }];

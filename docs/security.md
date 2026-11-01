@@ -54,7 +54,7 @@ The gauge in the sidebar footer shows your subscriptions' limits. It checks 5 se
 - Claude Code: `claude auth status`, then `claude -p /usage`, with no hooks, plugins, MCP servers or saved session. It spends no tokens.
 - Codex: `codex app-server` in read-only mode, asked for your account and your limits.
 
-Agents start the way `programs.json`'s `run` says, if you changed it.
+If `programs.json`'s `run` points to the agent's own program at another path, that path is used. Flags in `run` are left out of these checks, and a program of another name isn't started: the plain agent is.
 
 **What it reads.** The answers to those commands. It doesn't read Claude Code's or Codex's login, and it never touches the macOS Keychain. Those answers include your email, which is used to make a short SHA-256 fingerprint, so that one account on two machines shows as one row. The email isn't kept.
 

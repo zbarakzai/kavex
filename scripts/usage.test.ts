@@ -826,6 +826,7 @@ function realShell(program: string, says: string, after = 0.5) {
   const dir = mkdtempSync(join(tmpdir(), "usage-test-"));
   scratch.push(dir);
   mkdirSync(join(dir, "tmp"));
+  mkdirSync(join(dir, program, ".."), { recursive: true });
   const answers = says.trim().split("\n").filter((line) => line.includes('"id"')).map((line) => `printf '%s\\n' '${line}'`).join("\n");
   writeFileSync(join(dir, program), `#!/bin/sh\necho "$@" > "${dir}/asked"\nread -r first\n( sleep ${after}\n${answers}\n) &\nwhile read -r line; do :; done\nkill $! 2>/dev/null\n`);
   chmodSync(join(dir, program), 0o755);
@@ -867,8 +868,9 @@ test("Codex is asked read-only, with no approvals", async () => {
   expect(readFileSync(join(dir, "asked"), "utf8").trim()).toBe("-s read-only -a never app-server");
 }, 10_000);
 
-test("a program whose name the shell would take apart still runs as itself, and only that", async () => {
-  const dir = realShell("it's my; touch injected", codexSays(PRO));
+test("a path the shell would take apart still runs as itself, and only that", async () => {
+  const program = "it's my; touch injected #/codex", dir = realShell(program, codexSays(PRO));
+  state.agents[""] = [{ ...CODEX, run: [join(dir, program)] }];
   const { popover } = await opened();
   await checked();
   expect(limits(popover.draw()).length).toBe(4);
@@ -876,30 +878,59 @@ test("a program whose name the shell would take apart still runs as itself, and 
   expect(existsSync("injected")).toBe(false);
 }, 10_000);
 
-test("the program in programs.json runs instead of plain claude, with what it's started with", async () => {
+test("a custom path to claude in programs.json is used, and the person's flags stay out of the checks", async () => {
   claude(WEEK);
-  state.agents[""] = [{ ...CLAUDE, run: ["my-claude", "--profile", "work"] }];
-  state.says["my-claude --profile work auth status"] = JSON.stringify(ACCOUNT);
-  state.says["my-claude --profile work -p /usage"] = usageAnswer(WEEK);
-  delete state.says["claude auth status"];
-  delete state.says["claude -p /usage"];
+  state.agents[""] = [{ ...CLAUDE, run: ["/opt/made-up/bin/claude", "--profile", "work"] }];
+  const { popover } = await opened();
+  expect(limits(popover.draw()).length).toBe(1);
+  const asked = state.runs.filter((run) => /claude (auth status|-p)/.test(run.line));
+  expect(asked.length).toBe(2);
+  for (const run of asked) {
+    expect(run.line).toContain("/opt/made-up/bin/claude ");
+    expect(run.line).not.toContain("--profile");
+  }
+});
+
+test("a custom path to codex in programs.json is used, and the person's flags stay out of the checks", async () => {
+  codex();
+  state.agents[""] = [{ ...CODEX, run: ["/opt/made-up/bin/codex", "--profile", "work"] }];
+  await opened();
+  const asked = state.runs.find((run) => run.line.includes("app-server"))!.line;
+  expect(asked).toContain("/opt/made-up/bin/codex -s read-only -a never app-server");
+  expect(asked).not.toContain("--profile");
+});
+
+test("a custom path with a space in it stays one word", async () => {
+  claude(WEEK);
+  state.agents[""] = [{ ...CLAUDE, run: ["/opt/made up/claude"] }];
+  state.says["'/opt/made up/claude' auth status"] = JSON.stringify(ACCOUNT);
+  state.says["'/opt/made up/claude' -p /usage"] = usageAnswer(WEEK);
   const { popover } = await opened();
   expect(limits(popover.draw()).length).toBe(1);
 });
 
-test("the program in programs.json runs instead of plain codex", async () => {
-  codex();
-  state.agents[""] = [{ ...CODEX, run: ["my-codex"] }];
-  await opened();
-  const asked = state.runs.find((run) => run.line.includes("app-server"))!.line;
-  expect(asked).toContain("my-codex -s read-only -a never app-server");
-  expect(asked).not.toMatch(/(^|[^-])codex -s/);
+test("a program of another name in programs.json isn't started: the plain agent is, once its shell finds it", async () => {
+  claude(WEEK);
+  state.agents[""] = [{ ...CLAUDE, run: ["my-claude", "--profile", "work"] }];
+  state.says["command -v"] = "zaki-has:claude\nzaki-asked\n";
+  const { popover } = await opened();
+  expect(limits(popover.draw()).length).toBe(1);
+  expect(state.runs.filter((run) => run.line.includes("my-claude"))).toEqual([]);
 });
 
-test("on Windows the agents are asked through PowerShell, with no PATH to fetch and their names quoted for it", async () => {
+test("a program of another name with no plain agent to run gives no row, as it's the plain one that's missing", async () => {
+  claude(WEEK);
+  state.agents[""] = [{ ...CLAUDE, run: ["my-claude"] }];
+  state.says["command -v"] = "zaki-asked\n";
+  const { popover } = await opened();
+  expect(checks()).toBe(0);
+  expect(words(popover.draw())).toContain(NONE);
+});
+
+test("on Windows the agents are asked through PowerShell, with no PATH to fetch and their paths quoted for it, .exe and .cmd counting as theirs", async () => {
   state.platform = "windows";
   claude(WEEK);
-  state.agents[""] = [{ ...CLAUDE, run: ["my claude's"] }, { ...CODEX, run: ["codex’s"] }];
+  state.agents[""] = [{ ...CLAUDE, run: ["C:\\made up\\it's\\claude.exe", "--profile", "work"] }, { ...CODEX, run: ["C:\\made up\\it’s\\codex.CMD"] }];
   delete state.says["printenv PATH"];
   state.says["auth status"] = JSON.stringify(ACCOUNT);
   state.says["/usage"] = usageAnswer(WEEK);
@@ -908,9 +939,9 @@ test("on Windows the agents are asked through PowerShell, with no PATH to fetch 
   expect(limits(popover.draw()).length).toBe(5);
   expect(state.runs.map((run) => run.line.slice(0, "powershell -NoLogo -NoProfile -Command".length))).toEqual(Array(3).fill("powershell -NoLogo -NoProfile -Command"));
   const line = (piece: string) => state.runs.find((run) => run.line.includes(piece))!.line;
-  expect(line("auth status")).toEndWith("-Command & 'my claude''s' auth status");
-  expect(line("/usage")).toContain("$env:TZ='UTC'; & 'my claude''s' -p /usage");
-  expect(line("app-server")).toContain("| & 'codex’’s' -s read-only -a never app-server");
+  expect(line("auth status")).toEndWith("-Command & 'C:\\made up\\it''s\\claude.exe' auth status");
+  expect(line("/usage")).toContain("$env:TZ='UTC'; & 'C:\\made up\\it''s\\claude.exe' -p /usage");
+  expect(line("app-server")).toContain("| & 'C:\\made up\\it’’s\\codex.CMD' -s read-only -a never app-server");
 });
 
 const OTHER = { ...ACCOUNT, email: "someone-else@example.test", orgId: "org-also-made-up" };
@@ -1188,10 +1219,8 @@ test("an agent really gone takes its row with it, once its shell says so", async
 
 test("an agent only the machine's own shell can find is still checked", async () => {
   claudeOn("vps", ACCOUNT, WEEK);
-  state.agents.vps = [{ ...CLAUDE, installed: false, run: ["my-claude"] }];
-  state.on.vps["command -v"] = "zaki-has:my-claude\nzaki-asked\n";
-  state.on.vps["my-claude auth status"] = JSON.stringify(ACCOUNT);
-  state.on.vps["my-claude -p /usage"] = usageAnswer(WEEK);
+  state.agents.vps = [{ ...CLAUDE, installed: false, run: ["/opt/made-up/claude"] }];
+  state.on.vps["command -v"] = "zaki-has:/opt/made-up/claude\nzaki-asked\n";
   const { popover } = await opened();
   expect(limits(popover.draw()).length).toBe(1);
   const asked = state.runs.find((run) => run.line.includes("command -v"))!;
@@ -1201,7 +1230,7 @@ test("an agent only the machine's own shell can find is still checked", async ()
 
 test("the shell's own word on what's installed works in a real sh", async () => {
   realShell("codex", codexSays(PRO));
-  state.agents[""] = [{ ...CODEX, installed: false }, { ...CLAUDE, installed: false, run: ["no-such-program-here"] }];
+  state.agents[""] = [{ ...CODEX, installed: false }, { ...CLAUDE, installed: false, run: ["/no/such/folder/claude"] }];
   const { popover } = await opened();
   await checked();
   expect(rows(popover.draw()).length).toBe(1);
@@ -1232,7 +1261,7 @@ for (const [why, list] of [["fails", new Error("no")], ["comes back empty", []]]
 
 test("OpenCode isn't checked on an added machine", async () => {
   claudeOn("vps", ACCOUNT, WEEK);
-  state.agents.vps.push({ ...CLAUDE, key: "opencode", name: "OpenCode", icon: "icons/opencode.svg" });
+  state.agents.vps.push(OPENCODE);
   const { popover } = await opened();
   expect(rows(popover.draw()).length).toBe(1);
   expect(Object.keys(state.shared.usage.entries)).toEqual(["claude|vps"]);
@@ -1499,7 +1528,7 @@ test("turning it back on shows the gauge and checks again, with no old numbers",
 
 test("turning it back on asks OpenCode's question again", async () => {
   state.says["printenv PATH"] = "/made/up/bin\n";
-  state.agents[""] = [{ ...CLAUDE, key: "opencode", name: "OpenCode", icon: "icons/opencode.svg" }];
+  state.agents[""] = [OPENCODE];
   state.shared["usage.opencode"] = false;
   footer();
   await wait(5_000);
@@ -1596,7 +1625,7 @@ test("a key already read isn't sent once it's turned off, even if it's turned ba
   const keys = held();
   state.says["printenv PATH"] = "/made/up/bin\n";
   state.says["sqlite3"] = keys.answer;
-  state.agents[""] = [{ ...CLAUDE, key: "opencode", name: "OpenCode", icon: "icons/opencode.svg" }];
+  state.agents[""] = [OPENCODE];
   state.shared["usage.opencode"] = true;
   footer();
   await wait(5_000);
