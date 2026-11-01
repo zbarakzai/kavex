@@ -5,6 +5,7 @@ import { View, div, svg } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
 import { spaces, panes, terminals, theme, run, openOverlay, closeOverlay, shared, setShared, settings, nextCommand, window } from "herdr";
 import { look, badge, duration, groupHue, tabHue, tile, MONO } from "./look.js";
+import { loader } from "./loader.js";
 import { COLUMN, clicked, columnHome, columnRuns, columnSlots, columnStops, failed, groupOf, groupStop, landed, moves, nearestY, reopening, sectionHeight, shownIn, shows, slotKey, stepped, stoppedGroup } from "./groups.js";
 
 const SLIDE = { response: 150, damping: 1 }; // room opening and shutting
@@ -268,6 +269,7 @@ export default class TabsColumn extends View {
       .child(tile(program, inGroup ? 20 : 22, k))
       .child(div().flex_1().min_w(0).truncate().text_size(13).font_weight(c.active ? 500 : 400).text_color(state === "default" && !carried ? k.row_name : k.foreground).child(name))
       .when(Boolean(since), (el) => el.child(div().flex_none().font_family(MONO).text_size(10).text_color(k.label).child(duration(v.now - since))))
+      .when(status === "working", (el) => el.child(loader(k.accent)))
       .when(Boolean(status), (el) => el.child(badge(k, status)))
       .when(Boolean(edge), (el) => el.child(ring(edge, 1, 10)))
       .when(this.cursor === c.id, (el) => el.child(ring(k.accent, 2, 10)));

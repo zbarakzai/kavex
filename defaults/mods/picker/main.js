@@ -7,6 +7,7 @@
 import { View, div, svg } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input } from "gpui-base";
 import { agents, spaces, terminals, run, hc, theme, props, closeOverlay, openOverlay, shared, setShared } from "herdr";
+import { loader } from "./loader.js";
 
 const MARK = { ansi6: "#22a99a", ansi3: "#e3814f", ansi4: "#5b8def", ansi5: "#8b7cf6", ansi2: "#3fae6a", ansi1: "#d9649a" };
 
@@ -106,7 +107,7 @@ export default class Picker extends View {
   }
 
   glyph(t, st) {
-    if (st === "working") return svg("mods/workspace-chrome/icons/spinner.svg").size(16).flex_none().text_color(t.working).spin(900);
+    if (st === "working") return loader(t.accent);
     return div().w(12).flex_none().text_color(t[st] ?? t.dim).child(st === "idle" ? "○" : st ? "●" : "·");
   }
 

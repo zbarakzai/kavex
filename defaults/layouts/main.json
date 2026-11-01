@@ -107,6 +107,7 @@
           "padding": 6,
           "content": {
             "tab": "active",
+            "empty": { "mod": "start" },
             "pane": {
               "gap": 6,
               "radius": 10,

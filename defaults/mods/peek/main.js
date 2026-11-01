@@ -6,8 +6,8 @@
 import { View, div, image, svg } from "gpui-kit";
 import { h_flex } from "gpui-base";
 import { agents, terminals, panes, run, theme, props, closeOverlay } from "herdr";
+import { loader } from "./loader.js";
 
-const SPIN = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 // The icon from the app's program table: a one-color glyph or a picture.
 function icon(p, size, color) {
   if (!p?.icon) return null;
@@ -49,7 +49,7 @@ export default class Peek extends View {
     const pic = icon(k?.program, 14, t.foreground);
     const parent = k?.parent ? terminals().find((p) => p.address === k.parent) : null;
     const home = panes().some((p) => p.terminal === terminal);
-    const glyph = st === "working" ? SPIN[0] : st === "idle" ? "○" : st ? "●" : "·";
+    const glyph = st === "idle" ? "○" : st ? "●" : "·";
     return h_flex()
       .size_full()
       .px(12)
@@ -59,7 +59,7 @@ export default class Peek extends View {
       .border_b(1)
       .border_color(t.border)
       .text_size(12)
-      .child(div().w(12).flex_none().text_color(t[st] ?? t.dim).when(st === "working", (el) => el.frames(SPIN, 90)).child(glyph))
+      .child(st === "working" ? loader(t.accent) : div().w(12).flex_none().text_color(t[st] ?? t.dim).child(glyph))
       .when(Boolean(pic), (el) => el.child(pic))
       .child(div().truncate().font_semibold().text_color(t.foreground).child(k?.name || k?.template || k?.program?.name || terminal || ""))
       .when(Boolean(st), (el) => el.child(div().flex_none().text_color(t[st] ?? t.dim).child(WORDS[st] ?? st)))

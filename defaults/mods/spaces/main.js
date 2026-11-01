@@ -6,6 +6,7 @@ import { View, div, svg } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
 import { spaces, machines, panes, run, openOverlay, exec, hc, theme, settings, shared, setShared, watchFolder, window, layout } from "herdr";
 import { look, sectionLabel, MONO } from "./look.js";
+import { loader } from "./loader.js";
 
 function find(node, id) {
   if (node?.id === id) return node;
@@ -326,7 +327,7 @@ export default class Spaces extends View {
       .hover((s) => s.bg(t.hover))
       .on_click(() => run("space.select", { id: w.id }))
       .child(div().text_color(w.active ? t.foreground : t.muted).child(String(i + 1)))
-      .child(div().text_color(tone(t, w.status)).child(glyph(w.status)));
+      .child(w.status === "working" ? h_flex().items_center().child(loader(t.accent, 2)) : div().text_color(tone(t, w.status)).child(glyph(w.status)));
   }
 
   render() {

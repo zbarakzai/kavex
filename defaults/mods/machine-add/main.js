@@ -9,6 +9,7 @@
 import { View, div, svg } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input } from "gpui-base";
 import { hc, exec, home, readTextFile, theme, props, closeOverlay, openOverlay } from "herdr";
+import { loader } from "./loader.js";
 
 const I = (name) => `mods/workspace-chrome/icons/${name}.svg`;
 
@@ -241,7 +242,7 @@ export default class MachineAdd extends View {
     const right = done
       ? h_flex().gap(5).items_center().text_size(12).text_color(t.ansi2).child(svg(I("success")).size(16)).child("Added")
       : st === "adding"
-        ? h_flex().gap(6).items_center().text_size(12).text_color(t.muted).child(svg(I("spinner")).size(16).text_color(t.working).spin(900)).child("Connecting")
+        ? h_flex().gap(6).items_center().text_size(12).text_color(t.muted).child(loader(t.accent)).child("Connecting")
         : st === "terminal"
           ? div().text_size(12).text_color(t.blocked).child("Waiting in its terminal")
           : div()

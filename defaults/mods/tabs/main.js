@@ -3,6 +3,7 @@ import { h_flex } from "gpui-base";
 import { spaces, panes, terminals, machines, run, openOverlay, closeOverlay, theme, window, shared, setShared, layout, settings, nextCommand, home as homeFolder } from "herdr";
 import { GAP, HUES, INNER, away, clicked, columnOrder, failed, gathered, groupOf, home, labeled, landed, moves, nearest, nextColor, pruned, reopening, runs, shows, slotKey, slots, stepped } from "./groups.js";
 import { look, groupHue, tabHue, spaced, MONO } from "./look.js";
+import { loader } from "./loader.js";
 
 function find(node, id) {
   if (node?.id === id) return node;
@@ -277,7 +278,7 @@ export default class Tabs extends View {
     const { program, cwd, name } = shows(c, v.ps);
     const picked = v.picked.length > 1 && v.picked.includes(c.id);
     const stop = (_e, cx) => cx.stop_propagation(), shown = c.active || lifted;
-    const dot = k.status[failed(c, v.ps, v.words)]?.dot, hue = tabHue(k, v.s.colors[c.id]);
+    const status = failed(c, v.ps, v.words), dot = k.status[status]?.dot, hue = tabHue(k, v.s.colors[c.id]);
     return this.measured(h_flex().id(`tab-${c.id}`), c.id).relative().h(tray ? 28 : CHIP).flex_none().items_center().rounded(tray ? 9 : 11).text_size(13.5)
       .when(c.active, (el) => el.pl(11).pr(6).gap(7)).when(!c.active, (el) => el.px(tray ? 8 : 10).gap(6))
       .when(/^\d+$/.test(name), (el) => el.font_family(MONO).text_size(12))
@@ -298,7 +299,7 @@ export default class Tabs extends View {
       })
       .child(this.glyph(program, k, c.active))
       .child(div().max_w(170).truncate().child(c.zoomed ? `${name} Z` : name))
-      .when(Boolean(dot), (el) => el.child(div().size(6).rounded(3).flex_none().bg(dot)))
+      .when(Boolean(dot), (el) => el.child(status === "working" ? loader(k.accent, 2) : div().size(6).rounded(3).flex_none().bg(dot)))
       .when(c.active, (el) => el.child(h_flex().id(`close-${c.id}`).size(20).flex_none().items_center().justify_center().rounded(6).text_color(k.label).hover((s) => s.bg(k.hover_strong).text_color(k.foreground))
         .on_mouse_down("left", stop).on_click((_e, cx) => { cx.stop_propagation(); run("tab.close", { id: c.id }); }).child(svg("mods/workspace-chrome/icons/close.svg").size(16))));
   }

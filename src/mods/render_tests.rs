@@ -578,6 +578,7 @@ fn local_state_and_overlay_initial_descriptions(cx: &mut TestAppContext) {
         ("mods/file-menu", json!({"from":"files","dir":true,"root":false,"local":true})),
         ("mods/file-menu", json!({"from":"files","dir":false,"root":false,"local":false})),
         ("mods/tab-drag", json!({})),
+        ("mods/start", json!({})),
         ("mods/prompt", json!({"machines":true})),
         (
             "mods/confirm",
