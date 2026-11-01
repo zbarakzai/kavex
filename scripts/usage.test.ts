@@ -1,14 +1,17 @@
 import { test, expect, mock, beforeEach, afterEach, setSystemTime } from "bun:test";
 import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 // The real footer button, popover, Settings row and checks, with only the outside world faked: what `exec`,
 // `knownAgents` and `machines` answer, and what's in shared storage. All data here is made up.
 //
 // To teach it a new agent, add its commands to `state.says` (a piece of the command line, and what
-// comes back) and its entry to `state.agents`, by machine ("" is this computer). `state.answers`
-// is the same for `fetch`, by address: anything unlisted fails, so no test reaches the network.
-// `state.files` is what `readTextFile` finds; `state.reads` lists every path it was asked for.
+// comes back) and its entry to `state.agents`, by machine ("" is this computer). A machine with its
+// own table in `state.on` answers from that instead. `state.answers` is the same for `fetch`, by
+// address: anything unlisted fails, so no test reaches the network. `state.files` is what
+// `readTextFile` finds; `state.reads` lists every path it was asked for.
 type El = { calls: [string, any[]][]; kids: any[]; hover?: El };
 function make(): any {
   const el: El = { calls: [], kids: [] };
@@ -33,9 +36,12 @@ const handler = (e: El, name: string) => e.calls.find(([k]) => k === name)?.[1].
 const paths = (root: El) => all(root).map((e) => arg(e, "path")).filter(Boolean);
 const icon = (path: string) => { const s = make(); s.el.calls.push(["path", [path]]); return s; };
 
-type Reply = string | Error | { code?: number; stdout?: string; stderr?: string } | (() => Reply | Promise<Reply>) | Promise<Reply>;
+type Asked = { args: string[]; on: string | null };
+type Reply = string | Error | { code?: number; stdout?: string; stderr?: string } | ((asked: Asked) => Reply | Promise<Reply>) | Promise<Reply>;
 let state: {
   says: Record<string, Reply>;
+  on: Record<string, Record<string, Reply>>;
+  platform: string;
   agents: Record<string, any[] | Error>;
   machines: { name: string | null; layout: string }[];
   runs: { line: string; on: string | null }[];
@@ -58,12 +64,13 @@ let state: {
 const colors = { ...JSON.parse(readFileSync(new URL("../defaults/themes/zaki.json", import.meta.url), "utf8")).colors, solid: "#abcdef", solid_foreground: "#123456" };
 
 async function exec(command: string, args: string[] = [], options: { on?: string | null } = {}) {
-  const line = [command, ...args].join(" ");
-  state.runs.push({ line, on: options.on ?? null });
-  const piece = Object.keys(state.says).find((said) => line.includes(said));
+  const line = [command, ...args].join(" "), on = options.on ?? null;
+  state.runs.push({ line, on });
+  const says = state.on[on ?? ""] ?? state.says;
+  const piece = Object.keys(says).find((said) => line.includes(said));
   if (piece === undefined) throw new Error(`nothing fakes: ${line}`);
-  let reply: Reply = state.says[piece];
-  while (typeof reply === "function" || reply instanceof Promise) reply = await (typeof reply === "function" ? reply() : reply);
+  let reply: Reply = says[piece];
+  while (typeof reply === "function" || reply instanceof Promise) reply = await (typeof reply === "function" ? reply({ args, on }) : reply);
   if (reply instanceof Error) throw reply;
   return typeof reply === "string" ? { code: 0, stdout: reply, stderr: "" } : { code: 0, stdout: "", stderr: "", ...reply };
 }
@@ -93,7 +100,7 @@ mock.module("herdr", () => ({
   props: () => state.props,
   theme: () => colors,
   settings: () => ({ zoom: 1, font_family: "Geist Mono", font_size: 13, ui_font_family: "Geist", theme_dark: "zaki", theme_light: "paper" }),
-  window: () => ({ platform: "macos" }),
+  window: () => ({ platform: state.platform }),
   home: () => "/home/person",
   appHome: () => "/home/person/.config/zaki",
   readTextFile: async (path: string) => { state.reads.push(path); return state.files[path] ?? null; },
@@ -229,6 +236,8 @@ beforeEach(() => {
   timers = [];
   state = {
     says: {},
+    on: {},
+    platform: "macos",
     agents: {},
     machines: [{ name: null, layout: "ready" }],
     runs: [],
@@ -467,8 +476,9 @@ for (const [why, answer] of [
 test("Claude not installed gives no row and runs nothing of Claude's", async () => {
   claude(WEEK);
   state.agents[""] = [{ ...CLAUDE, installed: false }];
+  state.says["command -v"] = "zaki-asked\n";
   const { popover } = await opened();
-  expect(state.runs.some((run) => run.line.includes("claude"))).toBe(false);
+  expect(state.runs.some((run) => /claude (auth|-p)/.test(run.line))).toBe(false);
   expect(words(popover.draw())).toContain(NONE);
 });
 
@@ -638,6 +648,599 @@ test("the line beside the buttons gives up the gauge's width", () => {
   const letters = words(footer().draw()).filter((word) => word.length === 1).join("").replaceAll(" ", " ");
   // 25 letters fitted beside two buttons: 22 px more at 5.9 px a letter takes four.
   expect(letters).toBe("THIS COM… · 12 AGENTS");
+});
+
+const CODEX = { ...CLAUDE, key: "codex", name: "Codex", icon: "icons/codex.svg", run: ["codex"] };
+const PRO = { type: "chatgpt", email: "someone@example.test", planType: "prolite" };
+const window_ = (usedPercent: number, windowDurationMins: number | null, inHours: number) => ({ usedPercent, windowDurationMins, resetsAt: NOW / 1000 + inHours * 3600 });
+const bucket = (limitId: string | null, limitName: string | null, primary: any, secondary: any = null) => ({ limitId, limitName, primary, secondary, credits: null, planType: "prolite" });
+const GENERAL = bucket("codex", null, window_(33.4, 300, 3.5), window_(12.4, 10080, 127));
+const SPARK = bucket("codex_spark", "GPT-5-Spark", window_(30, 300, 1), window_(20, 10080, 30));
+const RATES = { rateLimits: GENERAL, rateLimitsByLimitId: { codex_spark: SPARK, codex: GENERAL } };
+
+// What `codex app-server` prints: an answer per request, and news nobody asked for between them.
+const codexSays = (account: any, rates: any = RATES) => [
+  { id: 1, result: { userAgent: "made-up/0" } },
+  { method: "configWarning", params: { summary: "made up" } },
+  { id: 2, result: { account, requiresOpenaiAuth: !account } },
+  rates ? { id: 3, result: rates } : { error: { code: -32600, message: "sign in first" }, id: 3 },
+].map((line) => JSON.stringify(line)).join("\n") + "\n";
+
+function codex(account: any = PRO, rates: any = RATES) {
+  state.agents[""] = [CODEX];
+  state.says["printenv PATH"] = "/made/up/bin:/usr/bin\n";
+  state.says["app-server"] = codexSays(account, rates);
+}
+
+test("a Codex subscription shows its tier and every limit: weekly, then a model's own, then shorter ones", async () => {
+  codex();
+  const { popover } = await opened();
+  const root = popover.draw();
+  expect(paths(root)).toContain("icons/codex.svg");
+  expect(words(root)).toEqual(expect.arrayContaining(["Codex", "Pro 100"]));
+  expect(limits(root).map((limit) => words(limit))).toEqual([
+    ["This week", "12%", "resets in 5d 7h"],
+    ["GPT-5-Spark", "20%", "resets in 1d 6h"],
+    ["5 hours", "33%", "resets in 3h 30m"],
+    ["GPT-5-Spark · 5 hours", "30%", "resets in 1h 0m"],
+  ]);
+});
+
+test("a Codex answer with one bucket and no list of them still shows its limits", async () => {
+  codex(PRO, { rateLimits: GENERAL, rateLimitsByLimitId: null });
+  const { popover } = await opened();
+  expect(limits(popover.draw()).map((limit) => words(limit)[0])).toEqual(["This week", "5 hours"]);
+});
+
+test("a model's bucket with no name of its own still shows", async () => {
+  codex(PRO, { rateLimits: GENERAL, rateLimitsByLimitId: { codex: GENERAL, codex_other: bucket("codex_other", null, window_(5, 10080, 2)) } });
+  const { popover } = await opened();
+  expect(limits(popover.draw()).map((limit) => words(limit)[0])).toEqual(["This week", "Codex other", "5 hours"]);
+});
+
+test("a window of any other length reads as what it is", async () => {
+  codex(PRO, { rateLimitsByLimitId: { codex: bucket("codex", null, window_(1, 60, 1), window_(2, 1440, 2)), codex_a: bucket("codex_a", "A", window_(3, 45, 1), window_(4, 43200, 2)), codex_b: bucket("codex_b", "B", window_(5, null, 1)) } });
+  const { popover } = await opened();
+  expect(limits(popover.draw()).map((limit) => words(limit)[0]).sort()).toEqual(["1 day", "1 hour", "A · 30 days", "A · 45 minutes", "B"]);
+});
+
+for (const [planType, tier] of [
+  ["free", "Free"], ["go", "Go"], ["plus", "Plus"], ["pro", "Pro 200"], ["prolite", "Pro 100"], ["promax", "Pro 500"],
+  ["team", "Business"], ["business", "Business"], ["self_serve_business_usage_based", "Business"], ["self_serve_business_prolite", "Business Premium"],
+  ["enterprise", "Enterprise"], ["ent26", "Enterprise"], ["enterprise_cbp_usage_based", "Enterprise"], ["enterprise_cbp_automation", "Enterprise"],
+  ["edu", "Edu"], ["edu_plus", "Edu Plus"], ["edu_pro", "Edu Pro"],
+] as const) {
+  test(`Codex's ${planType} plan reads ${tier}`, async () => {
+    codex({ ...PRO, planType });
+    const { popover } = await opened();
+    expect(words(popover.draw())).toContain(tier);
+  });
+}
+
+test("a Codex plan it doesn't name itself shows no made-up tier", async () => {
+  codex({ ...PRO, planType: "unknown" });
+  const { popover } = await opened();
+  expect(words(popover.draw())).toContain("Codex");
+  expect(words(popover.draw())).not.toContain("Unknown");
+});
+
+for (const [why, account] of [
+  ["signed out", null],
+  ["using an API key", { type: "apiKey" }],
+  ["signed in through Amazon Bedrock", { type: "amazonBedrock", usesCodexManagedCredentials: false }],
+] as const) {
+  test(`Codex ${why} gives no row, whatever the limits answer says, and takes an older row with it`, async () => {
+    codex();
+    const { popover } = await opened();
+    expect(limits(popover.draw()).length).toBe(4);
+
+    state.says["app-server"] = codexSays(account, null);
+    refresh(popover);
+    await settle();
+    expect(words(popover.draw())).not.toContain("Codex");
+    expect(words(popover.draw())).toContain(NONE);
+  });
+}
+
+for (const [why, answer] of [
+  ["a failure", new Error("sh took longer than 30 s and was stopped")],
+  ["nothing at all", ""],
+  ["text that isn't JSON", "Error: something went wrong\n"],
+  ["no answer about the account", JSON.stringify({ error: { code: -32603, message: "made up" }, id: 2 })],
+  ["no answer about the limits", codexSays(PRO, null)],
+  ["limits with no window in them", codexSays(PRO, { rateLimits: bucket("codex", null, null), rateLimitsByLimitId: { codex: bucket("codex", null, null) } })],
+  ["limits with no bucket at all", codexSays(PRO, {})],
+] as const) {
+  test(`${why} from Codex with no earlier numbers reads "Could not check"`, async () => {
+    codex();
+    state.says["app-server"] = answer;
+    const { popover } = await opened();
+    const root = popover.draw();
+    expect(words(root)).toEqual(expect.arrayContaining(["Codex", "Could not check"]));
+    expect(limits(root)).toEqual([]);
+  });
+
+  test(`${why} from Codex keeps the last numbers with their age`, async () => {
+    codex();
+    const { popover } = await opened();
+    setSystemTime(NOW + 12 * 60_000);
+    state.says["app-server"] = answer;
+    refresh(popover);
+    await settle();
+    expect(words(limits(popover.draw())[0])).toContain("12%");
+    expect(words(popover.draw())).toContain("Last checked 12m ago");
+  });
+}
+
+test("a question from Codex's server is no answer to ours", async () => {
+  codex();
+  state.says["app-server"] = JSON.stringify({ id: 2, method: "item/tool/requestUserInput", params: {} }) + "\n" + codexSays(PRO) + JSON.stringify({ id: 3, method: "item/tool/requestUserInput", params: {} }) + "\n";
+  const { popover } = await opened();
+  expect(limits(popover.draw()).length).toBe(4);
+});
+
+test("checking Codex sends no request of its own and reads no login", async () => {
+  codex();
+  await opened();
+  expect(state.fetched).toEqual([]);
+  expect(state.runs.every((run) => /app-server|printenv PATH/.test(run.line))).toBe(true);
+  expect(state.runs.some((run) => /auth\.json|keychain|security /i.test(run.line))).toBe(false);
+});
+
+test("no email reaches shared storage from Codex", async () => {
+  codex();
+  await opened();
+  const saved = JSON.stringify(state.shared);
+  expect(saved).toContain("Pro 100");
+  expect(saved).not.toContain(PRO.email);
+  expect(saved).not.toMatch(/email/i);
+});
+
+// The check's own script in a real `sh`, against a made-up program that behaves like Codex's server:
+// each answer arrives `after` seconds later, and only if its input is still open by then.
+const scratch: string[] = [];
+afterEach(() => { for (const dir of scratch.splice(0)) rmSync(dir, { recursive: true, force: true }); });
+function realShell(program: string, says: string, after = 0.5) {
+  const dir = mkdtempSync(join(tmpdir(), "usage-test-"));
+  scratch.push(dir);
+  mkdirSync(join(dir, "tmp"));
+  const answers = says.trim().split("\n").filter((line) => line.includes('"id"')).map((line) => `printf '%s\\n' '${line}'`).join("\n");
+  writeFileSync(join(dir, program), `#!/bin/sh\necho "$@" > "${dir}/asked"\nread -r first\n( sleep ${after}\n${answers}\n) &\nwhile read -r line; do :; done\nkill $! 2>/dev/null\n`);
+  chmodSync(join(dir, program), 0o755);
+  state.agents[""] = [{ ...CODEX, run: [program] }];
+  state.says["printenv PATH"] = `${dir}:/usr/bin:/bin\n`;
+  state.says["app-server"] = state.says["command -v"] = async ({ args }) => {
+    const child = Bun.spawn(["sh", ...args], { env: { TMPDIR: join(dir, "tmp"), PATH: "/usr/bin:/bin" }, stdout: "pipe", stderr: "ignore" });
+    const stdout = await new Response(child.stdout).text();
+    return { code: await child.exited, stdout };
+  };
+  return dir;
+}
+
+const checked = async () => { while (!state.shared.usage?.checkedAt) await Bun.sleep(10); };
+
+test("a Codex check keeps its input open for a slow last answer, and stops as soon as it's in", async () => {
+  const dir = realShell("codex", codexSays(PRO));
+  const started = Bun.nanoseconds();
+  const { popover } = await opened();
+  await checked();
+  expect(limits(popover.draw()).length).toBe(4);
+  expect((Bun.nanoseconds() - started) / 1e9).toBeLessThan(5);
+  expect(readdirSync(join(dir, "tmp"))).toEqual([]);
+}, 10_000);
+
+test("a signed-out Codex's refused last answer ends the wait too", async () => {
+  realShell("codex", codexSays(null, null));
+  const started = Bun.nanoseconds();
+  const { popover } = await opened();
+  await checked();
+  expect(words(popover.draw())).toContain(NONE);
+  expect((Bun.nanoseconds() - started) / 1e9).toBeLessThan(5);
+}, 10_000);
+
+test("Codex is asked read-only, with no approvals", async () => {
+  const dir = realShell("codex", codexSays(PRO));
+  await opened();
+  await checked();
+  expect(readFileSync(join(dir, "asked"), "utf8").trim()).toBe("-s read-only -a never app-server");
+}, 10_000);
+
+test("a program whose name the shell would take apart still runs as itself, and only that", async () => {
+  const dir = realShell("it's my; touch injected", codexSays(PRO));
+  const { popover } = await opened();
+  await checked();
+  expect(limits(popover.draw()).length).toBe(4);
+  expect(existsSync(join(dir, "injected"))).toBe(false);
+  expect(existsSync("injected")).toBe(false);
+}, 10_000);
+
+test("the program in programs.json runs instead of plain claude, with what it's started with", async () => {
+  claude(WEEK);
+  state.agents[""] = [{ ...CLAUDE, run: ["my-claude", "--profile", "work"] }];
+  state.says["my-claude --profile work auth status"] = JSON.stringify(ACCOUNT);
+  state.says["my-claude --profile work -p /usage"] = usageAnswer(WEEK);
+  delete state.says["claude auth status"];
+  delete state.says["claude -p /usage"];
+  const { popover } = await opened();
+  expect(limits(popover.draw()).length).toBe(1);
+});
+
+test("the program in programs.json runs instead of plain codex", async () => {
+  codex();
+  state.agents[""] = [{ ...CODEX, run: ["my-codex"] }];
+  await opened();
+  const asked = state.runs.find((run) => run.line.includes("app-server"))!.line;
+  expect(asked).toContain("my-codex -s read-only -a never app-server");
+  expect(asked).not.toMatch(/(^|[^-])codex -s/);
+});
+
+test("on Windows the agents are asked through PowerShell, with no PATH to fetch and their names quoted for it", async () => {
+  state.platform = "windows";
+  claude(WEEK);
+  state.agents[""] = [{ ...CLAUDE, run: ["my claude's"] }, { ...CODEX, run: ["codex’s"] }];
+  delete state.says["printenv PATH"];
+  state.says["auth status"] = JSON.stringify(ACCOUNT);
+  state.says["/usage"] = usageAnswer(WEEK);
+  state.says["app-server"] = codexSays(PRO);
+  const { popover } = await opened();
+  expect(limits(popover.draw()).length).toBe(5);
+  expect(state.runs.map((run) => run.line.slice(0, "powershell -NoLogo -NoProfile -Command".length))).toEqual(Array(3).fill("powershell -NoLogo -NoProfile -Command"));
+  const line = (piece: string) => state.runs.find((run) => run.line.includes(piece))!.line;
+  expect(line("auth status")).toEndWith("-Command & 'my claude''s' auth status");
+  expect(line("/usage")).toContain("$env:TZ='UTC'; & 'my claude''s' -p /usage");
+  expect(line("app-server")).toContain("| & 'codex’’s' -s read-only -a never app-server");
+});
+
+const OTHER = { ...ACCOUNT, email: "someone-else@example.test", orgId: "org-also-made-up" };
+const SHELL = "/remote/bin:/usr/bin\n";
+const rows = (root: El) => byId(root, "usage-rows")!.kids.map((kid) => mine(kid)!);
+
+function added(name: string, layout = "ready") {
+  state.machines.push({ name, layout });
+}
+
+// Claude Code on an added machine, signed in to `account`.
+function claudeOn(on: string, account: any, ...lines: string[]) {
+  added(on);
+  state.agents[on] = [CLAUDE];
+  state.on[on] = { "printenv PATH": SHELL, "claude auth status": JSON.stringify(account), "claude -p /usage": usageAnswer(...lines) };
+}
+
+const weekAt = (percent: number) => `Current week (all models): ${percent}% used · resets Nov 6 at 7:59pm (UTC)`;
+
+test("Claude Code and Codex are checked on every added machine, on that machine, in its own shell PATH", async () => {
+  claudeOn("vps", ACCOUNT, WEEK);
+  claudeOn("box", OTHER, WEEK);
+  state.agents.box.push(CODEX);
+  state.on.box["app-server"] = codexSays(PRO);
+  await opened();
+  const on = (name: string) => state.runs.filter((run) => run.on === name);
+  expect(on("vps").length).toBe(3);
+  expect(on("box").length).toBe(4);
+  for (const run of [...on("vps"), ...on("box")].filter((run) => !run.line.includes("printenv PATH"))) expect(run.line).toContain(SHELL.trim());
+});
+
+test("a row on this computer alone has no machine label, even with a machine added", async () => {
+  claude(WEEK);
+  added("vps");
+  const { popover } = await opened();
+  expect(words(rows(popover.draw())[0])).toEqual(["Claude Code", "Max", "This week", "12%", "resets in 5d 7h"]);
+});
+
+test("a row on an added machine is labelled with it", async () => {
+  claudeOn("vps", ACCOUNT, WEEK);
+  const { popover } = await opened();
+  expect(words(rows(popover.draw())[0])).toContain("vps");
+});
+
+test("one account on two machines is one row, labelled with both", async () => {
+  claude(WEEK);
+  claudeOn("vps", ACCOUNT, WEEK);
+  const { popover } = await opened();
+  const root = popover.draw();
+  expect(rows(root).length).toBe(1);
+  expect(limits(root).length).toBe(1);
+  expect(words(root)).toContain("This computer, vps");
+});
+
+for (const last of ["vps", "this computer"]) {
+  test(`one account shows the newest numbers, with ${last} answering last`, async () => {
+    const usage = held();
+    claude(weekAt(10));
+    claudeOn("vps", ACCOUNT, weekAt(10));
+    (last === "vps" ? state.on.vps : state.says)["claude -p /usage"] = usage.answer;
+    const { popover } = await opened();
+    setSystemTime(NOW + 5000);
+    usage.release(usageAnswer(weekAt(11)));
+    await settle();
+    expect(rows(popover.draw()).length).toBe(1);
+    expect(words(limits(popover.draw())[0])).toContain("11%");
+  });
+}
+
+test("different accounts on two machines are two rows, each labelled with its machine", async () => {
+  claude(weekAt(10));
+  claudeOn("vps", OTHER, weekAt(20));
+  const { popover } = await opened();
+  const shown = rows(popover.draw());
+  expect(shown.length).toBe(2);
+  expect(words(shown[0])).toEqual(expect.arrayContaining(["This computer", "10%"]));
+  expect(words(shown[1])).toEqual(expect.arrayContaining(["vps", "20%"]));
+});
+
+test("different agents on two machines leave this computer's row unlabelled, as nothing needs telling apart", async () => {
+  claude(WEEK);
+  added("vps");
+  state.agents.vps = [CODEX];
+  state.on.vps = { "printenv PATH": SHELL, "app-server": codexSays(PRO) };
+  const { popover } = await opened();
+  const shown = rows(popover.draw());
+  expect(words(shown[0])).not.toContain("This computer");
+  expect(words(shown[1])).toContain("vps");
+});
+
+test("Claude Code and Codex on one email stay two rows, as they're two subscriptions", async () => {
+  claude(WEEK);
+  state.agents[""].push(CODEX);
+  state.says["app-server"] = codexSays(PRO);
+  const { popover } = await opened();
+  expect(rows(popover.draw()).length).toBe(2);
+});
+
+test("accounts with no email can't be matched, so they stay apart, each with bars of its own", async () => {
+  codex({ ...PRO, email: null });
+  added("vps");
+  state.agents.vps = [CODEX];
+  state.on.vps = { "printenv PATH": SHELL, "app-server": codexSays({ ...PRO, email: null }) };
+  const { popover } = await opened();
+  const root = popover.draw();
+  expect(rows(root).length).toBe(2);
+  const ids = limits(root).map((limit) => arg(limit, "id"));
+  expect(new Set(ids).size).toBe(ids.length);
+});
+
+test("an unreachable machine keeps its last numbers, marked with their age, and is asked nothing", async () => {
+  claudeOn("vps", ACCOUNT, weekAt(40));
+  const { popover } = await opened();
+  setSystemTime(NOW + 12 * 60_000);
+  state.machines[1].layout = "unavailable";
+  state.agents.vps = [{ ...CLAUDE, installed: false }];
+  state.runs.length = 0;
+  refresh(popover);
+  await settle();
+  const root = popover.draw();
+  expect(state.runs.filter((run) => run.on === "vps")).toEqual([]);
+  expect(words(limits(root)[0])).toContain("40%");
+  expect(words(root)).toEqual(expect.arrayContaining(["vps", "Last checked 12m ago"]));
+});
+
+test("an unreachable machine with no last numbers shows nothing, and leaves the others alone", async () => {
+  claude(WEEK);
+  added("vps", "unavailable");
+  const { popover } = await opened();
+  expect(rows(popover.draw()).length).toBe(1);
+  expect(words(popover.draw())).not.toContain("Could not check");
+});
+
+test("a machine still connecting is asked like any other", async () => {
+  claudeOn("vps", ACCOUNT, WEEK);
+  state.machines[1].layout = "loading";
+  const { popover } = await opened();
+  expect(limits(popover.draw()).length).toBe(1);
+});
+
+test("this computer is always asked, whatever its layout says", async () => {
+  claude(WEEK);
+  state.machines[0].layout = "unavailable";
+  const { popover } = await opened();
+  expect(limits(popover.draw()).length).toBe(1);
+});
+
+test("a machine lost after it last looked ready keeps its rows too", async () => {
+  claudeOn("vps", ACCOUNT, weekAt(40));
+  const { popover } = await opened();
+  setSystemTime(NOW + 12 * 60_000);
+  state.agents.vps = [{ ...CLAUDE, installed: false }];
+  state.on.vps = { "printenv PATH": new Error("machine vps is offline"), "command -v": new Error("machine vps is offline") };
+  refresh(popover);
+  await settle();
+  expect(words(limits(popover.draw())[0])).toContain("40%");
+  expect(words(popover.draw())).toContain("Last checked 12m ago");
+});
+
+for (const [why, machine] of [
+  ["fails on this computer", "this computer"],
+  ["fails on the added machine", "vps"],
+  ["can't reach the added machine", "offline"],
+] as const) {
+  test(`a shared row keeps the fresh numbers when one check ${why}, and both names`, async () => {
+    claude(weekAt(10));
+    claudeOn("vps", ACCOUNT, weekAt(10));
+    const { popover } = await opened();
+    setSystemTime(NOW + 12 * 60_000);
+    state.says["claude -p /usage"] = machine === "this computer" ? new Error("no") : usageAnswer(weekAt(30));
+    state.on.vps["claude -p /usage"] = machine === "vps" ? new Error("no") : usageAnswer(weekAt(30));
+    if (machine === "offline") state.machines[1].layout = "unavailable";
+    refresh(popover);
+    await settle();
+    const root = popover.draw();
+    expect(rows(root).length).toBe(1);
+    expect(words(limits(root)[0])).toContain("30%");
+    expect(words(root)).toContain("This computer, vps");
+    expect(words(root).filter((word) => word.startsWith("Last checked"))).toEqual([]);
+  });
+}
+
+test("a shared row failing everywhere shows the newest it has, with its age", async () => {
+  claude(weekAt(10));
+  claudeOn("vps", ACCOUNT, weekAt(10));
+  const { popover } = await opened();
+  setSystemTime(NOW + 12 * 60_000);
+  state.says["claude -p /usage"] = state.on.vps["claude -p /usage"] = new Error("no");
+  refresh(popover);
+  await settle();
+  expect(words(popover.draw())).toContain("Last checked 12m ago");
+});
+
+test("one machine's failure leaves another machine's agents alone", async () => {
+  claude(weekAt(10));
+  state.agents[""].push(CODEX);
+  state.says["app-server"] = codexSays(PRO);
+  claudeOn("vps", OTHER, weekAt(20));
+  state.on.vps["claude -p /usage"] = new Error("no");
+  const { popover } = await opened();
+  const root = popover.draw();
+  expect(rows(root).length).toBe(3);
+  expect(words(root)).toContain("Could not check");
+  expect(words(root)).toEqual(expect.arrayContaining(["10%", "12%"]));
+});
+
+test("a removed machine's rows go after the next check", async () => {
+  claude(weekAt(10));
+  claudeOn("vps", OTHER, weekAt(20));
+  const { popover } = await opened();
+  expect(rows(popover.draw()).length).toBe(2);
+
+  state.machines.pop();
+  refresh(popover);
+  await settle();
+  const root = popover.draw();
+  expect(rows(root).length).toBe(1);
+  expect(words(root)).not.toContain("vps");
+  expect(words(root)).not.toContain("This computer");
+});
+
+test("a shared row loses a removed machine's name, and its label with it", async () => {
+  claude(WEEK);
+  claudeOn("vps", ACCOUNT, WEEK);
+  const { popover } = await opened();
+  state.machines.pop();
+  refresh(popover);
+  await settle();
+  expect(words(popover.draw()).filter((word) => /computer|vps/.test(word))).toEqual([]);
+  expect(rows(popover.draw()).length).toBe(1);
+});
+
+const SURE_NOT = "zaki-asked\n";
+
+for (const [why, shell, probe] of [
+  ["its shell can't be read", new Error("no shell"), SURE_NOT],
+  ["its shell can't say", "/made/up/bin\n", new Error("no")],
+  ["its shell answers nothing", "/made/up/bin\n", ""],
+] as const) {
+  test(`a false "not installed" keeps this computer's row when ${why}`, async () => {
+    claude(WEEK);
+    const { popover } = await opened();
+    setSystemTime(NOW + 12 * 60_000);
+    state.agents[""] = [{ ...CLAUDE, installed: false }];
+    state.says["printenv PATH"] = shell;
+    state.says["command -v"] = probe;
+    state.runs.length = 0;
+    refresh(popover);
+    await settle();
+    expect(words(limits(popover.draw())[0])).toContain("12%");
+    expect(words(popover.draw())).toContain("Last checked 12m ago");
+    expect(checks()).toBe(0);
+  });
+
+  test(`"not installed" with no older row gives none when ${why}`, async () => {
+    claude(WEEK);
+    state.agents[""] = [{ ...CLAUDE, installed: false }];
+    state.says["printenv PATH"] = shell;
+    state.says["command -v"] = probe;
+    const { popover } = await opened();
+    expect(words(popover.draw())).toContain(NONE);
+  });
+}
+
+test("an agent really gone takes its row with it, once its shell says so", async () => {
+  claude(WEEK);
+  const { popover } = await opened();
+  state.agents[""] = [{ ...CLAUDE, installed: false }];
+  state.says["command -v"] = SURE_NOT;
+  refresh(popover);
+  await settle();
+  expect(limits(popover.draw())).toEqual([]);
+  expect(words(popover.draw())).toContain(NONE);
+});
+
+test("an agent only the machine's own shell can find is still checked", async () => {
+  claudeOn("vps", ACCOUNT, WEEK);
+  state.agents.vps = [{ ...CLAUDE, installed: false, run: ["my-claude"] }];
+  state.on.vps["command -v"] = "zaki-has:my-claude\nzaki-asked\n";
+  state.on.vps["my-claude auth status"] = JSON.stringify(ACCOUNT);
+  state.on.vps["my-claude -p /usage"] = usageAnswer(WEEK);
+  const { popover } = await opened();
+  expect(limits(popover.draw()).length).toBe(1);
+  const asked = state.runs.find((run) => run.line.includes("command -v"))!;
+  expect(asked.on).toBe("vps");
+  expect(asked.line).toContain(SHELL.trim());
+});
+
+test("the shell's own word on what's installed works in a real sh", async () => {
+  realShell("codex", codexSays(PRO));
+  state.agents[""] = [{ ...CODEX, installed: false }, { ...CLAUDE, installed: false, run: ["no-such-program-here"] }];
+  const { popover } = await opened();
+  await checked();
+  expect(rows(popover.draw()).length).toBe(1);
+  expect(words(popover.draw())).toContain("Codex");
+}, 10_000);
+
+test("on Windows PowerShell says what's installed", async () => {
+  state.platform = "windows";
+  state.agents[""] = [{ ...CODEX, installed: false }];
+  state.says["app-server"] = codexSays(PRO);
+  state.says["Get-Command"] = "zaki-has:codex\r\nzaki-asked\r\n";
+  const { popover } = await opened();
+  expect(limits(popover.draw()).length).toBe(4);
+});
+
+for (const [why, list] of [["fails", new Error("no")], ["comes back empty", []]] as const) {
+  test(`a list of agents that ${why} keeps a machine's rows`, async () => {
+    claude(WEEK);
+    const { popover } = await opened();
+    setSystemTime(NOW + 12 * 60_000);
+    state.agents[""] = list;
+    refresh(popover);
+    await settle();
+    expect(words(limits(popover.draw())[0])).toContain("12%");
+    expect(words(popover.draw())).toContain("Last checked 12m ago");
+  });
+}
+
+test("OpenCode isn't checked on an added machine", async () => {
+  claudeOn("vps", ACCOUNT, WEEK);
+  state.agents.vps.push({ ...CLAUDE, key: "opencode", name: "OpenCode", icon: "icons/opencode.svg" });
+  const { popover } = await opened();
+  expect(rows(popover.draw()).length).toBe(1);
+  expect(Object.keys(state.shared.usage.entries)).toEqual(["claude|vps"]);
+});
+
+test("the same limit on two machines counts once, following the numbers on show", async () => {
+  const { nearLimit } = await import("../defaults/mods/usage/checks.js");
+  claude(weekAt(95));
+  claudeOn("vps", ACCOUNT, weekAt(95));
+  const { popover } = await opened();
+  expect(nearLimit(state.shared.usage.entries, NOW)).toBe(true);
+
+  setSystemTime(NOW + 12 * 60_000);
+  state.says["claude -p /usage"] = new Error("no");
+  state.on.vps["claude -p /usage"] = usageAnswer(weekAt(10));
+  refresh(popover);
+  await settle();
+  expect(words(limits(popover.draw())[0])).toContain("10%");
+  expect(nearLimit(state.shared.usage.entries, NOW + 12 * 60_000)).toBe(false);
+});
+
+test("no email or organisation is saved from any machine, only a fingerprint", async () => {
+  claude(WEEK);
+  claudeOn("vps", OTHER, WEEK);
+  await opened();
+  const saved = JSON.stringify(state.shared);
+  for (const secret of [ACCOUNT.email, ACCOUNT.orgId, OTHER.email, OTHER.orgId]) expect(saved).not.toContain(secret);
+  const entries: any[] = Object.values(state.shared.usage.entries);
+  expect(entries.map((entry) => entry.who).every((who) => /^[0-9a-f]{16}$/.test(who))).toBe(true);
+  expect(entries[0].who).not.toBe(entries[1].who);
 });
 
 test("the first background check starts 5 seconds after launch, with nothing opened", async () => {

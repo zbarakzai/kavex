@@ -50,8 +50,11 @@ The gauge in the sidebar footer shows your subscriptions' limits. It checks 5 se
 **What it runs.** On this computer and on each added machine:
 
 - Your shell, once per check, to learn its `PATH`: `$SHELL -ic 'printenv PATH'`. Your shell's startup files run when it does. Windows skips this step.
+- `command -v` (`Get-Command` on Windows), to look for an agent Zaki didn't find by itself.
 - Claude Code: `claude auth status`, then `claude -p /usage`, with no hooks, plugins, MCP servers or saved session. It spends no tokens.
 - Codex: `codex app-server` in read-only mode, asked for your account and your limits.
+
+Agents start the way `programs.json`'s `run` says, if you changed it.
 
 **What it reads.** The answers to those commands. It doesn't read Claude Code's or Codex's login, and it never touches the macOS Keychain. Those answers include your email, which is used to make a short SHA-256 fingerprint, so that one account on two machines shows as one row. The email isn't kept.
 

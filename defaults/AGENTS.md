@@ -265,16 +265,23 @@ else the system's app. Commit takes what's staged, or everything if nothing is, 
 button, Enter or `cmd-enter` (`ctrl-enter`).
 
 The gauge in the sidebar footer, beside Add machine and Settings, opens Usage limits (the `usage`
-popup mod): the Claude Code subscription on this computer, with its tier and each limit's percent
-used, bar and time to reset: weekly first, then a model's own, then the 5-hour limit when Claude
-reports it. A limit past its reset time reads 0% before the next check. Numbers come from Claude's
-own commands (`claude auth status`, `claude -p /usage`) in the person's shell PATH, with no hooks,
-plugins, MCP or saved session, and spend no tokens; for Claude the mod reads no login and sends no request.
-Signed out, on an API key or not installed, Claude gets no row. Opening checks, reusing a result
+popup mod): the Claude Code and Codex subscriptions on this computer and every added machine, with
+each one's tier and each limit's percent used, bar and time to reset: weekly first, then a model's
+own, then shorter windows such as the 5-hour limit. A limit past its reset time reads 0% before the
+next check. Numbers come from each agent's own commands, on the machine it's signed in on (`claude
+auth status` and `claude -p /usage`; `codex app-server`'s `account/read` and
+`account/rateLimits/read`, read-only), started the way programs.json's `run` says, in that machine's
+shell PATH. Claude's run with no hooks, plugins, MCP or saved session. Neither spends tokens, and for
+these two the mod reads no login and sends no request. Signed out, on an API key or not installed, an agent gets
+no row. One account on several machines is one row naming them all, with the newest numbers, and
+different accounts stay apart. A row names its machine unless it's on this computer alone, with no
+other row of that agent to tell it from. Opening checks, reusing a result
 under a minute old, and the refresh button checks at once: `workspace-chrome.check-usage` and
 `workspace-chrome.refresh-usage`, run by the footer so that closing the popover doesn't cut a check
-off. A failed check keeps the last numbers with their age, or reads "Could not check" with none.
-`shared("usage")` holds the numbers and a short fingerprint of the account, never an email, login or key.
+off. A failed check, or a machine that can't be reached, keeps the last numbers with their age, or
+reads "Could not check" with none; another machine's fresh numbers for that account win. A removed
+machine's rows go at the next check. `shared("usage")` holds the numbers and a short fingerprint of
+the account, never an email, login or key.
 The footer also checks by itself, 5 seconds after it starts and every 15 minutes, whether the popover
 was opened or not; only a layout with that footer does, so not Terminals or Zaki 98. A limit at 90%
 used or more turns its bar orange and puts an orange dot on the gauge, until it's past its reset time.
