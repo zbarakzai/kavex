@@ -24,7 +24,7 @@ test("every mod's look.js is the same file", () => {
 });
 
 test("mods that share a file keep the same copy", () => {
-  for (const [file, mods] of [["groups.js", ["tabs", "tabs-column", "tab-menu"]], ["filetypes.js", ["files", "changes"]], ["panel.js", ["files", "changes"]]] as const) {
+  for (const [file, mods] of [["groups.js", ["tabs", "tabs-column", "tab-menu"]], ["filetypes.js", ["files", "changes"]], ["panel.js", ["files", "changes"]], ["checks.js", ["usage", "workspace-chrome"]]] as const) {
     expect(new Set(mods.map((mod) => readFileSync(join(root, "mods", mod, file), "utf8"))).size, file).toBe(1);
   }
 });
@@ -33,7 +33,7 @@ test("every copy of the loader is the same file, and nothing still spins", () =>
   const mods = readdirSync(join(root, "mods")).map((mod) => join(root, "mods", mod));
   const screens = [...mods, join(root, "frame/settings")];
   const copies = screens.map((dir) => join(dir, "loader.js")).filter(existsSync);
-  expect(copies.length).toBe(10);
+  expect(copies.length).toBe(11);
   expect(new Set(copies.map((path) => readFileSync(path, "utf8"))).size).toBe(1);
   for (const dir of screens) {
     for (const file of readdirSync(dir).filter((name) => name.endsWith(".js"))) expect(readFileSync(join(dir, file), "utf8"), `${dir}/${file}`).not.toContain(".spin(");
@@ -73,8 +73,12 @@ test("the Tabs column's focus key sits beside the panel key, on a key nothing el
   }
 });
 
+test("the picker and Add a machine take every color from the theme", () => {
+  for (const mod of ["picker", "machine-add"]) expect(readFileSync(join(root, "mods", mod, "main.js"), "utf8"), mod).not.toMatch(/#[0-9a-f]{3,8}\b/i);
+});
+
 test("no framed overlay paints its own background over the rounded frame", () => {
-  const screens = ["mods/picker", "mods/machine-add", "mods/tab-menu", "mods/file-menu", "mods/new-menu", "mods/confirm", "mods/menu", "mods/worktree", "mods/agents", "mods/help", "mods/toast", "mods/prompt", "frame/palette", "frame/settings", "frame/whatsnew", "frame/feedback"];
+  const screens = ["mods/picker", "mods/machine-add", "mods/tab-menu", "mods/file-menu", "mods/new-menu", "mods/confirm", "mods/menu", "mods/worktree", "mods/agents", "mods/help", "mods/toast", "mods/prompt", "mods/usage", "frame/palette", "frame/settings", "frame/whatsnew", "frame/feedback"];
   for (const screen of screens) expect(readFileSync(join(root, screen, "main.js"), "utf8"), screen).not.toContain(".bg(t.popover)");
 });
 

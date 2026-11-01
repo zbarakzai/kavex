@@ -6,34 +6,33 @@
 
 import { View, div, svg } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input } from "gpui-base";
-import { agents, spaces, terminals, run, hc, theme, props, closeOverlay, openOverlay, shared, setShared } from "herdr";
+import { agents, spaces, terminals, run, hc, theme, props, closeOverlay } from "herdr";
 import { loader } from "./loader.js";
+import { badge, look, MONO, spaced, tile } from "./look.js";
 
-const MARK = { ansi6: "#22a99a", ansi3: "#e3814f", ansi4: "#5b8def", ansi5: "#8b7cf6", ansi2: "#3fae6a", ansi1: "#d9649a" };
+const GUTTER = 5;
+const EDGE = GUTTER + 14;
+const SEARCH = 44;
+const FOOTER = 42;
+const ROW = 34;
+const HEAD = 38;
+const EARLIER = 30;
+const CARD_EDGE = 5;
+const MOST = 440;
 
-// Space colors, kept by space id in shared "space.colors": a theme
-// color name ("ansi6") or a picked #rrggbb. A space seen without one gets
-// the theme color fewest spaces use, once; every mod does the same in the
-// same order, so they agree, and adding or renaming spaces moves nothing.
-const PROJECT_COLORS = ["ansi6", "ansi3", "ansi4", "ansi5", "ansi2", "ansi1"];
-function spaceColors() {
-  const ids = new Set(spaces().map((p) => p.id));
-  const kept = Object.fromEntries(Object.entries(shared("space.colors") ?? {}).filter(([id]) => ids.has(id)));
-  let changed = Object.keys(kept).length !== Object.keys(shared("space.colors") ?? {}).length;
-  for (const p of spaces()) {
-    if (kept[p.id] || p.name === "~") continue;
-    const uses = (c) => Object.values(kept).filter((v) => v === c).length;
-    kept[p.id] = PROJECT_COLORS.reduce((best, c) => (uses(c) < uses(best) ? c : best));
-    changed = true;
+const caption = (text) => spaced(text.toUpperCase(), 9.5, 0.05);
+
+// One card per space, one for new work, with the fold for quiet spaces between them.
+function cardsOf(rows) {
+  const cards = [];
+  for (const r of rows) {
+    if (r.kind === "head" || r.kind === "new" || r.kind === "earlier") cards.push([r]);
+    else cards.at(-1).push(r);
   }
-  if (changed) setShared("space.colors", kept);
-  return kept;
+  return cards;
 }
-function spaceColor(t, p) {
-  if (p.name === "~") return t.dim;
-  const c = spaceColors()[p.id] ?? PROJECT_COLORS[0];
-  return c.startsWith("#") ? c : (MARK[c] ?? t[c]);
-}
+
+const cardHeight = (card) => (card[0].kind === "earlier" ? EARLIER : CARD_EDGE * 2 + card.reduce((sum, r) => sum + (r.kind === "head" ? HEAD : ROW), 0));
 
 export default class Picker extends View {
   init(_props, cx) {
@@ -106,13 +105,13 @@ export default class Picker extends View {
     else if (r.kind === "space") run("space.new", r.machine ? { machine: r.machine } : {});
   }
 
-  glyph(t, st) {
-    if (st === "working") return loader(t.accent);
-    return div().w(12).flex_none().text_color(t[st] ?? t.dim).child(st === "idle" ? "○" : st ? "●" : "·");
+  status(k, status) {
+    if (status === "working") return h_flex().flex_none().gap(6).items_center().child(loader(k.accent)).child(badge(k, status));
+    return badge(k, status);
   }
 
   render() {
-    const t = theme();
+    const k = look(theme());
     const rows = this.rows();
     const pickable = rows.filter((r) => r.kind === "ctx" || r.kind === "new" || r.kind === "space");
     // Opens on where you are.
@@ -120,93 +119,70 @@ export default class Picker extends View {
     this.at = Math.min(this.at, pickable.length - 1);
     const sel = pickable[this.at];
 
+    const picks = (el, r) => el.h(ROW).px(8).gap(10).flex_none().items_center().rounded(7).cursor_pointer()
+      .when(r === sel, (row) => row.bg(k.row_selected_strong))
+      .hover((s) => s.bg(r === sel ? k.row_active_hover : k.hover))
+      .on_click(() => this.go(r));
+
     const row = (r) => {
       if (r.kind === "head") {
-        return h_flex()
-          .px(10)
-          .pt(10)
-          .pb(3)
-          .gap(8)
-          .items_center()
-          .text_size(11)
-          .font_semibold()
-          .text_color(t.dim)
-          .child(h_flex().size(18).rounded(5).bg(spaceColor(t, r.w)).items_center().justify_center().text_size(10.5).font_bold().text_color("#ffffff").child([...r.w.name][0]?.toUpperCase() ?? "?"))
-          .child(r.w.name);
+        return h_flex().h(HEAD).px(8).gap(10).flex_none().items_center()
+          .child(h_flex().size(22).flex_none().rounded(6).bg(r.w.active ? k.accent : k.tile).items_center().justify_center().font_family(MONO).text_size(10.5)
+            .text_color(r.w.active ? k.accent_foreground : k.tile_text).child([...r.w.name][0]?.toUpperCase() ?? "?"))
+          .child(div().flex_1().min_w(0).truncate().text_size(12.5).text_color(k.text_secondary).child(r.w.name))
+          .when(Boolean(r.w.machine), (el) => el.child(caption(r.w.machine).text_color(k.text_faint)));
       }
-      if (r.kind === "earlier") {
-        return h_flex()
-          .id("pk-earlier")
-          .mt(6)
-          .px(10)
-          .py(6)
-          .border_t(1)
-          .border_color(t.border)
-          .text_size(12)
-          .text_color(t.dim)
-          .cursor_pointer()
-          .hover((s) => s.text_color(t.foreground))
+      if (r.kind === "new" || r.kind === "space") {
+        const label = r.kind === "new" ? "New tab" : r.machine ? `New space on ${r.machine}` : "New space";
+        return picks(h_flex().id(r.kind === "new" ? "pk-new" : `pk-space-${r.machine ?? "here"}`), r)
+          .child(h_flex().size(22).flex_none().rounded(6).bg(k.tile).items_center().justify_center().text_color(k.tile_text)
+            .child(svg("mods/workspace-chrome/icons/plus.svg").size(16).flex_none()))
+          .child(div().flex_1().min_w(0).truncate().text_color(k.text_secondary).child(label));
+      }
+      const others = Math.max(0, r.mine.length - 1) + r.team, here = r.w.active && r.ctx.active;
+      return picks(h_flex().id(`pk-${r.ctx.id}`), r)
+        .child(tile(r.mine[0]?.program, 22, k))
+        .child(div().flex_1().min_w(0).truncate().text_color(k.row_name).when(here, (d) => d.font_medium()).child(r.ctx.name))
+        .when(others > 0, (el) => el.child(caption(`+${others}`).text_color(k.text_faint)))
+        .when(Boolean(r.ctx.status), (el) => el.child(this.status(k, r.ctx.status)));
+    };
+
+    const card = (rows) => {
+      const [first] = rows;
+      if (first.kind === "earlier") {
+        return h_flex().id("pk-earlier").h(EARLIER).px(14).gap(6).flex_none().items_center().text_color(k.text_faint).cursor_pointer()
+          .hover((s) => s.text_color(k.foreground))
           .on_click((_e, cx) => {
             this.showEarlier = !this.showEarlier;
             cx.notify();
           })
-          .child(`earlier: ${r.count} quiet space${r.count > 1 ? "s" : ""} ${this.showEarlier ? "▴" : "▾"}`);
+          .child(caption(`Earlier · ${first.count} quiet space${first.count > 1 ? "s" : ""}`))
+          .child(svg(`mods/workspace-chrome/icons/chevron-${this.showEarlier ? "down" : "right"}.svg`).size(12).flex_none());
       }
-      const on = r === sel;
-      if (r.kind === "new" || r.kind === "space") {
-        const label = r.kind === "new" ? "new tab" : r.machine ? `new space on ${r.machine}` : "new space";
-        return h_flex()
-          .id(r.kind === "new" ? "pk-new" : `pk-space-${r.machine ?? "here"}`)
-          .mx(4)
-          .when(r.kind === "new", (el) => el.mt(4))
-          .px(10)
-          .h(32)
-          .items_center()
-          .rounded(7)
-          .gap(8)
-          .text_color(t.muted)
-          .cursor_pointer()
-          .when(on, (el) => el.bg(t.hover))
-          .hover((s) => s.bg(t.hover))
-          .on_click(() => this.go(r))
-          .child(svg("mods/workspace-chrome/icons/plus.svg").size(16).flex_none())
-          .child(label);
-      }
-      const who = r.mine.map((a) => a.program?.name ?? "agent").join(" · ");
-      const here = r.w.active && r.ctx.active;
-      return h_flex()
-        .id(`pk-${r.ctx.id}`)
-        .mx(4)
-        .px(10)
-.h(32)
-        .rounded(7)
-        .gap(10)
-        .items_center()
-        .cursor_pointer()
-        .when(on, (el) => el.bg(t.hover))
-        .hover((s) => s.bg(t.hover))
-        .on_click(() => this.go(r))
-        .child(this.glyph(t, r.ctx.status))
-        .child(div().flex_1().truncate().text_color(t.foreground).when(here, (d) => d.font_semibold()).child(r.ctx.name))
-        .when(r.ctx.status === "blocked", (el) => el.child(div().text_size(11).text_color(t.blocked).child("needs you")))
-        .when(r.ctx.status === "done", (el) => el.child(div().text_size(11).text_color(t.done).child("finished")))
-        .child(div().text_size(11).text_color(t.dim).child(who + (r.team ? `  +${r.team}` : "")));
+      return v_flex().flex_none().p(CARD_EDGE - 1).rounded(10).bg(k.card).border_1().border_color(k.card_border).children(rows.map(row));
     };
+
+    const hint = (keys, label) => h_flex().flex_none().gap(6).items_center()
+      .child(h_flex().h(18).px(5).flex_none().items_center().rounded(5).border_1().border_color(k.pill_ring).text_color(k.muted).child(caption(keys)))
+      .child(caption(label).text_color(k.text_faint));
+
+    const cards = cardsOf(rows);
+    const tall = cards.reduce((sum, c) => sum + cardHeight(c), GUTTER * (cards.length - 1));
 
     return v_flex()
       .id("picker")
       .track_focus(this.handle)
       .w_full()
       .min_h(0)
-      .p(18)
-      .gap(10)
+      .rounded(13)
+      .bg(k.canvas)
       .text_size(13)
       .on_key_down((e, cx) => {
-        const k = e.key;
-        if (k === "escape") return this.close();
-        if (k === "down") this.at = (this.at + 1) % pickable.length;
-        else if (k === "up") this.at = (this.at + pickable.length - 1) % pickable.length;
-        else if (k === "d" && e.modifiers.control) {
+        const key = e.key;
+        if (key === "escape") return this.close();
+        if (key === "down") this.at = (this.at + 1) % pickable.length;
+        else if (key === "up") this.at = (this.at + pickable.length - 1) % pickable.length;
+        else if (key === "d" && e.modifiers.control) {
           if (sel?.kind === "ctx") {
             this.close();
             run("tab.close", { id: sel.ctx.id });
@@ -215,13 +191,15 @@ export default class Picker extends View {
         cx.stop_propagation();
         cx.notify();
       })
-      .child(h_flex().items_center().child(div().flex_1().text_size(15).font_semibold().text_color(t.foreground).child("Go to…")).child(div().text_size(11).text_color(t.dim).child("Esc")))
-      .child(
-        h_flex().h(36).flex_none().px(10).gap(8).items_center().rounded(9).border_1().border_color(t.accent).bg(t.background)
-          .child(svg("mods/workspace-chrome/icons/search.svg").size(16).text_color(t.dim))
-          .child(Input.new(this.input).flex_1().h_full().text_size(12.8).text_color(t.foreground)),
-      )
-      .child(v_flex().h(Math.min(320, 6 + rows.reduce((h, r) => h + (r.kind === "head" ? 29 : r.kind === "earlier" ? 35 : r.kind === "new" ? 36 : 32), 0))).min_h(0).flex_shrink(1).pb(6).overflow_y_scrollbar().children(rows.map(row)));
-
+      .child(h_flex().h(SEARCH).flex_none().m(GUTTER).px(14).gap(10).items_center().rounded(10).bg(k.card).border_1().border_color(k.card_border)
+        .child(svg("mods/workspace-chrome/icons/search.svg").size(16).flex_none().text_color(k.text_faint))
+        .child(Input.new(this.input).flex_1().h_full().text_size(13).text_color(k.foreground)))
+      .child(v_flex().h(Math.min(MOST, tall)).min_h(0).flex_shrink(1).px(GUTTER).gap(GUTTER).overflow_y_scrollbar().children(cards.map(card)))
+      .child(h_flex().h(FOOTER).flex_none().px(EDGE).gap(14).items_center()
+        .child(hint("↑↓", "Move"))
+        .child(hint("Enter", "Go"))
+        .child(hint("Ctrl D", "Close tab"))
+        .child(div().flex_1())
+        .child(hint("Esc", "Leave")));
   }
 }
