@@ -422,8 +422,9 @@ for (const [why, answer] of [
 test("Claude not installed gives no row and runs nothing of Claude's", async () => {
   claude(WEEK);
   state.agents[""] = [{ ...CLAUDE, installed: false }];
+  state.says["command -v"] = "zaki-asked\n";
   const { popover } = await opened();
-  expect(state.runs.some((run) => run.line.includes("claude"))).toBe(false);
+  expect(state.runs.some((run) => /claude (auth|-p)/.test(run.line))).toBe(false);
   expect(words(popover.draw())).toContain(NONE);
 });
 
@@ -762,7 +763,7 @@ function realShell(program: string, says: string, after = 0.5) {
   chmodSync(join(dir, program), 0o755);
   state.agents[""] = [{ ...CODEX, run: [program] }];
   state.says["printenv PATH"] = `${dir}:/usr/bin:/bin\n`;
-  state.says["app-server"] = async ({ args }) => {
+  state.says["app-server"] = state.says["command -v"] = async ({ args }) => {
     const child = Bun.spawn(["sh", ...args], { env: { TMPDIR: join(dir, "tmp"), PATH: "/usr/bin:/bin" }, stdout: "pipe", stderr: "ignore" });
     const stdout = await new Response(child.stdout).text();
     return { code: await child.exited, stdout };
@@ -842,4 +843,356 @@ test("on Windows the agents are asked through PowerShell, with no PATH to fetch 
   expect(line("auth status")).toEndWith("-Command & 'my claude''s' auth status");
   expect(line("/usage")).toContain("$env:TZ='UTC'; & 'my claude''s' -p /usage");
   expect(line("app-server")).toContain("| & 'codex’’s' -s read-only -a never app-server");
+});
+
+const OTHER = { ...ACCOUNT, email: "someone-else@example.test", orgId: "org-also-made-up" };
+const SHELL = "/remote/bin:/usr/bin\n";
+const rows = (root: El) => byId(root, "usage-rows")!.kids.map((kid) => mine(kid)!);
+
+function added(name: string, layout = "ready") {
+  state.machines.push({ name, layout });
+}
+
+// Claude Code on an added machine, signed in to `account`.
+function claudeOn(on: string, account: any, ...lines: string[]) {
+  added(on);
+  state.agents[on] = [CLAUDE];
+  state.on[on] = { "printenv PATH": SHELL, "claude auth status": JSON.stringify(account), "claude -p /usage": usageAnswer(...lines) };
+}
+
+const weekAt = (percent: number) => `Current week (all models): ${percent}% used · resets Nov 6 at 7:59pm (UTC)`;
+
+test("Claude Code and Codex are checked on every added machine, on that machine, in its own shell PATH", async () => {
+  claudeOn("vps", ACCOUNT, WEEK);
+  claudeOn("box", OTHER, WEEK);
+  state.agents.box.push(CODEX);
+  state.on.box["app-server"] = codexSays(PRO);
+  await opened();
+  const on = (name: string) => state.runs.filter((run) => run.on === name);
+  expect(on("vps").length).toBe(3);
+  expect(on("box").length).toBe(4);
+  for (const run of [...on("vps"), ...on("box")].filter((run) => !run.line.includes("printenv PATH"))) expect(run.line).toContain(SHELL.trim());
+});
+
+test("a row on this computer alone has no machine label, even with a machine added", async () => {
+  claude(WEEK);
+  added("vps");
+  const { popover } = await opened();
+  expect(words(rows(popover.draw())[0])).toEqual(["Claude Code", "Max", "This week", "12%", "resets in 5d 7h"]);
+});
+
+test("a row on an added machine is labelled with it", async () => {
+  claudeOn("vps", ACCOUNT, WEEK);
+  const { popover } = await opened();
+  expect(words(rows(popover.draw())[0])).toContain("vps");
+});
+
+test("one account on two machines is one row, labelled with both", async () => {
+  claude(WEEK);
+  claudeOn("vps", ACCOUNT, WEEK);
+  const { popover } = await opened();
+  const root = popover.draw();
+  expect(rows(root).length).toBe(1);
+  expect(limits(root).length).toBe(1);
+  expect(words(root)).toContain("This computer, vps");
+});
+
+for (const last of ["vps", "this computer"]) {
+  test(`one account shows the newest numbers, with ${last} answering last`, async () => {
+    const usage = held();
+    claude(weekAt(10));
+    claudeOn("vps", ACCOUNT, weekAt(10));
+    (last === "vps" ? state.on.vps : state.says)["claude -p /usage"] = usage.answer;
+    const { popover } = await opened();
+    setSystemTime(NOW + 5000);
+    usage.release(usageAnswer(weekAt(11)));
+    await settle();
+    expect(rows(popover.draw()).length).toBe(1);
+    expect(words(limits(popover.draw())[0])).toContain("11%");
+  });
+}
+
+test("different accounts on two machines are two rows, each labelled with its machine", async () => {
+  claude(weekAt(10));
+  claudeOn("vps", OTHER, weekAt(20));
+  const { popover } = await opened();
+  const shown = rows(popover.draw());
+  expect(shown.length).toBe(2);
+  expect(words(shown[0])).toEqual(expect.arrayContaining(["This computer", "10%"]));
+  expect(words(shown[1])).toEqual(expect.arrayContaining(["vps", "20%"]));
+});
+
+test("different agents on two machines leave this computer's row unlabelled, as nothing needs telling apart", async () => {
+  claude(WEEK);
+  added("vps");
+  state.agents.vps = [CODEX];
+  state.on.vps = { "printenv PATH": SHELL, "app-server": codexSays(PRO) };
+  const { popover } = await opened();
+  const shown = rows(popover.draw());
+  expect(words(shown[0])).not.toContain("This computer");
+  expect(words(shown[1])).toContain("vps");
+});
+
+test("Claude Code and Codex on one email stay two rows, as they're two subscriptions", async () => {
+  claude(WEEK);
+  state.agents[""].push(CODEX);
+  state.says["app-server"] = codexSays(PRO);
+  const { popover } = await opened();
+  expect(rows(popover.draw()).length).toBe(2);
+});
+
+test("accounts with no email can't be matched, so they stay apart, each with bars of its own", async () => {
+  codex({ ...PRO, email: null });
+  added("vps");
+  state.agents.vps = [CODEX];
+  state.on.vps = { "printenv PATH": SHELL, "app-server": codexSays({ ...PRO, email: null }) };
+  const { popover } = await opened();
+  const root = popover.draw();
+  expect(rows(root).length).toBe(2);
+  const ids = limits(root).map((limit) => arg(limit, "id"));
+  expect(new Set(ids).size).toBe(ids.length);
+});
+
+test("an unreachable machine keeps its last numbers, marked with their age, and is asked nothing", async () => {
+  claudeOn("vps", ACCOUNT, weekAt(40));
+  const { popover } = await opened();
+  setSystemTime(NOW + 12 * 60_000);
+  state.machines[1].layout = "unavailable";
+  state.agents.vps = [{ ...CLAUDE, installed: false }];
+  state.runs.length = 0;
+  refresh(popover);
+  await settle();
+  const root = popover.draw();
+  expect(state.runs.filter((run) => run.on === "vps")).toEqual([]);
+  expect(words(limits(root)[0])).toContain("40%");
+  expect(words(root)).toEqual(expect.arrayContaining(["vps", "Last checked 12m ago"]));
+});
+
+test("an unreachable machine with no last numbers shows nothing, and leaves the others alone", async () => {
+  claude(WEEK);
+  added("vps", "unavailable");
+  const { popover } = await opened();
+  expect(rows(popover.draw()).length).toBe(1);
+  expect(words(popover.draw())).not.toContain("Could not check");
+});
+
+test("a machine still connecting is asked like any other", async () => {
+  claudeOn("vps", ACCOUNT, WEEK);
+  state.machines[1].layout = "loading";
+  const { popover } = await opened();
+  expect(limits(popover.draw()).length).toBe(1);
+});
+
+test("this computer is always asked, whatever its layout says", async () => {
+  claude(WEEK);
+  state.machines[0].layout = "unavailable";
+  const { popover } = await opened();
+  expect(limits(popover.draw()).length).toBe(1);
+});
+
+test("a machine lost after it last looked ready keeps its rows too", async () => {
+  claudeOn("vps", ACCOUNT, weekAt(40));
+  const { popover } = await opened();
+  setSystemTime(NOW + 12 * 60_000);
+  state.agents.vps = [{ ...CLAUDE, installed: false }];
+  state.on.vps = { "printenv PATH": new Error("machine vps is offline"), "command -v": new Error("machine vps is offline") };
+  refresh(popover);
+  await settle();
+  expect(words(limits(popover.draw())[0])).toContain("40%");
+  expect(words(popover.draw())).toContain("Last checked 12m ago");
+});
+
+for (const [why, machine] of [
+  ["fails on this computer", "this computer"],
+  ["fails on the added machine", "vps"],
+  ["can't reach the added machine", "offline"],
+] as const) {
+  test(`a shared row keeps the fresh numbers when one check ${why}, and both names`, async () => {
+    claude(weekAt(10));
+    claudeOn("vps", ACCOUNT, weekAt(10));
+    const { popover } = await opened();
+    setSystemTime(NOW + 12 * 60_000);
+    state.says["claude -p /usage"] = machine === "this computer" ? new Error("no") : usageAnswer(weekAt(30));
+    state.on.vps["claude -p /usage"] = machine === "vps" ? new Error("no") : usageAnswer(weekAt(30));
+    if (machine === "offline") state.machines[1].layout = "unavailable";
+    refresh(popover);
+    await settle();
+    const root = popover.draw();
+    expect(rows(root).length).toBe(1);
+    expect(words(limits(root)[0])).toContain("30%");
+    expect(words(root)).toContain("This computer, vps");
+    expect(words(root).filter((word) => word.startsWith("Last checked"))).toEqual([]);
+  });
+}
+
+test("a shared row failing everywhere shows the newest it has, with its age", async () => {
+  claude(weekAt(10));
+  claudeOn("vps", ACCOUNT, weekAt(10));
+  const { popover } = await opened();
+  setSystemTime(NOW + 12 * 60_000);
+  state.says["claude -p /usage"] = state.on.vps["claude -p /usage"] = new Error("no");
+  refresh(popover);
+  await settle();
+  expect(words(popover.draw())).toContain("Last checked 12m ago");
+});
+
+test("one machine's failure leaves another machine's agents alone", async () => {
+  claude(weekAt(10));
+  state.agents[""].push(CODEX);
+  state.says["app-server"] = codexSays(PRO);
+  claudeOn("vps", OTHER, weekAt(20));
+  state.on.vps["claude -p /usage"] = new Error("no");
+  const { popover } = await opened();
+  const root = popover.draw();
+  expect(rows(root).length).toBe(3);
+  expect(words(root)).toContain("Could not check");
+  expect(words(root)).toEqual(expect.arrayContaining(["10%", "12%"]));
+});
+
+test("a removed machine's rows go after the next check", async () => {
+  claude(weekAt(10));
+  claudeOn("vps", OTHER, weekAt(20));
+  const { popover } = await opened();
+  expect(rows(popover.draw()).length).toBe(2);
+
+  state.machines.pop();
+  refresh(popover);
+  await settle();
+  const root = popover.draw();
+  expect(rows(root).length).toBe(1);
+  expect(words(root)).not.toContain("vps");
+  expect(words(root)).not.toContain("This computer");
+});
+
+test("a shared row loses a removed machine's name, and its label with it", async () => {
+  claude(WEEK);
+  claudeOn("vps", ACCOUNT, WEEK);
+  const { popover } = await opened();
+  state.machines.pop();
+  refresh(popover);
+  await settle();
+  expect(words(popover.draw()).filter((word) => /computer|vps/.test(word))).toEqual([]);
+  expect(rows(popover.draw()).length).toBe(1);
+});
+
+const SURE_NOT = "zaki-asked\n";
+
+for (const [why, shell, probe] of [
+  ["its shell can't be read", new Error("no shell"), SURE_NOT],
+  ["its shell can't say", "/made/up/bin\n", new Error("no")],
+  ["its shell answers nothing", "/made/up/bin\n", ""],
+] as const) {
+  test(`a false "not installed" keeps this computer's row when ${why}`, async () => {
+    claude(WEEK);
+    const { popover } = await opened();
+    setSystemTime(NOW + 12 * 60_000);
+    state.agents[""] = [{ ...CLAUDE, installed: false }];
+    state.says["printenv PATH"] = shell;
+    state.says["command -v"] = probe;
+    state.runs.length = 0;
+    refresh(popover);
+    await settle();
+    expect(words(limits(popover.draw())[0])).toContain("12%");
+    expect(words(popover.draw())).toContain("Last checked 12m ago");
+    expect(checks()).toBe(0);
+  });
+
+  test(`"not installed" with no older row gives none when ${why}`, async () => {
+    claude(WEEK);
+    state.agents[""] = [{ ...CLAUDE, installed: false }];
+    state.says["printenv PATH"] = shell;
+    state.says["command -v"] = probe;
+    const { popover } = await opened();
+    expect(words(popover.draw())).toContain(NONE);
+  });
+}
+
+test("an agent really gone takes its row with it, once its shell says so", async () => {
+  claude(WEEK);
+  const { popover } = await opened();
+  state.agents[""] = [{ ...CLAUDE, installed: false }];
+  state.says["command -v"] = SURE_NOT;
+  refresh(popover);
+  await settle();
+  expect(limits(popover.draw())).toEqual([]);
+  expect(words(popover.draw())).toContain(NONE);
+});
+
+test("an agent only the machine's own shell can find is still checked", async () => {
+  claudeOn("vps", ACCOUNT, WEEK);
+  state.agents.vps = [{ ...CLAUDE, installed: false, run: ["my-claude"] }];
+  state.on.vps["command -v"] = "zaki-has:my-claude\nzaki-asked\n";
+  state.on.vps["my-claude auth status"] = JSON.stringify(ACCOUNT);
+  state.on.vps["my-claude -p /usage"] = usageAnswer(WEEK);
+  const { popover } = await opened();
+  expect(limits(popover.draw()).length).toBe(1);
+  const asked = state.runs.find((run) => run.line.includes("command -v"))!;
+  expect(asked.on).toBe("vps");
+  expect(asked.line).toContain(SHELL.trim());
+});
+
+test("the shell's own word on what's installed works in a real sh", async () => {
+  realShell("codex", codexSays(PRO));
+  state.agents[""] = [{ ...CODEX, installed: false }, { ...CLAUDE, installed: false, run: ["no-such-program-here"] }];
+  const { popover } = await opened();
+  await checked();
+  expect(rows(popover.draw()).length).toBe(1);
+  expect(words(popover.draw())).toContain("Codex");
+}, 10_000);
+
+test("on Windows PowerShell says what's installed", async () => {
+  state.platform = "windows";
+  state.agents[""] = [{ ...CODEX, installed: false }];
+  state.says["app-server"] = codexSays(PRO);
+  state.says["Get-Command"] = "zaki-has:codex\r\nzaki-asked\r\n";
+  const { popover } = await opened();
+  expect(limits(popover.draw()).length).toBe(4);
+});
+
+for (const [why, list] of [["fails", new Error("no")], ["comes back empty", []]] as const) {
+  test(`a list of agents that ${why} keeps a machine's rows`, async () => {
+    claude(WEEK);
+    const { popover } = await opened();
+    setSystemTime(NOW + 12 * 60_000);
+    state.agents[""] = list;
+    refresh(popover);
+    await settle();
+    expect(words(limits(popover.draw())[0])).toContain("12%");
+    expect(words(popover.draw())).toContain("Last checked 12m ago");
+  });
+}
+
+test("OpenCode isn't checked on an added machine", async () => {
+  claudeOn("vps", ACCOUNT, WEEK);
+  state.agents.vps.push({ ...CLAUDE, key: "opencode", name: "OpenCode", icon: "icons/opencode.svg" });
+  const { popover } = await opened();
+  expect(rows(popover.draw()).length).toBe(1);
+  expect(Object.keys(state.shared.usage.entries)).toEqual(["claude|vps"]);
+});
+
+test("the same limit on two machines counts once, following the numbers on show", async () => {
+  const { nearLimit } = await import("../defaults/mods/usage/checks.js");
+  claude(weekAt(95));
+  claudeOn("vps", ACCOUNT, weekAt(95));
+  const { popover } = await opened();
+  expect(nearLimit(state.shared.usage.entries, NOW)).toBe(true);
+
+  setSystemTime(NOW + 12 * 60_000);
+  state.says["claude -p /usage"] = new Error("no");
+  state.on.vps["claude -p /usage"] = usageAnswer(weekAt(10));
+  refresh(popover);
+  await settle();
+  expect(words(limits(popover.draw())[0])).toContain("10%");
+  expect(nearLimit(state.shared.usage.entries, NOW + 12 * 60_000)).toBe(false);
+});
+
+test("no email or organisation is saved from any machine, only a fingerprint", async () => {
+  claude(WEEK);
+  claudeOn("vps", OTHER, WEEK);
+  await opened();
+  const saved = JSON.stringify(state.shared);
+  for (const secret of [ACCOUNT.email, ACCOUNT.orgId, OTHER.email, OTHER.orgId]) expect(saved).not.toContain(secret);
+  const entries: any[] = Object.values(state.shared.usage.entries);
+  expect(entries.map((entry) => entry.who).every((who) => /^[0-9a-f]{16}$/.test(who))).toBe(true);
+  expect(entries[0].who).not.toBe(entries[1].who);
 });

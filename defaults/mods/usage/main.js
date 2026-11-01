@@ -47,11 +47,13 @@ export default class Usage extends View {
   }
 
   row(row, k, now) {
-    const id = row.who ?? row.agent, note = !row.failed ? null : row.limits.length ? `Last checked ${ago(now - row.checkedAt)}` : "Could not check";
+    const id = row.who ?? `${row.agent}-${row.machines[0]}`, note = !row.failed ? null : row.limits.length ? `Last checked ${ago(now - row.checkedAt)}` : "Could not check";
     return v_flex().flex_none().gap(10)
       .child(h_flex().gap(8).items_center()
         .child(tile(row, 22, k))
-        .child(div().flex_1().min_w(0).truncate().text_size(13).font_medium().text_color(k.foreground).child(row.name))
+        .child(v_flex().flex_1().min_w(0)
+          .child(div().truncate().text_size(13).font_medium().text_color(k.foreground).child(row.name))
+          .when(Boolean(row.place), (el) => el.child(div().truncate().text_size(11).text_color(k.text_faint).child(row.place))))
         .child(div().flex_none().text_size(12).text_color(k.muted).child(row.plan ?? "")))
       .children(row.limits.map((limit) => this.limit(`${id}-${limit.label}`, limit, k, now)))
       .when(Boolean(note), (el) => el.child(div().text_size(11).text_color(k.text_faint).child(note)));

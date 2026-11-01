@@ -26,7 +26,8 @@ const CODEX_PLANS = {
 const GO_WINDOWS = [["weekly", "This week"], ["rolling", "5 hours"], ["monthly", "This month"]];
 
 const titled = (word) => word.replaceAll("_", " ").replace(/^./, (c) => c.toUpperCase());
-const fingerprint = (...parts) => createHash("sha256").update(parts.join("|")).digest("hex").slice(0, 16);
+// No email means nothing to match on, and two such accounts mustn't pass for one.
+const fingerprint = (...parts) => (parts[0] ? createHash("sha256").update(parts.join("|")).digest("hex").slice(0, 16) : undefined);
 
 // Claude writes its reset time for people, in the zone it was run in: "Nov 6 at 7:59pm (UTC)", or
 // only the time when that's today. The check asks for UTC so the answer doesn't depend on the machine.
@@ -131,13 +132,32 @@ function inShell({ on, path }, posix, powershell) {
 // programs.json's `run` is the person's, so it reaches a shell as words and never as script. PowerShell
 // also ends a quoted string at a curly quote.
 const posixWords = (run) => run.map((word) => (/^[\w@%+:,./-]+$/.test(word) ? word : `'${word.replaceAll("'", `'\\''`)}'`)).join(" ");
-const powershellWords = (run) => run.map((word) => `'${word.replace(/['‘’‚‛]/g, "$&$&")}'`).join(" ");
+const powershellWord = (word) => `'${word.replace(/['‘’‚‛]/g, "$&$&")}'`;
+const powershellCall = (run) => `& ${run.map(powershellWord).join(" ")}`;
+
+const HAS = "zaki-has:", ASKED = "zaki-asked";
+
+// knownAgents also says "not installed" when it couldn't ask, and on an added machine it looks in
+// another PATH than the agents', so the machine's own shell settles it. Null: it can't be asked.
+async function shellFinds(where, programs) {
+  if (!programs.length) return new Set();
+  if (!where.path && !windows(where.on)) return null;
+  try {
+    const { stdout } = await inShell(where,
+      `for c in ${posixWords(programs)}; do command -v "$c" >/dev/null 2>&1 && echo "${HAS}$c"; done; echo ${ASKED}`,
+      `foreach ($c in @(${programs.map(powershellWord).join(",")})) { if (Get-Command $c -ErrorAction SilentlyContinue) { "${HAS}$c" } }; "${ASKED}"`);
+    if (!stdout.includes(ASKED)) return null;
+    return new Set(stdout.split(/\r?\n/).filter((line) => line.startsWith(HAS)).map((line) => line.slice(HAS.length)));
+  } catch {
+    return null;
+  }
+}
 
 // `--setting-sources=` keeps the person's hooks and plugins out of a check that runs every 15 minutes.
 const CLAUDE_USAGE = "-p /usage --output-format json --no-session-persistence --strict-mcp-config --setting-sources=";
 
 async function claude(where, now) {
-  const posix = posixWords(where.run), powershell = `& ${powershellWords(where.run)}`;
+  const posix = posixWords(where.run), powershell = powershellCall(where.run);
   const auth = JSON.parse((await inShell(where, `${posix} auth status`, `${powershell} auth status`)).stdout);
   if (!auth.loggedIn || auth.authMethod !== "claude.ai") return null;
   const usage = await inShell(where, `env TZ=UTC ${posix} ${CLAUDE_USAGE}`, `$env:TZ='UTC'; ${powershell} ${CLAUDE_USAGE}`);
@@ -159,7 +179,7 @@ const codexPosix = (run) => `out=$(mktemp) || exit 1
   i=0; while [ $i -lt 75 ] && ! grep -q '"id":3' "$out"; do sleep 0.2; i=$((i+1)); done
 } | ${posixWords(run)} -s read-only -a never app-server >"$out" 2>/dev/null
 cat "$out"; rm -f "$out"`;
-const codexWindows = (run) => `& { ${CODEX_REQUESTS.map((line) => `'${line}'`).join("; ")}; Start-Sleep 6 } | & ${powershellWords(run)} -s read-only -a never app-server 2>$null`;
+const codexWindows = (run) => `& { ${CODEX_REQUESTS.map((line) => `'${line}'`).join("; ")}; Start-Sleep 6 } | ${powershellCall(run)} -s read-only -a never app-server 2>$null`;
 
 async function codex(where) {
   return codexReport((await inShell(where, codexPosix(where.run), codexWindows(where.run))).stdout);
@@ -210,22 +230,22 @@ const CHECKS = {
 };
 
 async function checkMachine(on, last, now) {
-  const mine = Object.entries(last).filter(([, entry]) => entry.machine === on);
-  let agents;
-  try {
-    agents = await knownAgents({ on });
-  } catch {
-    return Object.fromEntries(mine.map(([id, entry]) => [id, { ...entry, failed: true }]));
-  }
-  const path = await shellPath(on);
-  const found = await Promise.all(agents.filter((agent) => agent.installed && CHECKS[agent.key] && (agent.key !== "opencode" || !on)).map(async (agent) => {
+  const kept = (id) => last[id] && [id, { ...last[id], failed: true }];
+  const keepAll = () => Object.fromEntries(Object.keys(last).filter((id) => last[id].machine === on).map(kept));
+  if (on && machines().find((machine) => machine.name === on)?.layout === "unavailable") return keepAll();
+  const [agents, path] = await Promise.all([knownAgents({ on }).catch(() => []), shellPath(on)]);
+  if (!agents.length) return keepAll();
+  const ours = agents.filter((agent) => CHECKS[agent.key] && (agent.key !== "opencode" || !on));
+  const finds = await shellFinds({ on, path }, ours.filter((agent) => !agent.installed).map((agent) => agent.run[0]));
+  const found = await Promise.all(ours.map(async (agent) => {
     const id = `${agent.key}|${on ?? ""}`, base = { agent: agent.key, name: agent.name, icon: agent.icon, tint: agent.tint, machine: on };
+    if (!agent.installed && !finds?.has(agent.run[0])) return finds ? null : kept(id);
     if (agent.key === "opencode" && shared("usage.opencode") !== true) return shared("usage.opencode") === false ? null : [id, { ...base, ask: true, limits: [] }];
     try {
       const report = await CHECKS[agent.key]({ on, path, run: agent.run }, now);
-      return report && [id, { ...base, ...report, checkedAt: now }];
+      return report && [id, { ...base, ...report, checkedAt: Date.now() }];
     } catch {
-      return [id, last[id] ? { ...last[id], failed: true } : { ...base, limits: [], failed: true }];
+      return kept(id) ?? [id, { ...base, limits: [], failed: true }];
     }
   }));
   return Object.fromEntries(found.filter(Boolean));
@@ -248,6 +268,8 @@ export async function checkUsage({ force = false } = {}) {
 export const usedNow = (limit, now) => (limit.resetsAt && limit.resetsAt <= now ? 0 : limit.used);
 
 // One row per subscription: machines signed in to the same account share it, with the newest numbers.
+// `place` names them when that says something: more than one, an added machine, or two rows of one
+// agent to tell apart.
 export function subscriptions(entries) {
   const rows = new Map();
   for (const entry of Object.values(entries ?? {})) {
@@ -255,7 +277,11 @@ export function subscriptions(entries) {
     if (!had) rows.set(key, { ...entry, machines: [place] });
     else rows.set(key, { ...((entry.checkedAt ?? 0) > (had.checkedAt ?? 0) ? entry : had), machines: [...had.machines, place] });
   }
-  return [...rows.values()];
+  const all = [...rows.values()];
+  return all.map((row) => {
+    const named = row.machines.length > 1 || row.machines[0] !== HERE || all.some((other) => other !== row && other.agent === row.agent);
+    return { ...row, place: named ? row.machines.join(", ") : null };
+  });
 }
 
 export const nearLimit = (entries, now) => subscriptions(entries).some((row) => row.limits.some((limit) => usedNow(limit, now) >= NEAR));
