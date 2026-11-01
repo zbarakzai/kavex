@@ -1617,6 +1617,46 @@ test("a helper with no price makes the session no price", async () => {
   expect(seen).toContain("in 100k · out 0 · cached 0");
 });
 
+// How older Codex answers a spawn, in the agent's own lines: the reply is all that names a helper.
+const spawned = (kid: string) => envelope("response_item", { type: "function_call_output", call_id: "c", output: `{"agent_id":"${kid}","nickname":"Made"}` });
+const spawnedByScript = (kid: string) => envelope("response_item", { type: "custom_tool_call_output", call_id: "c", output: [{ type: "input_text", text: "Script completed" }, { type: "input_text", text: `{"agent_id":"${kid}","nickname":"Made"}` }] });
+const reviewing = () => envelope("event_msg", { type: "item_completed", item: { type: "EnteredReviewMode", id: "i", review: "made up" } });
+
+test("a helper its parent names but Zaki can't find means no price, and the tokens stay", async () => {
+  const one = uuid(1);
+  const seen = await card((await codexRow(one, [turn(), started(uuid(7)), spent(one, { input: 73600 })])).draw);
+  expect(seen).toContain("no price");
+  expect(seen).toContain("in 73.6k · out 0 · cached 0");
+});
+
+test("a helper named only by the reply to its spawn is found, and counted", async () => {
+  const one = uuid(1), kid = uuid(2);
+  codexWrites(kid, [helperFirst(kid, one), turn(), spent(kid, { input: 1000000, window: 2000000 })], "02");
+  const seen = await card((await codexRow(one, [turn(), spawned(kid), spent(one, { input: 1000000, window: 2000000 })])).draw);
+  expect(seen).toContain("$8.00");
+  expect(seen).toContain("in 2M · out 0 · cached 0");
+});
+
+test("an older helper with no model of its own means no price, not a cost that leaves it out", async () => {
+  const one = uuid(1), kid = uuid(2);
+  codexWrites(kid, [helperFirst(kid, one), spent(kid, { input: 1000000, window: 2000000 })], "02");
+  const seen = await card((await codexRow(one, [turn(), spawnedByScript(kid), spent(one, { input: 1000000, window: 2000000 })])).draw);
+  expect(seen).toContain("no price");
+  expect(seen).toContain("in 2M · out 0 · cached 0");
+});
+
+test("a /review means no price, as its helper is named nowhere in the agent's lines", async () => {
+  const one = uuid(1);
+  const seen = await card((await codexRow(one, [turn(), reviewing(), spent(one, { input: 73600 })])).draw);
+  expect(seen).toContain("no price");
+});
+
+test("words like a spawn reply inside a tool's output name no helper", async () => {
+  const one = uuid(1);
+  const quoted = envelope("response_item", { type: "function_call_output", call_id: "c", output: `the log says {"agent_id":"${uuid(7)}"}` });
+  expect(await card((await codexRow(one, [turn(), quoted, spent(one, { input: 1000000, window: 2000000 })])).draw)).toContain("$4.00");
+});
+
 test("a helper that starts later and grows wakes its parent's row, and only what changed is read", async () => {
   const one = uuid(1), kid = uuid(2), still = uuid(3);
   codexWrites(still, [helperFirst(still, one), turn(), spent(still, { input: 1000000, window: 2000000 })]);
@@ -1638,10 +1678,10 @@ test("a helper that starts later and grows wakes its parent's row, and only what
   expect(realReads()).toBe(before + 2);
 });
 
-test("a helper whose file can't be found yet is looked for again", async () => {
+test("a helper whose file can't be found yet is looked for again, and counted once it turns up", async () => {
   const one = uuid(1), kid = uuid(2);
   const { draw } = await codexRow(one, [turn(), started(kid), spent(one, { input: 1000000, window: 2000000 })]);
-  expect(known(draw)).toContain("$4.00");
+  expect(known(draw)).toContain("no price");
   codexWrites(kid, [helperFirst(kid, one), turn(), spent(kid, { input: 1000000, window: 2000000 })]);
   codexWrites(one, [noise()]);
   changed(rollout(one));

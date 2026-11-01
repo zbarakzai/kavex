@@ -100,6 +100,14 @@ async function keep({ read, write }, path, text) {
   if (now !== text) await write(path, text, now);
 }
 
+// Older Codex names a helper only in the reply to its spawn. Only a reply that is that JSON counts:
+// a tool's output can quote the same words anywhere.
+const SPAWN_REPLY = /"\{\\"agent_id\\":\\"([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\\"/g;
+
+// A helper that wasn't read would leave its tokens out of the cost. A /review's helper is named in
+// no line of its parent, and only searching every session file could find it.
+const helpersMissing = ({ kids, reviewed }, { id, files }) => reviewed || [...kids].some(([kid, file]) => kid !== id && !files.has(file));
+
 export const codex = {
   // Goes up when what `install` puts on a machine changes.
   setup: 1,
@@ -119,7 +127,7 @@ export const codex = {
   },
 
   // What keeps a line worth parsing. Fixed strings, and more than one is a line each.
-  filter: ['"type":"token_count"', '"type":"turn_context"', '"type":"thread_settings_applied"', '"type":"SubAgentActivity"'].join("\n"),
+  filter: ['"type":"token_count"', '"type":"turn_context"', '"type":"thread_settings_applied"', '"type":"SubAgentActivity"', '"type":"EnteredReviewMode"', '"{\\"agent_id\\":\\"'].join("\n"),
 
   reports: true,
   waiting: { state: "waiting", say: "Run `/hooks` in Codex, trust Zaki's hook, then restart this Codex." },
@@ -147,7 +155,7 @@ export const codex = {
 
   // Running totals, as for Claude. `files` holds each file's model, tier and what it has counted,
   // and `kids` the helpers named so far, with their files once found.
-  facts: () => ({ newest: null, model: null, files: new Map(), kids: new Map(), tokens: { input: 0, output: 0, cached: 0 }, cost: 0, unpriced: false }),
+  facts: () => ({ newest: null, model: null, files: new Map(), kids: new Map(), reviewed: false, tokens: { input: 0, output: 0, cached: 0 }, cost: 0, unpriced: false }),
 
   // A file's totals can fall back to zero mid-session and don't say which model spent what, so
   // the cost is each response's own usage. Codex repeats a record when only rate limits changed,
@@ -161,10 +169,15 @@ export const codex = {
       if (!helper) facts.model = payload?.model;
       return;
     }
+    const named = (kid) => facts.kids.has(kid) || facts.kids.set(kid, null);
+    if (line.type === "response_item") {
+      for (const [, kid] of JSON.stringify(payload?.output ?? "").matchAll(SPAWN_REPLY)) named(kid);
+      return;
+    }
     if (line.type !== "event_msg") return;
     if (payload?.type === "thread_settings_applied") kept.tier = payload.thread_settings?.service_tier;
-    const kid = payload?.item?.type === "SubAgentActivity" && payload.item.agent_thread_id;
-    if (kid && !facts.kids.has(kid)) facts.kids.set(kid, null);
+    if (payload?.item?.type === "SubAgentActivity" && payload.item.agent_thread_id) named(payload.item.agent_thread_id);
+    if (payload?.item?.type === "EnteredReviewMode") facts.reviewed = true;
     if (payload?.type !== "token_count") return;
     const last = payload.info?.last_token_usage, total = payload.info?.total_token_usage;
     if (!last) return;
@@ -182,5 +195,5 @@ export const codex = {
     if (spent === null) facts.unpriced = true;
   },
 
-  numbers: (facts) => facts.newest && { model: modelName(facts.model ?? "Codex"), context: context(facts.newest.used, facts.newest.total), tokens: { ...facts.tokens }, cost: facts.unpriced ? undefined : facts.cost },
+  numbers: (facts, session) => facts.newest && { model: modelName(facts.model ?? "Codex"), context: context(facts.newest.used, facts.newest.total), tokens: { ...facts.tokens }, cost: facts.unpriced || helpersMissing(facts, session) ? undefined : facts.cost },
 };
