@@ -14,10 +14,10 @@ function find(node, id) {
 }
 
 const LINE = 25; // letters that fit beside Add machine and Settings
-const GAUGE = 4; // letters the gauge's button takes from them
-const BUTTONS = 72; // from the gauge to just past the sidebar, with Add machine and Settings between
-const FIRST_CHECK = 5000; // after launch, so that startup stays quick
-const WATCH = 60_000; // how often a footer asks whether a check is due, which only reads shared storage
+const GAUGE_LETTERS = 4;
+const PAST_BUTTONS = 72;
+const FIRST_CHECK = 5000;
+const WATCH = 60_000;
 
 // The sidebar's rail goes by its width, not a flag: dragging its edge narrows it too.
 const narrow = () => (find(layout(), "sidebar")?.size?.px ?? Infinity) < 160;
@@ -83,7 +83,7 @@ export default class WorkspaceChrome extends View {
   usage() {
     const shut = shared("popup.closed"), { at, bounds } = this.pressed;
     if (shut?.from === "usage" && shut.at >= at - 100) return;
-    openOverlay({ mod: "usage", kind: "popup", width: 340, height: 480, at: { x: bounds.x + BUTTONS * settings().zoom, y: bounds.y }, props: { from: "usage" } });
+    openOverlay({ mod: "usage", kind: "popup", width: 340, height: 480, at: { x: bounds.x + PAST_BUTTONS * settings().zoom, y: bounds.y }, props: { from: "usage" } });
   }
 
   footer(t) {
@@ -93,7 +93,7 @@ export default class WorkspaceChrome extends View {
     if (collapsed) return h_flex().size_full().pb(4).items_center().justify_center().child(settings);
     const list = agents().length, tail = ` · ${list} ${list === 1 ? "AGENT" : "AGENTS"}`;
     const machine = (spaces().find(s => s.active)?.machine ?? "This computer").toUpperCase();
-    const usage = shared("usage.enabled") !== false, room = LINE - (usage ? GAUGE : 0) - tail.length;
+    const usage = shared("usage.enabled") !== false, room = LINE - (usage ? GAUGE_LETTERS : 0) - tail.length;
     const name = machine.length > room ? `${machine.slice(0, room - 1)}…` : machine;
     return h_flex().size_full().pl(4).pb(4).items_center()
       .child(h_flex().flex_1().min_w(0).gap(5).items_center().overflow_hidden()

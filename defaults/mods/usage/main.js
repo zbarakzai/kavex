@@ -5,10 +5,9 @@ import { checking, NEAR, subscriptions, usedNow } from "./checks.js";
 import { look, MONO, sectionLabel, tile } from "./look.js";
 
 const PAD = 14;
-const BAR = 340 - 2 - PAD * 2; // the popup's width, less its frame and sides
+const BAR = 340 - 2 - PAD * 2;
 const ASKS = "Zaki reads your OpenCode key and sends it only to opencode.ai, to ask for your Go plan's limits.";
 
-// "5d 3h", "2h 10m", "12m".
 function span(ms) {
   const minutes = Math.floor(ms / 60_000), hours = Math.floor(minutes / 60), days = Math.floor(hours / 24);
   if (days) return `${days}d ${hours % 24}h`;
@@ -18,7 +17,6 @@ function span(ms) {
 
 const ago = (ms) => (ms < 60_000 ? "just now" : `${span(ms)} ago`);
 
-// How old the numbers are, which a failed check doesn't change. With nothing to show, when it looked.
 function freshness(usage, rows, now) {
   if (checking(usage, now)) return "Checking…";
   const when = rows.length ? Math.max(...rows.map((row) => row.checkedAt ?? 0)) : usage.checkedAt;
@@ -79,7 +77,6 @@ export default class Usage extends View {
 
   render() {
     const k = look(theme()), usage = shared("usage") ?? {}, now = Date.now(), found = subscriptions(usage.entries);
-    // `ask` is OpenCode waiting for the person's answer, not a subscription yet.
     const answer = shared("usage.opencode"), rows = found.filter((row) => !row.ask), waiting = answer === false ? null : found.find((row) => row.ask);
     const asking = answer == null ? waiting : null;
     return v_flex().id("usage").w_full().min_h(0).text_color(k.foreground)

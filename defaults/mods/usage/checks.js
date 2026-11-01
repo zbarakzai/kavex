@@ -1,10 +1,6 @@
-// What each subscription has used, as its agent reports it. Claude Code and Codex are asked through
-// their own commands, on the machine they're signed in on, so their logins never reach Zaki
-// (docs/adr/0001-usage-through-agents-own-commands.md). OpenCode has no such command: only with the
-// person's consent, its key goes to opencode.ai and nowhere else.
-//
-// The footer runs the checks and the popover shows them, so each keeps a copy, as mods can't import
-// each other's files; scripts/look.test.ts keeps them equal.
+// How each agent is read: docs/adr/0001-usage-through-agents-own-commands.md. The footer runs the
+// checks and the popover shows them, so each keeps a copy, as mods can't import each other's files;
+// scripts/look.test.ts keeps them equal.
 
 import { createHash } from "crypto";
 import { exec as execute, home, knownAgents, machines, readTextFile, setShared, shared, window } from "herdr";
@@ -12,8 +8,8 @@ import { exec as execute, home, knownAgents, machines, readTextFile, setShared, 
 export const EVERY = 15 * 60_000;
 export const NEAR = 90;
 
-const REUSE = 60_000; // repeated clicks don't start the agents again
-const BUSY = 60_000; // a check that long ago was cut off, not still going
+const REUSE = 60_000;
+const BUSY = 60_000;
 const DAY = 24 * 3600_000;
 const WEEK = 7 * 1440; // minutes, as Codex counts its windows
 const HERE = "This computer";
@@ -27,10 +23,8 @@ const CODEX_PLANS = {
 const GO_WINDOWS = [["weekly", "This week"], ["rolling", "5 hours"], ["monthly", "This month"]];
 
 const titled = (word) => word.replaceAll("_", " ").replace(/^./, (c) => c.toUpperCase());
-// No email means nothing to match on, and two such accounts mustn't pass for one.
 const fingerprint = (...parts) => (parts[0] ? createHash("sha256").update(parts.join("|")).digest("hex").slice(0, 16) : undefined);
 
-// Turning Usage off ends a pass where it stands: nothing it had left to run gets started.
 async function exec(...call) {
   if (shared("usage.enabled") === false || !shared("usage")?.era) throw new Error("usage was turned off");
   return execute(...call);
@@ -54,8 +48,6 @@ function resetTime(text, now) {
   return when <= now ? when + DAY : when;
 }
 
-// "/usage" prints lines for people, so anything else in its answer is left alone. No line read
-// means the wording changed: the caller keeps the last numbers rather than showing none.
 function claudeLimits(text, now) {
   const week = [], other = [], session = [];
   for (const line of text.split("\n")) {
@@ -127,6 +119,7 @@ const PATH_LINE = `"\${SHELL:-sh}" -ic 'printenv PATH' 2>/dev/null </dev/null | 
 const windows = (on) => !on && window()?.platform === "windows";
 
 async function shellPath(on) {
+  // Windows apps get the person's PATH from the system, not from shell startup files, and there's no `sh`.
   if (windows(on)) return "";
   try {
     return (await exec("sh", ["-c", PATH_LINE], { on })).stdout.trim();
@@ -197,13 +190,14 @@ const codexPosix = (program) => `out=$(mktemp) || exit 1
   i=0; while [ $i -lt 75 ] && ! grep -q '"id":3' "$out"; do sleep 0.2; i=$((i+1)); done
 } | ${posixWords([program])} -s read-only -a never app-server >"$out" 2>/dev/null
 cat "$out"; rm -f "$out"`;
+// This pipe can't watch the output for the last answer, so the input stays open for a fixed wait.
+// Six seconds is a guess: it has never run on Windows.
 const codexWindows = (program) => `& { ${CODEX_REQUESTS.map((line) => `'${line}'`).join("; ")}; Start-Sleep 6 } | ${powershellCall(program)} -s read-only -a never app-server 2>$null`;
 
 async function codex(where) {
   return codexReport((await inShell(where, codexPosix(where.program), codexWindows(where.program))).stdout);
 }
 
-// Turning Usage off takes the consent back, and that can happen at any step of reading or sending.
 const opencodeAllowed = () => shared("usage.enabled") !== false && shared("usage.opencode") === true;
 
 async function opencodeKeys() {
@@ -227,9 +221,6 @@ async function opencodeKeys() {
   return keys;
 }
 
-// Only a Go plan has limits: a key OpenCode refuses (401) or one without a plan (403) is no trouble.
-// No `who` here, unlike the other agents: OpenCode has no second machine to match an account on, so
-// nothing made from the key needs saving.
 async function opencode() {
   let unreachable = false;
   for (const key of await opencodeKeys()) {
@@ -256,7 +247,6 @@ async function checkMachine(on, last, now) {
   if (on && machines().find((machine) => machine.name === on)?.layout === "unavailable") return keepAll();
   const [agents, path] = await Promise.all([knownAgents({ on }).catch(() => []), shellPath(on)]);
   if (!agents.length) return keepAll();
-  // The key can't leave for another machine's sake: OpenCode is checked on this computer only.
   const ours = agents.filter((agent) => CHECKS[agent.key] && (agent.key !== "opencode" || !on)).map((agent) => ({ ...agent, program: programOf(agent) }));
   // `installed` is about run[0], which may not be what runs here.
   const sure = (agent) => agent.installed && agent.program === agent.run[0];
@@ -305,11 +295,10 @@ export async function checkUsage({ force = false, within = REUSE } = {}) {
   setShared("usage", { era, checkedAt: now, entries: shared("usage.opencode") === answer ? found : withOpencode(found, saved[OPENCODE]) });
 }
 
-// Consent is the person's press, saved by the popover: any agent can run this command, so all it can
-// do is start the check for an answer already given. Allow doesn't wait for a pass: one under way may
-// have asked before the answer came, and the next is up to 15 minutes off. It checks OpenCode alone,
-// so no agent starts twice, and like a pass it saves only into the era it began in. The row replacing
-// the card is taken here, so a second footer told the same thing finds nothing left to do.
+// Consent is the person's press, saved by the popover. Any agent can run this command, so it only
+// starts the check for an answer already given. It doesn't wait for a pass, which may have asked
+// before the answer came, and it checks OpenCode alone, so no agent starts twice. Like a pass, it
+// saves only into the era it began in. Taking `ask` off the row stops a second footer told the same.
 export async function allowOpencode() {
   const usage = shared("usage") ?? {}, now = Date.now(), { ask, ...base } = usage.entries?.[OPENCODE] ?? {};
   if (shared("usage.enabled") === false || !ask || shared("usage.opencode") !== true) return;
@@ -321,12 +310,8 @@ export async function allowOpencode() {
   setShared("usage", { ...current, startedAt: current.startedAt === mine ? null : current.startedAt, entries: withOpencode(current.entries, orSaved(found, current.entries?.[OPENCODE])) });
 }
 
-// A limit past its reset time has started over, whatever the last check said.
 export const usedNow = (limit, now) => (limit.resetsAt && limit.resetsAt <= now ? 0 : limit.used);
 
-// One row per subscription: machines signed in to the same account share it, with the newest numbers.
-// `place` names them when that says something: more than one, an added machine, or two rows of one
-// agent to tell apart.
 export function subscriptions(entries) {
   const rows = new Map();
   for (const entry of Object.values(entries ?? {})) {
