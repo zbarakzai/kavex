@@ -216,7 +216,7 @@ the highlighted line shows where it will land.
   it going, and a resumed session keeps it. It can read a little under Claude's own `/cost`, which
   counts some calls that never reach the session's files, and it counts tokens only, not the charge
   per web search. The total comes from `claude -p "/context"`, which spends no tokens, once per model per machine, and
-  is kept for a day in `shared("agents.limits")`; until then the dropdown shows tokens alone and the
+  is kept for a day in `shared("agents.totals")`; until then the dropdown shows tokens alone and the
   row shows nothing. A new agent shows no percent and "No usage yet", and an unreadable session
   shows no percent and no error. Nothing leaves your own machines and no login is read. Any other agent
   shows no percent, and its logo acts like its row.
@@ -245,7 +245,7 @@ the highlighted line shows where it will land.
   already running needs `/reload` or a restart. It does nothing outside a Zaki terminal, or in a Pi
   a tool runs there with no screen of its own (`pi -p`). When a session starts (launch, `/new`,
   `/resume`, `/fork`, `/reload`) and when another model is picked, it labels the terminal
-  `zaki.session=<session file>` and `zaki.limit=<the model's context limit>`, and both go when the
+  `zaki.session=<session file>` and `zaki.total=<the model's context total>`, and both go when the
   terminal is back at its shell. A Pi with no label a few seconds after it starts shows `–`, with what
   to do in its dropdown, and so does one with no session to report (`--no-session`). Pi writes its
   session file once a conversation starts, so until its first answer it shows no percent and "No
@@ -258,7 +258,7 @@ the highlighted line shows where it will land.
 
   On an added machine everything above happens on that machine, under its home: its sessions are
   read with `exec { on }`, `/context` runs there once per model (`<machine>/<model>` in
-  `shared("agents.limits")`), and the hook and the extension go in through `hc file write --on`, once
+  `shared("agents.totals")`), and the hook and the extension go in through `hc file write --on`, once
   per machine (`<machine>/codex` in `shared("agents.setup")`), so its Codex is approved there, once. A
   session can't be watched from here, so a row and its dropdown refresh every 30 seconds, only while
   the row is in the list, and an idle session costs one small command. A machine going offline

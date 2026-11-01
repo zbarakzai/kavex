@@ -1,7 +1,7 @@
 // What each agent's session shows on its row and in its dropdown. An agent here is a small
 // object (see claude.js): `locate` finds a terminal's session, `helpers` its helpers' files,
 // `filter`, `facts` and `add` read their lines, `numbers` says what they add up to (cost included,
-// or left out for "no price"), and `limit` asks how big its model's context is, unless `numbers`
+// or left out for "no price"), and `total` asks how big its model's context is, unless `numbers`
 // knows and gives `context` itself. One that labels its own terminal is marked `reports`, says
 // what to do in `waiting`, and has `patience` if it labels at launch. One with files of its own to
 // set up has `setup`, a version, and `install`. What differs from one machine to the next is in
@@ -16,13 +16,13 @@ import { pi } from "./pi.js";
 const AGENTS = { claude, codex, pi };
 
 const LABEL = "zaki.session";
-const LIMIT = "zaki.limit";
+const TOTAL = "zaki.total";
 const NONE = { state: "none" };
 const EMPTY = { state: "empty", say: "No usage yet" };
 const WORKED = ["working", "done"];
 const EVERY = 2000;
 const AWAY = 30000;
-const LIMITS = "agents.limits";
+const TOTALS = "agents.totals";
 const SETUP = "agents.setup";
 const KEPT = 86400000;
 const RETRY = 600000;
@@ -32,7 +32,7 @@ export const hasSession = (t) => Boolean(AGENTS[t?.program?.key]);
 const machineOf = (address) => (address.includes("/") ? address.split("/")[0] : null);
 const onMachine = (on, name) => (on ? `${on}/${name}` : name);
 const offline = (on) => machines().find((m) => m.name === on)?.layout === "unavailable";
-const leftBehind = (t) => (t.state === "live" && t.program?.shell ? [LABEL, LIMIT].filter((label) => t.labels?.[label]) : []);
+const leftBehind = (t) => (t.state === "live" && t.program?.shell ? [LABEL, TOTAL].filter((label) => t.labels?.[label]) : []);
 
 // Reading an added machine costs traffic, so only for a row in the list: an agent, or one of its
 // sub-agents.
@@ -85,7 +85,7 @@ export class Sessions {
     const found = this.live.get(address)?.result ?? NONE;
     if (found.state !== "ready" || found.context) return found;
     const { asked, used, ...rest } = found;
-    const total = shared(LIMITS)?.[onMachine(machineOf(address), asked)]?.total;
+    const total = shared(TOTALS)?.[onMachine(machineOf(address), asked)]?.total;
     // More used than the total means the total is wrong: no percent rather than a wrong one.
     const context = total >= used ? { used, total, percent: Math.round((used / total) * 100) } : { used };
     return { ...rest, context };
@@ -150,13 +150,13 @@ export class Sessions {
     const agent = AGENTS[term.program.key];
     let session = this.live.get(term.address);
     try {
-      const found = await agent.locate(term, term.labels?.[LABEL], term.labels?.[LIMIT], run.machine);
+      const found = await agent.locate(term, term.labels?.[LABEL], term.labels?.[TOTAL], run.machine);
       if (this.reading.get(run.on) !== run) return;
       if (found && found.id !== session?.id) {
         session = { ...found, facts: agent.facts(), files: new Map(), torn: new Set(), changes: 1, done: 0 };
         this.live.set(term.address, session);
-      } else if (found && found.limit !== session.limit) {
-        session.limit = found.limit;
+      } else if (found && found.total !== session.total) {
+        session.total = found.total;
         session.changes++;
       }
       if (agent.reports && !session?.file) return this.unreported(term, agent, cx);
@@ -167,7 +167,7 @@ export class Sessions {
       if (result) session.done = changes;
       session.result = result ?? session.result ?? EMPTY;
       if (!run.on) this.watch(session, cx);
-      if (session.result.state === "ready" && !this.only && agent.limit) this.ask(agent, session.result.asked, run.machine, cx);
+      if (session.result.state === "ready" && !this.only && agent.total) this.ask(agent, session.result.asked, run.machine, cx);
       if (JSON.stringify(session.result) !== had) cx.notify();
     } catch {}
   }
@@ -275,12 +275,12 @@ export class Sessions {
   ask(agent, model, machine, cx) {
     const now = Date.now();
     const key = onMachine(machine.on, model);
-    const kept = shared(LIMITS)?.[key];
+    const kept = shared(TOTALS)?.[key];
     if ((kept && now - kept.at < KEPT) || now - (this.asked.get(key) ?? -RETRY) < RETRY) return;
     this.asked.set(key, now);
     cx.spawn(async () => {
-      const total = await agent.limit(model, machine).catch(() => null);
-      if (total) setShared(LIMITS, { ...shared(LIMITS), [key]: { total, at: Date.now() } });
+      const total = await agent.total(model, machine).catch(() => null);
+      if (total) setShared(TOTALS, { ...shared(TOTALS), [key]: { total, at: Date.now() } });
     });
   }
 }

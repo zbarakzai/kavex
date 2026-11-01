@@ -15,8 +15,8 @@ function dollars(model, speed, region, tokens) {
   const listed = PRICES[model];
   const prompt = tokens.input + tokens.read + tokens.write5m + tokens.write1h;
   const sized = prompt > listed?.over?.tokens ? listed.over : listed;
-  const spent = priced(speed === "standard" ? sized : sized?.[speed], tokens);
-  return spent === null || REGIONS[region] === undefined ? null : spent * REGIONS[region];
+  const cost = priced(speed === "standard" ? sized : sized?.[speed], tokens);
+  return cost === null || REGIONS[region] === undefined ? null : cost * REGIONS[region];
 }
 
 export const claude = {
@@ -24,7 +24,7 @@ export const claude = {
   filter: '"type":"assistant"',
 
   // Claude keeps a record per process, so agents in one folder never mix.
-  async locate(term, _label, _limit, machine) {
+  async locate(term, _label, _total, machine) {
     const pid = term.foreground?.pid;
     if (!pid) return null;
     for (const { pid: candidate, started } of await machine.processes(pid)) {
@@ -60,11 +60,11 @@ export const claude = {
     const kept = facts.messages.get(message.id);
     if (kept?.output >= output) return;
     const write1h = usage.cache_creation?.ephemeral_1h_input_tokens ?? 0;
-    const spent = dollars(message.model, usage.speed ?? "standard", usage.inference_geo ?? "global", { input, output, read, write5m: write - write1h, write1h });
-    facts.messages.set(message.id, { output, spent });
+    const cost = dollars(message.model, usage.speed ?? "standard", usage.inference_geo ?? "global", { input, output, read, write5m: write - write1h, write1h });
+    facts.messages.set(message.id, { output, cost });
     facts.tokens.output += output - (kept?.output ?? 0);
-    facts.cost += (spent ?? 0) - (kept?.spent ?? 0);
-    if (spent === null) facts.unpriced = true;
+    facts.cost += (cost ?? 0) - (kept?.cost ?? 0);
+    if (cost === null) facts.unpriced = true;
     if (kept) return;
     facts.tokens.input += input;
     facts.tokens.cached += read + write;
@@ -73,7 +73,7 @@ export const claude = {
   numbers: (facts) => facts.newest && { model: modelName(facts.newest.model), asked: facts.newest.asked, used: facts.newest.used, tokens: { ...facts.tokens }, cost: facts.unpriced ? undefined : facts.cost },
 
   // Claude's files don't say how big a model's context is, but `/context` does, at no tokens.
-  async limit(model, machine) {
+  async total(model, machine) {
     const { stdout } = await machine.run("claude", ["-p", "/context", "--output-format", "json", "--model", model, "--no-session-persistence", "--strict-mcp-config", "--setting-sources", ""]);
     const [, amount, unit] = stdout.match(/\*\*Tokens:\*\*\s*\S+\s*\/\s*([\d.]+)([km]?)/i) ?? [];
     return amount ? Math.round(Number(amount) * ({ k: 1e3, m: 1e6 }[unit.toLowerCase()] ?? 1)) : null;

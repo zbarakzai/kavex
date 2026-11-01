@@ -2081,7 +2081,7 @@ const PI = { key: "pi", name: "Pi", icon: "icons/pi.svg", tint: true, tile: null
 const piFolder = (cwd = "/work/project", at = home) => join(at, ".pi", "agent", "sessions", `--${cwd.slice(1).replace(/\//g, "-")}--`);
 const piId = (n: number) => `019c0000-0000-7000-8000-${String(n).padStart(12, "0")}`;
 const piFile = (id: string, cwd?: string, at = home) => join(piFolder(cwd, at), `2026-11-01T10-00-00-000Z_${id}.jsonl`);
-const piLabels = (id: string, limit: number | null = 200000, cwd?: string) => ({ "zaki.session": piFile(id, cwd), ...(limit ? { "zaki.limit": String(limit) } : {}) });
+const piLabels = (id: string, limit: number | null = 200000, cwd?: string) => ({ "zaki.session": piFile(id, cwd), ...(limit ? { "zaki.total": String(limit) } : {}) });
 const aPi = (address: string, more: any = {}) => running(address, 301, PI, { foreground: { pid: 301, name: "pi", argv: ["pi"], cwd: "/work/project" }, ...more });
 
 const entry = (type: string, more: any = {}) => JSON.stringify({ type, id: (++state.ordinal).toString(16).padStart(8, "0"), parentId: null, timestamp: "2026-11-01T10:00:00.000Z", ...more });
@@ -2236,7 +2236,7 @@ test("with no limit reported the dropdown shows tokens and the row shows nothing
 
 test("a limit that isn't a number is no limit", async () => {
   for (const limit of ["lots", "0", "-5", ""]) {
-    const term = aPi("t1", { labels: { ...piLabels(piId(1)), "zaki.limit": limit } });
+    const term = aPi("t1", { labels: { ...piLabels(piId(1)), "zaki.total": limit } });
     piWrites(piId(1), [piSaid({ read: 40000 })]);
     state.terminals = [term];
     state.agents = [listed(term)];
@@ -2334,7 +2334,7 @@ test("two Pi agents in one folder each show their own numbers", async () => {
 
 test("only a real session file in the label counts", async () => {
   for (const label of ["hello", "relative/session.jsonl", join(piFolder(), "notes.txt"), `${piFile(piId(1))}.bak`]) {
-    const term = aPi("t1", { labels: { "zaki.session": label, "zaki.limit": "200000" } });
+    const term = aPi("t1", { labels: { "zaki.session": label, "zaki.total": "200000" } });
     state.terminals = [term];
     state.agents = [listed(term)];
     await open();
@@ -2347,7 +2347,7 @@ test("a session folder set by the person works, with spaces in it", async () => 
   const file = join(home, ".pi", "my sessions", `2026-11-01T10-00-00-000Z_${piId(1)}.jsonl`);
   mkdirSync(dirname(file), { recursive: true });
   writeFileSync(file, `${piSaid({ read: 40000 })}\n`);
-  const term = aPi("t1", { labels: { "zaki.session": file, "zaki.limit": "200000" } });
+  const term = aPi("t1", { labels: { "zaki.session": file, "zaki.total": "200000" } });
   state.terminals = [term];
   state.agents = [listed(term)];
   const { draw } = await open();
@@ -2360,7 +2360,7 @@ test("a terminal back at its shell loses both labels", async () => {
   await piRow(piId(1), [piSaid({ read: 40000 })]);
   state.terminals = [aPi("t1", { program: SHELL, labels: piLabels(piId(1)) })];
   await ticks();
-  expect(state.hc).toEqual([["label", "t1", "zaki.session=", "zaki.limit="]]);
+  expect(state.hc).toEqual([["label", "t1", "zaki.session=", "zaki.total="]]);
 });
 
 test("an answer that failed with tokens says nothing of the context, so no percent shows", async () => {
@@ -2536,7 +2536,7 @@ test("every way a session starts labels the terminal with its file and limit, an
   expect(r.exitCode).toBe(0);
   expect(r.stdout.toString()).toBe("");
   expect(r.stderr.toString()).toBe("");
-  expect(hcSaid()).toEqual(["label", "t7", `zaki.session=${piFile(piId(1))}`, "zaki.limit=200000"]);
+  expect(hcSaid()).toEqual(["label", "t7", `zaki.session=${piFile(piId(1))}`, "zaki.total=200000"]);
 });
 
 test("picking another model tells Zaki its limit", async () => {
@@ -2544,7 +2544,7 @@ test("picking another model tells Zaki its limit", async () => {
   resetHc();
   fakeHc(join(home, "bin"));
   piRuns([{ event: "model_select", file: piFile(piId(1)), window: 1000000 }], onPath(join(home, "bin")));
-  expect(hcSaid()).toEqual(["label", "t7", `zaki.session=${piFile(piId(1))}`, "zaki.limit=1000000"]);
+  expect(hcSaid()).toEqual(["label", "t7", `zaki.session=${piFile(piId(1))}`, "zaki.total=1000000"]);
 });
 
 test("the labels the extension sets are ones the mod takes", async () => {
@@ -2564,7 +2564,7 @@ test("with no model there's no limit, and an old one goes", async () => {
   resetHc();
   fakeHc(join(home, "bin"));
   piRuns([{ event: "session_start", file: piFile(piId(1)) }], onPath(join(home, "bin")));
-  expect(hcSaid()).toEqual(["label", "t7", `zaki.session=${piFile(piId(1))}`, "zaki.limit="]);
+  expect(hcSaid()).toEqual(["label", "t7", `zaki.session=${piFile(piId(1))}`, "zaki.total="]);
 });
 
 test("a Pi run by a tool in this terminal, or with no session file, can't take the terminal's label", async () => {
@@ -2584,7 +2584,7 @@ test.skipIf(systemHc)("the extension finds hc where the app does when PATH doesn
     rmSync(join(home, ".nix-profile"), { recursive: true, force: true });
     fakeHc(join(home, folder));
     expect(piRuns([{ event: "session_start", file: piFile(piId(1)), window: 200000 }], bare).exitCode).toBe(0);
-    expect(hcSaid()).toEqual(["label", "t7", `zaki.session=${piFile(piId(1))}`, "zaki.limit=200000"]);
+    expect(hcSaid()).toEqual(["label", "t7", `zaki.session=${piFile(piId(1))}`, "zaki.total=200000"]);
   }
   rmSync(join(home, ".cargo"), { recursive: true, force: true });
   rmSync(join(home, ".nix-profile"), { recursive: true, force: true });
@@ -2651,7 +2651,7 @@ test("an added machine's smaller windows count a long answer across their edge t
   const at = addMachine();
   const id = piId(1);
   piWrites(id, [piStart(id), piSaid({ read: 2000, cost: 1 }), filler(Math.floor(2.5 * BLOCK)), longAnswer(3 * BLOCK, { input: 40000, cost: 1 }), filler(BLOCK)], undefined, at);
-  const term = aPi("vps/t1", { labels: { "zaki.session": piFile(id, undefined, at), "zaki.limit": "200000" } });
+  const term = aPi("vps/t1", { labels: { "zaki.session": piFile(id, undefined, at), "zaki.total": "200000" } });
   state.terminals = [term];
   state.agents = [listed(term)];
   const { draw } = await open();
@@ -2711,7 +2711,7 @@ test("on Windows too a long answer across a window's edge is counted whole", asy
   const root = onWindows();
   const id = piId(1);
   piWrites(id, spanningWindows(id), undefined, root);
-  const term = aPi("t1", { labels: { "zaki.session": asWindows(piFile(id, undefined, root)), "zaki.limit": "200000" } });
+  const term = aPi("t1", { labels: { "zaki.session": asWindows(piFile(id, undefined, root)), "zaki.total": "200000" } });
   state.terminals = [term];
   state.agents = [listed(term)];
   const { draw } = await open();
@@ -2788,7 +2788,7 @@ test("the last line stays for Pi, whose stored cost is at API prices", async () 
 });
 
 test("a session that hasn't changed isn't read again, whatever its limit label says", async () => {
-  for (const labels of [piLabels(piId(1)), piLabels(piId(1), null), { ...piLabels(piId(1)), "zaki.limit": "lots" }]) {
+  for (const labels of [piLabels(piId(1)), piLabels(piId(1), null), { ...piLabels(piId(1)), "zaki.total": "lots" }]) {
     piWrites(piId(1), [piSaid({ read: 40000 })]);
     const term = aPi("t1", { labels });
     state.terminals = [term];
@@ -2933,7 +2933,7 @@ test("Codex and Pi on an added machine follow their labels there, helpers includ
   codexWrites(kid, [turn(), spent(kid, { input: 1000, output: 5 })], "02", at);
   piWrites(piId(1), [piSaid({ input: 50000, cost: 0.5 })], undefined, at);
   const codexTerm = aCodex("vps/t1", { labels: { "zaki.session": rollout(main, undefined, at) } });
-  const piTerm = aPi("vps/t2", { labels: { "zaki.session": piFile(piId(1), undefined, at), "zaki.limit": "200000" } });
+  const piTerm = aPi("vps/t2", { labels: { "zaki.session": piFile(piId(1), undefined, at), "zaki.total": "200000" } });
   state.terminals = [codexTerm, piTerm];
   state.agents = [listed(codexTerm), listed(piTerm)];
   const { draw } = await open();
@@ -3434,7 +3434,7 @@ test("the hook goes in on Windows with its Windows command, under the Windows ho
 test("a Pi on Windows follows its label, and its extension goes in under the Windows home", async () => {
   const root = onWindows();
   piWrites(piId(1), [piSaid({ input: 50000, cost: 0.5 })], undefined, root);
-  const term = aPi("t1", { labels: { "zaki.session": inWindows(root, piFile(piId(1), undefined, root)), "zaki.limit": "200000" } });
+  const term = aPi("t1", { labels: { "zaki.session": inWindows(root, piFile(piId(1), undefined, root)), "zaki.total": "200000" } });
   state.terminals = [term];
   state.agents = [listed(term)];
   const { draw } = await open();
@@ -3451,7 +3451,7 @@ test("a quote in a path stays in its string, smart ones too, even from a label",
     const path = join(root, odd, "session.jsonl");
     mkdirSync(dirname(path), { recursive: true });
     writeFileSync(path, `${piSaid({ input: 50000, cost: 0.5 })}\n`);
-    const term = aPi("t1", { labels: { "zaki.session": `C:\\Users\\o'neil\\${odd}\\session.jsonl`, "zaki.limit": "200000" } });
+    const term = aPi("t1", { labels: { "zaki.session": `C:\\Users\\o'neil\\${odd}\\session.jsonl`, "zaki.total": "200000" } });
     state.terminals = [term];
     state.agents = [listed(term)];
     const { draw } = await open();
@@ -3462,7 +3462,7 @@ test("a quote in a path stays in its string, smart ones too, even from a label",
 
 test("nothing in a label can run as code on Windows", async () => {
   onWindows();
-  const term = aPi("t1", { labels: { "zaki.session": "C:\\x'; Remove-Item C:\\y; 'z.jsonl", "zaki.limit": "200000" } });
+  const term = aPi("t1", { labels: { "zaki.session": "C:\\x'; Remove-Item C:\\y; 'z.jsonl", "zaki.total": "200000" } });
   state.terminals = [term];
   state.agents = [listed(term)];
   const seen: string[] = [];
@@ -3664,7 +3664,7 @@ test("a Pi session with more kept lines than an added machine's output can carry
   const at = addMachine();
   const count = 900;
   piWrites(piId(1), Array.from({ length: count }, () => piSaid({ input: 100, cost: 0.01, text: "x".repeat(20000) })), undefined, at);
-  const term = aPi("vps/t1", { labels: { "zaki.session": piFile(piId(1), undefined, at), "zaki.limit": "200000" } });
+  const term = aPi("vps/t1", { labels: { "zaki.session": piFile(piId(1), undefined, at), "zaki.total": "200000" } });
   state.terminals = [term];
   state.agents = [listed(term)];
   const { draw } = await open();

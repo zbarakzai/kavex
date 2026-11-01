@@ -157,7 +157,7 @@ export const codex = {
   // and `kids` the helpers named so far, with their files once found.
   facts: () => ({ newest: null, model: null, files: new Map(), kids: new Map(), reviewed: false, tokens: { input: 0, output: 0, cached: 0 }, cost: 0, unpriced: false }),
 
-  // A file's totals can fall back to zero mid-session and don't say which model spent what, so
+  // A file's totals can fall back to zero mid-session and don't say which model used what, so
   // the cost is each response's own usage. Codex repeats a record when only rate limits changed,
   // and a window reads lines twice: a record's figures say which it was.
   add(facts, line, helper, file) {
@@ -187,12 +187,12 @@ export const codex = {
     if (!helper) facts.newest = { used: last.total_tokens, total: payload.info.model_context_window };
     const cached = last.cached_input_tokens ?? 0;
     const input = Math.max(0, (last.input_tokens ?? 0) - cached), output = last.output_tokens ?? 0;
-    const spent = dollars(kept.model, kept.tier, last.input_tokens, { input, read: cached, write: last.cache_write_input_tokens ?? 0, output });
+    const cost = dollars(kept.model, kept.tier, last.input_tokens, { input, read: cached, write: last.cache_write_input_tokens ?? 0, output });
     facts.tokens.input += input;
     facts.tokens.output += output;
     facts.tokens.cached += cached;
-    facts.cost += spent ?? 0;
-    if (spent === null) facts.unpriced = true;
+    facts.cost += cost ?? 0;
+    if (cost === null) facts.unpriced = true;
   },
 
   numbers: (facts, session) => facts.newest && { model: modelName(facts.model ?? "Codex"), context: context(facts.newest.used, facts.newest.total), tokens: { ...facts.tokens }, cost: facts.unpriced || helpersMissing(facts, session) ? undefined : facts.cost },

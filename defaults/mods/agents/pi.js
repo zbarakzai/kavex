@@ -4,7 +4,7 @@
 // Runs inside Pi, which loads every file in its extensions folder by itself, with nothing for the
 // person to approve. Pi started by a tool in this terminal (`pi -p`) isn't this terminal's agent.
 // It prints nothing, and a failure is only a row with no numbers: never in Pi's way.
-const EXTENSION = `// Zaki's Pi extension: labels this terminal with its session file and context limit, so Zaki
+const EXTENSION = `// Zaki's Pi extension: labels this terminal with its session file and its context's total, so Zaki
 // shows the right numbers. Zaki writes this file. It does nothing outside a Zaki terminal.
 import { execFile } from "node:child_process";
 import { homedir } from "node:os";
@@ -36,7 +36,7 @@ export default function (pi) {
   const report = (_event, ctx) => {
     const file = ctx.sessionManager.getSessionFile();
     if (ctx.mode !== "tui" || !file) return;
-    label(["label", terminal, "zaki.session=" + file, "zaki.limit=" + (ctx.getContextUsage()?.contextWindow ?? "")]);
+    label(["label", terminal, "zaki.session=" + file, "zaki.total=" + (ctx.getContextUsage()?.contextWindow ?? "")]);
   };
   pi.on("session_start", report);
   pi.on("model_select", report);
@@ -52,14 +52,14 @@ function contextOf({ stopReason, usage }) {
 }
 
 // A usage with tokens and no cost is a model Pi has no price for, which it stores as 0.
-function spend(facts, usage) {
+function count(facts, usage) {
   if (!usage) return;
   const input = usage.input ?? 0, output = usage.output ?? 0, cached = (usage.cacheRead ?? 0) + (usage.cacheWrite ?? 0);
   if (!(input + output + cached)) return;
   facts.tokens.input += input;
   facts.tokens.output += output;
   facts.tokens.cached += cached;
-  facts.spent = true;
+  facts.counted = true;
   if (usage.cost?.total > 0) facts.cost += usage.cost.total;
   else facts.unpriced = true;
 }
@@ -93,13 +93,13 @@ export const pi = {
   waiting: { state: "waiting", say: "Run `/reload` in Pi to load Zaki's extension." },
 
   // Any folder can hold a session, with `--session-dir`, so all a path has to be is one.
-  locate(_term, label, limit) {
+  locate(_term, label, total) {
     const [, folder, id] = label?.match(SESSION_FILE) ?? [];
-    return id ? { id, folder, file: label, limit: Number(limit) > 0 ? Number(limit) : undefined } : null;
+    return id ? { id, folder, file: label, total: Number(total) > 0 ? Number(total) : undefined } : null;
   },
 
   // Running totals, as for Claude. `seen` is because a window reads lines twice.
-  facts: () => ({ seen: new Set(), model: null, used: null, spent: false, tokens: { input: 0, output: 0, cached: 0 }, cost: 0, unpriced: false }),
+  facts: () => ({ seen: new Set(), model: null, used: null, counted: false, tokens: { input: 0, output: 0, cached: 0 }, cost: 0, unpriced: false }),
 
   add(facts, line) {
     if (!line.id || facts.seen.has(line.id)) return;
@@ -107,13 +107,13 @@ export const pi = {
     const { type, usage, message } = line;
     if (type === "model_change") facts.model = line.modelId ?? facts.model;
     if (type === "compaction") facts.used = null;
-    if (type === "compaction" || type === "branch_summary" || type === "usage") spend(facts, usage);
+    if (type === "compaction" || type === "branch_summary" || type === "usage") count(facts, usage);
     if (type !== "message" || !message) return;
-    spend(facts, message.usage);
+    count(facts, message.usage);
     if (message.role !== "assistant") return;
     facts.model = message.responseModel ?? message.model ?? facts.model;
     facts.used = contextOf(message) || facts.used;
   },
 
-  numbers: (facts, { limit, torn }) => (facts.spent || torn.size > 0) && { model: facts.model ?? "Pi", context: context(torn.size ? null : facts.used, limit), tokens: { ...facts.tokens }, cost: facts.unpriced || torn.size ? undefined : facts.cost },
+  numbers: (facts, { total, torn }) => (facts.counted || torn.size > 0) && { model: facts.model ?? "Pi", context: context(torn.size ? null : facts.used, total), tokens: { ...facts.tokens }, cost: facts.unpriced || torn.size ? undefined : facts.cost },
 };
