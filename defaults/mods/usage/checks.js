@@ -7,13 +7,16 @@ import { exec as execute, home, knownAgents, machines, readTextFile, setShared, 
 
 export const EVERY = 15 * 60_000;
 export const NEAR = 90;
+export const POPOVER_WIDTH = 340;
 
 const REUSE = 60_000;
 const BUSY = 60_000;
 const DAY = 24 * 3600_000;
-const WEEK = 7 * 1440; // minutes, as Codex counts its windows
+const WEEK_MINUTES = 7 * 1440;
 const HERE = "This computer";
-const OPENCODE = "opencode|";
+
+const entryId = (agent, machine) => `${agent}|${machine ?? ""}`;
+const OPENCODE = entryId("opencode");
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const CODEX_PLANS = {
@@ -25,8 +28,10 @@ const GO_WINDOWS = [["weekly", "This week"], ["rolling", "5 hours"], ["monthly",
 const titled = (word) => word.replaceAll("_", " ").replace(/^./, (c) => c.toUpperCase());
 const fingerprint = (...parts) => (parts[0] ? createHash("sha256").update(parts.join("|")).digest("hex").slice(0, 16) : undefined);
 
+export const usageOff = () => shared("usage.enabled") === false;
+
 async function exec(...call) {
-  if (shared("usage.enabled") === false || !shared("usage")?.era) throw new Error("usage was turned off");
+  if (usageOff() || !shared("usage")?.era) throw new Error("usage was turned off");
   return execute(...call);
 }
 
@@ -62,25 +67,25 @@ function claudeLimits(text, now) {
   return [...week, ...other, ...session];
 }
 
-function spanName(minutes) {
-  if (minutes === WEEK) return "This week";
+function periodName(minutes) {
+  if (minutes === WEEK_MINUTES) return "This week";
   const [count, unit] = minutes % 1440 === 0 ? [minutes / 1440, "day"] : minutes >= 60 ? [Math.round(minutes / 60), "hour"] : [minutes, "minute"];
   return `${count} ${unit}${count === 1 ? "" : "s"}`;
 }
 
-const rank = ({ span, model }) => (span === WEEK ? (model ? 1 : 0) : 2);
+const rank = ({ minutes, model }) => (minutes === WEEK_MINUTES ? (model ? 1 : 0) : 2);
 
 function codexLimits(rates) {
   const buckets = Object.entries(rates?.rateLimitsByLimitId ?? {});
   const limits = (buckets.length ? buckets : [["codex", rates?.rateLimits]]).flatMap(([id, bucket]) => {
     const model = id === "codex" ? null : bucket?.limitName ?? titled(id);
-    return [bucket?.primary, bucket?.secondary].filter(Boolean).map((window) => {
-      const span = window.windowDurationMins ?? 0, name = span ? spanName(span) : null;
-      const label = !model ? name ?? "Limit" : !name || span === WEEK ? model : `${model} · ${name}`;
-      return { span, model, label, used: Math.round(window.usedPercent ?? 0), resetsAt: window.resetsAt ? window.resetsAt * 1000 : null };
+    return [bucket?.primary, bucket?.secondary].filter(Boolean).map((period) => {
+      const minutes = period.windowDurationMins ?? 0, name = minutes ? periodName(minutes) : null;
+      const label = !model ? name ?? "Limit" : !name || minutes === WEEK_MINUTES ? model : `${model} · ${name}`;
+      return { minutes, model, label, used: Math.round(period.usedPercent ?? 0), resetsAt: period.resetsAt ? period.resetsAt * 1000 : null };
     });
   });
-  limits.sort((a, b) => rank(a) - rank(b) || b.span - a.span || Boolean(a.model) - Boolean(b.model));
+  limits.sort((a, b) => rank(a) - rank(b) || b.minutes - a.minutes || Boolean(a.model) - Boolean(b.model));
   return limits.map(({ label, used, resetsAt }) => ({ label, used, resetsAt }));
 }
 
@@ -116,11 +121,11 @@ function goLimits(answer) {
 // Dock-started apps miss what shell startup files add (nvm, most of all), so each machine's PATH
 // comes from the shell agents start in, and only that: the checks themselves run in `sh`.
 const PATH_LINE = `"\${SHELL:-sh}" -ic 'printenv PATH' 2>/dev/null </dev/null | tail -n 1`;
-const windows = (on) => !on && window()?.platform === "windows";
+const usesPowershell = (on) => !on && window()?.platform === "windows";
 
 async function shellPath(on) {
   // Windows apps get the person's PATH from the system, not from shell startup files, and there's no `sh`.
-  if (windows(on)) return "";
+  if (usesPowershell(on)) return "";
   try {
     return (await exec("sh", ["-c", PATH_LINE], { on })).stdout.trim();
   } catch {
@@ -129,7 +134,7 @@ async function shellPath(on) {
 }
 
 function inShell({ on, path }, posix, powershell) {
-  if (windows(on)) return exec("powershell", ["-NoLogo", "-NoProfile", "-Command", powershell]);
+  if (usesPowershell(on)) return exec("powershell", ["-NoLogo", "-NoProfile", "-Command", powershell]);
   return exec("sh", ["-c", `[ -n "$1" ] && PATH="$1" && export PATH; ${posix}`, "sh", path], { on });
 }
 
@@ -152,7 +157,7 @@ const HAS = "zaki-has:", ASKED = "zaki-asked";
 // another PATH than the agents', so the machine's own shell settles it. Null: it can't be asked.
 async function shellFinds(where, programs) {
   if (!programs.length) return new Set();
-  if (!where.path && !windows(where.on)) return null;
+  if (!where.path && !usesPowershell(where.on)) return null;
   try {
     const { stdout } = await inShell(where,
       `for c in ${posixWords(programs)}; do command -v "$c" >/dev/null 2>&1 && echo "${HAS}$c"; done; echo ${ASKED}`,
@@ -192,13 +197,13 @@ const codexPosix = (program) => `out=$(mktemp) || exit 1
 cat "$out"; rm -f "$out"`;
 // This pipe can't watch the output for the last answer, so the input stays open for a fixed wait.
 // Six seconds is a guess: it has never run on Windows.
-const codexWindows = (program) => `& { ${CODEX_REQUESTS.map((line) => `'${line}'`).join("; ")}; Start-Sleep 6 } | ${powershellCall(program)} -s read-only -a never app-server 2>$null`;
+const codexPowershell = (program) => `& { ${CODEX_REQUESTS.map((line) => `'${line}'`).join("; ")}; Start-Sleep 6 } | ${powershellCall(program)} -s read-only -a never app-server 2>$null`;
 
 async function codex(where) {
-  return codexReport((await inShell(where, codexPosix(where.program), codexWindows(where.program))).stdout);
+  return codexReport((await inShell(where, codexPosix(where.program), codexPowershell(where.program))).stdout);
 }
 
-const opencodeAllowed = () => shared("usage.enabled") !== false && shared("usage.opencode") === true;
+const opencodeAllowed = () => !usageOff() && shared("usage.opencode") === true;
 
 async function opencodeKeys() {
   const data = `${home()}/.local/share/opencode`, keys = [];
@@ -239,7 +244,20 @@ async function opencode() {
   return null;
 }
 
-const CHECKS = { claude, codex, opencode };
+const CHECKS = {
+  claude: { read: claude },
+  codex: { read: codex },
+  opencode: { read: opencode, localOnly: true, needsConsent: true },
+};
+
+async function checked(base, read) {
+  try {
+    const report = await read();
+    return report && { ...base, ...report, checkedAt: Date.now() };
+  } catch {
+    return { ...base, limits: [], failed: true };
+  }
+}
 
 async function checkMachine(on, last, now) {
   const kept = (id) => last[id] && [id, { ...last[id], failed: true }];
@@ -247,20 +265,17 @@ async function checkMachine(on, last, now) {
   if (on && machines().find((machine) => machine.name === on)?.layout === "unavailable") return keepAll();
   const [agents, path] = await Promise.all([knownAgents({ on }).catch(() => []), shellPath(on)]);
   if (!agents.length) return keepAll();
-  const ours = agents.filter((agent) => CHECKS[agent.key] && (agent.key !== "opencode" || !on)).map((agent) => ({ ...agent, program: programOf(agent) }));
+  const ours = agents.filter((agent) => CHECKS[agent.key] && !(on && CHECKS[agent.key].localOnly)).map((agent) => ({ ...agent, program: programOf(agent) }));
   // `installed` is about run[0], which may not be what runs here.
   const sure = (agent) => agent.installed && agent.program === agent.run[0];
   const finds = await shellFinds({ on, path }, ours.filter((agent) => !sure(agent)).map((agent) => agent.program));
   const found = await Promise.all(ours.map(async (agent) => {
-    const id = `${agent.key}|${on ?? ""}`, base = { agent: agent.key, name: agent.name, icon: agent.icon, tint: agent.tint, machine: on };
+    const { read, needsConsent } = CHECKS[agent.key], answer = shared("usage.opencode");
+    const id = entryId(agent.key, on), base = { agent: agent.key, name: agent.name, icon: agent.icon, tint: agent.tint, machine: on };
     if (!sure(agent) && !finds?.has(agent.program)) return finds ? null : kept(id);
-    if (agent.key === "opencode" && shared("usage.opencode") !== true) return shared("usage.opencode") === false ? null : [id, { ...base, ask: true, limits: [] }];
-    try {
-      const report = await CHECKS[agent.key]({ on, path, program: agent.program }, now);
-      return report && [id, { ...base, ...report, checkedAt: Date.now() }];
-    } catch {
-      return kept(id) ?? [id, { ...base, limits: [], failed: true }];
-    }
+    if (needsConsent && answer !== true) return answer === false ? null : [id, { ...base, ask: true, limits: [] }];
+    const entry = await checked(base, () => read({ on, path, program: agent.program }, now));
+    return entry?.failed ? kept(id) ?? [id, entry] : entry && [id, entry];
   }));
   return Object.fromEntries(found.filter(Boolean));
 }
@@ -282,13 +297,13 @@ const orSaved = (entry, saved) => (entry?.failed && saved?.limits.length ? { ...
 // it, and if that took away its right to save, checks that slow would never save at all.
 export async function checkUsage({ force = false, within = REUSE } = {}) {
   const last = shared("usage") ?? {}, now = Date.now(), era = last.era ?? Math.random(), answer = shared("usage.opencode");
-  if (shared("usage.enabled") === false) return;
+  if (usageOff()) return;
   if (checking(last, now)) return;
   if (!force && last.checkedAt && now - last.checkedAt < within) return;
   setShared("usage", { ...last, era, startedAt: now });
   const names = [...new Set([null, ...machines().map((machine) => machine.name)])];
   const results = await Promise.all(names.map((on) => checkMachine(on, last.entries ?? {}, now)));
-  if (shared("usage.enabled") === false || shared("usage")?.era !== era) return;
+  if (usageOff() || shared("usage")?.era !== era) return;
   const saved = shared("usage").entries ?? {}, found = Object.assign({}, ...results);
   for (const id in found) found[id] = orSaved(found[id], saved[id]);
   // Answered midway, OpenCode's entry is no longer this pass's to save: Allow runs its own check.
@@ -301,12 +316,12 @@ export async function checkUsage({ force = false, within = REUSE } = {}) {
 // saves only into the era it began in. Taking `ask` off the row stops a second footer told the same.
 export async function allowOpencode() {
   const usage = shared("usage") ?? {}, now = Date.now(), { ask, ...base } = usage.entries?.[OPENCODE] ?? {};
-  if (shared("usage.enabled") === false || !ask || shared("usage.opencode") !== true) return;
+  if (usageOff() || !ask || shared("usage.opencode") !== true) return;
   const mine = checking(usage, now) ? null : now;
-  setShared("usage", { ...usage, startedAt: mine ?? usage.startedAt, entries: { ...usage.entries, [OPENCODE]: { ...base, limits: [] } } });
-  const found = await opencode().then((report) => report && { ...base, ...report, checkedAt: Date.now() }, () => ({ ...base, limits: [], failed: true }));
+  setShared("usage", { ...usage, startedAt: mine ?? usage.startedAt, entries: { ...usage.entries, [OPENCODE]: base } });
+  const found = await checked(base, opencode);
   const current = shared("usage");
-  if (shared("usage.enabled") === false || current?.era !== usage.era) return;
+  if (usageOff() || current?.era !== usage.era) return;
   setShared("usage", { ...current, startedAt: current.startedAt === mine ? null : current.startedAt, entries: withOpencode(current.entries, orSaved(found, current.entries?.[OPENCODE])) });
 }
 
@@ -315,7 +330,7 @@ export const usedNow = (limit, now) => (limit.resetsAt && limit.resetsAt <= now 
 export function subscriptions(entries) {
   const rows = new Map();
   for (const entry of Object.values(entries ?? {})) {
-    const key = entry.who ?? `${entry.agent}|${entry.machine ?? ""}`, place = entry.machine ?? HERE, had = rows.get(key);
+    const key = entry.who ?? entryId(entry.agent, entry.machine), place = entry.machine ?? HERE, had = rows.get(key);
     if (!had) rows.set(key, { ...entry, machines: [place] });
     else rows.set(key, { ...((entry.checkedAt ?? 0) > (had.checkedAt ?? 0) ? entry : had), machines: [...had.machines, place] });
   }

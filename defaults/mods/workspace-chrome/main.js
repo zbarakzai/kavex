@@ -1,7 +1,7 @@
 import { View, div, image, svg } from "gpui-kit";
 import { h_flex, HoverCard } from "gpui-base";
 import { theme, run, props, window, shared, setShared, updates, layout, agents, spaces, openOverlay, settings, nextCommand } from "herdr";
-import { allowOpencode, checkUsage, EVERY, nearLimit } from "./checks.js";
+import { allowOpencode, checkUsage, EVERY, nearLimit, POPOVER_WIDTH, usageOff } from "./checks.js";
 import { look, spaced } from "./look.js";
 
 function find(node, id) {
@@ -83,7 +83,7 @@ export default class WorkspaceChrome extends View {
   usage() {
     const shut = shared("popup.closed"), { at, bounds } = this.pressed;
     if (shut?.from === "usage" && shut.at >= at - 100) return;
-    openOverlay({ mod: "usage", kind: "popup", width: 340, height: 480, at: { x: bounds.x + PAST_BUTTONS * settings().zoom, y: bounds.y }, props: { from: "usage" } });
+    openOverlay({ mod: "usage", kind: "popup", width: POPOVER_WIDTH, height: 480, at: { x: bounds.x + PAST_BUTTONS * settings().zoom, y: bounds.y }, props: { from: "usage" } });
   }
 
   footer(t) {
@@ -93,7 +93,7 @@ export default class WorkspaceChrome extends View {
     if (collapsed) return h_flex().size_full().pb(4).items_center().justify_center().child(settings);
     const list = agents().length, tail = ` · ${list} ${list === 1 ? "AGENT" : "AGENTS"}`;
     const machine = (spaces().find(s => s.active)?.machine ?? "This computer").toUpperCase();
-    const usage = shared("usage.enabled") !== false, room = LINE - (usage ? GAUGE_LETTERS : 0) - tail.length;
+    const usage = !usageOff(), room = LINE - (usage ? GAUGE_LETTERS : 0) - tail.length;
     const name = machine.length > room ? `${machine.slice(0, room - 1)}…` : machine;
     return h_flex().size_full().pl(4).pb(4).items_center()
       .child(h_flex().flex_1().min_w(0).gap(5).items_center().overflow_hidden()

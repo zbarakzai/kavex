@@ -1,21 +1,22 @@
 import { View, div, svg } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
 import { props, run, setShared, shared, theme } from "herdr";
-import { checking, NEAR, subscriptions, usedNow } from "./checks.js";
+import { checking, NEAR, POPOVER_WIDTH, subscriptions, usedNow } from "./checks.js";
 import { look, MONO, sectionLabel, tile } from "./look.js";
 
 const PAD = 14;
-const BAR = 340 - 2 - PAD * 2;
+const FRAME = 1;
+const BAR = POPOVER_WIDTH - (FRAME + PAD) * 2;
 const ASKS = "Zaki reads your OpenCode key and sends it only to opencode.ai, to ask for your Go plan's limits.";
 
-function span(ms) {
+function timeText(ms) {
   const minutes = Math.floor(ms / 60_000), hours = Math.floor(minutes / 60), days = Math.floor(hours / 24);
   if (days) return `${days}d ${hours % 24}h`;
   if (hours) return `${hours}h ${minutes % 60}m`;
   return minutes ? `${minutes}m` : "<1m";
 }
 
-const ago = (ms) => (ms < 60_000 ? "just now" : `${span(ms)} ago`);
+const ago = (ms) => (ms < 60_000 ? "just now" : `${timeText(ms)} ago`);
 
 function freshness(usage, rows, now) {
   if (checking(usage, now)) return "Checking…";
@@ -40,7 +41,7 @@ export default class Usage extends View {
       .child(h_flex().gap(8).items_center().text_size(12)
         .child(div().flex_1().min_w(0).truncate().text_color(k.text_secondary).child(limit.label))
         .child(div().flex_none().font_family(MONO).text_color(k.foreground).child(`${used}%`))
-        .when(left > 0, (el) => el.child(div().flex_none().text_color(k.text_faint).child(`resets in ${span(left)}`))))
+        .when(left > 0, (el) => el.child(div().flex_none().text_color(k.text_faint).child(`resets in ${timeText(left)}`))))
       .child(div().w(BAR).h(4).rounded(2).overflow_hidden().bg(k.hover_strong)
         .child(div().id(`bar-${id}`).h_full().rounded(2).bg(used >= NEAR ? k.blocked : k.muted).w((BAR * Math.min(used, 100)) / 100).transition("width", 240)));
   }
