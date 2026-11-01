@@ -62,7 +62,8 @@
     "shift-f2": "space.rename"
   },
   "layout:main": {
-    "ctrl-shift-j": "layout.toggle:panel"
+    "ctrl-shift-j": "layout.toggle:panel",
+    "ctrl-shift-r": "tabs-column.focus"
   },
   "terminal": {
     "ctrl-backspace": "send:\u0017",

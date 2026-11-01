@@ -1,4 +1,3 @@
-// The changed files as a folder tree, and which little icon each one wears.
 
 const name = (a) => a.toLowerCase();
 const byName = (a, b) => (name(a) < name(b) ? -1 : name(a) > name(b) ? 1 : 0);
@@ -72,21 +71,4 @@ export function middle(text, room) {
   if (text.length <= room) return text;
   const keep = room - 1, tail = Math.floor(keep / 2);
   return `${text.slice(0, keep - tail)}…${text.slice(text.length - tail)}`;
-}
-
-const ICONS = {
-  tsx: ["react", "ansi6"], jsx: ["react", "ansi6"], ts: ["ts", "ansi4"], mts: ["ts", "ansi4"], cts: ["ts", "ansi4"],
-  js: ["js", "ansi3"], mjs: ["js", "ansi3"], cjs: ["js", "ansi3"], json: ["json", "ansi3"], jsonc: ["json", "ansi3"],
-  yml: ["yaml", "ansi1"], yaml: ["yaml", "ansi1"], toml: ["config", "ansi3"], ini: ["config", "ansi3"], env: ["config", "ansi3"],
-  md: ["markdown", "ansi4"], mdx: ["markdown", "ansi4"], rs: ["rust", "ansi3"], py: ["python", "ansi4"], go: ["go", "ansi6"],
-  css: ["css", "ansi5"], scss: ["css", "ansi5"], html: ["html", "ansi3"], sh: ["shell", "ansi2"], bash: ["shell", "ansi2"], zsh: ["shell", "ansi2"],
-  png: ["image", "ansi5"], jpg: ["image", "ansi5"], jpeg: ["image", "ansi5"], gif: ["image", "ansi5"], svg: ["image", "ansi5"], webp: ["image", "ansi5"],
-  lock: ["lock", null],
-};
-
-export function iconOf(path) {
-  const leaf = path.split("/").pop().toLowerCase();
-  if (leaf === "dockerfile" || leaf === "justfile" || leaf === "makefile") return ["shell", "ansi2"];
-  if (leaf.endsWith("-lock.yaml") || leaf.endsWith(".lock") || leaf === "package-lock.json") return ["lock", null];
-  return ICONS[leaf.split(".").pop()] ?? ["file", null];
 }

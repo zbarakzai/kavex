@@ -130,6 +130,14 @@ jobs:
         run: |
           ~/.bun/bin/bun test scripts/docs.test.ts
           ~/.bun/bin/bun scripts/docs.ts check
+      - name: Test the mods
+        if: matrix.platform == 'linux-x86_64'
+        run: |
+          ~/.bun/bin/bun test scripts/files.test.ts scripts/tab-groups.test.ts scripts/changes.test.ts scripts/look.test.ts
+          ~/.bun/bin/bun test scripts/tabs-column.test.ts
+          ~/.bun/bin/bun test scripts/tab-menu.test.ts
+          ~/.bun/bin/bun test scripts/settings.test.ts
+          ~/.bun/bin/bun test scripts/file-menu.test.ts
 
   # Keep the required check name stable while requiring every platform.
   test:

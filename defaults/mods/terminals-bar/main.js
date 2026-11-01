@@ -74,7 +74,7 @@ function windowButton(id, icon, command) {
       .cursor_pointer()
       .hover((s) => s.bg(C.edge).text_color(C.text))
       .on_click(() => run(command))
-      .child(svg(`mods/terminals-bar/${icon}.svg`).size(14)),
+      .child(svg(`mods/workspace-chrome/icons/${icon}.svg`).size(16)),
   );
 }
 
@@ -88,7 +88,7 @@ function iconButton(id, icon, onClick) {
     .cursor_pointer()
     .hover((s) => s.bg(C.chip).text_color(C.text))
     .on_click(onClick)
-    .child(svg(`mods/terminals-bar/${icon}.svg`).size(17));
+    .child(svg(`mods/workspace-chrome/icons/${icon}.svg`).size(16));
 }
 
 export default class TerminalsBar extends View {
@@ -155,7 +155,7 @@ export default class TerminalsBar extends View {
           .text_color(C.dim)
           .hover((s) => s.text_color(C.text))
           .on_click(() => openOverlay({ mod: "picker", kind: "popup", at: "top", offset: 40, width: 640, height: 0.8 }))
-          .child(svg("mods/terminals-bar/stack.svg").size(15))
+          .child(svg("mods/workspace-chrome/icons/stack.svg").size(16))
           .child(div().max_w(160).truncate().text_color(C.text).child(space.name)),
       )
       .child(
@@ -179,8 +179,8 @@ export default class TerminalsBar extends View {
             .pl(6)
             .pr(4)
             .gap(8)
-            .child(windowButton("tm-min", "win-min", "window.minimize"))
-            .child(windowButton("tm-max", w.maximized ? "win-restore" : "win-max", "window.maximize"))
+            .child(windowButton("tm-min", "win-minimize", "window.minimize"))
+            .child(windowButton("tm-max", w.maximized ? "win-restore" : "win-maximize", "window.maximize"))
             .child(windowButton("tm-close", "win-close", "window.close")),
         ),
       );

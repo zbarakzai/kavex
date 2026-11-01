@@ -282,17 +282,17 @@ fn tabs_leave_room_for_macos_traffic_lights(cx: &mut TestAppContext) {
     cx.update(gpui_shell::init);
     let staged = Staged::new();
     for (platform, titlebar, fullscreen, width, lights, zoom, expected) in [
-        ("macos", "none", false, 44, true, 1.0, 32),
-        ("macos", "none", false, 44, true, 0.5, 108),
-        ("macos", "none", false, 44, true, 2.0, 10),
-        ("macos", "none", false, 60, true, 1.0, 16),
-        ("macos", "none", false, 76, true, 1.0, 10),
-        ("macos", "none", false, 268, true, 1.0, 10),
-        ("macos", "none", true, 44, true, 1.0, 10),
-        ("macos", "system", false, 44, true, 1.0, 10),
-        ("macos", "none", false, 44, false, 1.0, 10),
-        ("linux", "none", false, 44, true, 1.0, 10),
-        ("windows", "none", false, 44, true, 1.0, 10),
+        ("macos", "none", false, 44, true, 1.0, 38),
+        ("macos", "none", false, 44, true, 0.5, 120),
+        ("macos", "none", false, 44, true, 2.0, 6),
+        ("macos", "none", false, 60, true, 1.0, 22),
+        ("macos", "none", false, 76, true, 1.0, 6),
+        ("macos", "none", false, 268, true, 1.0, 6),
+        ("macos", "none", true, 44, true, 1.0, 6),
+        ("macos", "system", false, 44, true, 1.0, 6),
+        ("macos", "none", false, 44, false, 1.0, 6),
+        ("linux", "none", false, 44, true, 1.0, 6),
+        ("windows", "none", false, 44, true, 1.0, 6),
     ] {
         let mut values = fixture(true, props(), updates("current", "current"));
         values.insert("window".into(), json!({"platform":platform,"titlebar":titlebar,"fullscreen":fullscreen,"buttons":false}));
@@ -319,12 +319,12 @@ fn windows_tab_buttons_use_matching_vector_icons(cx: &mut TestAppContext) {
             values.insert("window".into(), json!({"platform":platform,"buttons":true,"maximized":maximized}));
             let tree = describe_with_values(cx, &staged, "mods/tabs", values, None).unwrap();
             if platform == "windows" {
-                for icon in ["win-min.svg", if maximized { "win-restore.svg" } else { "win-max.svg" }, "win-close.svg"] {
+                for icon in ["win-minimize.svg", if maximized { "win-restore.svg" } else { "win-maximize.svg" }, "win-close.svg"] {
                     assert!(tree.contains(icon), "missing {icon}: {tree}");
                 }
             } else {
-                assert!(!tree.contains("mods/tabs/win-"), "{tree}");
-                assert!(tree.contains("mods/pane/close.svg"), "{tree}");
+                assert!(!tree.contains("mods/workspace-chrome/icons/win-"), "{tree}");
+                assert!(tree.contains("mods/workspace-chrome/icons/close.svg"), "{tree}");
             }
         }
     }
@@ -575,6 +575,8 @@ fn local_state_and_overlay_initial_descriptions(cx: &mut TestAppContext) {
         ("mods/menu", json!({"tab":"space","target":{"id":"s1"}})),
         ("mods/tab-menu", json!({"tabs":["tab1"],"space":"s1","machine":null,"color":"ansi4","cwd":"/fixture/project"})),
         ("mods/tab-menu", json!({"tabs":["tab1"],"space":"s1","make":true})),
+        ("mods/file-menu", json!({"from":"files","dir":true,"root":false,"local":true})),
+        ("mods/file-menu", json!({"from":"files","dir":false,"root":false,"local":false})),
         ("mods/tab-drag", json!({})),
         ("mods/prompt", json!({"machines":true})),
         (
@@ -650,7 +652,7 @@ fn shipped_layouts_and_keys() {
         layouts.insert(path.file_stem().unwrap().to_str().unwrap().to_owned());
     }
     assert_eq!(layouts, crate::window::shipped_layouts().into_iter().map(str::to_owned).collect());
-    let mod_commands = ["ribbon.next", "tabs.group", "tabs.fold"];
+    let mod_commands = ["ribbon.next", "tabs.group", "tabs.fold", "tabs-column.focus"];
     for text in [
         include_str!("../../defaults/keys.json"),
         include_str!("../../defaults/keys.macos.json"),

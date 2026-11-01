@@ -275,7 +275,6 @@ export default class Worktree extends View {
       .size_full()
       .p(16)
       .gap(10)
-      .bg(t.popover)
       .text_size(13)
       .child(h_flex().child(div().flex_1().font_semibold().text_color(t.foreground).child(`Open worktree${r ? ` of ${r.name}` : ""}`)).child(div().text_size(11).text_color(t.dim).child(r ? count : "")))
       .when(r === undefined || (r && this.list === undefined), (el) => el.child(div().text_color(t.muted).child("\u2026")))
@@ -327,12 +326,11 @@ export default class Worktree extends View {
       .size_full()
       .p(16)
       .gap(10)
-      .bg(t.popover)
       .text_size(13)
       .child(div().font_semibold().text_color(t.foreground).child(title))
       .child(div().text_color(t.muted).child(detail))
-      .when(remove && this.dirty, (el) => el.child(div().text_color(t.blocked).child("It has uncommitted changes: they will be lost.")))
-      .when(remove && this.unpushed.length > 0, (el) => el.child(div().text_color(t.blocked).child(`Submodule ${this.unpushed.join(", ")} has commits that aren't pushed anywhere: they will be lost.`)))
+      .when(remove && this.dirty, (el) => el.child(div().text_color(t.failed ?? t.blocked).child("It has uncommitted changes: they will be lost.")))
+      .when(remove && this.unpushed.length > 0, (el) => el.child(div().text_color(t.failed ?? t.blocked).child(`Submodule ${this.unpushed.join(", ")} has commits that aren't pushed anywhere: they will be lost.`)))
       .when(!remove && !blocked, (el) =>
         el.child(
           Input.new(this.input)
@@ -346,7 +344,7 @@ export default class Worktree extends View {
             .text_color(t.foreground),
         ),
       )
-      .when(Boolean(this.error), (el) => el.child(div().text_color(t.blocked).child(this.error)))
+      .when(Boolean(this.error), (el) => el.child(div().text_color(t.failed ?? t.blocked).child(this.error)))
       .child(div().flex_1())
       .child(
         h_flex()

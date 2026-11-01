@@ -10,7 +10,7 @@ import { View, div, svg } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input } from "gpui-base";
 import { hc, exec, home, readTextFile, theme, props, closeOverlay, openOverlay } from "herdr";
 
-const I = (name) => `mods/workspace-chrome/${name}.svg`;
+const I = (name) => `mods/workspace-chrome/icons/${name}.svg`;
 
 // Host entries people can pick: named ones, not patterns.
 function parseConfig(text) {
@@ -216,7 +216,7 @@ export default class MachineAdd extends View {
       .border_color(t.border)
       .text_size(12.5)
       .text_color(t.muted)
-      .child(svg(I("server")).size(14))
+      .child(svg(I("machine")).size(16))
       .child(div().flex_1().child(`Adding ${props().target}: answer it here`))
       .child(
         div()
@@ -231,7 +231,7 @@ export default class MachineAdd extends View {
           .hover((s) => s.bg(t.hover))
           .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
           .on_click(() => closeOverlay(props().overlay))
-          .child(svg(I("x")).size(12)),
+          .child(svg(I("close")).size(16)),
       );
   }
 
@@ -239,9 +239,9 @@ export default class MachineAdd extends View {
     const st = this.state[target];
     const done = this.isAdded(target);
     const right = done
-      ? h_flex().gap(5).items_center().text_size(12).text_color(t.ansi2).child(svg(I("circle-check")).size(13)).child("Added")
+      ? h_flex().gap(5).items_center().text_size(12).text_color(t.ansi2).child(svg(I("success")).size(16)).child("Added")
       : st === "adding"
-        ? h_flex().gap(6).items_center().text_size(12).text_color(t.muted).child(svg(I("spinner")).size(12).text_color(t.working).spin(900)).child("Connecting")
+        ? h_flex().gap(6).items_center().text_size(12).text_color(t.muted).child(svg(I("spinner")).size(16).text_color(t.working).spin(900)).child("Connecting")
         : st === "terminal"
           ? div().text_size(12).text_color(t.blocked).child("Waiting in its terminal")
           : div()
@@ -273,12 +273,12 @@ export default class MachineAdd extends View {
           .rounded(8)
           .hover((s) => s.bg(t.hover))
           .when(idle, (el) => el.cursor_pointer().on_click((_e, cx) => this.add(target, cx)))
-          .child(svg(I("server")).size(15).text_color(t.muted))
+          .child(svg(I("machine")).size(16).text_color(t.muted))
           .child(div().flex_none().text_size(13).text_color(t.foreground).child(label))
           .child(div().flex_1().min_w(0).truncate().text_size(12).text_color(t.dim).child(sub ?? ""))
           .child(right),
       )
-      .when(typeof st === "string" && !["adding", "terminal"].includes(st), (el) => el.child(div().px(35).pb(6).text_size(12).text_color(t.blocked).child(st)))
+      .when(typeof st === "string" && !["adding", "terminal"].includes(st), (el) => el.child(div().px(35).pb(6).text_size(12).text_color(t.failed ?? t.blocked).child(st)))
       .when(Boolean(this.macs[target]), (el) => el.child(this.macCard(t, target)));
   }
 
@@ -293,7 +293,6 @@ export default class MachineAdd extends View {
       .w_full()
       .min_h(0)
       .p(18)
-      .bg(t.popover)
       .text_color(t.foreground)
       .child(h_flex().items_center().child(div().flex_1().text_size(15).font_semibold().child("Add a machine")).child(div().text_size(11).text_color(t.dim).child("Esc")))
       .child(
@@ -354,6 +353,6 @@ export default class MachineAdd extends View {
               .child("Add"),
           ),
       )
-      .when(Boolean(this.typed.trim() && this.state[this.typed.trim()]), (el) => el.child(div().pt(6).text_size(12).text_color(t.blocked).child(String(this.state[this.typed.trim()]))));
+      .when(Boolean(this.typed.trim() && this.state[this.typed.trim()]), (el) => el.child(div().pt(6).text_size(12).text_color(t.failed ?? t.blocked).child(String(this.state[this.typed.trim()]))));
   }
 }

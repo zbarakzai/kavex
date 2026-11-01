@@ -73,8 +73,8 @@ function items(p, git) {
 }
 
 function menuIcon(command) {
-  const name = command.endsWith(".close") ? "x" : command.endsWith(".rename") ? "square-pen" : command.endsWith(".new") ? "plus" : command === "worktree" ? "git-branch" : command === "app.help" ? "terminal" : command === "app.theme" ? "settings" : command === "pane.split" ? "panel-right" : command === "pane.zoom" ? "square" : "terminal";
-  return `mods/workspace-chrome/${name}.svg`;
+  const name = command.endsWith(".close") ? "close" : command.endsWith(".rename") ? "rename" : command.endsWith(".new") ? "plus" : command === "worktree" ? "branch" : command === "app.help" ? "terminal" : command === "app.theme" ? "look" : command === "pane.split" ? "split-right" : command === "pane.zoom" ? "zoom" : "terminal";
+  return `mods/workspace-chrome/icons/${name}.svg`;
 }
 
 // The key bound to a command, for the hint on the right.
@@ -118,7 +118,6 @@ export default class Menu extends View {
       .w_full()
       .min_h(0)
       .p(5)
-      .bg(t.popover)
       .text_size(12.8)
       .on_key_down((e, cx) => {
         if (e.key === "down") this.at = (this.at + 1) % list.length;
@@ -144,7 +143,7 @@ export default class Menu extends View {
             .when(i === this.at, (el) => el.bg(t.selected))
             .hover((s) => s.bg(t.hover))
             .on_click((_e, cx) => this.choose(i, cx))
-            .child(svg(menuIcon(it[1])).size(14).flex_none().text_color(t.muted))
+            .child(svg(menuIcon(it[1])).size(16).flex_none().text_color(t.muted))
             .child(div().flex_1().child(it[0]))
             .child(div().text_size(11).text_color(t.dim).child(shortcut(it[1], it[2])))),
         ),

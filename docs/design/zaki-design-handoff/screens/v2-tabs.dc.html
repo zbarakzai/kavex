@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Zaki V2 — tabs on the right or on top</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&amp;family=Geist+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="min-height: 100vh; box-sizing: border-box; display: flex; flex-wrap: wrap; align-items: stretch; gap: 6px; padding: 6px; background: #0D0D0D; color: #F2F2F2; font-family: 'Geist', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif; font-size: 13px; line-height: 1.4">
+
+<aside aria-label="Spaces" style="flex: 1 1 220px; min-width: 0; display: flex; flex-direction: column; gap: 2px; padding: 0 4px">
+<div style="display: flex; align-items: center; gap: 8px; height: 44px; padding-left: 8px">
+<span aria-hidden="true" style="display: flex; gap: 7px"><span style="width: 11px; height: 11px; border-radius: 50%; background: #2E2E2E"></span><span style="width: 11px; height: 11px; border-radius: 50%; background: #2E2E2E"></span><span style="width: 11px; height: 11px; border-radius: 50%; background: #2E2E2E"></span></span>
+<span style="flex: 1; font-size: 16px; font-weight: 500; margin-left: 10px">Zaki</span>
+<button aria-label="Search" style="width: 30px; height: 30px; display: grid; place-items: center; border: 0; cursor: pointer; background: transparent; color: #A8A8A8; border-radius: 8px; padding: 0"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg></button>
+</div>
+<h2 style="margin: 14px 0 4px; padding-left: 10px; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 10.5px; font-weight: 500; letter-spacing: 0.1em; color: #8E8E8E">SPACES</h2>
+<button style="display: flex; align-items: center; gap: 10px; padding: 5px 8px; border: 0; cursor: pointer; font: inherit; color: inherit; border-radius: 10px; background: transparent; text-align: left; width: 100%">
+<span aria-hidden="true" style="flex: none; width: 26px; height: 26px; border-radius: 7px; background: #1F1F1F; display: grid; place-items: center; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11.5px; color: #CFCFCF">A</span>
+<span style="flex: 1; font-size: 13.5px">atelier</span>
+</button>
+<button aria-current="true" style="display: flex; align-items: center; gap: 10px; padding: 5px 8px; border: 0; cursor: pointer; font: inherit; color: inherit; border-radius: 10px; background: #1C1C1C; text-align: left; width: 100%">
+<span aria-hidden="true" style="flex: none; width: 26px; height: 26px; border-radius: 7px; background: {{accent}}; display: grid; place-items: center; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11.5px; font-weight: 600; color: #140A05">Z</span>
+<span style="flex: 1; font-size: 13.5px">zaki</span>
+</button>
+<button style="display: flex; align-items: center; gap: 10px; padding: 5px 8px; border: 0; cursor: pointer; font: inherit; color: inherit; border-radius: 10px; background: transparent; text-align: left; width: 100%">
+<span aria-hidden="true" style="flex: none; width: 26px; height: 26px; border-radius: 7px; background: #1F1F1F; display: grid; place-items: center; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11.5px; color: #CFCFCF">G</span>
+<span style="flex: 1; min-width: 0; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Grokking System Design</span>
+</button>
+<span style="flex: 1; min-height: 24px"></span>
+<button style="display: flex; align-items: center; gap: 10px; height: 36px; padding: 0 10px; border: 0; cursor: pointer; font: inherit; border-radius: 10px; background: transparent; color: #CFCFCF; font-size: 13.5px; text-align: left; width: 100%">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"></path><circle cx="15" cy="7" r="2"></circle><circle cx="9" cy="17" r="2"></circle></svg>Settings</button>
+<button style="display: flex; align-items: center; gap: 10px; height: 36px; padding: 0 10px; border: 0; cursor: pointer; font: inherit; border-radius: 10px; background: transparent; color: #CFCFCF; font-size: 13.5px; text-align: left; width: 100%">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Add machine</button>
+<p style="display: flex; align-items: center; gap: 8px; margin: 6px 0 8px; padding-left: 10px; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 10.5px; letter-spacing: 0.1em; color: #8E8E8E"><span aria-hidden="true" style="width: 6px; height: 6px; border-radius: 50%; background: #7EDB93"></span>THIS COMPUTER · {{total}} AGENTS</p>
+</aside>
+
+<main style="flex: 999 1 460px; min-width: 0; display: flex; flex-direction: column; background: #161616; border-radius: 14px; overflow: hidden">
+<div style="display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding: 9px 9px 0">
+
+<sc-if value="{{right}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; align-items: center; gap: 10px; height: 40px; padding: 0 16px 0 14px; border-radius: 13px; background: #1F1F1F; box-shadow: inset 0 0 0 1px #2C2C2C; font-size: 14px">
+<span aria-hidden="true" style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 12.5px; color: {{accent}}">&gt;_</span>Claude Code
+<span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 10.5px; letter-spacing: 0.06em; color: #8E8E8E">~/DESKTOP/OPEN-SOURCE/ZAKI</span>
+</div>
+</sc-if>
+
+<sc-if value="{{top}}" hint-placeholder-val="{{ false }}">
+<div role="tablist" aria-label="Tabs in zaki" style="display: flex; align-items: center; flex-wrap: wrap; gap: 6px">
+<sc-for list="{{groups}}" as="g" hint-placeholder-count="3">
+<div role="group" aria-label="{{g.name}}" style="display: flex; align-items: center; gap: 2px; height: 40px; box-sizing: border-box; padding: 3px; border-radius: 13px; background: {{g.tint}}; box-shadow: inset 0 0 0 1px {{g.ring}}">
+<button aria-expanded="{{g.barOpenAttr}}" onClick="{{g.barToggle}}" style="display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 10px 0 11px; border: 0; cursor: pointer; font: inherit; border-radius: 10px; background: transparent; color: {{g.color}}; font-size: 13.5px; font-weight: 600">{{g.name}}<sc-if value="{{g.barClosed}}" hint-placeholder-val="{{ false }}"><span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; font-weight: 400; color: #9A9A9A">{{g.count}}</span><sc-if value="{{g.hasNeeds}}" hint-placeholder-val="{{ false }}"><span aria-label="needs you" style="width: 7px; height: 7px; border-radius: 50%; background: {{accent}}"></span></sc-if></sc-if></button>
+<sc-if value="{{g.barOpen}}" hint-placeholder-val="{{ true }}">
+<sc-for list="{{g.tabs}}" as="t" hint-placeholder-count="3">
+<button role="tab" aria-selected="false" aria-label="{{t.name}}, {{t.label}}" style="display: flex; align-items: center; gap: 7px; height: 34px; padding: 0 12px; border: 0; cursor: pointer; border-radius: 11px; background: transparent; color: #B5B5B5; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 12.5px"><span aria-hidden="true" style="color: #8E8E8E">&gt;_</span>{{t.name}}<span aria-hidden="true" style="width: 6px; height: 6px; border-radius: 50%; background: {{t.dot}}"></span></button>
+</sc-for>
+</sc-if>
+</div>
+</sc-for>
+<sc-for list="{{loose}}" as="t" hint-placeholder-count="2">
+<button role="tab" aria-selected="{{t.activeAttr}}" style="display: flex; align-items: center; gap: 9px; height: 40px; padding: 0 14px; border: 0; cursor: pointer; font: inherit; border-radius: 13px; background: {{t.chipBg}}; box-shadow: {{t.chipRing}}; color: {{t.nameFg}}; font-size: 14px"><span aria-hidden="true" style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 12.5px; color: {{t.glyph}}">&gt;_</span>{{t.name}}</button>
+</sc-for>
+<button aria-label="New tab" style="width: 36px; height: 36px; display: grid; place-items: center; border: 0; cursor: pointer; background: transparent; color: #A8A8A8; border-radius: 10px; padding: 0"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button>
+</div>
+</sc-if>
+
+<span style="flex: 1; min-width: 8px"></span>
+<div role="radiogroup" aria-label="Where tabs go" style="display: flex; align-items: center; gap: 2px; padding: 4px; border-radius: 999px; background: #151515; box-shadow: inset 0 0 0 1px #2A2A2A">
+<button role="radio" aria-checked="{{topAttr}}" aria-label="Tabs on top" onClick="{{setTop}}" style="width: 32px; height: 32px; display: grid; place-items: center; border: 0; cursor: pointer; background: {{topBtnBg}}; color: {{topBtnFg}}; border-radius: 999px; padding: 0"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"></rect><path d="M3 9h18"></path></svg></button>
+<button role="radio" aria-checked="{{rightAttr}}" aria-label="Tabs on the right" onClick="{{setRight}}" style="width: 32px; height: 32px; display: grid; place-items: center; border: 0; cursor: pointer; background: {{rightBtnBg}}; color: {{rightBtnFg}}; border-radius: 999px; padding: 0"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"></rect><path d="M15 4v16"></path></svg></button>
+</div>
+<button aria-label="Files and Changes panel" style="width: 40px; height: 40px; display: grid; place-items: center; border: 0; cursor: pointer; background: transparent; color: #A8A8A8; border-radius: 12px; padding: 0"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg></button>
+</div>
+
+<div style="flex: 1 1 0; min-height: 520px; overflow: auto; display: flex; flex-direction: column-reverse; padding: 18px 26px 20px; font-family: 'Geist Mono', ui-monospace, 'SF Mono', Menlo, monospace; font-size: 13px; line-height: 1.75; color: #D6D6D6">
+<div>
+<p style="margin: 0 0 14px"><span style="color: {{accent}}">❯</span> sweep every mod against the new AGENTS.md rules, one helper per mod</p>
+<p style="margin: 0"><span style="color: #F2F2F2">⏺</span> Started 15 helpers in group <span style="color: #8C9CF5; font-weight: 600">sweep</span></p>
+<p style="margin: 0 0 14px; padding-left: 2ch; color: #8E8E8E">hc run files, changes, timer, themes, keys, layouts, welcome, …</p>
+<p style="margin: 0"><span style="color: #F2F2F2">⏺</span> 8 of 15 done. Waiting on the rest.</p>
+<p style="margin: 0; padding-left: 2ch"><span style="color: #F2827D">✗</span> panels has 2 failing tests, retrying once</p>
+<p style="margin: 0 0 14px; padding-left: 2ch"><span style="color: {{accent}}">?</span> keys asks whether ⌘B should stay on the Changes panel</p>
+<p style="margin: 0 0 14px; color: #8E8E8E">✻ Orchestrating… 4m 12s</p>
+<p style="margin: 0; color: #3A3A3A; overflow: hidden; white-space: nowrap" aria-hidden="true">────────────────────────────────────────────────────────────────────────────────────────────────────────────</p>
+<p style="margin: 0; display: flex; align-items: center; gap: 1ch"><span style="color: {{accent}}">❯</span><span aria-hidden="true" style="display: inline-block; width: 0.6em; height: 1.2em; background: #F2F2F2"></span></p>
+<p style="margin: 0; color: #3A3A3A; overflow: hidden; white-space: nowrap" aria-hidden="true">────────────────────────────────────────────────────────────────────────────────────────────────────────────</p>
+<p style="margin: 0; color: #8E8E8E">Opus 5.5 · 41% ctx · $2.18</p>
+<p style="margin: 0; color: {{accent}}">⏵⏵ auto mode on <span style="color: #8E8E8E">(shift+tab to cycle)</span></p>
+</div>
+</div>
+</main>
+
+<sc-if value="{{right}}" hint-placeholder-val="{{ true }}">
+<aside aria-label="Tabs" style="flex: 1 1 330px; min-width: 0; max-height: calc(100vh - 12px); display: flex; flex-direction: column; background: #0E0E0E; border: 1px solid #222222; border-radius: 20px; overflow: hidden; box-sizing: border-box">
+<div style="display: flex; align-items: center; gap: 6px; height: 58px; padding: 0 8px">
+<div style="display: flex; align-items: center; gap: 10px; height: 40px; padding: 0 16px 0 14px; border-radius: 13px; background: #1C1C1C; box-shadow: inset 0 0 0 1px #2A2A2A; font-size: 14px">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 17 6-6-6-6"></path><path d="M12 19h8"></path></svg>
+<h2 style="margin: 0; font-size: 14px; font-weight: 400">Tabs</h2>
+<span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; color: #8E8E8E">{{total}}</span>
+</div>
+<span style="flex: 1"></span>
+<div role="toolbar" aria-label="Tab tools" style="display: flex; align-items: center; gap: 2px; padding: 4px; border-radius: 999px; background: #151515; box-shadow: inset 0 0 0 1px #2A2A2A">
+<button aria-label="New group" style="width: 34px; height: 34px; display: grid; place-items: center; border: 0; cursor: pointer; background: transparent; color: #A8A8A8; border-radius: 999px; padding: 0"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="4"></rect><path d="M12 8v8M8 12h8"></path></svg></button>
+<button aria-label="New tab" style="width: 34px; height: 34px; display: grid; place-items: center; border: 0; cursor: pointer; background: transparent; color: #A8A8A8; border-radius: 999px; padding: 0"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button>
+</div>
+</div>
+
+<div role="tablist" aria-orientation="vertical" aria-label="Tabs in zaki" style="flex: 1 1 0; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding: 2px 8px 12px">
+
+<div style="display: flex; flex-direction: column; gap: 2px; background: #151515; border: 1px solid #262626; border-radius: 18px; padding: 4px">
+<sc-for list="{{loose}}" as="t" hint-placeholder-count="2">
+<button role="tab" aria-selected="{{t.activeAttr}}" aria-label="{{t.name}}, {{t.label}}" style="display: flex; align-items: center; gap: 9px; width: 100%; height: 34px; padding: 0 8px; border: 0; cursor: pointer; font: inherit; color: inherit; border-radius: 10px; background: {{t.rowBg}}; text-align: left">
+<span aria-hidden="true" style="flex: none; width: 22px; height: 22px; border-radius: 6px; background: {{t.tileBg}}; display: grid; place-items: center; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 9.5px; font-weight: 600; color: {{t.glyph}}">&gt;_</span>
+<span style="flex: 1; min-width: 0; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{t.name}}</span>
+<span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 10px; color: #8E8E8E">{{t.meta}}</span>
+<span style="height: 17px; padding: 0 6px; border-radius: 5px; background: {{t.bBg}}; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 9px; font-weight: 500; letter-spacing: 0.08em; color: {{t.bFg}}; display: grid; place-items: center; white-space: nowrap">{{t.bLabel}}</span>
+</button>
+</sc-for>
+</div>
+
+<sc-for list="{{groups}}" as="g" hint-placeholder-count="3">
+<section aria-label="{{g.name}} group" style="flex: none; background: {{g.cardBg}}; border: 1px solid {{g.ring}}; border-radius: 18px; padding: 4px">
+<button aria-expanded="{{g.openAttr}}" onClick="{{g.toggle}}" style="display: flex; align-items: center; gap: 8px; width: 100%; height: 38px; padding: 0 10px 0 6px; border: 0; cursor: pointer; font: inherit; color: inherit; border-radius: 12px; background: transparent; text-align: left">
+<span style="padding-left: 6px; color: {{g.color}}; font-size: 14px; font-weight: 600; letter-spacing: -0.005em">{{g.name}}</span>
+<span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; color: #A8A8A8">{{g.count}}</span>
+<span style="flex: 1"></span>
+<sc-if value="{{g.hasNeeds}}" hint-placeholder-val="{{ false }}"><span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 10px; letter-spacing: 0.06em; color: #F5A27E">{{g.needsN}} NEEDS YOU</span></sc-if>
+<span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 10.5px; color: #A8A8A8">{{g.summary}}</span>
+<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#A8A8A8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="transform: {{g.chevron}}"><path d="m6 9 6 6 6-6"></path></svg>
+</button>
+<sc-if value="{{g.open}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-direction: column; gap: 1px; padding: 0 0 2px">
+<sc-for list="{{g.tabs}}" as="t" hint-placeholder-count="4">
+<button role="tab" aria-selected="false" aria-label="{{t.name}}, {{t.label}}" style="display: flex; align-items: center; gap: 9px; width: 100%; height: 31px; padding: 0 8px 0 10px; border: 0; cursor: pointer; font: inherit; color: inherit; border-radius: 10px; background: transparent; text-align: left">
+<span aria-hidden="true" style="flex: none; width: 20px; height: 20px; border-radius: 6px; background: {{t.tileBg}}; display: grid; place-items: center; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 9px; font-weight: 600; color: {{t.glyph}}">&gt;_</span>
+<span style="flex: 1; min-width: 0; font-size: 13px; color: #E2E2E2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{t.name}}</span>
+<span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 10px; color: #9A9A9A">{{t.meta}}</span>
+<span style="height: 17px; padding: 0 6px; border-radius: 5px; background: {{t.bBg}}; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 9px; font-weight: 500; letter-spacing: 0.08em; color: {{t.bFg}}; display: grid; place-items: center; white-space: nowrap">{{t.bLabel}}</span>
+</button>
+</sc-for>
+</div>
+</sc-if>
+</section>
+</sc-for>
+</div>
+</aside>
+</sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#EC6F3E","options":["#EC6F3E","#7EDB93","#8C9CF5","#B9A8F7"]},"placement":{"editor":"enum","options":["right","top"],"default":"right"},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    var self = this;
+    var s = this.state || {};
+    var accent = this.props.accent ?? '#EC6F3E';
+    var placement = s.placement || this.props.placement || 'right';
+    var right = placement === 'right';
+    var closed = s.closed || { review: true };
+    var barOpen = s.barOpen || { checks: true };
+    var B = {
+      done:    { label: 'DONE',      bg: 'rgba(126,219,147,0.12)', fg: '#7EDB93', dot: '#7EDB93' },
+      working: { label: 'WORKING',   bg: 'rgba(255,255,255,0.09)', fg: '#E6E6E6', dot: '#E6E6E6' },
+      needs:   { label: 'NEEDS YOU', bg: 'rgba(236,111,62,0.18)',  fg: '#F5A27E', dot: accent },
+      failed:  { label: 'FAILED',    bg: 'rgba(242,112,107,0.14)', fg: '#F2827D', dot: '#F2706B' },
+      idle:    { label: 'IDLE',      bg: 'rgba(255,255,255,0.05)', fg: '#A8A8A8', dot: '#6E6E6E' },
+      queued:  { label: 'QUEUED',    bg: 'rgba(255,255,255,0.05)', fg: '#9A9A9A', dot: '#4A4A4A' }
+    };
+    function tab(r, active) {
+      var b = B[r[1]];
+      var codex = r[3] === 'codex';
+      return {
+        name: r[0], label: b.label.toLowerCase(), meta: r[2] || '',
+        bLabel: b.label, bBg: b.bg, bFg: b.fg, dot: b.dot,
+        tileBg: codex ? 'rgba(255,255,255,0.08)' : 'rgba(236,111,62,0.16)',
+        glyph: codex ? '#CFCFCF' : accent,
+        activeAttr: active ? 'true' : 'false',
+        rowBg: active ? '#242424' : 'transparent',
+        chipBg: active ? '#1F1F1F' : 'transparent',
+        chipRing: active ? 'inset 0 0 0 1px #2C2C2C' : 'none',
+        nameFg: active ? '#F2F2F2' : '#B5B5B5'
+      };
+    }
+    var loose = [
+      tab(['Claude Code', 'working', '4m'], true),
+      tab(['Codex', 'idle', '2h', 'codex'], false)
+    ];
+    var raw = [
+      { id: 'sweep', name: 'sweep', color: '#8C9CF5', tint: 'rgba(140,156,245,0.07)', ring: 'rgba(140,156,245,0.22)', cardBg: '#1B1D24', tabs: [
+        ['files', 'done', '2m'], ['changes', 'done', '3m'], ['timer', 'done', '1m'], ['themes', 'done', '2m'],
+        ['keys', 'needs', '1m'], ['layouts', 'working', '3/5'], ['welcome', 'done', '1m'],
+        ['status-bar', 'working', '1/4'], ['new-menu', 'done', '2m'], ['tab-bar', 'working', '4/6'],
+        ['agents-list', 'done', '3m'], ['panels', 'failed', '2m'], ['sounds', 'done', '1m'],
+        ['settings', 'working', '2/3'], ['win98', 'queued', '']
+      ] },
+      { id: 'checks', name: 'checks', color: '#B9A8F7', tint: 'rgba(185,168,247,0.07)', ring: 'rgba(185,168,247,0.22)', cardBg: '#1E1C24', tabs: [
+        ['bench', 'working', '2/3'], ['files-panel', 'done', '6m'], ['powershell', 'queued', '']
+      ] },
+      { id: 'review', name: 'review', color: '#6FCFAE', tint: 'rgba(111,207,174,0.06)', ring: 'rgba(111,207,174,0.20)', cardBg: '#1A1F1D', tabs: [
+        ['diff-review', 'done', '12m'], ['docs-review', 'done', '15m']
+      ] }
+    ];
+    var total = loose.length;
+    var groups = raw.map(function (g) {
+      var tabs = g.tabs.map(function (r) { return tab(r, false); });
+      var done = g.tabs.filter(function (r) { return r[1] === 'done'; }).length;
+      var needs = g.tabs.filter(function (r) { return r[1] === 'needs'; }).length;
+      total += tabs.length;
+      var open = !closed[g.id];
+      var bo = !!barOpen[g.id];
+      return {
+        name: g.name, color: g.color, tint: g.tint, ring: g.ring, cardBg: g.cardBg, tabs: tabs, count: tabs.length,
+        summary: done + '/' + tabs.length, hasNeeds: needs > 0, needsN: needs,
+        open: open, openAttr: open ? 'true' : 'false',
+        chevron: open ? 'rotate(0deg)' : 'rotate(-90deg)',
+        toggle: function () { var c = Object.assign({}, closed); c[g.id] = !closed[g.id]; self.setState({ closed: c }); },
+        barOpen: bo, barClosed: !bo, barOpenAttr: bo ? 'true' : 'false',
+        barToggle: function () { var c = Object.assign({}, barOpen); c[g.id] = !barOpen[g.id]; self.setState({ barOpen: c }); }
+      };
+    });
+    var barGroups = [groups[1], groups[0], groups[2]];
+    return {
+      accent: accent,
+      right: right,
+      top: !right,
+      groups: right ? groups : barGroups,
+      loose: loose,
+      total: total,
+      topAttr: right ? 'false' : 'true',
+      rightAttr: right ? 'true' : 'false',
+      topBtnBg: right ? 'transparent' : '#2A2A2A',
+      topBtnFg: right ? '#8E8E8E' : '#F2F2F2',
+      rightBtnBg: right ? '#2A2A2A' : 'transparent',
+      rightBtnFg: right ? '#F2F2F2' : '#8E8E8E',
+      setTop: function () { self.setState({ placement: 'top' }); },
+      setRight: function () { self.setState({ placement: 'right' }); }
+    };
+  }
+}
+</script>
+</body>
+</html>

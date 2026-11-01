@@ -1,5 +1,22 @@
 # Zaki changelog
 
+## [0.4.0] - 2026-11-01
+
+### New
+- **A new design.** A new default dark theme, a redrawn sidebar, tab bar and panels, and Geist Mono 13 as the terminal font. Your own theme and font settings stay. The status bar is gone. (#3)
+- **Colors you pick.** Colors come in blue, violet and teal. Pick one for a tab, or with tabs on the right for a group to fill the tabs in it, and pick none to clear it. Tabs stay clear until you do, and colors set on folders are kept but no longer shown. (#3)
+- **Tabs on the right.** Move your tabs into a column beside your terminals, with the switch in the tab bar or in Settings > Look. Loose tabs come first, then each group. Drag a tab to reorder it or move it into a group, and the rows slide apart to make room. (#3)
+- **Grouping does what you pick.** A new group waits until you press Create group, so choosing its name and color moves nothing. With tabs on the right, folding slides a group shut, a new group comes first among your groups, tabs leaving a group land at the end of your loose tabs, and the next-tab keys go top to bottom. (#3)
+- **The Tabs column from the keyboard.** With tabs on the right, `cmd-shift-r` (`ctrl-shift-r`) moves the keyboard onto the column: arrows move, Enter opens a tab or folds a group, Esc goes back to the terminal. On a new install it just works. An existing `keys.json` needs `"cmd-shift-r": "tabs-column.focus"` (`"ctrl-shift-r"` on Linux and Windows) added under `layout:main`. (#3)
+- **Files uses the Changes tree.** The Files panel now has the same tree as Changes, with file types, folds and single-folder paths on one line. (#3)
+- **Right-click in Files.** Create, rename and delete files, cd or open a tab there, reveal them, attach them to an agent, or copy their path. Deleting always asks. On your computer it goes to the Trash, and on another machine it's gone for good. (#3)
+- **Switch branch from Changes.** The branch pill shows your branch and switches it, and refuses to overwrite uncommitted work. (#3)
+- **Settings in the new design.** Settings now looks like the rest of Zaki, and Settings > Look has switches to turn the Files and Changes panels off or on. (#3)
+- **Softer menus and dialogs.** Every menu, dropdown and dialog has the same rounded corners and fades in smoothly as it opens. (#3)
+- **A new logo.** The ram is now Zaki's app icon, and it sits beside the name at the top of the sidebar. (#3)
+- **New interface icons.** One matching set across the app. Personal mods can load them from `mods/workspace-chrome/icons/`. The old icon paths still work in this release and will be removed in the next one, and so will the status bar's mod, kept for layouts you cloned. (#3)
+- **Language logos in the file trees.** Files and Changes show each file's real logo, such as React, Python or Rust, in your theme's color. (#3)
+
 ## [0.3.0] - 2026-10-31
 
 ### New

@@ -276,7 +276,6 @@ export default class Palette extends View {
       .min_h(0)
       .p(18)
       .gap(10)
-      .bg(t.popover)
       .on_key_down((e, cx) => {
         const k = e.key;
         if (k === "escape") return this.close();
@@ -300,7 +299,7 @@ export default class Palette extends View {
           .border_1()
           .border_color(t.accent)
           .bg(t.background)
-          .child(svg("frame/palette/command.svg").size(16).text_color(t.dim))
+          .child(svg("mods/workspace-chrome/icons/command.svg").size(16).text_color(t.dim))
           .child(Input.new(this.input).flex_1().h_full().text_size(12.8).text_color(t.foreground))
           .child(div().text_size(11).text_color(t.dim).child("Esc")),
       )

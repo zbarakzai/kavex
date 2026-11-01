@@ -28,7 +28,7 @@ export default class TerminalsPane extends View {
         cx.stop_propagation();
         run(command, args);
       })
-      .child(svg(`mods/pane/${icon}.svg`).size(15));
+      .child(svg(`mods/workspace-chrome/icons/${icon}.svg`).size(16));
   }
 
   render() {

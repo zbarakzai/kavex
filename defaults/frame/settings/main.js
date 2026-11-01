@@ -1,17 +1,18 @@
 // App-owned settings mod. Writes changes immediately; no Save step.
 
 import { View, div, svg, image } from "gpui-kit";
-import { v_flex, h_flex, Scrollbar, InputState, Input } from "gpui-base";
-import { hc, run, theme, themes, fonts, updates, telemetry, settings, layouts, shared, appHome, readTextFile, writeTextFile, playSound, props, closeOverlay } from "herdr";
+import { v_flex, h_flex, InputState, Input } from "gpui-base";
+import { hc, run, theme, themes, fonts, updates, telemetry, settings, layouts, shared, setShared, appHome, readTextFile, writeTextFile, playSound, props, closeOverlay } from "herdr";
+import { look, sectionLabel, MONO } from "./look.js";
 
-const I = (name) => `frame/settings/${name}.svg`;
+const I = (name) => `mods/workspace-chrome/icons/${name}.svg`;
 
 const SECTIONS = [
-  { id: "look", title: "Look", icon: "palette" },
-  { id: "machines", title: "Machines", icon: "server" },
-  { id: "alerts", title: "Alerts", icon: "bell" },
-  { id: "updates", title: "Updates", icon: "refresh" },
-  { id: "privacy", title: "Privacy", icon: "shield" },
+  { id: "look", title: "Look", icon: "look" },
+  { id: "machines", title: "Machines", icon: "machine" },
+  { id: "alerts", title: "Alerts", icon: "alerts" },
+  { id: "updates", title: "Updates", icon: "updates" },
+  { id: "privacy", title: "Privacy", icon: "privacy" },
 ];
 
 const LOOKS = { main: "Zaki", terminals: "Terminals", win98: "Zaki 98" };
@@ -21,8 +22,17 @@ const APPEARANCES = [
   ["dark", "Dark"],
 ];
 
+// The panels a person can turn off, the same list the welcome offers ("workspace.panels").
+const PANELS = [
+  ["files", "Files panel", "Browse this space's files beside your terminals."],
+  ["changes", "Changes panel", "Review and commit your work beside your terminals."],
+];
+
+const CHOICE = 118; // a layout or theme card: five fit a line
+const KNOB = { duration: 140, easing: "ease-out" };
+
 // What the app uses when settings.json names no font (settings.rs).
-const DEFAULT_FONT = "JetBrains Mono";
+const DEFAULT_FONT = "Geist Mono";
 const DEFAULT_UI_FONT = "Geist";
 
 export default class Settings extends View {
@@ -131,87 +141,159 @@ export default class Settings extends View {
   // Pieces ---------------------------------------------------------------
 
   heading(t, text) {
-    return div().pt(6).pb(8).text_size(12).font_semibold().text_color(t.dim).child(text.toUpperCase());
+    return div().px(2).pb(10).child(sectionLabel(t, text.toUpperCase()));
+  }
+
+  group(t, title, ...body) {
+    return v_flex().w_full().pb(22).child(this.heading(t, title)).children(body.filter(Boolean));
+  }
+
+  card(t, ...rows) {
+    return v_flex().w_full().px(14).py(3).rounded(14).bg(t.card).border_1().border_color(t.card_border).children(rows.filter(Boolean));
+  }
+
+  note(t, text) {
+    return div().px(2).pt(10).text_size(12).line_height("17px").text_color(t.label).child(text);
   }
 
   // One setting: what it is on the left, the control on the right.
   row(t, title, about, control) {
     return h_flex()
       .w_full()
+      .min_h(52)
       .gap(16)
-      .py(12)
+      .py(9)
       .items_center()
-      .border_b(1)
-      .border_color(t.border)
       .child(
         v_flex()
           .flex_1()
           .min_w(0)
-          .gap(3)
-          .child(div().text_size(14).text_color(t.foreground).child(title))
-          .when(Boolean(about), (el) => el.child(div().text_size(12.5).line_height("18px").text_color(t.dim).child(about))),
+          .gap(2)
+          .child(div().text_size(13.5).text_color(t.foreground).child(title))
+          .when(Boolean(about), (el) => el.child(div().text_size(12).line_height("17px").text_color(t.label).child(about))),
       )
       .child(div().flex_none().child(control));
   }
 
+  named(t, name, version) {
+    return h_flex().gap(7).items_center().child(name).child(div().font_family(MONO).text_size(11).text_color(t.label).child(version ?? ""));
+  }
+
   button(t, id, label, onClick) {
-    return div()
+    return h_flex()
       .id(id)
-      .px(12)
-      .py(5)
-      .rounded(7)
+      .h(34)
+      .px(14)
+      .flex_none()
+      .items_center()
+      .rounded(999)
       .border_1()
-      .border_color(t.border)
-      .bg(t.raised)
+      .border_color(t.pill_ring)
+      .bg(t.pill)
       .cursor_pointer()
       .text_size(13)
       .text_color(t.foreground)
-      .hover((s) => s.bg(t.hover))
+      .hover((s) => s.bg(t.hover_strong))
       .on_click(onClick)
       .child(label);
   }
 
-  // − value +
-  stepper(t, id, value, onMinus, onPlus) {
-    const b = (k, label, f) =>
-      div()
-        .id(`${id}-${k}`)
-        .w(28)
-        .h(28)
-        .flex()
-        .items_center()
-        .justify_center()
-        .cursor_pointer()
-        .text_size(15)
-        .text_color(t.muted)
-        .hover((s) => s.bg(t.hover).text_color(t.foreground))
-        .on_click(f)
-        .child(label);
+  segments(t, id, options, now, pick) {
     return h_flex()
+      .flex_none()
+      .p(3)
+      .gap(2)
       .items_center()
-      .rounded(7)
+      .rounded(999)
       .border_1()
-      .border_color(t.border)
-      .bg(t.raised)
-      .overflow_hidden()
-      .child(b("minus", "\u2212", onMinus))
-      .child(div().w(54).text_size(13).text_color(t.foreground).flex().justify_center().child(value))
-      .child(b("plus", "+", onPlus));
+      .border_color(t.pill_ring)
+      .bg(t.pill)
+      .children(
+        options.map(([value, label]) =>
+          h_flex()
+            .id(`${id}-${label}`)
+            .h(26)
+            .px(12)
+            .items_center()
+            .rounded(13)
+            .text_size(13)
+            .cursor_pointer()
+            .when(now === value, (el) => el.bg(t.pill_selected).text_color(t.foreground))
+            .when(now !== value, (el) => el.text_color(t.muted).hover((s) => s.bg(t.hover_strong).text_color(t.foreground)))
+            .on_click((_e, cx) => pick(value, cx))
+            .child(label),
+        ),
+      );
   }
 
+  // − value +
+  stepper(t, id, value, onMinus, onPlus) {
+    const b = (k, f) =>
+      h_flex()
+        .id(`${id}-${k}`)
+        .size(26)
+        .flex_none()
+        .items_center()
+        .justify_center()
+        .rounded(13)
+        .cursor_pointer()
+        .text_color(t.muted)
+        .hover((s) => s.bg(t.hover_strong).text_color(t.foreground))
+        .on_click(f)
+        .child(svg(I(k)).size(16));
+    return h_flex()
+      .flex_none()
+      .p(3)
+      .gap(2)
+      .items_center()
+      .rounded(999)
+      .border_1()
+      .border_color(t.pill_ring)
+      .bg(t.pill)
+      .child(b("minus", onMinus))
+      .child(h_flex().w(44).justify_center().font_family(MONO).text_size(12).text_color(t.foreground).child(value))
+      .child(b("plus", onPlus));
+  }
+
+  // Not orange: that color means "you", and a switch being on doesn't.
   toggle(t, id, on, onClick) {
     return div()
       .id(id)
+      .relative()
       .w(36)
       .h(20)
+      .flex_none()
       .rounded(10)
-      .p(2)
       .cursor_pointer()
-      .bg(on ? t.accent : t.hover)
-      .flex()
-      .when(on, (el) => el.justify_end())
+      .bg(on ? t.foreground : t.pill_selected)
       .on_click(onClick)
-      .child(div().w(16).h(16).rounded(8).bg(on ? t.accent_foreground : t.muted));
+      .child(div().id(`${id}-knob`).absolute().top(2).left(on ? 18 : 2).size(16).rounded(8).bg(on ? t.surface : t.muted).transition("left", KNOB));
+  }
+
+  choice(t, id, on, onClick, picture, label) {
+    return v_flex()
+      .id(id)
+      .w(CHOICE)
+      .flex_none()
+      .gap(7)
+      .p(6)
+      .rounded(12)
+      .border_1()
+      .border_color(on ? t.chip_active_ring : t.card_border)
+      .bg(on ? t.row_selected_strong : t.card)
+      .cursor_pointer()
+      .hover((s) => s.bg(on ? t.row_active_hover : t.hover))
+      .on_click(onClick)
+      .child(picture)
+      .child(
+        h_flex()
+          .h(16)
+          .px(2)
+          .gap(5)
+          .items_center()
+          .child(div().flex_1().min_w(0).truncate().text_size(12.5).text_color(on ? t.foreground : t.muted).child(label))
+          .when(on, (el) => el.child(svg(I("check")).size(16).flex_none().text_color(t.accent))),
+      );
   }
 
   // Look -----------------------------------------------------------------
@@ -223,7 +305,7 @@ export default class Settings extends View {
     const term = (bg = t.background, edge = t.border) => div().flex_1().rounded(2).bg(bg).border_1().border_color(edge);
     const line = (w, c = t.dim) => div().h(3).w(w).flex_none().rounded(2).bg(c);
     const lines = (n, c) => col().gap(4).p(5).children([...Array(n)].map((_, i) => line(i % 2 ? 22 : 32, c)));
-    const frame = (el) => el.size_full().rounded(6).overflow_hidden().border_1().border_color(t.border).bg(t.surface);
+    const frame = (el) => el.size_full().rounded(8).overflow_hidden().border_1().border_color(t.border).bg(t.surface);
     if (name === "main")
       return frame(row())
         .child(col().w(42).border_r(1).border_color(t.border).child(lines(4)))
@@ -259,72 +341,42 @@ export default class Settings extends View {
       .gap(8)
       .children(
         names.map((name) => {
-          const on = name === current;
-          return v_flex()
-            .id(`st-l-${name}`)
-            .w(124)
-            .gap(6)
-            .p(6)
-            .rounded(10)
-            .border_2()
-            .border_color(on ? t.accent : "#00000000")
-            .bg(on ? t.raised : "#00000000")
-            .cursor_pointer()
-            .hover((s) => s.bg(t.raised))
-            .on_click((_e, cx) => {
-              run("layout.switch", { name });
-              cx.notify();
-            })
-            .child(
-              div()
-                .h(62)
-                .w_full()
-                .child(
-                  this.previews[name]
-                    ? image(this.previews[name]).size_full().rounded(6).border_1().border_color(t.border)
-                    : this.preview(t, name),
-                ),
-            )
-            .child(
-              h_flex()
-                .gap(5)
-                .items_center()
-                .child(div().text_size(12.5).text_color(on ? t.foreground : t.muted).child(LOOKS[name] ?? name))
-                .when(on, (el) => el.child(svg(I("check")).size(12).text_color(t.accent))),
-            );
+          const pick = (_e, cx) => {
+            run("layout.switch", { name });
+            cx.notify();
+          };
+          const picture = div()
+            .h(62)
+            .w_full()
+            .child(this.previews[name] ? image(this.previews[name]).size_full().rounded(8).border_1().border_color(t.border) : this.preview(t, name));
+          return this.choice(t, `st-l-${name}`, name === current, pick, picture, LOOKS[name] ?? name);
         }),
       );
   }
 
-  appearancePicker(t, cx) {
-    const now = this.person.appearance ?? null;
-    return h_flex()
-      .p(2)
-      .gap(2)
-      .rounded(8)
-      .border_1()
-      .border_color(t.border)
-      .bg(t.background)
-      .children(
-        APPEARANCES.map(([value, label]) =>
-          div()
-            .id(`st-ap-${label}`)
-            .px(12)
-            .py(4)
-            .rounded(6)
-            .text_size(13)
-            .cursor_pointer()
-            .when(now === value, (el) => el.bg(t.raised).text_color(t.foreground).border_1().border_color(t.border))
-            .when(now !== value, (el) => el.text_color(t.muted).hover((s) => s.text_color(t.foreground)))
-            .on_click((_e, cx) =>
-              this.change((p) => {
-                if (value === null) delete p.appearance;
-                else p.appearance = value;
-              }, cx),
-            )
-            .child(label),
-        ),
-      );
+  // The same value as the tab bar's switch: each shows what the other sets.
+  tabsPicker(t) {
+    const now = shared("tabs.placement") === "right" ? "right" : "top";
+    return this.segments(t, "st-tabs", [["top", "On top"], ["right", "On the right"]], now, (value) => setShared("tabs.placement", value));
+  }
+
+  appearancePicker(t) {
+    const pick = (value, cx) =>
+      this.change((p) => {
+        if (value === null) delete p.appearance;
+        else p.appearance = value;
+      }, cx);
+    return this.segments(t, "st-ap", APPEARANCES, this.person.appearance ?? null, pick);
+  }
+
+  // The tab bar's folder button and the panel's header follow this; the tabs mod shuts one left open.
+  panels() {
+    return shared("workspace.panels") ?? PANELS.map(([id]) => id);
+  }
+
+  togglePanel(id) {
+    const shown = this.panels(), on = shown.includes(id);
+    setShared("workspace.panels", PANELS.map(([p]) => p).filter((p) => (p === id ? !on : shown.includes(p))));
   }
 
   themePicker(t, light) {
@@ -339,58 +391,41 @@ export default class Settings extends View {
         themes()
           .filter((x) => Boolean(x.light) === light && (x.name === shared("layout") || !layouts().includes(x.name)))
           .map(({ name, colors: c }) => {
-          const on = name === current;
-          const dot = (color) => div().w(8).h(8).rounded(4).bg(color);
-          return v_flex()
-            .id(`st-t-${name}`)
-            .w(124)
-            .gap(6)
-            .p(6)
-            .rounded(10)
-            .border_2()
-            .border_color(on ? t.accent : "#00000000")
-            .cursor_pointer()
-            .hover((s) => s.bg(t.raised))
-            .on_click((_e, cx) => {
+            const dot = (color) => div().w(8).h(8).rounded(4).bg(color);
+            const pick = (_e, cx) => {
               run("app.theme", { name });
               cx.notify();
-            })
-            .child(
-              v_flex()
-                .h(46)
-                .w_full()
-                .p(7)
-                .gap(6)
-                .rounded(6)
-                .border_1()
-                .border_color(t.border)
-                .bg(c.background)
-                .child(div().h(4).w(44).rounded(2).bg(c.terminal_foreground))
-                .child(h_flex().gap(4).child(dot(c.accent)).child(dot(c.ansi1)).child(dot(c.ansi2)).child(dot(c.ansi3)).child(dot(c.ansi5))),
-            )
-            .child(
-              h_flex()
-                .gap(5)
-                .items_center()
-                .child(div().text_size(12.5).text_color(on ? t.foreground : t.muted).child(name.replace(/-/g, " ")))
-                .when(on, (el) => el.child(svg(I("check")).size(12).text_color(t.accent))),
-            );
-        }),
+            };
+            const picture = v_flex()
+              .h(46)
+              .w_full()
+              .p(7)
+              .gap(6)
+              .rounded(8)
+              .border_1()
+              .border_color(t.border)
+              .bg(c.background)
+              .child(div().h(4).w(44).rounded(2).bg(c.terminal_foreground))
+              .child(h_flex().gap(4).child(dot(c.accent)).child(dot(c.ansi1)).child(dot(c.ansi2)).child(dot(c.ansi3)).child(dot(c.ansi5)));
+            return this.choice(t, `st-t-${name}`, name === current, pick, picture, name.replace(/-/g, " "));
+          }),
       );
   }
 
   // The font in use, written in itself; a click opens the list.
   fontButton(t, which, family) {
     const open = this.picking === which;
-    return div()
+    return h_flex()
       .id(`st-f-${which}`)
       .w(220)
+      .h(34)
       .px(12)
-      .py(6)
-      .rounded(7)
+      .gap(8)
+      .items_center()
+      .rounded(11)
       .border_1()
-      .border_color(open ? t.accent : t.border)
-      .bg(t.raised)
+      .border_color(open ? t.row_ring : t.pill_ring)
+      .bg(t.well)
       .cursor_pointer()
       .hover((s) => s.bg(t.hover))
       .on_click((_e, cx) => {
@@ -401,7 +436,8 @@ export default class Settings extends View {
         else this.handle.focus();
         cx.notify();
       })
-      .child(div().font_family(family).text_size(13.5).text_color(t.foreground).child(family));
+      .child(div().flex_1().min_w(0).truncate().font_family(family).text_size(13).text_color(t.foreground).child(family))
+      .child(svg(I("chevron-down")).size(12).flex_none().text_color(t.label));
   }
 
   fontList(t, which, def) {
@@ -417,33 +453,26 @@ export default class Settings extends View {
       cx.notify();
     };
     const item = (id, label, family, onClick) =>
-      div()
+      h_flex()
         .id(id)
+        .h(30)
         .px(10)
-        .py(5)
-        .rounded(6)
+        .items_center()
+        .rounded(10)
         .cursor_pointer()
         .hover((s) => s.bg(t.hover))
         .on_click(onClick)
-        .child(div().font_family(family).text_size(13.5).text_color(t.foreground).child(label));
+        .child(div().font_family(family).text_size(13).text_color(t.foreground).child(label));
     return v_flex()
       .w_full()
-      .mb(8)
-      .rounded(8)
+      .mb(9)
+      .rounded(14)
       .border_1()
-      .border_color(t.border)
-      .bg(t.background)
+      .border_color(t.card_border)
+      .bg(t.well)
       // Let the child's native scroll run before stopping the page's wheel event.
       .on_scroll_wheel((_e, cx) => cx.stop_propagation())
-      .child(
-        div()
-          .px(12)
-          .py(8)
-          .border_b(1)
-          .border_color(t.border)
-          .text_size(13)
-          .child(Input.new(this.fontInput).h(28).text_color(t.foreground)),
-      )
+      .child(div().px(12).pt(7).text_size(13).child(Input.new(this.fontInput).h(28).text_color(t.foreground)))
       .child(
         div()
           .id(`st-fl-${which}`)
@@ -477,34 +506,57 @@ export default class Settings extends View {
           ),
         )
         .when(this.picking === which, (el) => el.child(this.fontList(t, which, def)));
+    const main = shared("layout") === "main";
+    const subhead = (text) => div().px(2).pt(16).pb(8).child(sectionLabel(t, text));
     return v_flex()
       .w_full()
-      .child(this.heading(t, "Layout"))
-      .child(this.layoutPicker(t, cx))
-      .child(div().h(18))
-      .child(this.heading(t, "Theme"))
-      .child(this.row(t, "Appearance", "Light or dark, or as your system is now.", this.appearancePicker(t, cx)))
-      .child(div().pt(12).pb(8).text_size(12.5).text_color(t.dim).child("For the layout you're in: each layout keeps its own light and dark theme."))
-      .child(div().pb(6).text_size(12.5).font_medium().text_color(t.muted).child("Dark"))
-      .child(this.themePicker(t, false))
-      .child(div().pt(10).pb(6).text_size(12.5).font_medium().text_color(t.muted).child("Light"))
-      .child(this.themePicker(t, true))
-      .child(div().h(18))
-      .child(this.heading(t, "Size and fonts"))
-      .child(
-        this.row(
-          t,
-          "Zoom",
-          "Everything: terminals, panels, text.",
-          h_flex()
-            .gap(8)
-            .items_center()
-            .child(this.stepper(t, "st-zoom", `${Math.round(s.zoom * 100)}%`, () => run("app.zoom_out"), () => run("app.zoom_in")))
-            .child(this.button(t, "st-zoom-reset", "Reset", () => run("app.zoom_reset"))),
+      .child(this.group(t, "Layout", this.layoutPicker(t, cx)))
+      .when(main, (el) =>
+        el.child(
+          this.group(
+            t,
+            "Workspace",
+            this.card(
+              t,
+              this.row(t, "Tabs", "A bar on top, or a column on the right.", this.tabsPicker(t)),
+              ...PANELS.map(([id, title, about]) => this.row(t, title, about, this.toggle(t, `st-panel-${id}`, this.panels().includes(id), () => this.togglePanel(id)))),
+            ),
+          ),
         ),
       )
-      .child(fontRow("font", "font_size", "Terminal font", s.font_family, DEFAULT_FONT, s.font_size))
-      .child(fontRow("ui_font", null, "Interface font", s.ui_font_family, DEFAULT_UI_FONT));
+      .child(
+        this.group(
+          t,
+          "Theme",
+          this.card(t, this.row(t, "Appearance", "Light or dark, or as your system is now.", this.appearancePicker(t))),
+          this.note(t, "For the layout you're in: each layout keeps its own light and dark theme."),
+          subhead("DARK"),
+          this.themePicker(t, false),
+          subhead("LIGHT"),
+          this.themePicker(t, true),
+        ),
+      )
+      .child(
+        this.group(
+          t,
+          "Size and fonts",
+          this.card(
+            t,
+            this.row(
+              t,
+              "Zoom",
+              "Everything: terminals, panels, text.",
+              h_flex()
+                .gap(8)
+                .items_center()
+                .child(this.stepper(t, "st-zoom", `${Math.round(s.zoom * 100)}%`, () => run("app.zoom_out"), () => run("app.zoom_in")))
+                .child(this.button(t, "st-zoom-reset", "Reset", () => run("app.zoom_reset"))),
+            ),
+            fontRow("font", "font_size", "Terminal font", s.font_family, DEFAULT_FONT, s.font_size),
+            fontRow("ui_font", null, "Interface font", s.ui_font_family, DEFAULT_UI_FONT),
+          ),
+        ),
+      );
   }
 
   // Machines -------------------------------------------------------------
@@ -575,14 +627,22 @@ export default class Settings extends View {
     return false;
   }
 
+  machineLine(t, color, name, facts) {
+    return h_flex().flex_1().min_w(0).gap(10).items_center()
+      .child(div().size(6).flex_none().rounded(3).bg(color))
+      .child(v_flex().flex_1().min_w(0).gap(2)
+        .child(div().text_size(13.5).text_color(t.foreground).child(name))
+        .child(div().truncate().font_family(MONO).text_size(10.5).text_color(t.label).child(facts)));
+  }
+
   machineRow(t, m, localVersion) {
     const busy = this.machineBusy[m.name];
     const edit = this.machineEdit?.machine === m.name ? this.machineEdit : null;
     const state = String(m.state ?? "unknown").replace(/[_-]/g, " ");
-    const color = ["connected", "online"].includes(m.state) ? t.ansi2 : ["connecting", "reconnecting"].includes(m.state) ? t.working : t.blocked;
+    const color = ["connected", "online"].includes(m.state) ? t.added : ["connecting", "reconnecting"].includes(m.state) ? t.working : t.failed;
     const result = this.machineResults[m.name];
     const controls = h_flex().gap(6).items_center();
-    if (busy) controls.child(svg("mods/workspace-chrome/spinner.svg").size(12).text_color(t.working).spin(900)).child(div().text_size(12).text_color(t.muted).child(busy === "update" ? "Updating…" : busy === "rename" ? "Renaming…" : "Removing…"));
+    if (busy) controls.child(svg(I("spinner")).size(16).text_color(t.working).spin(900)).child(div().text_size(12).text_color(t.muted).child(busy === "update" ? "Updating…" : busy === "rename" ? "Renaming…" : "Removing…"));
     else {
       if (this.olderCore(m.version, localVersion)) controls.child(this.button(t, `st-m-update-${m.name}`, "Update", (_e, cx) => this.machineAction(m.name, "update", cx)));
       for (const [action, label] of [["rename", "Rename"], ["rm", "Remove"]]) {
@@ -598,12 +658,9 @@ export default class Settings extends View {
         }));
       }
     }
-    const row = v_flex().w_full().py(12).gap(8).border_b(1).border_color(t.border)
+    const row = v_flex().w_full().min_h(52).py(9).gap(8)
       .child(h_flex().gap(10).items_center()
-        .child(div().w(7).h(7).flex_none().rounded(4).bg(color))
-        .child(v_flex().flex_1().min_w(0).gap(3)
-          .child(div().text_size(14).text_color(t.foreground).child(m.name))
-          .child(div().text_size(12.5).text_color(t.dim).child(`${m.target ?? ""} · ${state} · ${m.version ? `hc ${m.version}` : "hc version unknown"}`)))
+        .child(this.machineLine(t, color, m.name, `${m.target ?? ""} · ${state} · ${m.version ? `hc ${m.version}` : "hc version unknown"}`))
         .child(controls.flex_none()));
     if (busy === "update") row.child(div().text_size(12.5).text_color(t.dim).child("Copying this computer's herdr-core. Its terminals keep running."));
     if (edit && !busy) {
@@ -614,25 +671,27 @@ export default class Settings extends View {
       else row.child(v_flex().gap(6)
         .child(div().text_size(12).text_color(t.dim).child("New name (addresses using the old name stop working)"))
         .child(h_flex().gap(6).items_center()
-          .child(Input.new(this.renameInput).flex_1().min_w(0).h(32).px(10).rounded(7).border_1().border_color(this.renameFocused ? t.accent : t.input).bg(t.background).text_size(13).text_color(t.foreground))
+          .child(Input.new(this.renameInput).flex_1().min_w(0).h(34).px(10).rounded(11).border_1().border_color(this.renameFocused ? t.row_ring : t.pill_ring).bg(t.well).text_size(13).text_color(t.foreground))
           .child(cancel).child(this.button(t, `st-m-save-${m.name}`, "Save", (_e, cx) => this.machineAction(m.name, "rename", cx, edit.name)))));
     }
-    if (result) row.child(div().text_size(12.5).text_color(result.ok ? t.ansi2 : t.blocked).child(result.message));
+    if (result) row.child(div().text_size(12).text_color(result.ok ? t.added : t.failed).child(result.message));
     return row;
   }
 
   machines(t) {
     const version = updates().core.version;
+    const line = (color, text) => div().px(2).pt(10).text_size(12).line_height("17px").text_color(color).child(text);
     return v_flex().w_full()
-      .child(this.heading(t, "Machines"))
-      .child(div().pb(8).text_size(12.5).line_height("18px").text_color(t.dim).child("Your computers, reached over ssh. Their terminals keep running when you disconnect."))
-      .child(this.row(t, "This computer", `Connected · ${version ? `hc ${version}` : "hc version unknown"}`, div().w(7).h(7).rounded(4).bg(t.ansi2)))
-      .children((this.machineList ?? []).map((m) => this.machineRow(t, m, version)))
-      .when(this.machineList === null && !this.machineError, (el) => el.child(h_flex().py(14).gap(8).items_center().child(svg("mods/workspace-chrome/spinner.svg").size(12).text_color(t.working).spin(900)).child(div().text_size(12.5).text_color(t.dim).child("Reading machines…"))))
-      .when(this.machineList?.length === 0, (el) => el.child(div().py(14).text_size(12.5).text_color(t.dim).child("No other machines yet.")))
-      .when(Boolean(this.machineError), (el) => el.child(div().py(10).text_size(12.5).text_color(t.blocked).child(this.machineError)))
-      .when(Boolean(this.machineNotice), (el) => el.child(div().py(10).text_size(12.5).text_color(t.ansi2).child(this.machineNotice)))
-      .child(h_flex().pt(16).child(this.button(t, "st-m-add", "Add a machine", () => run("mod.open", { name: "machine-add" }))));
+      .child(this.group(t, "Machines",
+        this.card(t,
+          h_flex().w_full().min_h(52).py(9).items_center().child(this.machineLine(t, t.added, "This computer", `connected · ${version ? `hc ${version}` : "hc version unknown"}`)),
+          ...(this.machineList ?? []).map((m) => this.machineRow(t, m, version))),
+        this.note(t, "Your computers, reached over ssh. Their terminals keep running when you disconnect."),
+        this.machineList === null && !this.machineError ? h_flex().px(2).pt(10).gap(8).items_center().child(svg(I("spinner")).size(16).text_color(t.working).spin(900)).child(div().text_size(12).text_color(t.label).child("Reading machines…")) : null,
+        this.machineList?.length === 0 ? line(t.label, "No other machines yet.") : null,
+        this.machineError ? line(t.failed, this.machineError) : null,
+        this.machineNotice ? line(t.added, this.machineNotice) : null,
+        h_flex().pt(14).child(this.button(t, "st-m-add", "Add a machine", () => run("mod.open", { name: "machine-add" })))));
   }
 
   // Alerts ---------------------------------------------------------------
@@ -641,20 +700,22 @@ export default class Settings extends View {
     const sounds = this.person.sounds ?? {};
     const on = sounds.enabled !== false;
     const file = (f) => (f ? f.split(/[\\/]/).pop() : "Zaki's sound");
-    return v_flex()
-      .w_full()
-      .child(this.heading(t, "Sounds"))
-      .child(
+    return this.group(
+      t,
+      "Sounds",
+      this.card(
+        t,
         this.row(
           t,
           "Play sounds",
           "When an agent needs you, and when one finishes while you're not looking. A note shows in the corner either way.",
           this.toggle(t, "st-sounds", on, (_e, cx) => this.change((p) => (p.sounds = { ...(p.sounds ?? {}), enabled: !on }), cx)),
         ),
-      )
-      .child(this.row(t, "An agent needs you", file(sounds.blocked), this.button(t, "st-play-blocked", "Play", () => playSound("blocked"))))
-      .child(this.row(t, "An agent finished", file(sounds.done), this.button(t, "st-play-done", "Play", () => playSound("done"))))
-      .child(div().pt(12).text_size(12.5).line_height("18px").text_color(t.dim).child("Want your own sounds? Ask your agent to set sounds.done and sounds.blocked in settings.json to an MP3."));
+        this.row(t, "An agent needs you", file(sounds.blocked), this.button(t, "st-play-blocked", "Play", () => playSound("blocked"))),
+        this.row(t, "An agent finished", file(sounds.done), this.button(t, "st-play-done", "Play", () => playSound("done"))),
+      ),
+      this.note(t, "Want your own sounds? Ask your agent to set sounds.done and sounds.blocked in settings.json to an MP3."),
+    );
   }
 
   // Updates --------------------------------------------------------------
@@ -673,16 +734,16 @@ export default class Settings extends View {
       !u.checks
         ? null
         : u.checking && this.asked
-          ? div().px(12).py(5).text_size(13).text_color(t.dim).child("Checking\u2026")
+          ? div().px(12).text_size(13).text_color(t.label).child("Checking\u2026")
           : asked
-            ? div().px(12).py(5).text_size(13).text_color(t.ansi2).child("\u2713 Up to date")
+            ? div().px(12).text_size(13).text_color(t.added).child("\u2713 Up to date")
             : this.button(t, id, "Check now", (_e, cx) => {
                 this.asked = Date.now();
                 run("app.check_updates");
                 cx.notify();
               });
     const primary = (id, label, f) =>
-      div().id(id).px(12).py(5).rounded(7).cursor_pointer().bg(t.accent).text_color(t.accent_foreground).text_size(13).font_semibold().hover((s) => s.opacity(0.9)).on_click(f).child(label);
+      h_flex().id(id).h(34).px(15).flex_none().items_center().rounded(11).cursor_pointer().bg(t.accent).text_color(t.accent_foreground).text_size(13).font_medium().hover((s) => s.opacity(0.9)).on_click(f).child(label);
     const app = !u.app.updates
       ? ["A build from source: it updates with git, not here.", null]
       : u.app.ready
@@ -702,14 +763,12 @@ export default class Settings extends View {
               : ["Not checked: a build from source looks for no updates.", null];
     return v_flex()
       .w_full()
-      .child(this.heading(t, "Zaki"))
-      .child(this.row(t, `Zaki ${u.app.version}`, app[0], h_flex().gap(8).flex_none()
+      .child(this.group(t, "Zaki", this.card(t, this.row(t, this.named(t, "Zaki", u.app.version), app[0], h_flex().gap(8).flex_none().items_center()
         .child(this.button(t, "st-whats-new", "What's new", () => { closeOverlay(props()?.overlay); run("app.whats_new"); }))
-        .when(Boolean(app[1]), (el) => el.child(app[1]))))
-      .child(div().h(18))
-      .child(this.heading(t, "herdr-core"))
-      .child(this.row(t, `herdr-core ${c.version ?? ""}`, core[0], core[1] ?? div()))
-      .child(div().pt(12).text_size(12.5).line_height("18px").text_color(t.dim).child("Zaki looks for both every hour and tells you in the corner. herdr-core runs your terminals, so they keep running through its updates."));
+        .when(Boolean(app[1]), (el) => el.child(app[1]))))))
+      .child(this.group(t, "herdr-core",
+        this.card(t, this.row(t, this.named(t, "herdr-core", c.version), core[0], core[1] ?? div())),
+        this.note(t, "Zaki looks for both every hour and tells you in the corner. herdr-core runs your terminals, so they keep running through its updates.")));
   }
 
 
@@ -721,20 +780,20 @@ export default class Settings extends View {
     return v_flex()
       .w_full()
       .pt(14)
-      .gap(4)
-      .child(div().text_size(13.5).text_color(t.foreground).child(title))
-      .when(Boolean(about), (el) => el.child(div().text_size(12.5).text_color(t.dim).child(about)))
+      .gap(3)
+      .child(div().px(2).text_size(13).text_color(t.foreground).child(title))
+      .when(Boolean(about), (el) => el.child(div().px(2).text_size(12).text_color(t.label).child(about)))
       .child(
         v_flex()
           .id(id)
-          .mt(4)
+          .mt(5)
           .w_full()
-          .p(10)
-          .rounded(8)
+          .p(12)
+          .rounded(14)
           .border_1()
-          .border_color(t.border)
-          .bg(t.background)
-          .children(lines.map((l) => div().font_family(DEFAULT_FONT).text_size(12).line_height("17px").text_color(t.muted).whitespace_nowrap().child(l || " "))),
+          .border_color(t.card_border)
+          .bg(t.well)
+          .children(lines.map((l) => div().font_family(MONO).text_size(11.5).line_height("17px").text_color(t.muted).whitespace_nowrap().child(l || " "))),
       );
   }
 
@@ -747,31 +806,32 @@ export default class Settings extends View {
       .w_full()
       .child(this.heading(t, "Usage data"))
       .child(
-        this.row(
+        this.card(
           t,
-          "Share anonymous usage data",
-          why ?? "Once a day: which agents and features you use, how many spaces and tabs, your system and Zaki's version. Never what's in your terminals, never names of files, folders or projects.",
-          this.toggle(t, "st-telemetry", on, (_e, cx) =>
-            this.change((p) => {
-              if (on) p.telemetry = false;
-              else delete p.telemetry;
-            }, cx),
+          this.row(
+            t,
+            "Share anonymous usage data",
+            why ?? "Once a day: which agents and features you use, how many spaces and tabs, your system and Zaki's version. Never what's in your terminals, never names of files, folders or projects.",
+            this.toggle(t, "st-telemetry", on, (_e, cx) =>
+              this.change((p) => {
+                if (on) p.telemetry = false;
+                else delete p.telemetry;
+              }, cx),
+            ),
           ),
-        ),
-      )
-      .child(
-        this.row(
-          t,
-          "What we send",
-          s && !s.sends ? "Zaki never sends this. It's only shown here." : "Exactly what leaves your computer, word for word.",
-          this.button(t, "st-telemetry-show", this.showData ? "Hide" : "Show", (_e, cx) => {
-            this.showData = !this.showData;
-            cx.notify();
-          }),
+          this.row(
+            t,
+            "What we send",
+            s && !s.sends ? "Zaki never sends this. It's only shown here." : "Exactly what leaves your computer, word for word.",
+            this.button(t, "st-telemetry-show", this.showData ? "Hide" : "Show", (_e, cx) => {
+              this.showData = !this.showData;
+              cx.notify();
+            }),
+          ),
         ),
       );
     if (!this.showData) return body;
-    if (!s?.enabled) return body.child(div().pt(14).text_size(13).text_color(t.dim).child("Nothing is collected or sent while it's off."));
+    if (!s?.enabled) return body.child(this.note(t, "Nothing is collected or sent while it's off."));
     return body
       .children(s.queued.map((r, i) => this.report(t, `st-tq-${i}`, `Waiting to send: ${r.day}`, "Sent as is, soon.", r)))
       .when(Boolean(s.draft), (el) => el.child(this.report(t, "st-td", "Today so far", "A draft: it changes until the day ends (UTC), then goes out once.", s.draft)))
@@ -780,52 +840,63 @@ export default class Settings extends View {
 
   // ----------------------------------------------------------------------
 
+  navRow(t, id, icon, title, on, onClick, mark) {
+    return h_flex()
+      .id(id)
+      .h(34)
+      .flex_none()
+      .px(10)
+      .gap(10)
+      .items_center()
+      .rounded(10)
+      .border_1()
+      .border_color(on ? t.chip_active_ring : t.clear)
+      .cursor_pointer()
+      .when(on, (el) => el.bg(t.row_selected_strong))
+      .when(!on, (el) => el.hover((st) => st.bg(t.hover)))
+      .on_click(onClick)
+      .child(svg(I(icon)).size(16).flex_none().text_color(on ? t.accent : t.label))
+      .child(div().flex_1().min_w(0).truncate().text_size(13.5).text_color(on ? t.foreground : t.muted).child(title))
+      .when(Boolean(mark), (el) => el.child(div().size(6).flex_none().rounded(3).bg(t.accent)));
+  }
+
   render(cx) {
-    const t = theme();
+    const t = look(theme());
     const u = updates();
     const waiting = Boolean(u.app.ready || (u.core.ready && !u.core.managed));
     const nav = v_flex()
       .flex_none()
       .w(190)
-      .p(10)
+      .h_full()
+      .px(4)
+      .pb(2)
       .gap(2)
-      .border_r(1)
-      .border_color(t.border)
-      .child(div().px(10).pt(6).pb(12).text_size(16).font_semibold().text_color(t.foreground).child("Settings"))
+      .child(h_flex().h(44).flex_none().px(10).items_center().text_size(15).font_medium().text_color(t.foreground).child("Settings"))
       .children(
-        SECTIONS.map((s) => {
-          const on = s.id === this.section;
-          return h_flex()
-            .id(`st-s-${s.id}`)
-            .gap(10)
-            .px(10)
-            .py(7)
-            .items_center()
-            .rounded(7)
-            .cursor_pointer()
-            .bg(on ? t.raised : "#00000000")
-            .hover((st) => st.bg(t.raised))
-            .on_click((_e, cx) => {
-              this.section = s.id;
-              this.picking = null;
-              this.machineEdit = null;
-              this.handle.focus();
-              if (s.id === "machines") cx.spawn(async (cx) => { await this.loadMachines(); cx.notify(); });
-              cx.notify();
-            })
-            .child(svg(I(s.icon)).size(15).text_color(on ? t.accent : t.dim))
-            .child(div().flex_1().text_size(13.5).text_color(on ? t.foreground : t.muted).child(s.title))
-            .when(s.id === "updates" && waiting, (el) => el.child(div().w(7).h(7).rounded(4).bg(t.accent)));
-        }),
-      );
+        SECTIONS.map((s) =>
+          this.navRow(t, `st-s-${s.id}`, s.icon, s.title, s.id === this.section, (_e, cx) => {
+            this.section = s.id;
+            this.picking = null;
+            this.machineEdit = null;
+            this.handle.focus();
+            if (s.id === "machines") cx.spawn(async (cx) => { await this.loadMachines(); cx.notify(); });
+            cx.notify();
+          }, s.id === "updates" && waiting),
+        ),
+      )
+      .child(div().flex_1())
+      .child(this.navRow(t, "st-feedback", "messages", "Send feedback", false, () => { closeOverlay(props()?.overlay); run("app.feedback"); }));
     return h_flex()
       .id("settings")
       .track_focus(this.handle)
       .w_full()
       .h(620)
       .min_h(0)
-      .items_start()
-      .bg(t.popover)
+      .p(6)
+      .gap(6)
+      .rounded(13)
+      .bg(t.canvas)
+      .text_color(t.foreground)
       .on_key_down((e, cx) => {
         const k = e.key;
         if (this.machineEdit) {
@@ -844,26 +915,27 @@ export default class Settings extends View {
         cx.stop_propagation();
         cx.notify();
       })
-      .child(nav.h_full().child(div().flex_1()).child(this.button(t, "st-feedback", "Send feedback", () => { closeOverlay(props()?.overlay); run("app.feedback"); })))
+      .child(nav)
       .child(
-        // A bar that always shows: the pages are taller than the dialog and
-        // people should see that they scroll.
         div()
-          .relative()
           .flex_1()
           .min_w(0)
           .h_full()
+          .rounded(14)
+          .overflow_hidden()
+          .bg(t.panel)
+          .border_1()
+          .border_color(t.panel_border)
           .child(
             div()
               .id("st-body")
               .size_full()
-              .overflow_y_scroll()
-              // Padding inside, not on the scroll area: there it counts as
-              // content and a page that fits still shows a bar.
+              .overflow_y_scrollbar()
               .child(
                 div()
-                  .px(28)
-                  .py(22)
+                  .px(22)
+                  .pt(20)
+                  .pb(8)
                   .child(
                     this.section === "look"
                       ? this.look(t, cx)
@@ -876,8 +948,7 @@ export default class Settings extends View {
                           : this.updates(t),
                   ),
               ),
-          )
-          .child(Scrollbar.vertical("st-body").mode("always").absolute().inset_0()),
+          ),
       );
   }
 }

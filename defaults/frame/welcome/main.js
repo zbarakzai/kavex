@@ -4,8 +4,7 @@ import { View, div, svg, image } from "gpui-kit";
 import { v_flex, h_flex, Scrollbar } from "gpui-base";
 import { spaces, run, theme, props, closeOverlay, setShared, shared, hc, appHome, readTextFile, writeTextFile, settings, layout, keys } from "herdr";
 
-const I = (name) => `frame/welcome/${name}.svg`;
-const W = (name) => `mods/workspace-chrome/${name}.svg`;
+const I = (name) => `mods/workspace-chrome/icons/${name}.svg`;
 const PAGES = 4;
 const ASK = "Read ~/.config/zaki/AGENTS.md, then tell me what you can change in Zaki.";
 const MIGRATE = "Read `zaki --skill`, then migrate my keybinds and settings from ~/.config/herdr/config.toml";
@@ -16,8 +15,8 @@ const APPEARANCES = [
 ];
 // The panels the layout offers (its "panel-body" stack), as the tab bar's buttons.
 const PANELS = [
-  { id: "files", icon: "files", title: "Files", about: "The folder you're in as a tree. Open a file to read it, highlighted." },
-  { id: "changes", icon: "git-compare", title: "Changes", about: "What your agents changed: every file with its diff, and a commit box." },
+  { id: "files", icon: "folder", title: "Files", about: "The folder you're in as a tree. Open a file to read it, highlighted." },
+  { id: "changes", icon: "changes", title: "Changes", about: "What your agents changed: every file with its diff, and a commit box." },
 ];
 
 // The key bound to a command, as people press it: "Ctrl+Shift+P".
@@ -155,7 +154,7 @@ export default class Welcome extends View {
       .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
       .on_click(onClick)
       .child(label)
-      .when(Boolean(icon), (el) => el.child(svg(I(icon)).size(14)));
+      .when(Boolean(icon), (el) => el.child(svg(I(icon)).size(16)));
   }
 
   segment(t, items, now, onPick) {
@@ -218,7 +217,7 @@ export default class Welcome extends View {
     return h_flex()
       .gap(12)
       .items_start()
-      .child(div().flex_none().w(32).h(32).rounded(9).bg(t.raised).border_1().border_color(t.border).flex().items_center().justify_center().child(svg(I(icon)).size(16).text_color(t.accent)))
+      .child(div().flex_none().w(32).h(32).rounded(9).bg(t.raised).border_1().border_color(t.border).flex().items_center().justify_center().child(svg(I(icon)).size(20).text_color(t.accent)))
       .child(v_flex().flex_1().min_w(0).gap(3).child(div().text_size(13.5).font_semibold().text_color(t.foreground).child(title)).child(this.para(t, body)));
   }
 
@@ -285,7 +284,7 @@ export default class Welcome extends View {
     return v_flex()
       .gap(18)
       .child(this.title(t, "Zaki runs your terminals in the background", "The terminals and agents you open here don't live in this window. They run in herdr-core, a small background program on your computer. Close Zaki, update it, or let it crash, and your agents keep working. Open it again and everything is where you left it, as long as the computer is on."))
-      .child(this.feature(t, "bot", "Agents tell you when they need you", "A ring while one works, \u201cNeeds you\u201d when it asks something, a sound when it finishes."))
+      .child(this.feature(t, "agent", "Agents tell you when they need you", "A ring while one works, \u201cNeeds you\u201d when it asks something, a sound when it finishes."))
       .child(this.feature(t, "messages", "Agents can start helpers", "They show up under the agent that started them. Click one to watch it."))
       .child(this.feature(t, "layers", "Your other machines, in the same window", "A server or a Mac mini runs its own herdr-core, so its agents keep going even while this laptop sleeps."))
       .child(div().h(1).bg(t.border))
@@ -302,7 +301,7 @@ export default class Welcome extends View {
       .items_center()
       .border_b(1)
       .border_color(t.border)
-      .child(svg(W(icon)).size(15).text_color(t.muted))
+      .child(svg(I(icon)).size(16).text_color(t.muted))
       .child(div().flex_1().min_w(0).truncate().text_size(13).text_color(t.foreground).child(name))
       .child(div().text_size(12).text_color(t.dim).child(note))
       .child(div().w(8).h(8).rounded(4).bg(ok ? t.ansi2 : t.dim));
@@ -319,8 +318,8 @@ export default class Welcome extends View {
           .border_color(t.border)
           .bg(t.background)
           .overflow_hidden()
-          .child(this.machineRow(t, "monitor", "This computer", "here", true))
-          .children(this.machines.map((m) => this.machineRow(t, "server", m.name, m.state === "connected" ? "connected" : (m.state ?? "offline").replace(/_/g, " "), m.state === "connected")))
+          .child(this.machineRow(t, "this-computer", "This computer", "here", true))
+          .children(this.machines.map((m) => this.machineRow(t, "machine", m.name, m.state === "connected" ? "connected" : (m.state ?? "offline").replace(/_/g, " "), m.state === "connected")))
           .child(
             h_flex()
               .id("w-add-machine")
@@ -334,7 +333,7 @@ export default class Welcome extends View {
               .hover((s) => s.bg(t.hover))
               .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
               .on_click(() => run("mod.open", { name: "machine-add" }))
-              .child(svg(W("plus")).size(15))
+              .child(svg(I("plus")).size(16))
               .child("Add a machine"),
           ),
       )
@@ -359,7 +358,7 @@ export default class Welcome extends View {
         this.togglePanel(p.id);
         cx.notify();
       })
-      .child(div().flex_none().w(32).h(32).rounded(9).bg(t.raised).border_1().border_color(t.border).flex().items_center().justify_center().child(svg(W(p.icon)).size(16).text_color(t.foreground)))
+      .child(div().flex_none().w(32).h(32).rounded(9).bg(t.raised).border_1().border_color(t.border).flex().items_center().justify_center().child(svg(I(p.icon)).size(20).text_color(t.foreground)))
       .child(
         v_flex()
           .flex_1()
@@ -470,7 +469,6 @@ export default class Welcome extends View {
       .id("welcome")
       .track_focus(this.handle)
       .size_full()
-      .bg(t.popover)
       .on_key_down((e, cx) => {
         const k = e.key;
         const m = e.modifiers;
@@ -514,7 +512,7 @@ export default class Welcome extends View {
               .hover((s) => s.bg(t.hover).text_color(t.foreground))
               .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
               .on_click(() => this.done("skipped"))
-              .child(svg(W("x")).size(14)),
+              .child(svg(I("close")).size(16)),
           ),
       )
       // A bar that always shows: a page taller than the window should look it.
