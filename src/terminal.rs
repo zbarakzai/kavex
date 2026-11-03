@@ -264,6 +264,7 @@ impl TerminalView {
         match attached {
             Ok(attached) => {
                 self.lost = false;
+                crate::bench::mark_with("attached", &[attached.channel as u64]);
                 let mut g = self.grid.borrow_mut();
                 g.channel = Some(attached.channel);
                 // The pane may have been laid out while the attach was in flight.
@@ -321,6 +322,7 @@ impl TerminalView {
 
     /// Feeds relayed bytes in; returns false once the stream is over.
     fn ingest(&mut self, batch: Vec<Stream>, cx: &mut Context<Self>) -> bool {
+        let _span = crate::bench::span("ui:ingest");
         let mut open = true;
         let title = {
             let mut g = self.grid.borrow_mut();
@@ -328,7 +330,10 @@ impl TerminalView {
                 match item {
                     Stream::Data(bytes) => {
                         g.vt.allow_clipboard_write(crate::settings::get().clipboard_write);
-                        g.vt.write(&bytes);
+                        {
+                            let _timed = crate::bench::output(g.channel, bytes.len());
+                            g.vt.write(&bytes);
+                        }
                         let [clipboard, primary] = g.vt.take_clipboard();
                         if let Some(text) = clipboard {
                             cx.write_to_clipboard(ClipboardItem::new_string(text));
@@ -1179,6 +1184,7 @@ fn row_ops(row: &[vt::Cell], cell: Size<Pixels>, window: &mut Window) -> Vec<Row
 /// Returns whether the disk should be asked about the Markdown files on screen.
 fn paint_grid(bounds: Bounds<Pixels>, grid: &Rc<RefCell<Grid>>, focused: bool, window: &mut Window, cx: &mut App) -> bool {
     crate::bench::count(&crate::bench::GRID);
+    let _span = crate::bench::span("ui:paint_grid");
     let mut g = grid.borrow_mut();
     let cell = g.cell;
     let (pad_x, pad_y) = pad();
@@ -1190,6 +1196,9 @@ fn paint_grid(bounds: Bounds<Pixels>, grid: &Rc<RefCell<Grid>>, focused: bool, w
     let origin = point(snap(origin.x), snap(origin.y));
     g.origin = origin;
     let frame = g.vt.frame();
+    if crate::bench::events_on() {
+        crate::bench::ink(g.channel, frame.rows.iter().filter(|r| r.iter().any(|c| !c.text.trim().is_empty())).count());
+    }
     let placements = g.vt.placements();
     let mut images: Vec<(bool, Bounds<Pixels>, Arc<RenderImage>)> = Vec::new();
     let mut keep = std::collections::HashSet::new();

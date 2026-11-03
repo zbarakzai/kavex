@@ -103,6 +103,7 @@ fn main() {
         }
     }
 
+    bench::init();
     #[cfg(target_os = "macos")]
     core_bin::fill_path();
     tracing_subscriber::fmt()
@@ -122,10 +123,15 @@ fn main() {
     // The core people installed; without one, the setup screen installs it.
     let person = settings::load_person();
     let configured = person.as_ref().ok().and_then(|p| p.core.clone());
-    let core: Result<std::sync::Arc<hc::Core>, setup::Need> = match core_bin::find(configured.as_deref()) {
+    let found = {
+        let _span = bench::span("start:core_find");
+        core_bin::find(configured.as_deref())
+    };
+    let core: Result<std::sync::Arc<hc::Core>, setup::Need> = match found {
         None => Err(setup::Need::Install),
         Some(bin) => {
             core_bin::use_core(bin);
+            let _span = bench::span("start:core_connect");
             match hc::Core::connect() {
                 // One that can't serve this app gets the screen that fixes it.
                 Ok(core) => hc::check(&core.hello).map(|()| core).map_err(setup::Need::Fix),
@@ -144,20 +150,31 @@ fn main() {
     update::start();
     telemetry::start(settings::telemetry_setting(&person));
     bench::start();
-    if let Err(e) = mods::write_workspace() {
+    if let Err(e) = {
+        let _span = bench::span("start:write_workspace");
+        mods::write_workspace()
+    } {
         eprintln!("zaki: cannot write {}: {e}", mods::app_dir().display());
     }
 
+    bench::mark("start:platform");
     gpui_platform::application()
         .with_assets(gpui_shell::AppAssets::new(mods::app_dir()))
         .run(move |cx| {
-            let fonts = settings::BUNDLED_FONTS.iter().map(|f| std::borrow::Cow::Borrowed(*f)).collect();
-            if let Err(e) = cx.text_system().add_fonts(fonts) {
-                tracing::warn!("bundled fonts not loaded: {e:#}");
+            bench::mark("start:app_running");
+            {
+                let _span = bench::span("start:fonts");
+                let fonts = settings::BUNDLED_FONTS.iter().map(|f| std::borrow::Cow::Borrowed(*f)).collect();
+                if let Err(e) = cx.text_system().add_fonts(fonts) {
+                    tracing::warn!("bundled fonts not loaded: {e:#}");
+                }
+                settings::note_fonts(cx.text_system().all_font_names());
+                settings::load_home_fonts(cx);
             }
-            settings::note_fonts(cx.text_system().all_font_names());
-            settings::load_home_fonts(cx);
-            mods::init(cx);
+            {
+                let _span = bench::span("start:mods_init");
+                mods::init(cx);
+            }
             // Not restarted for it: the update goes in when the app quits.
             cx.on_app_quit(|cx| {
                 let deadline = std::time::Instant::now() + std::time::Duration::from_millis(250);
@@ -216,6 +233,7 @@ pub fn open_main(core: std::sync::Arc<hc::Core>, requests: async_channel::Receiv
                 app_id: Some(std::env::var("HERDR_APP_ID").ok().filter(|s| !s.is_empty()).unwrap_or_else(|| "zaki".into())),
                 ..Default::default()
             };
+            let _span = bench::span("start:open_window");
             cx.open_window(options, |window, cx| cx.new(|cx| window::AppWindow::new(core, requests, window, cx)))
                 .expect("cannot open the Zaki window");
             cx.activate(true);

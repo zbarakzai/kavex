@@ -456,7 +456,10 @@ pub struct AppWindow {
 
 impl AppWindow {
     pub fn new(core: Arc<Core>, requests: async_channel::Receiver<Request>, window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let runtime = ShellRuntime::new(cx).map_err(|e| tracing::error!("script runtime failed, mods are off: {e:#}")).ok();
+        let runtime = {
+            let _span = crate::bench::span("start:js_runtime");
+            ShellRuntime::new(cx).map_err(|e| tracing::error!("script runtime failed, mods are off: {e:#}")).ok()
+        };
         mods::note_fonts(cx);
         let seen = std::fs::read_to_string(file("seen.json")).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default();
         let mut w = AppWindow {
@@ -553,10 +556,16 @@ impl AppWindow {
             crate::place::save(window, cx);
             true
         });
-        settings::install_themes();
-        crate::programs::install_icons();
+        {
+            let _span = crate::bench::span("start:install_themes_icons");
+            settings::install_themes();
+            crate::programs::install_icons();
+        }
         w.reload_config(window, cx);
-        install_layouts();
+        {
+            let _span = crate::bench::span("start:install_layouts");
+            install_layouts();
+        }
         let name = mods::shared("layout").and_then(|v| v.as_str().map(str::to_owned)).filter(|n| layout_path(n).exists());
         // A layout whose mods are gone (Zen, T4, ADE after the update took
         // theirs) starts on Zaki's instead of a wall of "did not load".
@@ -1032,6 +1041,7 @@ impl AppWindow {
     /// Writes the clicks to the layout's state file and, only when something
     /// else changed (a mod docked, `layout.set`), the layout file.
     fn save(&mut self) {
+        let _span = crate::bench::span("ui:save");
         // Quitting (also the OS ending the session): programs may end in any
         // order now. Their panes aren't closing; the next start brings them back.
         if QUITTING.load(std::sync::atomic::Ordering::SeqCst) {
@@ -1365,6 +1375,7 @@ impl AppWindow {
 
     /// Creates what's visible, drops what isn't, publishes state, saves, focuses.
     fn sync(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let _span = crate::bench::span("ui:sync");
         self.model.order_spaces();
         let (model, live) = (&self.model, &self.live);
         self.swapped.retain(|p, a| model.address_of(p).is_some() && live.contains_key(a));
@@ -1509,6 +1520,7 @@ impl AppWindow {
     }
 
     fn load(&self, inst: Instance, window: &mut Window, cx: &mut Context<Self>) -> Copy {
+        let _span = crate::bench::span("ui:mod_load");
         let mut copy = Copy { inst, id: 0, root: None, _watch: None, error: None };
         let (Some(runtime), Some(folder)) = (&self.runtime, self.folders.get(&copy.inst.name)) else {
             copy.error = Some(format!("no mod folder ~/.config/zaki/mods/{}", copy.inst.name));
@@ -1531,6 +1543,7 @@ impl AppWindow {
     }
 
     fn refresh_mods(&self, cx: &mut Context<Self>) {
+        let _span = crate::bench::span("ui:refresh_mods");
         if let Some(runtime) = &self.runtime {
             for c in self.copies.values() {
                 if let Some(root) = &c.root {
@@ -1548,6 +1561,7 @@ impl AppWindow {
 
     /// Tells mods what changed (they re-render only if something did).
     fn publish(&mut self, cx: &mut Context<Self>) {
+        let _span = crate::bench::span("ui:publish");
         let m = &self.model;
         let home = home();
         let spaces: Vec<Value> = m
@@ -1680,6 +1694,7 @@ impl AppWindow {
     }
 
     fn flush_documents(&mut self, refresh: bool, window: &mut Window, cx: &mut Context<Self>) {
+        let _span = crate::bench::span("ui:flush_documents");
         if self.draining || !self.documents_watching { return; }
         let generation = self.core_generation;
         for (machine, slot) in &mut self.documents {
@@ -1895,6 +1910,7 @@ impl AppWindow {
     /// finished agent you're looking at is no longer news), their folders, their
     /// streams. `listed`: the list itself changed.
     fn tend_terminals(&mut self, listed: bool, window: &mut Window, cx: &mut Context<Self>) {
+        let _span = crate::bench::span("ui:tend_terminals");
         // Place newly labeled terminals first: one that is blocked on its first
         // listing is ours, and must ring.
         let mut changed = self.reconcile(window, cx);
@@ -2223,6 +2239,7 @@ impl AppWindow {
     /// empty `cwd`: the machine's home. With no argv, that machine's core
     /// picks its own shell.
     fn spawn(&self, argv: Option<Vec<String>>, cwd: String, space: &str, ctx: &str, on: Option<&str>) -> Result<String, String> {
+        let _span = crate::bench::span("ui:spawn_terminal");
         let argv = argv.unwrap_or_default();
         let cwd = Some(cwd).filter(|c| !c.is_empty());
         self.require_document(on)?;
@@ -2602,6 +2619,7 @@ impl AppWindow {
     /// Runs a command and says what it made or why not. Scripts and agents
     /// (`person: false`) never get a dialog: a missing argument is an error.
     fn run_as(&mut self, name: &str, mut args: Value, person: bool, window: &mut Window, cx: &mut Context<Self>) -> Value {
+        let _span = crate::bench::named_span("cmd", name);
         // A mod someone edited under 0.1.0 still says project.* / context.*.
         let current = crate::keys::current(name);
         let name = current.as_str();
@@ -3583,6 +3601,7 @@ impl AppWindow {
     // ---- mods on disk ----------------------------------------------------
 
     fn poll(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let _span = crate::bench::span("ui:poll");
         self.flush_documents(false, window, cx);
         let ready = Self::update_label();
         if ready != self.update_ready {
@@ -3590,7 +3609,10 @@ impl AppWindow {
             cx.notify();
         }
         // The settings screen shows versions and progress: redraw mods when they move.
-        let status = crate::update::status().to_string();
+        let status = {
+            let _span = crate::bench::span("ui:update_status");
+            crate::update::status().to_string()
+        };
         if status != self.update_status {
             self.update_status = status;
             self.refresh_mods(cx);
@@ -4545,6 +4567,12 @@ fn shadow(el: Div, s: Option<&str>) -> Div {
 impl Render for AppWindow {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         crate::bench::count(&crate::bench::WINDOW);
+        crate::bench::rendering(window);
+        if crate::bench::events_on()
+            && let Some(r) = &self.runtime
+        {
+            crate::bench::note_mods(&r.read_metrics());
+        }
         let _timed = crate::bench::timed(&crate::bench::WINDOW_US);
         crate::bench::frame_start();
         crate::terminal::next_frame();

@@ -700,6 +700,7 @@ const EXEC_OUTPUT: u64 = 8 << 20;
 
 fn run_blocking(command: &str, args: &[String], cwd: Option<String>) -> Result<(i32, String, String), String> {
     use std::io::Read;
+    let _span = crate::bench::events_on().then(|| crate::bench::named_span("exec", &format!("{command} {}", args.first().map(String::as_str).unwrap_or(""))));
     let mut child = crate::spawn::command(command)
         .args(args)
         .current_dir(cwd.map(PathBuf::from).unwrap_or_else(home))
