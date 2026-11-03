@@ -420,6 +420,9 @@ pub struct AppWindow {
     copies: HashMap<String, Copy>,
     overlays: Vec<Overlay>,
     folders: BTreeMap<String, Found>,
+    /// Looks at the mod folders started, and the newest one applied: an older
+    /// look landing after a newer one would bring back what that one saw gone.
+    folder_scans: (u64, u64),
     /// Mods placed once; later the layout decides where (or whether) they show.
     seen: BTreeSet<String>,
     bounds: Rc<RefCell<HashMap<String, Bounds<Pixels>>>>,
@@ -434,6 +437,8 @@ pub struct AppWindow {
     /// missing): a broken one is never written over.
     layout_file_ok: bool,
     written_view: String,
+    /// view.json, written off the window's thread.
+    view_file: crate::persist::Later,
     /// settings.json: zoom and sounds.
     person: settings::Person,
     /// What the last command made or why it didn't (for callers that wait for it).
@@ -522,6 +527,7 @@ impl AppWindow {
             copies: HashMap::new(),
             overlays: Vec::new(),
             folders: mods::scan().into_iter().map(|f| (f.id.clone(), f)).collect(),
+            folder_scans: (0, 0),
             seen,
             bounds: Default::default(),
             drag: None,
@@ -531,6 +537,7 @@ impl AppWindow {
             picked_theme: None,
             layout_file_ok: true,
             written_view: String::new(),
+            view_file: crate::persist::Later::new(file("view.json")),
             person: settings::Person::default(),
             reply: None,
             written_where: HashMap::new(),
@@ -615,8 +622,12 @@ impl AppWindow {
 
         w._tasks.push(cx.spawn_in(window, async move |this, cx| {
             loop {
-                if this.update_in(cx, |this, window, cx| this.poll(window, cx)).is_err() {
-                    break;
+                let Ok(scan) = this.update_in(cx, |this, window, cx| this.poll(window, cx)) else { break };
+                if scan {
+                    let Ok(read) = Self::read_folders(&this, cx).await else { break };
+                    if this.update_in(cx, |this, window, cx| this.sync_folders(read, window, cx)).is_err() {
+                        break;
+                    }
                 }
                 cx.background_executor().timer(Duration::from_millis(400)).await;
             }
@@ -629,7 +640,14 @@ impl AppWindow {
                     while let Ok(more) = events.try_recv() {
                         changed.extend(more);
                     }
-                    if this.update_in(cx, |this, window, cx| this.files_changed(changed, window, cx)).is_err() {
+                    // A mod's files changed: its folders are read off the window's thread.
+                    let folders = if changed.iter().any(|p| crate::files::mod_of(p).is_some()) {
+                        let Ok(read) = Self::read_folders(&this, cx).await else { break };
+                        Some(read)
+                    } else {
+                        None
+                    };
+                    if this.update_in(cx, |this, window, cx| this.files_changed(changed, folders, window, cx)).is_err() {
                         break;
                     }
                 }
@@ -1113,7 +1131,8 @@ impl AppWindow {
             view.preserve_unloaded(saved, |machine| self.documents.get(machine.unwrap_or("")).is_some_and(|s| s.document.is_some()));
         }
         let view = serde_json::to_string_pretty(&view).unwrap_or_default() + "\n";
-        if self.documents.values().any(|s| s.document.is_some()) && view != self.written_view && write_atomic(&file("view.json"), &view) {
+        if self.documents.values().any(|s| s.document.is_some()) && (view != self.written_view || self.view_file.failed()) {
+            self.view_file.write(view.clone());
             self.written_view = view;
         }
     }
@@ -1781,6 +1800,8 @@ impl AppWindow {
     pub fn drain_documents(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.draining { return; }
         self.save();
+        // The last view is on disk before the window goes (saves stop now).
+        self.view_file.finish();
         self.draining = true;
         QUITTING.store(true, std::sync::atomic::Ordering::SeqCst);
         // A terminal still starting is placed, so the layout saved below has it.
@@ -3223,6 +3244,9 @@ impl AppWindow {
                     return self.fail(format!("cannot clone mod: {e}"));
                 }
                 self.folders = mods::scan().into_iter().map(|f| (f.id.clone(), f)).collect();
+                // Newer than any look still under way.
+                self.folder_scans.0 += 1;
+                self.folder_scans.1 = self.folder_scans.0;
             }
             "layout.set" if shipped_layouts().contains(&self.layout_name.as_str()) => {
                 let n = match serde_json::from_value::<Node>(a.get("layout").cloned().unwrap_or_default()) {
@@ -3789,7 +3813,8 @@ impl AppWindow {
 
     // ---- mods on disk ----------------------------------------------------
 
-    fn poll(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    /// Says whether the mod folders are due a look (the caller reads them off this thread).
+    fn poll(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
         let _span = crate::bench::span("ui:poll");
         self.flush_documents(false, window, cx);
         let ready = Self::update_label();
@@ -3815,10 +3840,10 @@ impl AppWindow {
         if self.polls.is_multiple_of(25) {
             self.observe();
         }
-        if self.file_events.is_none() || self.polls.is_multiple_of(25) {
+        let disk = self.file_events.is_none() || self.polls.is_multiple_of(25);
+        if disk {
             self.reload_config(window, cx);
             self.check_layout_file(window, cx);
-            self.sync_folders(window, cx);
         }
         let now = Instant::now();
         let expired: Vec<String> = self.overlays.iter().filter(|o| o.expires.is_some_and(|e| e <= now)).map(|o| o.id.clone()).collect();
@@ -3837,10 +3862,12 @@ impl AppWindow {
             self.system_dark = dark;
             self.apply_look(window, cx);
         }
+        disk
     }
 
-    /// Files people or agents edited: apply what they change.
-    fn files_changed(&mut self, changed: Vec<std::path::PathBuf>, window: &mut Window, cx: &mut Context<Self>) {
+    /// Files people or agents edited: apply what they change. `folders`: the
+    /// mod folders as read after the change (with mod files among `changed`).
+    fn files_changed(&mut self, changed: Vec<std::path::PathBuf>, folders: Option<(u64, Vec<Found>)>, window: &mut Window, cx: &mut Context<Self>) {
         let top = |p: &std::path::PathBuf| p.components().next().and_then(|c| c.as_os_str().to_str().map(str::to_owned)).unwrap_or_default();
         if changed.iter().any(|p| matches!(top(p).as_str(), "settings.json" | "keys.json" | "programs.json" | "themes")) {
             self.reload_config(window, cx);
@@ -3855,7 +3882,9 @@ impl AppWindow {
         // Copies that load now (a new folder, a fixed failed load) already run the
         // saved code: reloading them too would start them twice.
         let loaded: BTreeSet<u64> = self.copies.values().filter(|c| c.root.is_some()).map(|c| c.id).collect();
-        self.sync_folders(window, cx);
+        if let Some(read) = folders {
+            self.sync_folders(read, window, cx);
+        }
         let Some(runtime) = self.runtime.clone() else { return };
         for copy in self.copies.values_mut().filter(|c| edited.contains(&c.inst.name) && loaded.contains(&c.id)) {
             let Some(root) = &copy.root else { continue };
@@ -3867,11 +3896,23 @@ impl AppWindow {
         }
     }
 
-    fn sync_folders(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.runtime.is_none() {
+    /// Reads the mod folders on the background executor (on Windows each look at
+    /// a file is slow), numbered so `sync_folders` can drop a look that's older
+    /// than one it already applied.
+    async fn read_folders(this: &WeakEntity<Self>, cx: &mut AsyncWindowContext) -> anyhow::Result<(u64, Vec<Found>)> {
+        let ticket = this.update(cx, |this, _| {
+            this.folder_scans.0 += 1;
+            this.folder_scans.0
+        })?;
+        Ok((ticket, cx.background_executor().spawn(async { mods::scan() }).await))
+    }
+
+    fn sync_folders(&mut self, (ticket, found): (u64, Vec<Found>), window: &mut Window, cx: &mut Context<Self>) {
+        if self.runtime.is_none() || ticket <= self.folder_scans.1 {
             return;
         }
-        let found: BTreeMap<String, Found> = mods::scan().into_iter().map(|f| (f.id.clone(), f)).collect();
+        self.folder_scans.1 = ticket;
+        let found: BTreeMap<String, Found> = found.into_iter().map(|f| (f.id.clone(), f)).collect();
         let edited: BTreeSet<String> = found.values().filter(|f| self.folders.get(&f.id).is_some_and(|o| o.stamp != f.stamp)).map(|f| f.id.clone()).collect();
         let added = found.keys().any(|k| !self.folders.contains_key(k));
         let removed = self.folders.keys().any(|k| !found.contains_key(k));

@@ -2,6 +2,7 @@
 //! changes the last successful version; only expanded spotlights are recorded.
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct Note {
@@ -92,6 +93,11 @@ impl Launch {
 
 static LAUNCH: Mutex<Option<Launch>> = Mutex::new(None);
 static FETCHED: Mutex<Option<Vec<Note>>> = Mutex::new(None);
+/// The notes with the media found on disk, as `notes` last read them, until
+/// what changes them (fetched notes, a downloaded clip) bumps `CHANGED`. The
+/// window asks every 400 ms (`update::status`), on its own thread.
+static SEEN: Mutex<Option<(u64, Vec<Note>)>> = Mutex::new(None);
+static CHANGED: AtomicU64 = AtomicU64::new(0);
 
 fn path(name: &str) -> std::path::PathBuf {
     crate::mods::app_dir().join(name)
@@ -123,6 +129,7 @@ pub fn cache(text: &str) {
     let notes = parse(text);
     if notes.is_empty() { return; }
     *FETCHED.lock().unwrap() = Some(notes.clone());
+    CHANGED.fetch_add(1, Ordering::SeqCst);
     std::thread::spawn(move || fetch_media(&notes));
     if let Err(e) = std::fs::write(path("update-notes-cache.md"), text) {
         tracing::warn!("update notes cache: {e}");
@@ -188,8 +195,8 @@ fn fetch_media(notes: &[Note]) {
         let result = crate::spawn::command(crate::update::system("curl"))
             .args(["-fsSL", "--max-time", "30", "--max-filesize", "16777216", "-o"])
             .arg(&temp).arg(url).stdin(std::process::Stdio::null()).output();
-        if result.is_ok_and(|out| out.status.success()) {
-            let _ = std::fs::rename(&temp, &file);
+        if result.is_ok_and(|out| out.status.success()) && std::fs::rename(&temp, &file).is_ok() {
+            CHANGED.fetch_add(1, Ordering::SeqCst);
         }
         let _ = std::fs::remove_file(temp);
     }
@@ -202,6 +209,17 @@ fn cached_media(file: &std::path::Path, root: &std::path::Path) -> Option<Media>
 }
 
 pub fn notes(target: Option<&str>) -> Vec<Note> {
+    let notes = with_media();
+    LAUNCH.lock().unwrap().as_ref().map(|l| l.range(&notes, target)).unwrap_or_default()
+}
+
+fn with_media() -> Vec<Note> {
+    // Previews copy their clips in on every look, so they're never kept.
+    let preview = std::env::var_os("HERDR_NOTES_MEDIA_DIR").is_some();
+    let changed = CHANGED.load(Ordering::SeqCst);
+    if !preview && let Some((at, notes)) = &*SEEN.lock().unwrap() && *at == changed {
+        return notes.clone();
+    }
     let mut notes = all();
     for note in &mut notes {
         for item in &mut note.items {
@@ -211,7 +229,10 @@ pub fn notes(target: Option<&str>) -> Vec<Note> {
             }).collect();
         }
     }
-    LAUNCH.lock().unwrap().as_ref().map(|l| l.range(&notes, target)).unwrap_or_default()
+    if !preview {
+        *SEEN.lock().unwrap() = Some((changed, notes.clone()));
+    }
+    notes
 }
 
 pub fn spotlights() -> Vec<Note> {
@@ -246,8 +267,26 @@ mod tests {
     fn from(version: Option<&str>, running: &str, fresh: bool) -> Launch {
         Launch::new(Record { last_run: version.map(str::to_owned), ..Record::default() }, running, fresh)
     }
+    /// The tests that set FETCHED take turns.
+    static FETCHING: Mutex<()> = Mutex::new(());
+    #[test]
+    fn notes_are_read_again_only_when_something_changed_them() {
+        let _turn = FETCHING.lock().unwrap_or_else(|e| e.into_inner());
+        let previous = FETCHED.lock().unwrap().replace(parse("## [98.0.0] - 2026-10-30\n- Kept\n"));
+        CHANGED.fetch_add(1, Ordering::SeqCst);
+        assert!(with_media().iter().any(|n| n.version == "98.0.0"));
+        // Not through `cache`: nothing said it changed, so the kept read stands.
+        *FETCHED.lock().unwrap() = Some(parse("## [98.0.1] - 2026-10-31\n- Newer\n"));
+        assert!(with_media().iter().any(|n| n.version == "98.0.0"));
+        CHANGED.fetch_add(1, Ordering::SeqCst);
+        let now = with_media();
+        assert!(now.iter().any(|n| n.version == "98.0.1") && !now.iter().any(|n| n.version == "98.0.0"));
+        *FETCHED.lock().unwrap() = previous;
+        CHANGED.fetch_add(1, Ordering::SeqCst);
+    }
     #[test]
     fn cached_notes_are_version_specific() {
+        let _turn = FETCHING.lock().unwrap_or_else(|e| e.into_inner());
         let previous = FETCHED.lock().unwrap().replace(Vec::new());
         assert!(!has("99.0.0"));
         *FETCHED.lock().unwrap() = Some(parse("## [99.0.0] - 2026-10-30\n- Test release\n"));
