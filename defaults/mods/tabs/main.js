@@ -147,8 +147,11 @@ export default class Tabs extends View {
     return el.on_size_change((size) => { this.widths[key] = size.width / settings().zoom; });
   }
 
-  pressed(e, moving, anchor) {
+  // The bar hears the pointer only while a press or a drag is on (see render): drawing once
+  // now puts the handler on.
+  pressed(e, moving, anchor, cx) {
     this.press = { moving, anchor, from: e.position, left: e.bounds?.x ?? e.position.x };
+    cx.notify();
   }
 
   moved(e, v, cx) {
@@ -289,7 +292,7 @@ export default class Tabs extends View {
       .when(!shown, (el) => el.hover((s) => s.bg(hue?.ring ?? k.hover)))
       .on_mouse_down("left", (e, cx) => {
         cx.stop_propagation();
-        this.pressed(e, { tabs: picked ? v.picked : [c.id] }, c.id);
+        this.pressed(e, { tabs: picked ? v.picked : [c.id] }, c.id, cx);
         if (e.click_count === 2) run("tab.rename", { id: c.id });
       })
       .on_mouse_up("left", (e, cx) => this.up(cx, () => this.click(c, e, v)))
@@ -311,7 +314,7 @@ export default class Tabs extends View {
     return this.measured(h_flex().id(`tag-${id}`), `tag:${id}`).h(28).pl(9).pr(8).gap(6).flex_none().items_center().rounded(9).text_size(13).font_semibold()
       .border(1).border_color(joining ? k.foreground : k.clear).text_color(hue.text)
       .hover((el) => el.opacity(0.88))
-      .on_mouse_down("left", (e, cx) => { cx.stop_propagation(); this.pressed(e, { group: id }, slotKey.before(id)); })
+      .on_mouse_down("left", (e, cx) => { cx.stop_propagation(); this.pressed(e, { group: id }, slotKey.before(id), cx); })
       .on_mouse_down("right", (_e, cx) => { cx.stop_propagation(); this.menu({ group: id }); })
       .on_mouse_up("left", (_e, cx) => this.up(cx, () => this.fold(id, s.groups)))
       .child(div().max_w(150).truncate().child(g.name || String(tabs.length)))
@@ -430,7 +433,8 @@ export default class Tabs extends View {
       .on_size_change((size) => { this.stripW = size.width / settings().zoom; })
       .children(bar.map((r, i) => this.roomed(r.group ? this.tray(r, v) : this.pill(r.tab, v), r.group ? slotKey.before(r.group) : r.tab.id, i === bar.length - 1 ? "end" : null)));
     return h_flex().id("tabs").relative().size_full().min_w(0).pl(lightsPadding).pr(6).pt(TOP).gap(GAP).items_center()
-      .on_mouse_move((e, cx) => this.moved(e, v, cx))
+      // Plain moves need nothing from here, and at a mouse's rate each would be a call in.
+      .when(Boolean(this.press || d), (el) => el.on_mouse_move((e, cx) => this.moved(e, v, cx)))
       .on_mouse_up("left", (_e, cx) => this.up(cx))
       .on_hover((on) => { if (!on) this.press = null; })
       .on_scroll_wheel((e) => this.wheel(e, v))
