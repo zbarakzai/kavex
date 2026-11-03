@@ -220,6 +220,37 @@ export default class extends View {
 }
 
 #[gpui::test]
+fn each_copy_is_refreshed_for_the_live_data_it_has_read(cx: &mut TestAppContext) {
+    cx.update(gpui_shell::init);
+    let runtime = ShellRuntime::new_isolated().unwrap();
+    let mut kept = Vec::new();
+    // In render, outside render (kept from then on), and nothing live at all.
+    for (copy, body) in [
+        (9101, "render() { return div().child(String(agents().length + panes().length)); }"),
+        (9102, "init() { this.n = terminals().length; } render() { return div(); }"),
+        (9103, "render() { return div().child(String(theme().background ?? \"\")); }"),
+    ] {
+        let fixture = Fixture::new(&format!(
+            "import {{ View, div }} from \"gpui-kit\";\nimport {{ agents, panes, terminals, theme }} from \"herdr\";\nexport default class extends View {{ {body} }}"
+        ));
+        gpui_shell::policy::set_default(Policy::new()
+            .with_host_module(module(Instance { name: "test".into(), props: Value::Null }, copy)).unwrap());
+        let window = cx.add_window(|window, cx| Mounted(runtime.try_load(&fixture.0, window, cx).unwrap()));
+        let mut visual = VisualTestContext::from_window(*window.deref(), cx);
+        visual.update(|window, cx| window.draw(cx).clear(cx));
+        visual.run_until_parked();
+        kept.push((fixture, window));
+    }
+    assert!(reads(9101, part::AGENTS) && reads(9101, part::PANES));
+    assert!(!reads(9101, part::TERMINALS | part::SPACES | part::FOCUSED | part::WINDOW));
+    assert!(reads(9102, part::TERMINALS) && !reads(9102, part::AGENTS | part::PANES));
+    assert!(!reads(9103, u16::MAX), "theme() is no live part: a theme change refreshes every copy");
+    assert!(reads(9101, part::AGENTS | part::TERMINALS), "any part read is enough");
+    forget_reads(9101);
+    assert!(!reads(9101, part::AGENTS));
+}
+
+#[gpui::test]
 fn close_is_once_and_awaits_its_promise(cx: &mut TestAppContext) {
     cx.update(gpui_shell::init);
     let fixture = Fixture::new(r#"

@@ -745,8 +745,39 @@ pub fn publish_focused(v: Value) -> bool {
     publish(|s| (std::mem::replace(&mut s.focused, v.clone()), v))
 }
 
-fn read(f: impl FnOnce(&Snapshot) -> &Value) -> HostValue {
+/// Parts of the snapshot, as bits: what changed in a publish, and what a copy
+/// has read. A copy is refreshed for a change to a part it has read.
+pub mod part {
+    pub const LAYOUT: u16 = 1;
+    pub const MACHINES: u16 = 1 << 1;
+    pub const SPACES: u16 = 1 << 2;
+    pub const AGENTS: u16 = 1 << 3;
+    pub const PANES: u16 = 1 << 4;
+    pub const TERMINALS: u16 = 1 << 5;
+    pub const FOCUSED: u16 = 1 << 6;
+    pub const FLOATS: u16 = 1 << 7;
+    pub const WINDOW: u16 = 1 << 8;
+}
+
+thread_local! {
+    /// The parts each copy has ever read, by copy number (`prepare_load`).
+    /// Kept once read: a copy that read agents in a timer still sees each change.
+    static READS: RefCell<std::collections::HashMap<u64, u16>> = RefCell::new(std::collections::HashMap::new());
+}
+
+fn read(copy: u64, part: u16, f: impl FnOnce(&Snapshot) -> &Value) -> HostValue {
+    READS.with(|r| *r.borrow_mut().entry(copy).or_default() |= part);
     SNAPSHOT.with(|s| to_host(f(&s.borrow())))
+}
+
+/// Whether copy `copy` has read any of `parts`.
+pub fn reads(copy: u64, parts: u16) -> bool {
+    READS.with(|r| r.borrow().get(&copy).is_some_and(|read| read & parts != 0))
+}
+
+/// A copy that closed reads nothing more.
+pub fn forget_reads(copy: u64) {
+    READS.with(|r| r.borrow_mut().remove(&copy));
 }
 
 /// Delivers `command` to every shown copy of `mod`. Returns whether any listens.
@@ -1081,17 +1112,17 @@ fn module(inst: Instance, copy: u64) -> HostModule {
             }
             Ok(HostValue::Null)
         })
-        .function("spaces", |_| Ok(read(|s| &s.spaces)))
-        .function("machines", |_| Ok(read(|s| &s.machines)))
-        .function("agents", |_| Ok(read(|s| &s.agents)))
-        .function("panes", |_| Ok(read(|s| &s.panes)))
+        .function("spaces", move |_| Ok(read(copy, part::SPACES, |s| &s.spaces)))
+        .function("machines", move |_| Ok(read(copy, part::MACHINES, |s| &s.machines)))
+        .function("agents", move |_| Ok(read(copy, part::AGENTS, |s| &s.agents)))
+        .function("panes", move |_| Ok(read(copy, part::PANES, |s| &s.panes)))
         .function("setAgentOrder", |a| {
             AGENT_ORDER.with(|s| *s.borrow_mut() = strings(a.get(0)));
             Ok(HostValue::Null)
         })
-        .function("terminals", |_| Ok(read(|s| &s.terminals)))
-        .function("focused", |_| Ok(read(|s| &s.focused)))
-        .function("layout", |_| Ok(read(|s| &s.layout)))
+        .function("terminals", move |_| Ok(read(copy, part::TERMINALS, |s| &s.terminals)))
+        .function("focused", move |_| Ok(read(copy, part::FOCUSED, |s| &s.focused)))
+        .function("layout", move |_| Ok(read(copy, part::LAYOUT, |s| &s.layout)))
         .function("layouts", |_| Ok(to_host(&json!(crate::window::layout_names()))))
         .function("commands", |_| {
             let list: Vec<Value> = crate::commands::COMMANDS
@@ -1103,7 +1134,7 @@ fn module(inst: Instance, copy: u64) -> HostModule {
                 .collect();
             Ok(to_host(&Value::Array(list)))
         })
-        .function("window", |_| Ok(read(|s| &s.window)))
+        .function("window", move |_| Ok(read(copy, part::WINDOW, |s| &s.window)))
         .function("theme", |_| Ok(to_host(&serde_json::to_value(&*crate::settings::theme()).unwrap_or(Value::Null))))
         .function("settings", |_| Ok(to_host(&serde_json::to_value(&*crate::settings::get()).unwrap_or(Value::Null))))
         .function("keys", |_| {
@@ -1136,7 +1167,7 @@ fn module(inst: Instance, copy: u64) -> HostModule {
         })
         .function("placement", {
             let float = props.get("float").and_then(Value::as_str).map(str::to_owned);
-            move |_| Ok(float.as_ref().map_or(HostValue::Null, |id| read(|s| s.floats.get(id).unwrap_or(&Value::Null))))
+            move |_| Ok(float.as_ref().map_or(HostValue::Null, |id| read(copy, part::FLOATS, |s| s.floats.get(id).unwrap_or(&Value::Null))))
         })
         .function("props", move |_| Ok(to_host(&props)))
         .function("shared", |a| {

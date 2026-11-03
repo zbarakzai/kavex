@@ -1322,9 +1322,9 @@ impl AppWindow {
     }
 
     fn remove_copy(&mut self, slot: &str, window: &mut Window, cx: &mut Context<Self>) {
-        if let Some(copy) = self.copies.remove(slot)
-            && let (Some(runtime), Some(root)) = (&self.runtime, copy.root)
-        {
+        let Some(copy) = self.copies.remove(slot) else { return };
+        mods::forget_reads(copy.id);
+        if let (Some(runtime), Some(root)) = (&self.runtime, copy.root) {
             runtime.close(&root, std::time::Instant::now() + Duration::from_millis(250), window, cx).detach();
         }
     }
@@ -1577,11 +1577,20 @@ impl AppWindow {
         copy
     }
 
+    /// Every copy builds again: for what no part tracks (theme, settings, shared).
     fn refresh_mods(&self, cx: &mut Context<Self>) {
+        self.refresh_readers(u16::MAX, cx);
+    }
+
+    /// The copies that have read any of `parts` (`mods::part`) build again; the
+    /// others can't show the change, and a build runs the copy's whole script.
+    fn refresh_readers(&self, parts: u16, cx: &mut Context<Self>) {
         let _span = crate::bench::span("ui:refresh_mods");
         if let Some(runtime) = &self.runtime {
             for c in self.copies.values() {
-                if let Some(root) = &c.root {
+                if let Some(root) = &c.root
+                    && (parts == u16::MAX || mods::reads(c.id, parts))
+                {
                     let _ = runtime.refresh(root, cx);
                 }
             }
@@ -1661,15 +1670,17 @@ impl AppWindow {
         let machines = self.documents.iter().map(|(name, slot)| json!({
             "name": (!name.is_empty()).then_some(name), "layout": slot.layout(),
         })).collect();
-        let mut changed = mods::publish_machines(Value::Array(machines));
-        changed |= mods::publish_spaces(Value::Array(spaces));
-        changed |= mods::publish_agents(Value::Array(agents));
-        changed |= mods::publish_panes(Value::Array(panes));
-        changed |= mods::publish_focused(focused.unwrap_or(Value::Null));
-        changed |= mods::publish_floats(self.float_placements());
-        changed |= mods::publish_layout(&self.chrome);
-        if changed {
-            self.refresh_mods(cx);
+        use mods::part;
+        let bit = |changed: bool, part: u16| if changed { part } else { 0 };
+        let changed = bit(mods::publish_machines(Value::Array(machines)), part::MACHINES)
+            | bit(mods::publish_spaces(Value::Array(spaces)), part::SPACES)
+            | bit(mods::publish_agents(Value::Array(agents)), part::AGENTS)
+            | bit(mods::publish_panes(Value::Array(panes)), part::PANES)
+            | bit(mods::publish_focused(focused.unwrap_or(Value::Null)), part::FOCUSED)
+            | bit(mods::publish_floats(self.float_placements()), part::FLOATS)
+            | bit(mods::publish_layout(&self.chrome), part::LAYOUT);
+        if changed != 0 {
+            self.refresh_readers(changed, cx);
         }
         self.write_where(cx);
     }
@@ -1943,7 +1954,7 @@ impl AppWindow {
         let terminals_changed = mods::publish_terminals(list);
         self.tend_terminals(true, window, cx);
         if terminals_changed {
-            self.refresh_mods(cx);
+            self.refresh_readers(mods::part::TERMINALS, cx);
         }
     }
 
@@ -4801,7 +4812,7 @@ impl Render for AppWindow {
         self.tick_slides(window);
         self.apply_titlebar(window);
         if mods::publish_window(self.window_json(window)) {
-            self.refresh_mods(cx);
+            self.refresh_readers(mods::part::WINDOW, cx);
         }
         let focused = self.focused_path();
         let tree = self.render_node(&self.chrome, &focused, None, cx);
