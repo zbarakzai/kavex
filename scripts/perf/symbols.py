@@ -9,6 +9,7 @@ is enough to tell a wait from a syscall from the GPU driver.
 
 import bisect
 import collections
+import gzip
 import json
 import os
 import re
@@ -179,7 +180,8 @@ def summarize(samples, index, names, spans, out_dir, label):
                 inclusive[kind][f] += 1
         row = {"seconds": round((t1 - t0) / 1e6, 2), "main_samples": total_main, "main_idle_samples": idle}
         for kind, stacks in folded.items():
-            with open(os.path.join(out_dir, f"{label}-{scenario}-{kind}.folded"), "w", encoding="utf-8") as f:
+            # Gzipped: Rust names make these tens of MB; `gzip -dc` feeds a flamegraph tool.
+            with gzip.open(os.path.join(out_dir, f"{label}-{scenario}-{kind}.folded.gz"), "wt", encoding="utf-8") as f:
                 for stack, count in stacks.most_common():
                     f.write(f"{stack} {count}\n")
             row[kind] = {"samples": sum(stacks.values()), "self": self_time[kind].most_common(30), "inclusive": inclusive[kind].most_common(60)}

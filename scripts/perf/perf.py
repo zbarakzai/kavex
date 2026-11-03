@@ -229,7 +229,9 @@ class Usage:
                 else:
                     cpu += a.cpu - b.cpu
                     kernel += (a.kernel - b.kernel) / w.TICKS_PER_SECOND
-                    switches += a.switches - b.switches
+                    # Per thread: a thread that ended takes its count with it.
+                    old = {t.tid: t.switches for t in b.threads}
+                    switches += sum(t.switches - old.get(t.tid, 0) for t in a.threads)
             results.add(f"{name}.{label}.cpu_percent", one(100 * cpu / seconds, "% of a core"))
             results.add(f"{name}.{label}.kernel_percent", one(100 * kernel / seconds, "% of a core"))
             results.add(f"{name}.{label}.wakeups_per_second", one(switches / seconds, "/s"))
@@ -391,6 +393,22 @@ def first_ink(events, t0, channel=None, timeout=30):
     return ink, frame
 
 
+def empty_home(results, home, rep):
+    """A first-run home. A file the app just closed can still be held for a
+    moment (a virus scan), so deleting is retried, then the folder moved aside."""
+    import shutil
+    for _ in range(20):
+        shutil.rmtree(home, ignore_errors=True)
+        if not os.path.exists(home):
+            break
+        time.sleep(0.25)
+    else:
+        os.replace(home, f"{home}-old-{rep}")
+    os.makedirs(home, exist_ok=True)
+    if os.listdir(home):
+        results.note(f"cold fresh rep {rep}: the home could not be emptied")
+
+
 def cold(results, args, work, live_ids, survivors):
     def launch_once(instance, has_terminal):
         events = Events(instance.events_path)
@@ -428,10 +446,7 @@ def cold(results, args, work, live_ids, survivors):
         try:
             for rep in range(reps + 1):
                 if kind == "fresh":
-                    home = os.path.join(instance.root, "home")
-                    import shutil
-                    shutil.rmtree(home, ignore_errors=True)
-                    os.makedirs(home)
+                    empty_home(results, os.path.join(instance.root, "home"), rep)
                     instance.seed_home()
                 if kind == "core_down" and rep > 0:
                     instance.hc("server", "stop")
@@ -1024,15 +1039,21 @@ def compare(args):
         if not x.get("n") or not y.get("n") or args.grep and not re.search(args.grep, name):
             continue
         p, q = x["median"], y["median"]
-        spread = max(x.get("iqr", 0), y.get("iqr", 0))
         change = (q - p) / p * 100 if p else 0.0
-        real = abs(q - p) > spread and abs(change) >= args.threshold
+        if x.get("single") or y.get("single"):
+            # One reading each (a CPU % over a stretch): no spread to judge by,
+            # so only a big change of something not near zero counts, as "?".
+            real = "?" if abs(change) >= max(25, args.threshold) and max(abs(p), abs(q)) >= args.floor else ""
+        else:
+            spread = max(x.get("iqr", 0), y.get("iqr", 0))
+            real = "*" if abs(q - p) > spread and abs(change) >= args.threshold else ""
         rows.append((name, p, q, change, x.get("p95"), y.get("p95"), x.get("unit"), real))
     shown = rows if args.all else [r for r in rows if r[7]]
-    print(f"\n{len(rows)} metrics in both, {sum(r[7] for r in rows)} moved beyond their spread and {args.threshold:g}%:\n")
+    print(f"\n{len(rows)} metrics in both: {sum(r[7] == '*' for r in rows)} moved beyond their spread and {args.threshold:g}% (*), "
+          f"{sum(r[7] == '?' for r in rows)} single readings moved 25%+ (?, check by repeating):\n")
     print(f"{'metric':64} {'before':>10} {'after':>10} {'change':>8}  {'p95 before':>10} {'p95 after':>10}")
-    for name, p, q, change, p95a, p95b, unit, real in sorted(shown, key=lambda r: -abs(r[3])):
-        mark = "*" if real else " "
+    for name, p, q, change, p95a, p95b, unit, real in sorted(shown, key=lambda r: (r[7] != "*", -abs(r[3]))):
+        mark = real or " "
         print(f"{name[:64]:64} {p:10.2f} {q:10.2f} {change:+7.1f}%{mark} {p95a or 0:10.2f} {p95b or 0:10.2f}  {unit}")
     only = sorted(set(a["metrics"]) ^ set(b["metrics"]))
     if only:
@@ -1084,6 +1105,7 @@ def main():
     c.add_argument("after")
     c.add_argument("--threshold", type=float, default=5, help="ignore changes under this percent")
     c.add_argument("--all", action="store_true", help="show every metric, marking real changes with *")
+    c.add_argument("--floor", type=float, default=2, help="single readings below this (in their unit) are noise")
     c.add_argument("--grep", help="only metrics matching this regex")
     l = sub.add_parser("live")
     l.add_argument("--pid", type=int, required=True)

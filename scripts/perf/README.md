@@ -56,6 +56,9 @@ Remove-Item Env:CARGO_TARGET_DIR, Env:CARGO_PROFILE_RELEASE_DEBUG, Env:CARGO_PRO
 py -3.12 scripts/perf/perf.py profile --only idle,open
 ```
 
-It writes `.scratch/perf/profiles/<time>-<scenario>-{main_cpu,main_blocked,background_cpu}.folded`
-for flamegraph tools, and `<time>-summary.json` with top functions. Numbers from a
+It writes `.scratch/perf/profiles/<time>-<scenario>-{main_cpu,main_blocked,background_cpu}.folded.gz`
+(folded stacks, gzipped: `gzip -dc x.folded.gz | inferno-flamegraph > x.svg`), and
+`<time>-summary.json` with the top functions by self and inclusive samples. A sample
+counts as running only if its thread used more than 100k cycles since the last tick
+and its innermost frame isn't a wait (`symbols.py` WAITS). Numbers from a
 sampled run are not comparable with `run`: the sampler itself costs time.
