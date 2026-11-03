@@ -20,7 +20,7 @@ mod render_tests;
 #[cfg(test)]
 mod lifecycle_tests;
 
-/// The frame's own mods (welcome, ...): the app's, not the person's. Written
+/// The frame's own mods (welcome, ...): the app's, not the person's. Restored
 /// from the binary on every start, so no edit or broken mod can break them.
 /// Loaded as `frame-<name>`.
 pub fn frame_dir() -> PathBuf {
@@ -59,9 +59,11 @@ const AGENTS_MD: &str = include_str!("../defaults/AGENTS.md");
 
 /// Writes the agent guide and API types, and installs or updates the default
 /// mods. Shipped mods are replaced whole; edits are first moved to a clone.
-pub fn write_workspace() -> std::io::Result<()> {
-    let dir = app_dir();
-    std::fs::create_dir_all(mods_dir())?;
+/// `dir` is the app's home. It reads no environment: it runs on its own
+/// thread beside `core_bin::use_core` setting PATH (main.rs).
+pub fn write_workspace(dir: &Path) -> std::io::Result<()> {
+    let mods = dir.join("mods");
+    std::fs::create_dir_all(&mods)?;
     write_if_changed(&dir.join("AGENTS.md"), AGENTS_MD)?;
     // Agents read AGENTS.md now; the pointer file we used to write goes (only ours).
     if std::fs::read_to_string(dir.join("CLAUDE.md")).is_ok_and(|s| s == "@AGENTS.md\n") {
@@ -70,13 +72,102 @@ pub fn write_workspace() -> std::io::Result<()> {
     write_if_changed(&dir.join("herdr.d.ts"), DECLARATIONS)?;
     let types = gpui_shell::type_declarations(&gpui_shell::FrozenComponentRegistry::default());
     write_if_changed(&dir.join("gpui-kit.d.ts"), &types)?;
-    let _ = std::fs::remove_dir_all(frame_dir());
-    for (path, bytes) in FRAME_MODS {
-        let file = frame_dir().join(path);
-        std::fs::create_dir_all(file.parent().unwrap())?;
-        std::fs::write(&file, bytes)?;
+    let stamps_path = dir.join("installed-stamps.json");
+    let mut stamps: Stamps = serde_json::from_str(&std::fs::read_to_string(&stamps_path).unwrap_or_default()).unwrap_or_default();
+    sync_frame(&dir.join("frame"), FRAME_MODS, &mut stamps)?;
+    let result = sync_defaults(&mods, &dir.join("installed.json"), DEFAULT_MODS, &mut stamps);
+    write_if_changed(&stamps_path, serde_json::to_string(&stamps).unwrap() + "\n")?;
+    result
+}
+
+/// What installed files looked like on disk (size, modified time in ns) when
+/// they were last read and found as shipped, by `mods/<name>` and `frame`,
+/// with `of`, the fingerprint of what they were checked against. Files that
+/// still look the same weren't touched since, so a start doesn't read them
+/// again. Any write gives a file a new modified time; only times at least
+/// `SETTLED` old are kept, so an edit right after one can't share it.
+type Stamps = std::collections::BTreeMap<String, Stamp>;
+
+#[derive(serde::Serialize, Deserialize, PartialEq, Clone, Debug)]
+struct Stamp {
+    of: String,
+    files: Looks,
+}
+
+type Looks = std::collections::BTreeMap<String, [u64; 2]>;
+
+const SETTLED: Duration = Duration::from_secs(2);
+
+/// Every file under `root` (as `as_shipped` sees them: hidden names skipped,
+/// and whatever `skip` says) with its size and modified time, from the folder
+/// listings alone: no file is opened. None if `root` can't be listed or holds
+/// anything but files and folders.
+fn look(root: &Path, skip: &dyn Fn(&str) -> bool) -> Option<Looks> {
+    fn walk(root: &Path, dir: &Path, skip: &dyn Fn(&str) -> bool, out: &mut Looks) -> Option<()> {
+        for e in std::fs::read_dir(dir).ok()? {
+            let e = e.ok()?;
+            if e.file_name().to_string_lossy().starts_with('.') {
+                continue;
+            }
+            let kind = e.file_type().ok()?;
+            if kind.is_dir() {
+                walk(root, &e.path(), skip, out)?;
+            } else if kind.is_file() {
+                let rel = e.path().strip_prefix(root).ok()?.to_string_lossy().replace('\\', "/");
+                if skip(&rel) {
+                    continue;
+                }
+                let meta = e.metadata().ok()?;
+                let modified = meta.modified().ok()?.duration_since(SystemTime::UNIX_EPOCH).ok()?.as_nanos();
+                out.insert(rel, [meta.len(), u64::try_from(modified).ok()?]);
+            } else {
+                return None;
+            }
+        }
+        Some(())
     }
-    sync_defaults(&mods_dir(), &dir.join("installed.json"), DEFAULT_MODS)
+    let mut out = Looks::new();
+    walk(root, root, skip, &mut out)?;
+    Some(out)
+}
+
+/// Looks worth keeping: none modified in the last `SETTLED` before `now`.
+fn settled(looks: Option<Looks>, now: SystemTime) -> Option<Looks> {
+    let limit = now.checked_sub(SETTLED)?.duration_since(SystemTime::UNIX_EPOCH).ok()?.as_nanos();
+    looks.filter(|l| l.values().all(|[_, modified]| u128::from(*modified) <= limit))
+}
+
+fn files_fingerprint(files: &Files) -> String {
+    fingerprint(files.iter().map(|(p, f)| format!("{p}\0{f}\n")).collect::<String>().as_bytes())
+}
+
+/// The frame's mods, exactly as shipped: left alone when they already are,
+/// else written again whole.
+fn sync_frame(frame: &Path, shipped: &[(&str, &[u8])], stamps: &mut Stamps) -> std::io::Result<()> {
+    let now = SystemTime::now();
+    let files: Files = shipped.iter().map(|(p, bytes)| ((*p).to_owned(), fingerprint(bytes))).collect();
+    let of = files_fingerprint(&files);
+    // gpui-shell writes its editor helpers into each mod it loads.
+    let helper = |rel: &str| matches!(rel.split_once('/'), Some((_, "gpui-kit.d.ts" | "jsconfig.json"))) && !files.contains_key(rel);
+    // Looked at before any read: an edit after this is the next start's to see.
+    let seen = look(frame, &helper);
+    let known = stamps.remove("frame").filter(|s| s.of == of);
+    if let (Some(seen), Some(known)) = (&seen, known) {
+        if *seen == known.files {
+            stamps.insert("frame".into(), known);
+            return Ok(());
+        }
+    }
+    let as_shipped = seen.as_ref().is_some_and(|seen| seen.len() == shipped.len()
+        && shipped.iter().all(|(p, bytes)| seen.contains_key(*p) && std::fs::read(frame.join(p)).is_ok_and(|b| b == *bytes)));
+    if as_shipped {
+        if let Some(files) = settled(seen, now) {
+            stamps.insert("frame".into(), Stamp { of, files });
+        }
+        return Ok(());
+    }
+    let _ = std::fs::remove_dir_all(frame);
+    write_files(frame, shipped)
 }
 
 static SYNC_NOTES: std::sync::Mutex<Vec<String>> = std::sync::Mutex::new(Vec::new());
@@ -94,7 +185,11 @@ fn edited_name(parent: &Path, name: &str, suffix: &str) -> String {
         .find(|n| !parent.join(format!("{n}{suffix}")).exists()).unwrap()
 }
 
-fn sync_defaults(mods: &Path, installed_path: &Path, shipped_mods: &[(&str, &[u8])]) -> std::io::Result<()> {
+fn sync_defaults(mods: &Path, installed_path: &Path, shipped_mods: &[(&str, &[u8])], stamps: &mut Stamps) -> std::io::Result<()> {
+    let now = SystemTime::now();
+    // Only what this start finds again is kept.
+    let (mut known, others): (Stamps, Stamps) = std::mem::take(stamps).into_iter().partition(|(k, _)| k.starts_with("mods/"));
+    *stamps = others;
     let text = std::fs::read_to_string(installed_path).unwrap_or_default();
     let mut installed: Installed = serde_json::from_str(&text).unwrap_or_default();
     let names: std::collections::BTreeSet<&str> = shipped_mods.iter().filter_map(|(p, _)| p.split('/').next()).collect();
@@ -106,13 +201,28 @@ fn sync_defaults(mods: &Path, installed_path: &Path, shipped_mods: &[(&str, &[u8
         }
         installed.remove(&name);
     }
+    // The shipped files to write, once every mod's old folder is out of the way.
+    let mut writes: Vec<(&str, &[u8])> = Vec::new();
     for name in names {
         let target = mods.join(name);
         let shipped: Files = shipped_mods.iter()
             .filter_map(|(p, bytes)| Some((p.strip_prefix(&format!("{name}/"))?.to_owned(), fingerprint(bytes))))
             .collect();
-        if installed.get(name) == Some(&shipped) && target.exists() && as_shipped(&target, &shipped) {
-            continue;
+        if installed.get(name) == Some(&shipped) {
+            let key = format!("mods/{name}");
+            let of = files_fingerprint(&shipped);
+            // Looked at before any read: an edit after this is the next start's to see.
+            let seen = look(&target, &|rel| matches!(rel, "gpui-kit.d.ts" | "jsconfig.json") && !shipped.contains_key(rel));
+            if let Some(stamp) = known.remove(&key).filter(|s| s.of == of && Some(&s.files) == seen.as_ref()) {
+                stamps.insert(key, stamp);
+                continue;
+            }
+            if target.exists() && as_shipped(&target, &shipped) {
+                if let Some(files) = settled(seen, now) {
+                    stamps.insert(key, Stamp { of, files });
+                }
+                continue;
+            }
         }
         if target.exists() {
             if !as_shipped(&target, installed.get(name).unwrap_or(&shipped)) {
@@ -123,14 +233,28 @@ fn sync_defaults(mods: &Path, installed_path: &Path, shipped_mods: &[(&str, &[u8
                 std::fs::remove_dir_all(&target)?;
             }
         }
-        for (path, bytes) in shipped_mods.iter().filter(|(p, _)| p.starts_with(&format!("{name}/"))) {
-            let file = mods.join(path);
-            std::fs::create_dir_all(file.parent().unwrap())?;
-            std::fs::write(&file, bytes)?;
-        }
+        writes.extend(shipped_mods.iter().filter(|(p, _)| p.starts_with(&format!("{name}/"))));
         installed.insert(name.to_owned(), shipped);
     }
+    write_files(mods, &writes)?;
     write_if_changed(installed_path, serde_json::to_string_pretty(&installed).unwrap() + "\n")
+}
+
+/// Writes these files under `root`, a few at once: on Windows creating a
+/// file is slow (the virus scan), and a first start writes hundreds.
+fn write_files(root: &Path, files: &[(&str, &[u8])]) -> std::io::Result<()> {
+    let per_thread = files.len().div_ceil(4).max(1);
+    std::thread::scope(|s| {
+        let parts: Vec<_> = files.chunks(per_thread).map(|part| s.spawn(move || {
+            for (path, bytes) in part {
+                let file = root.join(path);
+                std::fs::create_dir_all(file.parent().unwrap())?;
+                std::fs::write(&file, bytes)?;
+            }
+            Ok(())
+        })).collect();
+        parts.into_iter().map(|p| p.join().unwrap_or_else(|_| Err(std::io::Error::other("a write stopped")))).collect()
+    })
 }
 
 pub fn sync_layouts(home: &Path, layouts: &[(&str, &str)]) -> std::io::Result<()> {
@@ -1245,8 +1369,16 @@ mod tests {
         std::fs::remove_dir_all(root).unwrap();
     }
 
+    /// Sync notes are one list for the whole process: the tests that make
+    /// them, or check there are none, take turns.
+    fn notes_turn() -> std::sync::MutexGuard<'static, ()> {
+        static TURN: std::sync::Mutex<()> = std::sync::Mutex::new(());
+        TURN.lock().unwrap_or_else(|e| e.into_inner())
+    }
+
     #[test]
     fn layout_formatting_is_not_an_edit_and_rescued_clicks_still_apply() {
+        let _turn = notes_turn();
         use crate::layout::{Node, Size};
         use crate::layout_sync::State;
         let root = std::env::temp_dir().join(format!("herdr-layout-click-rescue-{}", std::process::id()));
@@ -1279,6 +1411,7 @@ mod tests {
 
     #[test]
     fn a_0_1_x_layout_is_kept_aside_quietly_not_rescued() {
+        let _turn = notes_turn();
         let root = std::env::temp_dir().join(format!("herdr-layout-0-1-x-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);
         let dir = root.join("layouts");
@@ -1297,6 +1430,7 @@ mod tests {
 
     #[test]
     fn layouts_restore_preserve_edits_clicks_and_drop_only_untouched() {
+        let _turn = notes_turn();
         let root = std::env::temp_dir().join(format!("herdr-layout-sync-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);
         let dir = root.join("layouts");
@@ -1323,22 +1457,23 @@ mod tests {
 
     #[test]
     fn default_mods_restore_shipped_and_move_edits_to_clones() {
+        let _turn = notes_turn();
         let root = std::env::temp_dir().join(format!("zaki-sync-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);
         let (mods, record) = (root.join("mods"), root.join("installed.json"));
         let read = |p: &str| std::fs::read_to_string(mods.join(p)).unwrap_or_default();
 
         let v1: &[(&str, &[u8])] = &[("a/main.js", b"a1"), ("a/old.js", b"x"), ("b/main.js", b"b1"), ("c/main.js", b"c1")];
-        sync_defaults(&mods, &record, v1).unwrap();
+        sync_defaults(&mods, &record, v1, &mut Stamps::new()).unwrap();
         assert_eq!(read("a/main.js"), "a1");
         let before = std::fs::metadata(mods.join("a/main.js")).unwrap().modified().unwrap();
-        sync_defaults(&mods, &record, v1).unwrap();
+        sync_defaults(&mods, &record, v1, &mut Stamps::new()).unwrap();
         assert_eq!(std::fs::metadata(mods.join("a/main.js")).unwrap().modified().unwrap(), before, "untouched mods are not rewritten");
 
         std::fs::write(mods.join("b/main.js"), "mine").unwrap();
         std::fs::remove_dir_all(mods.join("c")).unwrap();
         let v2: &[(&str, &[u8])] = &[("a/main.js", b"a2"), ("b/main.js", b"b2"), ("c/main.js", b"c2")];
-        sync_defaults(&mods, &record, v2).unwrap();
+        sync_defaults(&mods, &record, v2, &mut Stamps::new()).unwrap();
         assert_eq!(read("a/main.js"), "a2", "untouched mods update");
         assert!(!mods.join("a/old.js").exists(), "files the update dropped go");
         assert_eq!(read("b/main.js"), "b2", "edited mods are restored");
@@ -1349,15 +1484,143 @@ mod tests {
         // No longer shipped: untouched ones go, edited ones stay, and so do
         // ones someone added a file to.
         let v3: &[(&str, &[u8])] = &[("c/main.js", b"c2"), ("d/main.js", b"d1")];
-        sync_defaults(&mods, &record, v3).unwrap();
+        sync_defaults(&mods, &record, v3, &mut Stamps::new()).unwrap();
         std::fs::write(mods.join("d/notes.md"), "my notes").unwrap();
         let v4: &[(&str, &[u8])] = &[("c/main.js", b"c2")];
-        sync_defaults(&mods, &record, v4).unwrap();
+        sync_defaults(&mods, &record, v4, &mut Stamps::new()).unwrap();
         assert!(!mods.join("a").exists(), "untouched dropped defaults go");
         assert_eq!(read("b/main.js"), "changed again", "edited dropped defaults stay");
         assert_eq!(read("b-edited/main.js"), "mine", "clones stay untouched");
         assert_eq!(read("d/notes.md"), "my notes", "a dropped default with an added file stays");
 
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    /// Every file under `dir` modified `ago`, as if an earlier start wrote it.
+    fn age(dir: &Path, ago: Duration) {
+        for e in std::fs::read_dir(dir).unwrap().flatten() {
+            if e.file_type().unwrap().is_dir() {
+                age(&e.path(), ago);
+            } else {
+                std::fs::File::options().write(true).open(e.path()).unwrap().set_modified(SystemTime::now() - ago).unwrap();
+            }
+        }
+    }
+
+    fn modified(path: &Path) -> SystemTime {
+        std::fs::metadata(path).unwrap().modified().unwrap()
+    }
+
+    #[test]
+    fn stamped_defaults_still_notice_edits_made_while_the_app_was_closed() {
+        let _turn = notes_turn();
+        let root = std::env::temp_dir().join(format!("zaki-stamps-edit-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let (mods, record) = (root.join("mods"), root.join("installed.json"));
+        let read = |p: &str| std::fs::read_to_string(mods.join(p)).unwrap_or_default();
+        let mut stamps = Stamps::new();
+        let v1: &[(&str, &[u8])] = &[("a/main.js", b"a1"), ("b/main.js", b"b1"), ("b/lib/x.js", b"x1"), ("c/main.js", b"c1"), ("d/main.js", b"d1")];
+        sync_defaults(&mods, &record, v1, &mut stamps).unwrap();
+        assert!(stamps.is_empty(), "files written just now are not stamped");
+        sync_defaults(&mods, &record, v1, &mut stamps).unwrap();
+        assert!(stamps.is_empty(), "nor files read just after they were written");
+
+        age(&mods, Duration::from_secs(3600));
+        sync_defaults(&mods, &record, v1, &mut stamps).unwrap();
+        assert_eq!(stamps.keys().map(String::as_str).collect::<Vec<_>>(), ["mods/a", "mods/b", "mods/c", "mods/d"]);
+        // gpui-shell's editor helpers are not edits.
+        std::fs::write(mods.join("a/jsconfig.json"), "{}").unwrap();
+        let held = stamps.clone();
+        let written = modified(&mods.join("a/main.js"));
+        sync_defaults(&mods, &record, v1, &mut stamps).unwrap();
+        assert_eq!(stamps, held, "nothing changed: the stamps hold");
+        assert_eq!(modified(&mods.join("a/main.js")), written, "and nothing is rewritten");
+
+        // While the app was closed: an edit of the same size, even one given an
+        // old modified time, a file added, a file deleted.
+        std::fs::write(mods.join("b/lib/x.js"), "x9").unwrap();
+        std::fs::File::options().write(true).open(mods.join("b/lib/x.js")).unwrap().set_modified(SystemTime::now() - Duration::from_secs(3 * 3600)).unwrap();
+        std::fs::write(mods.join("c/notes.js"), "mine").unwrap();
+        std::fs::remove_file(mods.join("d/main.js")).unwrap();
+        sync_defaults(&mods, &record, v1, &mut stamps).unwrap();
+        assert_eq!(read("b/lib/x.js"), "x1", "the edited mod is restored");
+        assert_eq!(read("b-edited/lib/x.js"), "x9", "and the edit moved to a clone");
+        assert_eq!(read("c-edited/notes.js"), "mine");
+        assert!(!mods.join("c/notes.js").exists());
+        assert_eq!(read("d/main.js"), "d1", "a deleted file comes back");
+        assert_eq!(read("a/main.js"), "a1");
+        assert_eq!(stamps.keys().map(String::as_str).collect::<Vec<_>>(), ["mods/a"], "only the untouched mod keeps its stamp");
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn a_release_with_new_defaults_replaces_stamped_mods_and_keeps_edits() {
+        let _turn = notes_turn();
+        let root = std::env::temp_dir().join(format!("zaki-stamps-release-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let (mods, record) = (root.join("mods"), root.join("installed.json"));
+        let read = |p: &str| std::fs::read_to_string(mods.join(p)).unwrap_or_default();
+        let mut stamps = Stamps::new();
+        let v1: &[(&str, &[u8])] = &[("a/main.js", b"a1"), ("a/old.js", b"o"), ("b/main.js", b"b1"), ("c/main.js", b"c1")];
+        sync_defaults(&mods, &record, v1, &mut stamps).unwrap();
+        age(&mods, Duration::from_secs(3600));
+        sync_defaults(&mods, &record, v1, &mut stamps).unwrap();
+        assert_eq!(stamps.len(), 3);
+        std::fs::write(mods.join("c/main.js"), "cX").unwrap();
+        age(&mods.join("c"), Duration::from_secs(1800));
+        let b_stamp = stamps["mods/b"].clone();
+        let b_written = modified(&mods.join("b/main.js"));
+
+        let v2: &[(&str, &[u8])] = &[("a/main.js", b"a2"), ("b/main.js", b"b1"), ("c/main.js", b"c2"), ("e/main.js", b"e1")];
+        sync_defaults(&mods, &record, v2, &mut stamps).unwrap();
+        assert_eq!(read("a/main.js"), "a2", "an untouched mod updates");
+        assert!(!mods.join("a/old.js").exists(), "files the release dropped go");
+        assert_eq!(read("c/main.js"), "c2", "an edited mod updates");
+        assert_eq!(read("c-edited/main.js"), "cX", "and its edit moved to a clone");
+        assert_eq!(read("e/main.js"), "e1", "a new default is installed");
+        assert_eq!(read("b/main.js"), "b1");
+        assert_eq!(modified(&mods.join("b/main.js")), b_written, "a mod the release didn't change is left alone");
+        assert_eq!(stamps.get("mods/b"), Some(&b_stamp), "on its stamp");
+        assert!(stamps.keys().all(|k| k != "mods/a" && k != "mods/c" && k != "mods/e"), "mods written now are checked by reading next time");
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn the_frame_is_left_alone_only_while_it_is_as_shipped() {
+        let root = std::env::temp_dir().join(format!("zaki-stamps-frame-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let frame = root.join("frame");
+        let read = |p: &str| std::fs::read_to_string(frame.join(p)).ok();
+        let mut stamps = Stamps::new();
+        let v1: &[(&str, &[u8])] = &[("welcome/main.js", b"w1"), ("welcome/lib/a.js", b"a1")];
+        sync_frame(&frame, v1, &mut stamps).unwrap();
+        assert_eq!(read("welcome/main.js").as_deref(), Some("w1"));
+        assert!(stamps.is_empty());
+        age(&frame, Duration::from_secs(3600));
+        let written = modified(&frame.join("welcome/main.js"));
+        sync_frame(&frame, v1, &mut stamps).unwrap();
+        assert!(stamps.contains_key("frame"));
+        std::fs::write(frame.join("welcome/jsconfig.json"), "{}").unwrap();
+        sync_frame(&frame, v1, &mut stamps).unwrap();
+        assert_eq!(modified(&frame.join("welcome/main.js")), written, "as shipped: not rewritten");
+
+        std::fs::write(frame.join("welcome/main.js"), "wX").unwrap();
+        std::fs::File::options().write(true).open(frame.join("welcome/main.js")).unwrap().set_modified(SystemTime::now() - Duration::from_secs(3 * 3600)).unwrap();
+        sync_frame(&frame, v1, &mut stamps).unwrap();
+        assert_eq!(read("welcome/main.js").as_deref(), Some("w1"), "an edit doesn't stick");
+
+        age(&frame, Duration::from_secs(3600));
+        sync_frame(&frame, v1, &mut stamps).unwrap();
+        std::fs::write(frame.join("welcome/extra.js"), "x").unwrap();
+        sync_frame(&frame, v1, &mut stamps).unwrap();
+        assert_eq!(read("welcome/extra.js"), None, "nor an added file");
+
+        age(&frame, Duration::from_secs(3600));
+        sync_frame(&frame, v1, &mut stamps).unwrap();
+        let v2: &[(&str, &[u8])] = &[("welcome/main.js", b"w2")];
+        sync_frame(&frame, v2, &mut stamps).unwrap();
+        assert_eq!(read("welcome/main.js").as_deref(), Some("w2"), "a release's frame replaces the old one");
+        assert_eq!(read("welcome/lib/a.js"), None);
         std::fs::remove_dir_all(&root).unwrap();
     }
 }

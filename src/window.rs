@@ -595,11 +595,7 @@ impl AppWindow {
             crate::place::save(window, cx);
             true
         });
-        {
-            let _span = crate::bench::span("start:install_themes_icons");
-            settings::install_themes();
-            crate::programs::install_icons();
-        }
+        // The shipped themes and icons are in the home already (main.rs).
         w.reload_config(window, cx);
         {
             let _span = crate::bench::span("start:install_layouts");

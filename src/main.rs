@@ -117,6 +117,10 @@ fn main() {
         return;
     }
 
+    // The home's shipped files are written beside finding and connecting the
+    // core and the platform's start, and waited for before anything reads them.
+    let installs = start_installs(mods::app_dir());
+
     telemetry::clock();
     // A first start sizes the app to the screen and the system's text size.
     let fresh = !settings::path().exists();
@@ -150,18 +154,20 @@ fn main() {
     update::start();
     telemetry::start(settings::telemetry_setting(&person));
     bench::start();
-    if let Err(e) = {
-        let _span = bench::span("start:write_workspace");
-        mods::write_workspace()
-    } {
-        eprintln!("zaki: cannot write {}: {e}", mods::app_dir().display());
-    }
 
     bench::mark("start:platform");
     gpui_platform::application()
         .with_assets(gpui_shell::AppAssets::new(mods::app_dir()))
         .run(move |cx| {
             bench::mark("start:app_running");
+            {
+                let _span = bench::span("start:installs_wait");
+                for install in installs {
+                    if let Err(e) = install() {
+                        eprintln!("zaki: cannot write {}: {e}", mods::app_dir().display());
+                    }
+                }
+            }
             {
                 let _span = bench::span("start:fonts");
                 let fonts = settings::BUNDLED_FONTS.iter().map(|f| std::borrow::Cow::Borrowed(*f)).collect();
@@ -212,6 +218,33 @@ fn main() {
                 Err(need) => setup::open(need, requests, cx),
             }
         });
+}
+
+/// Starts writing what ships into the home `home`, each part on its own
+/// thread (on Windows creating a file is slow, and these are hundreds). Each
+/// returned call waits for its part, or does it now if its thread didn't start.
+fn start_installs(home: std::path::PathBuf) -> Vec<Box<dyn FnOnce() -> std::io::Result<()>>> {
+    type Part = fn(&std::path::Path) -> std::io::Result<()>;
+    let parts: [(&str, &'static str, Part); 2] = [
+        ("workspace", "start:write_workspace", mods::write_workspace),
+        ("themes-icons", "start:install_themes_icons", |home| {
+            settings::install_themes(home);
+            programs::install_icons(home);
+            Ok(())
+        }),
+    ];
+    parts.into_iter().map(|(name, span, part)| {
+        let at = home.clone();
+        let thread = std::thread::Builder::new().name(name.into()).spawn(move || {
+            let _span = bench::span(span);
+            part(&at)
+        });
+        let home = home.clone();
+        Box::new(move || match thread {
+            Ok(thread) => thread.join().unwrap_or_else(|_| Err(std::io::Error::other(format!("{name} stopped")))),
+            Err(_) => part(&home),
+        }) as Box<dyn FnOnce() -> std::io::Result<()>>
+    }).collect()
 }
 
 /// The main window, on a connected core.

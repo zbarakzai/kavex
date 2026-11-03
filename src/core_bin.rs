@@ -42,7 +42,8 @@ pub fn use_core(bin: PathBuf) {
         let mut dirs: Vec<PathBuf> = vec![dir.to_path_buf()];
         dirs.extend(std::env::split_paths(&path).filter(|d| d != dir));
         if let Ok(joined) = std::env::join_paths(dirs) {
-            // SAFETY: set once at start, before other threads read the environment.
+            // SAFETY: set once at start, before other threads read the environment
+            // (the start's install threads, main.rs, read none).
             unsafe { std::env::set_var("PATH", joined) };
         }
     }

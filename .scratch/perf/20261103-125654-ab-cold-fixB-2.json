@@ -1,0 +1,663 @@
+{
+ "meta": {
+  "label": "ab-cold-fixB-2",
+  "time": "2026-11-03T12:54:09+00:00",
+  "commit": "652cb7ac234237d0d5d498e38183a05515616c0f",
+  "dirty": true,
+  "binary": "C:\\Users\\ZakiBarakzai\\AppData\\Local\\Temp\\claude\\C--Users-ZakiBarakzai-Desktop-Experements-zaki\\2cafb48c-7198-40ee-a65b-0e8187ee78d0\\scratchpad\\bins\\fixB.exe",
+  "binary_sha256": "d9098b50ca126f4e808090081c68d148d110b69a42107bb1071a427690adbeb1",
+  "binary_mb": 64.4,
+  "power": {
+   "on_ac": true,
+   "battery_percent": 100,
+   "battery_saver": false
+  },
+  "power_plan": "Power Scheme GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (Balanced)",
+  "logical_cpus": 24,
+  "refresh_hz_primary": 60,
+  "adapters": [
+   {
+    "Name": "AMD Radeon(TM) 890M Graphics",
+    "DriverVersion": "32.0.21030.2001",
+    "CurrentRefreshRate": 60,
+    "CurrentHorizontalResolution": 2560,
+    "CurrentVerticalResolution": 1600
+   },
+   {
+    "Name": "NVIDIA GeForce RTX 5090 Laptop GPU",
+    "DriverVersion": "32.0.16.1074",
+    "CurrentRefreshRate": 59,
+    "CurrentHorizontalResolution": 3840,
+    "CurrentVerticalResolution": 2160
+   }
+  ],
+  "core_version": "hc 0.1.17",
+  "herdr_background_load": {
+   "herdr_exe_percent_of_a_core": 82.8,
+   "herdr_exe_processes": 9,
+   "machine_busy_percent_of_a_core": 1043.4
+  },
+  "herdr_background_load_after": {
+   "herdr_exe_percent_of_a_core": 75.3,
+   "herdr_exe_processes": 9,
+   "machine_busy_percent_of_a_core": 630.9
+  },
+  "minutes": 2.7
+ },
+ "metrics": {
+  "cold.warm.control_ready_ms": {
+   "n": 12,
+   "unit": "ms",
+   "median": 1181.382,
+   "p95": 1359.5,
+   "p99": 3885.372,
+   "min": 1044.49,
+   "max": 3885.372,
+   "iqr": 121.838,
+   "mean": 1416.974
+  },
+  "cold.warm.first_ink_ms": {
+   "n": 12,
+   "unit": "ms",
+   "median": 995.711,
+   "p95": 1162.547,
+   "p99": 3678.638,
+   "min": 899.104,
+   "max": 3678.638,
+   "iqr": 118.784,
+   "mean": 1235.788
+  },
+  "cold.warm.first_ink_frame_ms": {
+   "n": 12,
+   "unit": "ms",
+   "median": 1006.209,
+   "p95": 1178.435,
+   "p99": 3689.264,
+   "min": 909.876,
+   "max": 3689.264,
+   "iqr": 118.339,
+   "mean": 1246.458
+  },
+  "cold.warm.first_paint_ms": {
+   "n": 12,
+   "unit": "ms",
+   "median": 941.451,
+   "p95": 1112.112,
+   "p99": 3594.748,
+   "min": 842.906,
+   "max": 3594.748,
+   "iqr": 96.515,
+   "mean": 1173.329
+  },
+  "cold.warm.first_render_ms": {
+   "n": 12,
+   "unit": "ms",
+   "median": 910.471,
+   "p95": 1071.986,
+   "p99": 3560.331,
+   "min": 813.18,
+   "max": 3560.331,
+   "iqr": 102.485,
+   "mean": 1140.355
+  },
+  "cold.warm.main_ms": {
+   "n": 12,
+   "unit": "ms",
+   "median": 52.834,
+   "p95": 57.391,
+   "p99": 58.902,
+   "min": 45.459,
+   "max": 58.902,
+   "iqr": 3.772,
+   "mean": 52.84
+  },
+  "cold.warm.start:app_running_ms": {
+   "n": 12,
+   "unit": "ms",
+   "median": 582.802,
+   "p95": 645.959,
+   "p99": 722.332,
+   "min": 532.861,
+   "max": 722.332,
+   "iqr": 45.104,
+   "mean": 594.938
+  },
+  "cold.warm.start:core_connect_ms": {
+   "n": 12,
+   "unit": "ms",
+   "median": 77.405,
+   "p95": 86.266,
+   "p99": 113.097,
+   "min": 66.68,
+   "max": 113.097,
+   "iqr": 9.211,
+   "mean": 79.497
+  },
+  "cold.warm.start:core_find_ms": {
+   "n": 12,
+   "unit": "ms",
+   "median": 87.929,
+   "p95": 113.52,
+   "p99": 206.054,
+   "min": 72.857,
+   "max": 206.054,
+   "iqr": 17.084,
+   "mean": 97.164
+  },
+  "cold.warm.start:fonts_ms": {
+   "n": 12,
+   "unit": "ms",
+   "median": 18.37,
+   "p95": 24.223,
+   "p99": 24.815,
+   "min": 15.394,
+   "max": 24.815,
+   "iqr": 7.332,
+   "mean": 19.678
+  },
+  "cold.warm.start:install_layouts_ms": {
+   "n": 12,
+   "unit": "ms",
+   "median": 9.521,
+   "p95": 12.692,
+   "p99": 13.481,
+   "min": 7.697,
+   "max": 13.481,
+   "iqr": 2.546,
+   "mean": 10.118
+  },
+  "cold.warm.start:install_themes_icons_ms": {
+   "n": 12,
+   "unit": "ms",
+   "median": 27.413,
+   "p95": 38.264,
+   "p99": 751.28,
+   "min": 22.052,
+   "max": 751.28,
+   "iqr": 10.175,
+   "mean": 88.363
+  },
+  "cold.warm.start:installs_wait_ms": {
+   "n": 12,
+   "unit": "ms",
+   "median": 0.036,
+   "p95": 0.047,
+   "p99": 2516.665,
+   "min": 0.029,
+   "max": 2516.665,
+   "iqr": 0.006,
+   "mean": 209.755
+  },
+  "cold.warm.start:js_runtime_ms": {
+   "n": 12,
+   "unit": "ms",
+   "median": 23.041,
+   "p95": 27.015,
+   "p99": 29.864,
+   "min": 17.232,
+   "max": 29.864,
+   "iqr": 4.786,
+   "mean": 22.627
+  },
+  "cold.warm.start:mods_init_ms": {
+   "n": 12,
+   "unit": "ms",
+   "median": 0.486,
+   "p95": 0.578,
+   "p99": 0.578,
+   "min": 0.453,
+   "max": 0.578,
+   "iqr": 0.077,
+   "mean": 0.506
+  },
+  "cold.warm.start:open_window_ms": {
+   "n": 12,
+   "unit": "ms",
+   "median": 323.567,
+   "p95": 389.761,
+   "p99": 410.406,
+   "min": 290.883,
+   "max": 410.406,
+   "iqr": 41.094,
+   "mean": 342.177
+  },
+  "cold.warm.start:platform_ms": {
+   "n": 12,
+   "unit": "ms",
+   "median": 215.971,
+   "p95": 270.111,
+   "p99": 342.498,
+   "min": 187.805,
+   "max": 342.498,
+   "iqr": 29.51,
+   "mean": 231.803
+  },
+  "cold.warm.start:write_workspace_ms": {
+   "n": 12,
+   "unit": "ms",
+   "median": 39.859,
+   "p95": 60.599,
+   "p99": 3077.291,
+   "min": 32.933,
+   "max": 3077.291,
+   "iqr": 9.352,
+   "mean": 293.973
+  },
+  "cold.warm.ui:mod_load_ms": {
+   "n": 12,
+   "unit": "ms",
+   "median": 106.367,
+   "p95": 124.179,
+   "p99": 137.665,
+   "min": 88.81,
+   "max": 137.665,
+   "iqr": 11.537,
+   "mean": 106.536
+  },
+  "cold.core_down.control_ready_ms": {
+   "n": 12,
+   "unit": "ms",
+   "median": 2451.192,
+   "p95": 2686.482,
+   "p99": 3879.137,
+   "min": 2242.092,
+   "max": 3879.137,
+   "iqr": 187.016,
+   "mean": 2555.564
+  },
+  "cold.core_down.first_ink_ms": {
+   "n": 12,
+   "unit": "ms",
+   "median": 2302.339,
+   "p95": 2533.252,
+   "p99": 3666.034,
+   "min": 2087.966,
+   "max": 3666.034,
+   "iqr": 172.038,
+   "mean": 2403.841
+  },
+  "cold.core_down.first_ink_frame_ms": {
+   "n": 12,
+   "unit": "ms",
+   "median": 2311.682,
+   "p95": 2545.419,
+   "p99": 3676.83,
+   "min": 2099.048,
+   "max": 3676.83,
+   "iqr": 171.851,
+   "mean": 2414.46
+  },
+  "cold.core_down.first_paint_ms": {
+   "n": 12,
+   "unit": "ms",
+   "median": 1092.846,
+   "p95": 1267.333,
+   "p99": 3592.319,
+   "min": 994.869,
+   "max": 3592.319,
+   "iqr": 140.841,
+   "mean": 1310.44
+  },
+  "cold.core_down.first_render_ms": {
+   "n": 12,
+   "unit": "ms",
+   "median": 1060.417,
+   "p95": 1235.759,
+   "p99": 3563.834,
+   "min": 966.718,
+   "max": 3563.834,
+   "iqr": 132.538,
+   "mean": 1278.607
+  },
+  "cold.core_down.main_ms": {
+   "n": 12,
+   "unit": "ms",
+   "median": 48.296,
+   "p95": 52.371,
+   "p99": 62.537,
+   "min": 44.008,
+   "max": 62.537,
+   "iqr": 2.937,
+   "mean": 49.34
+  },
+  "cold.core_down.start:app_running_ms": {
+   "n": 12,
+   "unit": "ms",
+   "median": 738.214,
+   "p95": 859.483,
+   "p99": 894.247,
+   "min": 666.041,
+   "max": 894.247,
+   "iqr": 49.459,
+   "mean": 750.086
+  },
+  "cold.core_down.start:core_connect_ms": {
+   "n": 12,
+   "unit": "ms",
+   "median": 192.741,
+   "p95": 233.505,
+   "p99": 343.513,
+   "min": 179.555,
+   "max": 343.513,
+   "iqr": 19.2,
+   "mean": 210.311
+  },
+  "cold.core_down.start:core_find_ms": {
+   "n": 12,
+   "unit": "ms",
+   "median": 78.31,
+   "p95": 90.914,
+   "p99": 157.044,
+   "min": 72.06,
+   "max": 157.044,
+   "iqr": 4.026,
+   "mean": 84.905
+  },
+  "cold.core_down.start:fonts_ms": {
+   "n": 12,
+   "unit": "ms",
+   "median": 18.241,
+   "p95": 21.156,
+   "p99": 25.25,
+   "min": 15.234,
+   "max": 25.25,
+   "iqr": 2.406,
+   "mean": 18.654
+  },
+  "cold.core_down.start:install_layouts_ms": {
+   "n": 12,
+   "unit": "ms",
+   "median": 10.297,
+   "p95": 12.269,
+   "p99": 12.706,
+   "min": 8.781,
+   "max": 12.706,
+   "iqr": 1.027,
+   "mean": 10.572
+  },
+  "cold.core_down.start:install_themes_icons_ms": {
+   "n": 12,
+   "unit": "ms",
+   "median": 25.229,
+   "p95": 35.081,
+   "p99": 986.578,
+   "min": 20.323,
+   "max": 986.578,
+   "iqr": 6.504,
+   "mean": 105.817
+  },
+  "cold.core_down.start:installs_wait_ms": {
+   "n": 12,
+   "unit": "ms",
+   "median": 0.036,
+   "p95": 0.046,
+   "p99": 2433.613,
+   "min": 0.03,
+   "max": 2433.613,
+   "iqr": 0.004,
+   "mean": 202.834
+  },
+  "cold.core_down.start:js_runtime_ms": {
+   "n": 12,
+   "unit": "ms",
+   "median": 21.06,
+   "p95": 24.951,
+   "p99": 27.226,
+   "min": 17.265,
+   "max": 27.226,
+   "iqr": 3.691,
+   "mean": 21.702
+  },
+  "cold.core_down.start:mods_init_ms": {
+   "n": 12,
+   "unit": "ms",
+   "median": 0.463,
+   "p95": 0.619,
+   "p99": 0.683,
+   "min": 0.412,
+   "max": 0.683,
+   "iqr": 0.062,
+   "mean": 0.493
+  },
+  "cold.core_down.start:open_window_ms": {
+   "n": 12,
+   "unit": "ms",
+   "median": 323.18,
+   "p95": 381.209,
+   "p99": 382.703,
+   "min": 306.087,
+   "max": 382.703,
+   "iqr": 37.283,
+   "mean": 333.217
+  },
+  "cold.core_down.start:platform_ms": {
+   "n": 12,
+   "unit": "ms",
+   "median": 322.761,
+   "p95": 412.611,
+   "p99": 475.069,
+   "min": 298.402,
+   "max": 475.069,
+   "iqr": 40.854,
+   "mean": 347.41
+  },
+  "cold.core_down.start:write_workspace_ms": {
+   "n": 12,
+   "unit": "ms",
+   "median": 37.195,
+   "p95": 70.81,
+   "p99": 3124.498,
+   "min": 32.909,
+   "max": 3124.498,
+   "iqr": 4.179,
+   "mean": 296.282
+  },
+  "cold.core_down.ui:mod_load_ms": {
+   "n": 12,
+   "unit": "ms",
+   "median": 99.972,
+   "p95": 119.103,
+   "p99": 127.068,
+   "min": 88.7,
+   "max": 127.068,
+   "iqr": 10.739,
+   "mean": 102.808
+  },
+  "cold.fresh.control_ready_ms": {
+   "n": 13,
+   "unit": "ms",
+   "median": 1922.065,
+   "p95": 2203.302,
+   "p99": 2381.122,
+   "min": 1462.986,
+   "max": 2381.122,
+   "iqr": 148.308,
+   "mean": 1957.115
+  },
+  "cold.fresh.first_ink_ms": {
+   "n": 0,
+   "unit": "ms"
+  },
+  "cold.fresh.first_ink_frame_ms": {
+   "n": 0,
+   "unit": "ms"
+  },
+  "cold.fresh.first_paint_ms": {
+   "n": 13,
+   "unit": "ms",
+   "median": 1260.116,
+   "p95": 1497.064,
+   "p99": 1544.916,
+   "min": 1150.609,
+   "max": 1544.916,
+   "iqr": 110.716,
+   "mean": 1294.47
+  },
+  "cold.fresh.first_render_ms": {
+   "n": 13,
+   "unit": "ms",
+   "median": 1203.315,
+   "p95": 1427.525,
+   "p99": 1490.733,
+   "min": 1100.634,
+   "max": 1490.733,
+   "iqr": 61.978,
+   "mean": 1234.01
+  },
+  "cold.fresh.main_ms": {
+   "n": 13,
+   "unit": "ms",
+   "median": 46.874,
+   "p95": 51.924,
+   "p99": 54.786,
+   "min": 42.916,
+   "max": 54.786,
+   "iqr": 3.516,
+   "mean": 47.077
+  },
+  "cold.fresh.start:app_running_ms": {
+   "n": 13,
+   "unit": "ms",
+   "median": 696.51,
+   "p95": 754.809,
+   "p99": 1002.283,
+   "min": 641.301,
+   "max": 1002.283,
+   "iqr": 88.705,
+   "mean": 715.458
+  },
+  "cold.fresh.start:core_connect_ms": {
+   "n": 13,
+   "unit": "ms",
+   "median": 106.035,
+   "p95": 140.184,
+   "p99": 143.262,
+   "min": 78.481,
+   "max": 143.262,
+   "iqr": 17.714,
+   "mean": 107.601
+  },
+  "cold.fresh.start:core_find_ms": {
+   "n": 13,
+   "unit": "ms",
+   "median": 102.894,
+   "p95": 209.82,
+   "p99": 477.571,
+   "min": 86.065,
+   "max": 477.571,
+   "iqr": 46.483,
+   "mean": 146.861
+  },
+  "cold.fresh.start:fonts_ms": {
+   "n": 13,
+   "unit": "ms",
+   "median": 71.222,
+   "p95": 78.843,
+   "p99": 99.739,
+   "min": 65.818,
+   "max": 99.739,
+   "iqr": 10.609,
+   "mean": 73.617
+  },
+  "cold.fresh.start:install_layouts_ms": {
+   "n": 13,
+   "unit": "ms",
+   "median": 28.129,
+   "p95": 35.531,
+   "p99": 71.718,
+   "min": 6.698,
+   "max": 71.718,
+   "iqr": 7.614,
+   "mean": 30.136
+  },
+  "cold.fresh.start:install_themes_icons_ms": {
+   "n": 13,
+   "unit": "ms",
+   "median": 668.527,
+   "p95": 731.138,
+   "p99": 747.907,
+   "min": 585.545,
+   "max": 747.907,
+   "iqr": 52.828,
+   "mean": 663.095
+  },
+  "cold.fresh.start:installs_wait_ms": {
+   "n": 13,
+   "unit": "ms",
+   "median": 9.434,
+   "p95": 55.278,
+   "p99": 57.683,
+   "min": 0.022,
+   "max": 57.683,
+   "iqr": 25.827,
+   "mean": 16.535
+  },
+  "cold.fresh.start:js_runtime_ms": {
+   "n": 13,
+   "unit": "ms",
+   "median": 18.798,
+   "p95": 24.158,
+   "p99": 24.254,
+   "min": 17.437,
+   "max": 24.254,
+   "iqr": 3.432,
+   "mean": 20.09
+  },
+  "cold.fresh.start:mods_init_ms": {
+   "n": 13,
+   "unit": "ms",
+   "median": 0.494,
+   "p95": 0.589,
+   "p99": 0.695,
+   "min": 0.435,
+   "max": 0.695,
+   "iqr": 0.103,
+   "mean": 0.517
+  },
+  "cold.fresh.start:open_window_ms": {
+   "n": 13,
+   "unit": "ms",
+   "median": 473.432,
+   "p95": 528.826,
+   "p99": 596.966,
+   "min": 433.518,
+   "max": 596.966,
+   "iqr": 44.189,
+   "mean": 485.29
+  },
+  "cold.fresh.start:platform_ms": {
+   "n": 13,
+   "unit": "ms",
+   "median": 268.535,
+   "p95": 381.166,
+   "p99": 611.135,
+   "min": 233.62,
+   "max": 611.135,
+   "iqr": 40.613,
+   "mean": 307.702
+  },
+  "cold.fresh.start:write_workspace_ms": {
+   "n": 13,
+   "unit": "ms",
+   "median": 374.06,
+   "p95": 405.275,
+   "p99": 421.871,
+   "min": 321.571,
+   "max": 421.871,
+   "iqr": 33.491,
+   "mean": 371.083
+  },
+  "cold.fresh.ui:mod_load_ms": {
+   "n": 13,
+   "unit": "ms",
+   "median": 254.427,
+   "p95": 296.306,
+   "p99": 325.106,
+   "min": 236.508,
+   "max": 325.106,
+   "iqr": 22.649,
+   "mean": 261.199
+  }
+ },
+ "notes": []
+}
