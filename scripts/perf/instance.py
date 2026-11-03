@@ -56,6 +56,8 @@ class Instance:
             HERDR_APP_ID="zaki-perf",
             HERDR_APP_NO_SOUND="1",
             HERDR_APP_BENCH_EVENTS=self.events_path,
+            # Pointer moves are posted with the real cursor elsewhere: see src/bench/wndproc.rs.
+            HERDR_APP_BENCH_POSTED_POINTER="1",
             HERDR_APP_LOG=self.log,
             HERDR_CORE_DIRS=os.path.dirname(self.hc_path),
             XDG_STATE_HOME=os.path.join(self.root, "state"),

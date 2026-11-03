@@ -35,6 +35,14 @@ is told it's active by a posted `WM_ACTIVATE`, so it doesn't take the foreground
 on purpose. Windows may still show it on top, and it may take focus briefly when
 it opens, once per cold start.
 
+The real cursor stays wherever the person left it, so Windows would answer each
+posted move with an immediate `WM_MOUSELEAVE`, and the window would redraw for
+every enter and leave: about 60 frames a second however the pointer moves. A real
+pointer is over the window when it moves. So test instances get
+`HERDR_APP_BENCH_POSTED_POINTER`, and the app's bench wrapper then drops
+`WM_MOUSELEAVE`: hover draws a frame only when what's under the pointer changes,
+as it does for a person.
+
 ## Instrumentation
 
 All of it is off unless `HERDR_APP_BENCH_EVENTS=<file>` is set; each call is then
