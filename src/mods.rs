@@ -201,8 +201,6 @@ fn sync_defaults(mods: &Path, installed_path: &Path, shipped_mods: &[(&str, &[u8
         }
         installed.remove(&name);
     }
-    // The shipped files to write, once every mod's old folder is out of the way.
-    let mut writes: Vec<(&str, &[u8])> = Vec::new();
     for name in names {
         let target = mods.join(name);
         let shipped: Files = shipped_mods.iter()
@@ -233,26 +231,32 @@ fn sync_defaults(mods: &Path, installed_path: &Path, shipped_mods: &[(&str, &[u8
                 std::fs::remove_dir_all(&target)?;
             }
         }
-        writes.extend(shipped_mods.iter().filter(|(p, _)| p.starts_with(&format!("{name}/"))));
+        // One mod at a time: a failed write leaves every later mod as it was.
+        let own: Vec<(&str, &[u8])> = shipped_mods.iter().filter(|(p, _)| p.starts_with(&format!("{name}/"))).copied().collect();
+        write_files(mods, &own)?;
         installed.insert(name.to_owned(), shipped);
     }
-    write_files(mods, &writes)?;
     write_if_changed(installed_path, serde_json::to_string_pretty(&installed).unwrap() + "\n")
 }
 
-/// Writes these files under `root`, a few at once: on Windows creating a
-/// file is slow (the virus scan), and a first start writes hundreds.
+/// Writes these files under `root`, a few at once when they are many: on
+/// Windows creating a file is slow (the virus scan), and a first start
+/// writes hundreds. Returns once every one is written or has failed.
 fn write_files(root: &Path, files: &[(&str, &[u8])]) -> std::io::Result<()> {
-    let per_thread = files.len().div_ceil(4).max(1);
+    let write = |part: &[(&str, &[u8])]| -> std::io::Result<()> {
+        for (path, bytes) in part {
+            let file = root.join(path);
+            std::fs::create_dir_all(file.parent().unwrap())?;
+            std::fs::write(&file, bytes)?;
+        }
+        Ok(())
+    };
+    if files.len() < 16 {
+        return write(files);
+    }
+    let per_thread = files.len().div_ceil(4);
     std::thread::scope(|s| {
-        let parts: Vec<_> = files.chunks(per_thread).map(|part| s.spawn(move || {
-            for (path, bytes) in part {
-                let file = root.join(path);
-                std::fs::create_dir_all(file.parent().unwrap())?;
-                std::fs::write(&file, bytes)?;
-            }
-            Ok(())
-        })).collect();
+        let parts: Vec<_> = files.chunks(per_thread).map(|part| s.spawn(move || write(part))).collect();
         parts.into_iter().map(|p| p.join().unwrap_or_else(|_| Err(std::io::Error::other("a write stopped")))).collect()
     })
 }
@@ -1582,6 +1586,50 @@ mod tests {
         assert_eq!(modified(&mods.join("b/main.js")), b_written, "a mod the release didn't change is left alone");
         assert_eq!(stamps.get("mods/b"), Some(&b_stamp), "on its stamp");
         assert!(stamps.keys().all(|k| k != "mods/a" && k != "mods/c" && k != "mods/e"), "mods written now are checked by reading next time");
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn a_failed_write_leaves_the_other_mods_as_they_were() {
+        let _turn = notes_turn();
+        let root = std::env::temp_dir().join(format!("zaki-sync-fail-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let (mods, record) = (root.join("mods"), root.join("installed.json"));
+        let read = |p: &str| std::fs::read_to_string(mods.join(p)).unwrap_or_default();
+        let v1: &[(&str, &[u8])] = &[("a/main.js", b"a1"), ("b/main.js", b"b1"), ("c/main.js", b"c1")];
+        sync_defaults(&mods, &record, v1, &mut Stamps::new()).unwrap();
+        let recorded = std::fs::read_to_string(&record).unwrap();
+
+        // A release whose b can't be written: no system takes a NUL in a file name.
+        let v2: &[(&str, &[u8])] = &[("a/main.js", b"a2"), ("b/main.js", b"b2"), ("b/z\0.js", b"z"), ("c/main.js", b"c2")];
+        assert!(sync_defaults(&mods, &record, v2, &mut Stamps::new()).is_err());
+        assert_eq!(read("a/main.js"), "a2", "a mod before it is updated");
+        assert_eq!(read("c/main.js"), "c1", "a mod after it is left as it was");
+        assert!(!mods.join("a-edited").exists() && !mods.join("c-edited").exists());
+        assert_eq!(std::fs::read_to_string(&record).unwrap(), recorded, "nothing is recorded");
+
+        // The next start that can write recovers as it always did: what the
+        // failed start wrote isn't on record, so it is kept as a clone.
+        let v2: &[(&str, &[u8])] = &[("a/main.js", b"a2"), ("b/main.js", b"b2"), ("c/main.js", b"c2")];
+        sync_defaults(&mods, &record, v2, &mut Stamps::new()).unwrap();
+        assert_eq!([read("a/main.js"), read("b/main.js"), read("c/main.js")], ["a2", "b2", "c2"]);
+        assert_eq!(read("a-edited/main.js"), "a2");
+        assert_eq!(read("b-edited/main.js"), "b2");
+        assert!(!mods.join("c-edited").exists());
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn many_files_are_written_at_once_and_a_failure_is_reported() {
+        let root = std::env::temp_dir().join(format!("zaki-write-files-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let names: Vec<String> = (0..40).map(|i| format!("m/d{}/f{i}.js", i % 3)).collect();
+        let files: Vec<(&str, &[u8])> = names.iter().map(|n| (n.as_str(), n.as_bytes())).collect();
+        write_files(&root, &files).unwrap();
+        assert!(names.iter().all(|n| std::fs::read_to_string(root.join(n)).unwrap() == *n));
+        let mut bad = files.clone();
+        bad.insert(25, ("m/z\0.js", b"z"));
+        assert!(write_files(&root, &bad).is_err());
         std::fs::remove_dir_all(&root).unwrap();
     }
 
