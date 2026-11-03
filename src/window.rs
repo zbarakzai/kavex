@@ -281,6 +281,33 @@ struct PendingTerminalChange {
     reply: std::sync::mpsc::Receiver<Result<(), String>>,
 }
 
+/// Where a terminal goes once the core has started it.
+enum Placement {
+    Space { space: String, name: String, folder: String, tab: String, tab_name: String, pane: String, machine: Option<String> },
+    Tab { space: String, tab: String, name: String, pane: String },
+    Split { target: String, axis: Axis, pane: String },
+}
+
+/// Who waits for a command's reply.
+enum Caller {
+    /// A key, click, menu or mod: a failure is shown under the command's name.
+    Person(String),
+    /// `zaki do`: the reply goes back over the socket.
+    Control(std::sync::mpsc::Sender<Value>),
+    Nobody,
+}
+
+/// A terminal the core is starting off the UI thread (`terminal.run` takes
+/// 50-110 ms). Commands wait in `queued` until it's placed, so they run in order.
+struct Opening {
+    placement: Placement,
+    machine: Option<String>,
+    caller: Caller,
+    reply: std::sync::mpsc::Receiver<Result<String, String>>,
+    /// Set once `finish_open` has taken the terminal (placed or killed it).
+    settled: Rc<std::cell::Cell<bool>>,
+}
+
 /// The slot of a terminal shown in a pane in place of its own (`<pane>#swap`).
 const SWAP: &str = "#swap";
 
@@ -424,6 +451,8 @@ pub struct AppWindow {
     /// Closed terminals stay excluded until kill completes and a listing drops them.
     closing_terminals: HashMap<String, bool>,
     pending_terminals: std::collections::BTreeMap<String, PendingTerminalChange>,
+    opening: Option<Opening>,
+    queued: std::collections::VecDeque<(String, Value, Caller)>,
     /// Each machine owns a document; the empty key is this core.
     documents: std::collections::BTreeMap<String, crate::mirror_sync::Slot>,
     initial_view: Option<crate::mirror::View>,
@@ -510,6 +539,8 @@ impl AppWindow {
             changing_terminals: HashSet::new(),
             closing_terminals: HashMap::new(),
             pending_terminals: Default::default(),
+            opening: None,
+            queued: Default::default(),
             documents: {
                 let mut local = crate::mirror_sync::Slot::default();
                 local.connection(true, None, None);
@@ -1737,6 +1768,13 @@ impl AppWindow {
         self.save();
         self.draining = true;
         QUITTING.store(true, std::sync::atomic::Ordering::SeqCst);
+        // A terminal still starting is placed, so the layout saved below has it.
+        if let Some(opening) = self.opening.take() {
+            let timeout = Duration::from_secs(if opening.machine.is_some() { 2 } else { 10 });
+            let result = opening.reply.recv_timeout(timeout).unwrap_or_else(|e| Err(format!("terminal start did not finish before quit: {e}")));
+            self.finish_open(opening, result, window, cx);
+        }
+        self.queued.clear();
         while let Some(address) = self.pending_terminals.keys().next().cloned() {
             let pending = self.pending_terminals.remove(&address).unwrap();
             let timeout = Duration::from_secs(if address.contains('/') { 2 } else { 10 });
@@ -2003,6 +2041,11 @@ impl AppWindow {
         if !missing.is_empty() && !self.checking_closed {
             self.check_closed(missing, window, cx);
         }
+        // The terminal being started is labeled but has no pane yet: its own reply
+        // places it. Others wait a tick.
+        if self.opening.is_some() {
+            return false;
+        }
         let mut orphans = self.live.iter()
             .filter(|(a, _)| self.model.pane_of(a).is_none() && !self.changing_terminals.contains(*a) && !self.closing_terminals.contains_key(*a))
             .filter_map(|(a, r)| {
@@ -2237,23 +2280,79 @@ impl AppWindow {
 
     /// Starts a terminal for `space`, on `on` (another machine) or here. An
     /// empty `cwd`: the machine's home. With no argv, that machine's core
-    /// picks its own shell.
-    fn spawn(&self, argv: Option<Vec<String>>, cwd: String, space: &str, ctx: &str, on: Option<&str>) -> Result<String, String> {
+    /// picks its own shell. The core's answer comes off the UI thread, so the
+    /// window keeps drawing; `placement` puts it in the model then, and the
+    /// command's caller gets its reply then (`finish_open`).
+    #[allow(clippy::too_many_arguments)]
+    fn start_open(&mut self, argv: Option<Vec<String>>, cwd: String, space: &str, ctx: &str, on: Option<&str>, placement: Placement, window: &mut Window, cx: &mut Context<Self>) -> Result<(), String> {
         let _span = crate::bench::span("ui:spawn_terminal");
+        if self.opening.is_some() {
+            return Err("a terminal is still starting".into());
+        }
         let argv = argv.unwrap_or_default();
         let cwd = Some(cwd).filter(|c| !c.is_empty());
         self.require_document(on)?;
         let labels = json!({ "zaki.space": crate::mirror::local(space, on), "zaki.tab": crate::mirror::local(ctx, on) });
-        let addr = match self.core.run(argv.clone(), cwd.clone(), labels.clone(), on) {
-            // An agent on a machine without `sh` (Windows): in its PowerShell instead.
-            Err(e) if on.is_some() && argv.first().map(String::as_str) == Some("sh") && format!("{e:#}").contains("not found") => {
-                self.core.run(Self::powershell_argv(&argv), cwd, labels, on)
+        let (tx, rx) = std::sync::mpsc::channel();
+        let (core, machine) = (self.core.clone(), on.map(str::to_owned));
+        // Like terminal changes: quit's drain must not need the foreground continuation.
+        let job = cx.background_executor().spawn(async move {
+            let on = machine.as_deref();
+            let made = match core.run(argv.clone(), cwd.clone(), labels.clone(), on) {
+                // An agent on a machine without `sh` (Windows): in its PowerShell instead.
+                Err(e) if on.is_some() && argv.first().map(String::as_str) == Some("sh") && format!("{e:#}").contains("not found") => {
+                    core.run(Self::powershell_argv(&argv), cwd, labels, on)
+                }
+                r => r,
             }
-            r => r,
+            .map_err(|e| format!("cannot start a terminal: {e:#}"));
+            let _ = tx.send(made.clone());
+            made
+        });
+        let settled = Rc::new(std::cell::Cell::new(false));
+        self.opening = Some(Opening { placement, machine: on.map(str::to_owned), caller: Caller::Nobody, reply: rx, settled: settled.clone() });
+        let core = self.core.clone();
+        cx.spawn_in(window, async move |this, cx| {
+            let made = job.await;
+            let _ = this.update_in(cx, |this, window, cx| {
+                // Quitting: drain_documents places it.
+                if this.draining { return; }
+                if let Some(opening) = this.opening.take() {
+                    let result = opening.reply.try_recv().unwrap_or_else(|e| Err(format!("terminal start reply missing: {e}")));
+                    this.finish_open(opening, result, window, cx);
+                }
+            });
+            // The window went without placing it: nothing will show the terminal.
+            if !settled.get() && let Ok(address) = made {
+                cx.background_spawn(async move { core.call("terminal.kill", json!({ "terminal": address })) }).detach();
+            }
+        }).detach();
+        Ok(())
+    }
+
+    /// The core answered: put the terminal where the command said, then answer
+    /// its caller and run the commands that waited, in order.
+    fn finish_open(&mut self, opening: Opening, result: Result<String, String>, window: &mut Window, cx: &mut Context<Self>) {
+        let _span = crate::bench::span("ui:place_terminal");
+        opening.settled.set(true);
+        let placed = result.and_then(|addr| {
+            self.born.borrow_mut().insert(addr.clone(), Instant::now());
+            // Its space, tab or pane may have gone, or its machine, while it started.
+            let placed = self.require_document(opening.machine.as_deref()).and_then(|()| place(&mut self.model, &opening.placement, &addr));
+            if placed.is_err() {
+                self.kill(std::slice::from_ref(&addr), cx);
+            }
+            placed
+        });
+        if !self.draining {
+            self.sync(window, cx);
+            self.flush_documents(false, window, cx);
         }
-        .map_err(|e| format!("cannot start a terminal: {e:#}"))?;
-        self.born.borrow_mut().insert(addr.clone(), Instant::now());
-        Ok(addr)
+        let reply = Self::reply_value(placed);
+        self.deliver(opening.caller, reply, window, cx);
+        if !self.draining {
+            self.run_queued(window, cx);
+        }
     }
 
     /// The PowerShell form of a remote agent start (`agent_argv`): the program,
@@ -2286,7 +2385,8 @@ impl AppWindow {
 
     /// A space with its first tab and terminal, shown at once.
     /// `machine`: another machine (`hc machine ls`); its space starts in that machine's home.
-    fn new_space(&mut self, name: &str, folder: Option<String>, ctx_name: Option<&str>, argv: Option<Vec<String>>, task: Option<&str>, machine: Option<String>) -> Result<Value, String> {
+    #[allow(clippy::too_many_arguments)]
+    fn new_space(&mut self, name: &str, folder: Option<String>, ctx_name: Option<&str>, argv: Option<Vec<String>>, task: Option<&str>, machine: Option<String>, window: &mut Window, cx: &mut Context<Self>) -> Result<(), String> {
         let on = machine.as_deref();
         // The focused pane's folder only means something on its own machine.
         let here = || self.model.focused_pane().and_then(|p| self.model.address_of(&p))
@@ -2294,17 +2394,14 @@ impl AppWindow {
             .and_then(|a| self.cwds.get(&a).cloned());
         let folder = folder.or_else(here).unwrap_or_else(|| if on.is_some() { String::new() } else { home() });
         let (space, ctx, pane) = (self.model.fresh_id_on("sp", on), self.model.fresh_id_on("tb", on), self.model.fresh_id_on("p", on));
-        let addr = self.spawn(Self::agent_argv(argv.clone(), task, on).or(argv), folder.clone(), &space, &ctx, on)?;
-        let ctx_name = ctx_name.map(str::trim).unwrap_or_default();
-        self.model.add_space(&space, name.trim(), &folder, Tab::new(&ctx, ctx_name, &pane, &addr));
-        if let Some(p) = self.model.space_mut(&space) {
-            p.machine = machine;
-        }
-        Ok(json!({ "space": space, "tab": ctx, "terminal": addr }))
+        let tab_name = ctx_name.map(str::trim).unwrap_or_default().to_owned();
+        let argv = Self::agent_argv(argv.clone(), task, on).or(argv);
+        let placement = Placement::Space { space: space.clone(), name: name.trim().to_owned(), folder: folder.clone(), tab: ctx.clone(), tab_name, pane, machine: machine.clone() };
+        self.start_open(argv, folder, &space, &ctx, machine.as_deref(), placement, window, cx)
     }
 
     /// A tab in a space (default: the shown one), shown at once.
-    fn new_tab(&mut self, space: Option<String>, name: &str, folder: Option<String>, argv: Option<Vec<String>>, task: Option<&str>) -> Result<Value, String> {
+    fn new_tab(&mut self, space: Option<String>, name: &str, folder: Option<String>, argv: Option<Vec<String>>, task: Option<&str>, window: &mut Window, cx: &mut Context<Self>) -> Result<(), String> {
         let space = space.or_else(|| self.model.active_space().map(|p| p.id.clone())).ok_or("no space yet: make one first (space.new)")?;
         if self.model.space(&space).is_none() {
             return Err(format!("no space {space:?}"));
@@ -2312,10 +2409,9 @@ impl AppWindow {
         let folder = folder.unwrap_or_else(|| self.folder_for(&space));
         let on = self.machine_of(&space);
         let (ctx, pane) = (self.model.fresh_id_on("tb", on.as_deref()), self.model.fresh_id_on("p", on.as_deref()));
-        let addr = self.spawn(Self::agent_argv(argv.clone(), task, on.as_deref()).or(argv), folder, &space, &ctx, on.as_deref())?;
-        self.model.add_tab(&space, Tab::new(&ctx, name.trim(), &pane, &addr));
-        self.model.active = Some(space.clone());
-        Ok(json!({ "space": space, "tab": ctx, "terminal": addr }))
+        let argv = Self::agent_argv(argv.clone(), task, on.as_deref()).or(argv);
+        let placement = Placement::Tab { space: space.clone(), tab: ctx.clone(), name: name.trim().to_owned(), pane };
+        self.start_open(argv, folder, &space, &ctx, on.as_deref(), placement, window, cx)
     }
 
     /// A tab whose only pane is a mod (a file, a board), shown at once.
@@ -2335,7 +2431,7 @@ impl AppWindow {
         Ok(json!({ "space": space, "tab": ctx, "pane": pane }))
     }
 
-    fn split(&mut self, pane: Option<String>, axis: Axis, argv: Option<Vec<String>>, folder: Option<String>) -> Result<Value, String> {
+    fn split(&mut self, pane: Option<String>, axis: Axis, argv: Option<Vec<String>>, folder: Option<String>, window: &mut Window, cx: &mut Context<Self>) -> Result<(), String> {
         let target = pane.or_else(|| self.model.focused_pane()).ok_or("no pane to split")?;
         let (Some(p), Some(c)) = (self.model.space_of(&target), self.model.tab_of(&target)) else { return Err(format!("no pane {target:?}")) };
         let (space, ctx, fallback) = (p.id.clone(), c.id.clone(), p.folder.clone());
@@ -2344,9 +2440,8 @@ impl AppWindow {
         // A split stays on the machine of the pane it splits (else its space's).
         let on = target_addr.and_then(|a| a.split_once('/').map(|(m, _)| m.to_owned())).or_else(|| self.machine_of(&space));
         let new = self.model.fresh_id_on("p", on.as_deref());
-        let addr = self.spawn(argv, cwd, &space, &ctx, on.as_deref())?;
-        self.model.split(&target, axis, &new, &addr);
-        Ok(json!({ "pane": new, "terminal": addr }))
+        let placement = Placement::Split { target, axis, pane: new };
+        self.start_open(argv, cwd, &space, &ctx, on.as_deref(), placement, window, cx)
     }
 
     /// A click on a Markdown file in a terminal. Only another machine knows its
@@ -2591,11 +2686,22 @@ impl AppWindow {
         Self::arg(args, k).map(str::to_owned)
     }
 
-    fn answer(&mut self, r: Result<Value, String>) {
+    fn reply_value(r: Result<Value, String>) -> Value {
         if let Err(e) = &r {
             tracing::warn!("{e}");
         }
-        self.reply = Some(r.unwrap_or_else(|e| json!({ "error": e })));
+        r.unwrap_or_else(|e| json!({ "error": e }))
+    }
+
+    fn answer(&mut self, r: Result<Value, String>) {
+        self.reply = Some(Self::reply_value(r));
+    }
+
+    /// A command that starts a terminal: its reply comes when it's placed.
+    fn answer_open(&mut self, r: Result<(), String>) {
+        if let Err(e) = r {
+            self.fail(e);
+        }
     }
 
     fn fail(&mut self, message: impl Into<String>) {
@@ -2606,8 +2712,43 @@ impl AppWindow {
     /// name is asked for.
     fn run(&mut self, name: &str, args: Value, window: &mut Window, cx: &mut Context<Self>) {
         // A click or key has nobody to read the reply: show why it failed.
-        if let Some(error) = self.run_as(name, args, true, window, cx).get("error").and_then(Value::as_str) {
-            self.show_failure(name, error, window, cx);
+        self.command(name, args, Caller::Person(name.to_owned()), window, cx);
+    }
+
+    /// Runs a command and gives `caller` its reply. While a terminal is
+    /// starting, commands wait for it to be placed: each sees what the ones
+    /// before it made, as when starting one held the window.
+    fn command(&mut self, name: &str, args: Value, caller: Caller, window: &mut Window, cx: &mut Context<Self>) {
+        if self.opening.is_some() {
+            self.queued.push_back((name.to_owned(), args, caller));
+            return;
+        }
+        let person = matches!(caller, Caller::Person(_));
+        let reply = self.run_as(name, args, person, window, cx);
+        match &mut self.opening {
+            // It started a terminal: the reply says where it went, once it's there.
+            Some(opening) => opening.caller = caller,
+            None => self.deliver(caller, reply, window, cx),
+        }
+    }
+
+    fn deliver(&mut self, caller: Caller, reply: Value, window: &mut Window, cx: &mut Context<Self>) {
+        match caller {
+            Caller::Person(name) => {
+                if let Some(error) = reply.get("error").and_then(Value::as_str) {
+                    self.show_failure(&name, error, window, cx);
+                }
+            }
+            Caller::Control(tx) => {
+                let _ = tx.send(reply);
+            }
+            Caller::Nobody => {}
+        }
+    }
+
+    fn run_queued(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        while self.opening.is_none() && let Some((name, args, caller)) = self.queued.pop_front() {
+            self.command(&name, args, caller, window, cx);
         }
     }
 
@@ -2715,8 +2856,8 @@ impl AppWindow {
             // ---- spaces
             "space.new" => {
                 let name = Self::arg(a, "name").unwrap_or_default();
-                let r = self.new_space(name, Self::owned(a, "folder"), Self::arg(a, "tab"), Self::argv(a), Self::arg(a, "task"), Self::owned(a, "machine").filter(|m| !m.is_empty()));
-                self.answer(r);
+                let r = self.new_space(name, Self::owned(a, "folder"), Self::arg(a, "tab"), Self::argv(a), Self::arg(a, "task"), Self::owned(a, "machine").filter(|m| !m.is_empty()), window, cx);
+                self.answer_open(r);
             }
             "space.close" => {
                 let Some(id) = Self::owned(a, "id").or_else(|| self.model.active.clone()) else { return self.fail("no space to close") };
@@ -2763,11 +2904,16 @@ impl AppWindow {
             // ---- tabs
             "tab.new" => {
                 let name = Self::arg(a, "name").unwrap_or_default();
-                let r = match Self::owned(a, "mod") {
-                    Some(m) => self.new_mod_tab(Self::owned(a, "space"), name, m, a.get("props").cloned().unwrap_or(Value::Null)),
-                    None => self.new_tab(Self::owned(a, "space"), name, Self::owned(a, "folder"), Self::argv(a), Self::arg(a, "task")),
-                };
-                self.answer(r);
+                match Self::owned(a, "mod") {
+                    Some(m) => {
+                        let r = self.new_mod_tab(Self::owned(a, "space"), name, m, a.get("props").cloned().unwrap_or(Value::Null));
+                        self.answer(r);
+                    }
+                    None => {
+                        let r = self.new_tab(Self::owned(a, "space"), name, Self::owned(a, "folder"), Self::argv(a), Self::arg(a, "task"), window, cx);
+                        self.answer_open(r);
+                    }
+                }
             }
             "tab.close" => {
                 let Some(id) = Self::owned(a, "id").or(active_ctx) else { return self.fail("no tab to close") };
@@ -2831,11 +2977,16 @@ impl AppWindow {
                     Some("down") => Axis::Column,
                     other => return self.fail(format!("pane.split direction is \"right\" or \"down\", not {other:?}")),
                 };
-                let r = match Self::owned(a, "mod") {
-                    Some(name) => self.split_mod(Self::owned(a, "pane"), axis, name, a.get("props").cloned().unwrap_or(Value::Null)),
-                    None => self.split(Self::owned(a, "pane"), axis, Self::argv(a), None),
-                };
-                self.answer(r);
+                match Self::owned(a, "mod") {
+                    Some(name) => {
+                        let r = self.split_mod(Self::owned(a, "pane"), axis, name, a.get("props").cloned().unwrap_or(Value::Null));
+                        self.answer(r);
+                    }
+                    None => {
+                        let r = self.split(Self::owned(a, "pane"), axis, Self::argv(a), None, window, cx);
+                        self.answer_open(r);
+                    }
+                }
             }
             "pane.close" => {
                 let Some(pane) = Self::owned(a, "pane").or_else(|| self.model.focused_pane()) else { return self.fail("no pane to close") };
@@ -2907,16 +3058,16 @@ impl AppWindow {
             "terminal.open" => {
                 let argv = Self::argv(a);
                 let r = match Self::arg(a, "place").unwrap_or("tab") {
-                    "right" => self.split(None, Axis::Row, argv, Self::owned(a, "folder")),
-                    "down" => self.split(None, Axis::Column, argv, Self::owned(a, "folder")),
+                    "right" => self.split(None, Axis::Row, argv, Self::owned(a, "folder"), window, cx),
+                    "down" => self.split(None, Axis::Column, argv, Self::owned(a, "folder"), window, cx),
                     _ => {
                         let name = Self::owned(a, "name")
                             .or_else(|| argv.as_ref().and_then(|v| v.first()).map(|p| p.rsplit('/').next().unwrap_or(p).to_owned()))
                             .unwrap_or_else(|| "shell".into());
-                        self.new_tab(None, &name, Self::owned(a, "folder"), argv, None)
+                        self.new_tab(None, &name, Self::owned(a, "folder"), argv, None, window, cx)
                     }
                 };
-                self.answer(r);
+                self.answer_open(r);
             }
             "terminal.keep" => {
                 let r = self.keep_terminal(Self::arg(a, "terminal").unwrap_or_default(), Self::arg(a, "place").unwrap_or("tab"), window, cx);
@@ -3499,17 +3650,19 @@ impl AppWindow {
             Request::OpenOverlay { id, spec } => self.open_overlay(id, spec, window, cx),
             Request::CloseOverlay { id } => self.close_overlay(&id, window, cx),
             Request::Refresh => self.refresh_mods(cx),
-            Request::Control { cmd, reply } => {
-                let _ = reply.send(self.control(cmd, window, cx));
-            }
+            Request::Control { cmd, reply } => match cmd.get("do").and_then(Value::as_str) {
+                Some(name) => {
+                    let args = cmd.get("args").cloned().unwrap_or(Value::Null);
+                    self.command(name, args, Caller::Control(reply), window, cx);
+                }
+                None => {
+                    let _ = reply.send(self.control(cmd, window, cx));
+                }
+            },
         }
     }
 
     fn control(&mut self, cmd: Value, window: &mut Window, cx: &mut Context<Self>) -> Value {
-        if let Some(name) = cmd.get("do").and_then(Value::as_str) {
-            let args = cmd.get("args").cloned().unwrap_or(Value::Null);
-            return self.run_as(name, args, false, window, cx);
-        }
         if let Some(path) = cmd.get("shot").and_then(Value::as_str) {
             return match crate::control::save_shot(window, std::path::Path::new(path)) {
                 Ok(()) => json!({ "path": path }),
@@ -4374,6 +4527,33 @@ fn preview_split(pane: Option<String>, file: Value) -> Value {
     json!({ "direction": "right", "mod": "files", "props": file, "pane": pane })
 }
 
+/// Puts a terminal the core just started where its command said, and says
+/// what it made. Fails if that place went away while it started.
+fn place(model: &mut Model, placement: &Placement, addr: &str) -> Result<Value, String> {
+    match placement {
+        Placement::Space { space, name, folder, tab, tab_name, pane, machine } => {
+            model.add_space(space, name, folder, Tab::new(tab, tab_name, pane, addr));
+            if let Some(p) = model.space_mut(space) {
+                p.machine = machine.clone();
+            }
+            Ok(json!({ "space": space, "tab": tab, "terminal": addr }))
+        }
+        Placement::Tab { space, tab, name, pane } => {
+            if !model.add_tab(space, Tab::new(tab, name, pane, addr)) {
+                return Err(format!("no space {space:?}: it closed while its terminal started"));
+            }
+            model.active = Some(space.clone());
+            Ok(json!({ "space": space, "tab": tab, "terminal": addr }))
+        }
+        Placement::Split { target, axis, pane } => {
+            if !model.split(target, *axis, pane, addr) {
+                return Err(format!("no pane {target:?}: it closed while its terminal started"));
+            }
+            Ok(json!({ "pane": pane, "terminal": addr }))
+        }
+    }
+}
+
 fn needs_model_pane(name: &str, args: &Value) -> bool {
     match name {
         "pane.split" | "pane.close" | "pane.zoom" | "terminal.show" => AppWindow::arg(args, "pane").is_none(),
@@ -4687,6 +4867,31 @@ mod tests {
                 assert_eq!(run[2], expected);
             }
         }
+    }
+
+    #[test]
+    fn a_started_terminal_goes_where_its_command_said_or_nowhere_if_that_closed() {
+        use super::{place, Placement};
+        use crate::layout::Axis;
+        use serde_json::json;
+        let mut m = crate::model::Model::default();
+        let space = Placement::Space { space: "s".into(), name: "work".into(), folder: "/w".into(), tab: "t".into(), tab_name: String::new(), pane: "p".into(), machine: None };
+        assert_eq!(place(&mut m, &space, "t1").unwrap(), json!({ "space": "s", "tab": "t", "terminal": "t1" }));
+        assert_eq!((m.active.as_deref(), m.pane_of("t1").as_deref()), (Some("s"), Some("p")));
+        let tab = Placement::Tab { space: "s".into(), tab: "t2".into(), name: "two".into(), pane: "p2".into() };
+        assert_eq!(place(&mut m, &tab, "t2").unwrap(), json!({ "space": "s", "tab": "t2", "terminal": "t2" }));
+        assert_eq!(m.active_tab().map(|t| t.id.as_str()), Some("t2"));
+        let split = Placement::Split { target: "p2".into(), axis: Axis::Row, pane: "p3".into() };
+        assert_eq!(place(&mut m, &split, "t3").unwrap(), json!({ "pane": "p3", "terminal": "t3" }));
+        assert_eq!((m.tab_of("p3").map(|t| t.id.as_str()), m.focused_pane().as_deref()), (Some("t2"), Some("p3")));
+        // Its pane or space closed while the core started it: nothing changes.
+        let before = format!("{:?}", m.spaces);
+        let split = Placement::Split { target: "gone".into(), axis: Axis::Column, pane: "p4".into() };
+        assert!(place(&mut m, &split, "t4").unwrap_err().contains("no pane \"gone\""));
+        let tab = Placement::Tab { space: "gone".into(), tab: "t5".into(), name: String::new(), pane: "p5".into() };
+        assert!(place(&mut m, &tab, "t5").unwrap_err().contains("no space \"gone\""));
+        assert_eq!(format!("{:?}", m.spaces), before);
+        assert_eq!(m.active.as_deref(), Some("s"));
     }
 
     #[test]

@@ -101,27 +101,9 @@ Default shell: `powershell.exe -NoExit -Command "$global:__hc_prompt …"` (Wind
 - "Core alone" is the harness speaking the app's protocol to the same core, with `terminal.run` and then `terminal.attach` (`open.core_alone`). Run 1's value for it is wrong; that was fixed in a84987d.
 - **For this person, opening a terminal is the shell starting.** PowerShell 5.1 takes about 0.4 s, the profile's `starship init` about 0.8 s more.
 - **The core path adds about 0.5 s over the bare process.** That's ConPTY plus hc's prompt wrapper. Which of the two is unconfirmed.
-- **Zaki adds nothing measurable here, because the stall below hides behind that 1.7 s.** With a fast shell it shows on every open.
+- **Zaki adds nothing measurable for the default shell.** The "app adds" rows for `-NoProfile` and `cmd` compare different commands (below).
 
-**The core sends a terminal's first output about 1.2 s late, but only for terminals the app starts.** `scripts/perf/open_delay.py` starts `cmd.exe` three ways on one core, with the app running. A second viewer attaches as soon as the core announces each terminal, so it sees when the core sent the prompt, not when the app drew it.
-
-| How `cmd.exe` was started | Prompt sent by the core after |
-|---|---|
-| `hc run --bg` | 209–238 ms |
-| the harness's own `hc connect` connection (`instance.CoreClient`) | 93–137 ms |
-| the app's `terminal.open` | **1534–1822 ms** |
-
-Each of these was tried alone on the harness's connection. None made the prompt late; all stayed at 100–365 ms:
-- resize at attach, after ConPTY's `?9001h`, or 30 ms later;
-- a focus event, early or late;
-- display facts;
-- `zaki.space`/`zaki.tab` labels;
-- a `terminal.label` call during startup;
-- an active `events.subscribe`;
-- the app adopting and attaching the terminal;
-- a `doc.set` of the app's real layout document.
-
-The stall isn't a fixed wait either: `cmd` comes out at about 1.26 s and `-NoProfile` at about 1.76 s. It depends on something in how the app starts the terminal, which the core's code would show.
+**Correction (ledger id 1): the "+1.17 s" is the app's own wrapper, not herdr-core.** `agent_argv` (`src/window.rs`) runs every argv inside the person's interactive PowerShell (`powershell.exe -NoExit -Command "& 'cmd.exe'"`, profile included), while `open.core_alone` ran the bare program. Sent that same wrapped argv, the core alone is as slow (1.24 s vs the app's 1.31 s); the wrapper is documented, so changing it is the maintainer's call.
 
 ## 3. Input latency
 
@@ -249,14 +231,9 @@ Ranked by what a person notices. Gains are estimates unless marked measured.
      - In the app: nothing big. The core already picks PowerShell 7 when installed (defaults/AGENTS.md, Commands), and it isn't here.
      - The profile is the person's.
    - Gain: up to about 1.6 s per open with a warm spare; about 0.5 s if the core path matches the bare process.
-2. **Terminals the app starts get their first output about 1.17 s late, in the core.**
-   - Measured: `cmd` 1.26 s in the app vs 0.09 s on the core alone; `-NoProfile` 1.76 s vs 0.60 s.
-   - `scripts/perf/open_delay.py`: `cmd` started by `hc run --bg` is ready in 0.21–0.24 s, by another connection in 0.09–0.14 s, by the app in 1.53–1.82 s. A second viewer sees the same, so it happens before the app.
-   - Hidden for this person behind the 1.7 s profiled shell. It costs everyone with a fast shell (cmd, `-NoProfile`, a lean pwsh).
-   - Cause: something about the app's own `hc connect` connection (`hc.rs:255`) or its call. Every message the app sends was ruled out one by one (section 2).
-   - Sure: high on cost and place, unknown on cause.
-   - Fix: needs herdr-core (Can) together with the app: run `open_delay.py` with the core's logging or code.
-   - Gain: about 1.2 s per open for fast shells; about 0 for the default here.
+2. **A terminal opened with an argv (`cmd`, an agent) shows its first output about 1.2 s after a bare start would. That's the app's `agent_argv` wrapper, not herdr-core (corrected, ledger id 1).**
+   - `agent_argv` (`src/window.rs`) runs every argv inside the person's interactive PowerShell, profile included. The baseline compared that with the bare program on the core; sent the same wrapped argv, the core alone is as slow.
+   - Fix: the maintainer's call, since the wrapper is documented (options in ledger id 1's notes).
 3. **Cold start does about 0.65 s of avoidable work before the first frame.**
    - Measured: first paint at 1.10 s.
    - `write_workspace` takes 233 ms warm and 753 ms fresh (`mods.rs:62`: 29 unconditional writes to `frame/`, 499 reads and hashes in `sync_defaults`, `mods.rs:97`). Windows file creation and renames dominate (profile).
@@ -334,4 +311,4 @@ Ranked by what a person notices. Gains are estimates unless marked measured.
 - **Interactive resize:** posted `SetWindowPos` calls don't drive redraws the way a drag does.
 - **Context menus:** posted right-clicks weren't scripted. The palette, Settings and help overlays stand in.
 - **Cold start with a cold disk cache:** clearing the cache needs elevation.
-- **Inside herdr-core and Herdr 1.x:** their source isn't in this repository, so the open stall's exact cause and the servers' polling are unconfirmed.
+- **Inside herdr-core and Herdr 1.x:** their source isn't in this repository, so the Herdr 1.x servers' polling is unconfirmed.
