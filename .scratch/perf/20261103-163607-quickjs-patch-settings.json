@@ -1,6 +1,6 @@
 {
  "meta": {
-  "label": "fix-settings-stall",
+  "label": "quickjs-patch-settings",
   "time": "2026-11-03T16:19:26+00:00",
   "commit": "40d43c1c9535283761bc7f8842f74d4e220ea6a6",
   "dirty": true,
