@@ -297,6 +297,14 @@ enum Caller {
     Nobody,
 }
 
+/// What waits, in order, while a terminal starts.
+enum Queued {
+    Command(String, Value, Caller),
+    /// A key typed into a terminal while one the person asked for starts: it
+    /// goes, as if typed then, to the pane focused once that one is placed.
+    Key(Keystroke),
+}
+
 /// A terminal the core is starting off the UI thread (`terminal.run` takes
 /// 50-110 ms). Commands wait in `queued` until it's placed, so they run in order.
 struct Opening {
@@ -452,7 +460,7 @@ pub struct AppWindow {
     closing_terminals: HashMap<String, bool>,
     pending_terminals: std::collections::BTreeMap<String, PendingTerminalChange>,
     opening: Option<Opening>,
-    queued: std::collections::VecDeque<(String, Value, Caller)>,
+    queued: std::collections::VecDeque<Queued>,
     /// Each machine owns a document; the empty key is this core.
     documents: std::collections::BTreeMap<String, crate::mirror_sync::Slot>,
     initial_view: Option<crate::mirror::View>,
@@ -2720,7 +2728,7 @@ impl AppWindow {
     /// before it made, as when starting one held the window.
     fn command(&mut self, name: &str, args: Value, caller: Caller, window: &mut Window, cx: &mut Context<Self>) {
         if self.opening.is_some() {
-            self.queued.push_back((name.to_owned(), args, caller));
+            self.queued.push_back(Queued::Command(name.to_owned(), args, caller));
             return;
         }
         let person = matches!(caller, Caller::Person(_));
@@ -2747,9 +2755,30 @@ impl AppWindow {
     }
 
     fn run_queued(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        while self.opening.is_none() && let Some((name, args, caller)) = self.queued.pop_front() {
-            self.command(&name, args, caller, window, cx);
+        while self.opening.is_none() && let Some(next) = self.queued.pop_front() {
+            match next {
+                Queued::Command(name, args, caller) => self.command(&name, args, caller, window, cx),
+                Queued::Key(keystroke) => {
+                    // Dispatched from outside this update, after the frame that
+                    // focuses the new pane: one key at a time, as any may start
+                    // another terminal and hold the rest again.
+                    let this = cx.entity().downgrade();
+                    window.defer(cx, move |window, cx| {
+                        window.dispatch_keystroke(keystroke, cx);
+                        let _ = this.update(cx, |this, cx| this.run_queued(window, cx));
+                    });
+                    return;
+                }
+            }
         }
+    }
+
+    /// Keys typed into a terminal wait while a terminal the person asked for
+    /// starts, as they did when starting one held the window: they belong to
+    /// the pane it focuses. The pointer and other focus are never held.
+    fn holds_key(&self, window: &Window) -> bool {
+        let asked = self.opening.as_ref().is_some_and(|o| matches!(o.caller, Caller::Person(_)));
+        asked && self.terms.values().any(|t| t.focus.is_focused(window))
     }
 
     fn show_failure(&mut self, name: &str, error: &str, window: &mut Window, cx: &mut Context<Self>) {
@@ -4804,9 +4833,13 @@ impl Render for AppWindow {
                     }
                 }
             }))
-            .capture_key_down(cx.listener(|this, ev: &KeyDownEvent, _, cx| {
+            .capture_key_down(cx.listener(|this, ev: &KeyDownEvent, window, cx| {
                 if ev.keystroke.key == "escape" && this.pane_drag.is_some() {
                     this.cancel_pane_drag(cx);
+                    cx.stop_propagation();
+                } else if this.holds_key(window) {
+                    // Stopped here, Windows sends no WM_CHAR either: the text waits too.
+                    this.queued.push_back(Queued::Key(ev.keystroke.clone()));
                     cx.stop_propagation();
                 }
             }))

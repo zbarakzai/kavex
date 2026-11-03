@@ -43,11 +43,17 @@ pub enum TerminalEvent {
     Preview(PathBuf),
 }
 
+/// Most a new pane keeps of what's typed before it attaches; beyond that it's dropped, as before.
+const EARLY_INPUT_MAX: usize = 64 * 1024;
+
 /// What the canvas closures need, shared outside the entity so prepaint can resize.
 struct Grid {
     vt: Vt,
     core: Arc<Core>,
     channel: Option<u32>,
+    /// Typed before the first attach (a pane just made, still attaching): sent
+    /// once attached. None after it, so a reconnect never replays old input.
+    early: Option<Vec<u8>>,
     cell: Size<Pixels>,
     /// The window's scale factor, from the last prepaint. Programs see cells,
     /// images and pixel mouse reports in device pixels, as in Ghostty.
@@ -173,6 +179,7 @@ impl TerminalView {
                 vt: Vt::new(size_hint.0.max(2), size_hint.1.max(1)),
                 core: core.clone(),
                 channel: None,
+                early: Some(Vec::new()),
                 cell: size(px(9.0), px(18.0)),
                 scale: 1.0,
                 vt_cell: (9, 18),
@@ -261,12 +268,18 @@ impl TerminalView {
         cx: &mut Context<Self>,
     ) -> Option<async_channel::Receiver<Stream>> {
         cx.notify();
+        if attached.is_err() {
+            self.grid.borrow_mut().early = None;
+        }
         match attached {
             Ok(attached) => {
                 self.lost = false;
                 crate::bench::mark_with("attached", &[attached.channel as u64]);
                 let mut g = self.grid.borrow_mut();
                 g.channel = Some(attached.channel);
+                if let Some(early) = g.early.take().filter(|b| !b.is_empty()) {
+                    g.core.input(attached.channel, &early);
+                }
                 // The pane may have been laid out while the attach was in flight.
                 let now = (g.vt.cols, g.vt.rows);
                 if now != attached_size {
@@ -421,6 +434,8 @@ impl TerminalView {
         {
             g.vt.scroll_to_bottom();
             g.core.input(ch, bytes);
+        } else if let Some(early) = g.early.as_mut().filter(|e| e.len() + bytes.len() <= EARLY_INPUT_MAX) {
+            early.extend_from_slice(bytes);
         }
     }
 
