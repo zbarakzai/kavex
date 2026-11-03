@@ -10,7 +10,6 @@ use super::{frame_counters, mark_with};
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use std::sync::atomic::{AtomicIsize, AtomicU64, Ordering::Relaxed};
 use windows_sys::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
-use windows_sys::Win32::System::Threading::GetCurrentProcessId;
 use windows_sys::Win32::UI::WindowsAndMessaging::{
     CallWindowProcW, FindWindowExW, GWLP_WNDPROC, GetWindowThreadProcessId, HWND_MESSAGE, SetWindowLongPtrW, WM_PAINT,
 };
@@ -46,7 +45,7 @@ pub fn attach(window: &gpui::Window) {
         }
         let mut pid = 0;
         unsafe { GetWindowThreadProcessId(found, &mut pid) };
-        if pid == unsafe { GetCurrentProcessId() } {
+        if pid == std::process::id() {
             let old = unsafe { SetWindowLongPtrW(found, GWLP_WNDPROC, platform_proc as *const () as isize) };
             PLATFORM_PROC.store(old, Relaxed);
             return;

@@ -16,18 +16,93 @@ use std::collections::HashMap;
 use std::io::Write;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
+use win::*;
 use windows_sys::Win32::Foundation::{CloseHandle, HANDLE, HMODULE, INVALID_HANDLE_VALUE};
-use windows_sys::Win32::System::Diagnostics::Debug::{
-    CONTEXT, CONTEXT_CONTROL_AMD64, CONTEXT_INTEGER_AMD64, GetThreadContext, RtlLookupFunctionEntry, RtlVirtualUnwind,
-};
-use windows_sys::Win32::System::Diagnostics::ToolHelp::{
-    CreateToolhelp32Snapshot, TH32CS_SNAPTHREAD, THREADENTRY32, Thread32First, Thread32Next,
-};
-use windows_sys::Win32::System::ProcessStatus::{K32EnumProcessModules, K32GetModuleFileNameExW, K32GetModuleInformation, MODULEINFO};
-use windows_sys::Win32::System::Threading::{
-    GetCurrentProcess, GetCurrentProcessId, GetCurrentThread, GetCurrentThreadId, GetThreadDescription, OpenThread, ResumeThread,
-    SetThreadPriority, SuspendThread, THREAD_GET_CONTEXT, THREAD_PRIORITY_TIME_CRITICAL, THREAD_QUERY_INFORMATION, THREAD_SUSPEND_RESUME,
-};
+
+/// The Windows calls and types the sampler needs, as windows-sys names them.
+/// Declared here rather than as windows-sys features, so a tool only the
+/// harness uses doesn't change the app's manifest (and its license inputs).
+#[allow(non_snake_case, non_camel_case_types, clippy::upper_case_acronyms)]
+mod win {
+    use std::ffi::c_void;
+    use windows_sys::Win32::Foundation::{HANDLE, HMODULE};
+
+    /// x64 CONTEXT: the registers up to Rip by name, the rest (floating
+    /// point, vector and debug state) as bytes.
+    #[repr(C, align(16))]
+    pub struct CONTEXT {
+        pub PHome: [u64; 6],
+        pub ContextFlags: u32,
+        pub MxCsr: u32,
+        pub Segments: [u16; 6],
+        pub EFlags: u32,
+        pub Dr: [u64; 6],
+        pub RaxToRbx: [u64; 4],
+        pub Rsp: u64,
+        pub Rbp: u64,
+        pub RsiToR15: [u64; 10],
+        pub Rip: u64,
+        pub Rest: [u8; 976],
+    }
+    const _: () = assert!(
+        size_of::<CONTEXT>() == 1232
+            && std::mem::offset_of!(CONTEXT, ContextFlags) == 0x30
+            && std::mem::offset_of!(CONTEXT, Rsp) == 0x98
+            && std::mem::offset_of!(CONTEXT, Rbp) == 0xa0
+            && std::mem::offset_of!(CONTEXT, Rip) == 0xf8
+    );
+    pub const CONTEXT_CONTROL_AMD64: u32 = 0x0010_0001;
+    pub const CONTEXT_INTEGER_AMD64: u32 = 0x0010_0002;
+
+    #[repr(C)]
+    pub struct THREADENTRY32 {
+        pub dwSize: u32,
+        pub cntUsage: u32,
+        pub th32ThreadID: u32,
+        pub th32OwnerProcessID: u32,
+        pub tpBasePri: i32,
+        pub tpDeltaPri: i32,
+        pub dwFlags: u32,
+    }
+    pub const TH32CS_SNAPTHREAD: u32 = 0x4;
+
+    #[repr(C)]
+    pub struct MODULEINFO {
+        pub lpBaseOfDll: *mut c_void,
+        pub SizeOfImage: u32,
+        pub EntryPoint: *mut c_void,
+    }
+
+    pub const THREAD_SUSPEND_RESUME: u32 = 0x0002;
+    pub const THREAD_GET_CONTEXT: u32 = 0x0008;
+    pub const THREAD_QUERY_INFORMATION: u32 = 0x0040;
+    pub const THREAD_PRIORITY_TIME_CRITICAL: i32 = 15;
+
+    #[link(name = "kernel32", kind = "raw-dylib")]
+    unsafe extern "system" {
+        pub fn GetThreadContext(thread: HANDLE, context: *mut CONTEXT) -> i32;
+        pub fn RtlLookupFunctionEntry(pc: u64, image_base: *mut u64, history: *mut c_void) -> *mut c_void;
+        pub fn RtlVirtualUnwind(
+            handler_type: u32, image_base: u64, pc: u64, entry: *const c_void, context: *mut CONTEXT,
+            handler_data: *mut *mut c_void, establisher_frame: *mut u64, context_pointers: *mut c_void,
+        ) -> *mut c_void;
+        pub fn CreateToolhelp32Snapshot(flags: u32, process: u32) -> HANDLE;
+        pub fn Thread32First(snapshot: HANDLE, entry: *mut THREADENTRY32) -> i32;
+        pub fn Thread32Next(snapshot: HANDLE, entry: *mut THREADENTRY32) -> i32;
+        pub fn K32EnumProcessModules(process: HANDLE, modules: *mut HMODULE, bytes: u32, needed: *mut u32) -> i32;
+        pub fn K32GetModuleFileNameExW(process: HANDLE, module: HMODULE, name: *mut u16, len: u32) -> u32;
+        pub fn K32GetModuleInformation(process: HANDLE, module: HMODULE, info: *mut MODULEINFO, bytes: u32) -> i32;
+        pub fn GetCurrentProcess() -> HANDLE;
+        pub fn GetCurrentProcessId() -> u32;
+        pub fn GetCurrentThread() -> HANDLE;
+        pub fn GetCurrentThreadId() -> u32;
+        pub fn GetThreadDescription(thread: HANDLE, description: *mut *mut u16) -> i32;
+        pub fn OpenThread(access: u32, inherit: i32, id: u32) -> HANDLE;
+        pub fn SuspendThread(thread: HANDLE) -> u32;
+        pub fn ResumeThread(thread: HANDLE) -> u32;
+        pub fn SetThreadPriority(thread: HANDLE, priority: i32) -> i32;
+    }
+}
 
 const HZ: u64 = 500;
 /// About 25 µs of a 2 ms tick: well above what a suspend and resume add.
@@ -274,4 +349,51 @@ fn modules() -> Vec<serde_json::Value> {
             }))
         })
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicBool, Ordering};
+
+    #[inline(never)]
+    fn spin(stop: &AtomicBool) {
+        while !stop.load(Ordering::Relaxed) {
+            std::hint::spin_loop();
+        }
+    }
+
+    // The declarations in `win` are the sampler's own: one real sample proves
+    // the layouts and the calls.
+    #[test]
+    fn a_busy_thread_is_listed_named_and_unwound_through_this_program() {
+        let stop = Arc::new(AtomicBool::new(false));
+        let (tx, rx) = std::sync::mpsc::channel();
+        let spinner = std::thread::Builder::new().name("spinner".into()).spawn({
+            let stop = stop.clone();
+            move || {
+                tx.send(unsafe { GetCurrentThreadId() }).unwrap();
+                spin(&stop);
+            }
+        }).unwrap();
+        let id = rx.recv().unwrap();
+        let mut threads = HashMap::new();
+        refresh(&mut threads, unsafe { GetCurrentThreadId() });
+        let t = threads.get(&id).expect("the snapshot lists the thread");
+        assert_eq!(t.name, "spinner");
+        let mut copy = vec![0u8; STACK_COPY];
+        let mut stack = [0u64; MAX_DEPTH];
+        let depth = sample(t, &mut copy, &mut stack).expect("the thread is sampled");
+        stop.store(true, Ordering::Relaxed);
+        spinner.join().unwrap();
+        let exe = std::env::current_exe().unwrap().file_name().unwrap().to_string_lossy().to_lowercase();
+        let me = modules().into_iter().find(|m| m["path"].as_str().unwrap().to_lowercase().ends_with(&exe)).expect("this program is a module");
+        let (base, size) = (me["base"].as_u64().unwrap(), me["size"].as_u64().unwrap());
+        let ours = stack[..depth].iter().filter(|pc| (base..base + size).contains(*pc)).count();
+        assert!(depth >= 3 && ours >= 2, "{depth} frames, {ours} in this program: {:x?}", &stack[..depth]);
+        for t in threads.values() {
+            unsafe { CloseHandle(t.handle) };
+        }
+    }
 }

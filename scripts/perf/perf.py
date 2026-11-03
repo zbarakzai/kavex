@@ -378,7 +378,7 @@ def check_survivors(results, survivors, ours):
 def build(args):
     if args.no_build:
         return
-    # 8 jobs: a full build with one per CPU ran this 32 GB laptop out of memory.
+    # 4 jobs: a full build with one per CPU, and later with 8, ran this 32 GB laptop out of memory.
     print(f"perf: building (cargo build --release --locked -j {args.jobs})...", flush=True)
     subprocess.run(["cargo", "build", "--release", "--locked", "-j", str(args.jobs), "--bin", "zaki"], cwd=REPO, check=True, env={k: v for k, v in os.environ.items() if k != "HERDR_APP_RELEASE"})
 
@@ -1086,7 +1086,7 @@ def main():
     r = sub.add_parser("run")
     r.add_argument("--bin", default=os.path.join(REPO, "target", "release", "zaki.exe"))
     r.add_argument("--no-build", action="store_true")
-    r.add_argument("--jobs", type=int, default=8, help="cargo build jobs (default 8, to keep memory in hand)")
+    r.add_argument("--jobs", type=int, default=4, help="cargo build jobs (default 4, to keep memory in hand)")
     r.add_argument("--label")
     r.add_argument("--only", help="comma-separated: " + ",".join(SCENARIOS))
     r.add_argument("--hz", type=int, help="display refresh rate (default: what Windows reports)")
