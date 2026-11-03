@@ -376,8 +376,9 @@ def check_survivors(results, survivors, ours):
 def build(args):
     if args.no_build:
         return
-    print("perf: building (cargo build --release --locked)...", flush=True)
-    subprocess.run(["cargo", "build", "--release", "--locked", "--bin", "zaki"], cwd=REPO, check=True, env={k: v for k, v in os.environ.items() if k != "HERDR_APP_RELEASE"})
+    # 8 jobs: a full build with one per CPU ran this 32 GB laptop out of memory.
+    print(f"perf: building (cargo build --release --locked -j {args.jobs})...", flush=True)
+    subprocess.run(["cargo", "build", "--release", "--locked", "-j", str(args.jobs), "--bin", "zaki"], cwd=REPO, check=True, env={k: v for k, v in os.environ.items() if k != "HERDR_APP_RELEASE"})
 
 
 def first_ink(events, t0, channel=None, timeout=30):
@@ -497,9 +498,10 @@ def new_terminal(instance, events, command, args):
 
 def strip_vt(data):
     data = re.sub(rb"\x1b\][^\x07\x1b]*(\x07|\x1b\\)", b"", data)
-    data = re.sub(rb"\x1b\[[0-9;?]*[ -/]*[@-~]", b"", data)
+    # CSI: any parameter bytes (0x30-0x3F covers `?`, `=`, `<`, `>`), then intermediates.
+    data = re.sub(rb"\x1b\[[0-?]*[ -/]*[@-~]", b"", data)
     data = re.sub(rb"\x1b[@-_]", b"", data)
-    return data
+    return re.sub(rb"[\x00-\x1f]", b"", data)
 
 
 def core_only(instance, argv, cwd):
@@ -1063,6 +1065,7 @@ def main():
     r = sub.add_parser("run")
     r.add_argument("--bin", default=os.path.join(REPO, "target", "release", "zaki.exe"))
     r.add_argument("--no-build", action="store_true")
+    r.add_argument("--jobs", type=int, default=8, help="cargo build jobs (default 8, to keep memory in hand)")
     r.add_argument("--label")
     r.add_argument("--only", help="comma-separated: " + ",".join(SCENARIOS))
     r.add_argument("--hz", type=int, help="display refresh rate (default: what Windows reports)")

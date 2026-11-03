@@ -127,6 +127,17 @@ def symbolize(modules, addresses, binary):
 
 
 IDLE = ("NtUserGetMessage", "NtUserMsgWaitForMultipleObjects", "NtUserWaitMessage")
+# A thread whose innermost frame is one of these is waiting, whatever its
+# cycle counter says (suspending it for the sample costs it a few cycles).
+WAITS = ("NtWaitFor", "ZwWaitFor", "NtRemoveIoCompletion", "ZwRemoveIoCompletion", "NtDelayExecution", "ZwDelayExecution",
+         "NtUserGetMessage", "NtUserMsgWaitFor", "NtUserWaitMessage", "ZwWaitForAlertByThreadId", "NtWaitForAlertByThreadId",
+         "NtReadFile", "ZwReadFile", "NtFsControlFile", "ZwFsControlFile", "NtDeviceIoControlFile", "ZwDeviceIoControlFile",
+         "ZwSignalAndWaitForSingleObject", "NtSignalAndWaitForSingleObject", "NtWaitForWorkViaWorkerFactory", "ZwWaitForWorkViaWorkerFactory",
+         "DwmFlush", "NtGdiDdDDIWaitFor", "ZwWaitLowEventPair", "NtAlertThreadByThreadId", "AlpcSendWaitReceivePort")
+
+
+def waiting(leaf):
+    return any(w in leaf for w in WAITS)
 
 
 def summarize(samples, index, names, spans, out_dir, label):
@@ -145,10 +156,11 @@ def summarize(samples, index, names, spans, out_dir, label):
                 continue
             frames = [f for a in stack for f in names.get(a, ["?"])]
             name = threads.get(thread) or str(thread)
+            leaf = frames[0] if frames else ""
+            on_cpu = on_cpu and not waiting(leaf)
             if thread == main:
                 total_main += 1
-                leaf = frames[0] if frames else ""
-                if not on_cpu and any(i in leaf for i in IDLE):
+                if any(i in leaf for i in IDLE):
                     idle += 1
                     continue
                 kind = "main_cpu" if on_cpu else "main_blocked"

@@ -30,6 +30,8 @@ use windows_sys::Win32::System::Threading::{
 };
 
 const HZ: u64 = 500;
+/// About 25 µs of a 2 ms tick: well above what a suspend and resume add.
+const ON_CPU_CYCLES: u64 = 100_000;
 const MAX_DEPTH: usize = 128;
 /// Stack copied per sample: deep enough for GPUI's element recursion.
 const STACK_COPY: usize = 512 * 1024;
@@ -89,7 +91,9 @@ fn run(path: PathBuf, main: u32) {
             let Some(t) = threads.get_mut(&id) else { continue };
             let mut cycles = 0;
             unsafe { QueryThreadCycleTime(t.handle, &mut cycles) };
-            let on_cpu = cycles != t.cycles;
+            // Being suspended and resumed costs a waiting thread some cycles
+            // itself, so only more than that counts as having run.
+            let on_cpu = cycles.saturating_sub(t.cycles) > ON_CPU_CYCLES;
             t.cycles = cycles;
             // An idle background thread is just waiting; the main thread's
             // waits are what we're after, so it's always taken.
