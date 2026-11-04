@@ -40,9 +40,16 @@ const sizesFrom = (stdout) => stdout.split("\n").flatMap((line) => {
 const ABSENT = `LC_ALL=C cat -- "$1" 2>&1 >/dev/null | grep -q 'No such file or directory$' && exit ${NO_FILE}`;
 const ABSENT_WINDOWS = `try { [IO.File]::OpenRead($a).Dispose() } catch { $why = $_.Exception.GetBaseException(); if ($why -is [IO.FileNotFoundException] -or $why -is [IO.DirectoryNotFoundException]) { exit ${NO_FILE} } throw }`;
 
+// Every Claude config folder on a machine, not just `~/.claude`. `CLAUDE_CONFIG_DIR` picks one per
+// process, as a second account's shell function does, and only that process knows which, so a
+// record is looked for in all of them. A folder counts by having `sessions` in it.
+const CONFIGS = 'for dir in "$CLAUDE_CONFIG_DIR" "$1"/.claude*; do [ -d "$dir/sessions" ] && echo "$dir"; done; exit 0';
+const CONFIGS_WINDOWS = "@($env:CLAUDE_CONFIG_DIR) + @(Get-ChildItem -LiteralPath $a -Directory -Force -Filter '.claude*' | ForEach-Object { $_.FullName }) | Where-Object { $_ -and (Test-Path -LiteralPath (Join-Path $_ 'sessions')) } | ForEach-Object { say $_ }";
+
 function unix(on) {
   return {
     absent: async (path) => (await exec("sh", ["-c", ABSENT, "sh", path], { on })).code === NO_FILE,
+    configs: async (home) => (await exec("sh", ["-c", CONFIGS, "sh", home], { on })).stdout.split("\n").filter(Boolean),
     run: (program, args) => exec(program, args, { on }),
     lines: (file, block, count, filter, known = "") => exec("sh", ["-c", NEW_LINES, "sh", file, String(block), filter, String(known), String(count)], { on }),
     sizes: async (files) => sizesFrom((await exec("sh", ["-c", 'wc -c "$@" 2>/dev/null', "sh", ...files], { on })).stdout),
@@ -139,6 +146,7 @@ function windows(on) {
   const walked = new Map(), lastWalk = new Map();
   return {
     absent: async (path) => (await powershell(on, ABSENT_WINDOWS, path)).code === NO_FILE,
+    configs: async (home) => (await output(CONFIGS_WINDOWS, home)).split("\n").map((line) => line.trim()).filter(Boolean),
     // Through `cmd`, which finds an npm `claude.cmd` as well as a `claude.exe`, and which is why
     // nothing it could take for one of its own gets through.
     async run(program, args) {
@@ -206,17 +214,33 @@ const setupFiles = (home, read, write) => ({
   },
 });
 
+const LOOKED = 60000;
+
+// A new folder turns up within a minute, and a failed look falls back on the default one.
+function configsOn(kind, home) {
+  const fallback = [`${home}/.claude`], looked = new Map();
+  let known = fallback;
+  return async () => {
+    if (due(looked, home, LOOKED)) {
+      const found = await kind.configs(home).catch(() => []);
+      known = found.length ? [...new Set(found)] : fallback;
+    }
+    return known;
+  };
+}
+
 // Null is this computer.
 export async function machineOn(on) {
   if (!on) {
     const seen = window();
     if (!seen) throw new Error("No window yet.");
     const read = (path) => readTextFile(path);
-    return { ...(seen.platform === "windows" ? windows(null) : unix(null)), on, window: WINDOW_HERE, home: home(), read, files: setupFiles(home(), read, writeTextFile) };
+    const kind = seen.platform === "windows" ? windows(null) : unix(null);
+    return { ...kind, configs: configsOn(kind, home()), on, window: WINDOW_HERE, home: home(), read, files: setupFiles(home(), read, writeTextFile) };
   }
   const { windows: isWindows, home: there } = await homeAway(on);
   if (!there) throw new Error("No home there.");
   const kind = isWindows ? windows(on) : unix(on);
   const read = readToChange(on, kind.absent);
-  return { ...kind, on, window: WINDOW_ADDED, home: there, read: (path) => readTextFile(path, { on }), files: setupFiles(there, read, writeOn(on, read)) };
+  return { ...kind, configs: configsOn(kind, there), on, window: WINDOW_ADDED, home: there, read: (path) => readTextFile(path, { on }), files: setupFiles(there, read, writeOn(on, read)) };
 }

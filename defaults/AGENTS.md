@@ -217,6 +217,9 @@ the highlighted line shows where it will land.
     a new model waits for a release; Pi stores its own. A model with no exact price, a helper Zaki can't
     count, or a usage line it can't read shows "no price", and the token counts stay. It counts tokens
     only, and can read a little under Claude's own `/cost`.
+  - **Claude Code's config folders:** an agent's session is looked for in every `~/.claude*` folder with
+    a `sessions` folder in it, and in `CLAUDE_CONFIG_DIR` if it's set for Zaki, so a second account's
+    agents show too. One set only for that agent, somewhere else, can't be seen and shows no percent.
   - **Claude Code's total:** `claude -p "/context"`, which spends no tokens, once per model per machine,
     kept for a day in `shared("agents.totals")`. Until then the dropdown shows tokens alone and the row
     shows nothing.
@@ -320,7 +323,8 @@ before it resets also says when, from 5% of the way through its window: a straig
   sent. From programs.json's `run` they take only a path to the agent's own program, never flags;
   a program of another name means the plain agent.
 - **Rows:** none for an agent signed out, on an API key or not installed. One account on several
-  machines is one row, with the newest numbers. A removed machine's rows go at the next check.
+  machines is one row, with the newest numbers. A removed machine's rows go at the next check. Only
+  the login in an agent's default config counts: a second account through `CLAUDE_CONFIG_DIR` has no row.
 - **Checks:** on opening (a result under a minute old is reused), on the refresh button, and 5 seconds
   after the footer starts and every 15 minutes, so only in a layout with that footer: not Terminals
   or Zaki 98. `workspace-chrome.check-usage` and `workspace-chrome.refresh-usage` run one.

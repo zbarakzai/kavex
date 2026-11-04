@@ -46,10 +46,12 @@ async function exec(...call) {
   return execute(...call);
 }
 
-// Claude writes its reset time for people, in the zone it was run in: "Nov 6 at 7:59pm (UTC)", or
-// only the time when that's today. The check asks for UTC so the answer doesn't depend on the machine.
+// Claude writes its reset time for people, in the zone it was run in: "Nov 6 at 7:59pm (UTC)" or
+// "Nov 6, 7:59pm (Europe/London)", or only the time when that's today. The check asks for UTC so the
+// answer doesn't depend on the machine. Windows ignores that and names its own zone, which is only
+// ever this computer's, so any other zone is read as local time.
 function resetTime(text, now) {
-  const m = /^(?:([A-Z][a-z]{2}) (\d{1,2}) at )?(\d{1,2})(?::(\d{2}))?(am|pm)(?: \((.+)\))?$/.exec(text.trim());
+  const m = /^(?:([A-Z][a-z]{2}) (\d{1,2})(?: at|,) )?(\d{1,2})(?::(\d{2}))?(am|pm)(?: \((.+)\))?$/.exec(text.trim());
   if (!m) return null;
   const hour = (Number(m[3]) % 12) + (m[5] === "pm" ? 12 : 0), minute = Number(m[4] ?? 0), utc = m[6] === "UTC";
   const at = (year, month, day) => (utc ? Date.UTC(year, month, day, hour, minute) : new Date(year, month, day, hour, minute).getTime());
@@ -207,9 +209,12 @@ const codexPosix = (program) => `out=$(mktemp) || exit 1
   i=0; while [ $i -lt 75 ] && ! { grep -q '"id":2' "$out" && grep -q '"id":3' "$out"; }; do sleep 0.2; i=$((i+1)); done
 } | ${posixWords([program])} -s read-only -a never app-server >"$out" 2>/dev/null
 cat "$out"; rm -f "$out"`;
-// This pipe can't watch the output for the last answer, so the input stays open for a fixed wait.
-// Six seconds is a guess: it has never run on Windows.
-const codexPowershell = (program) => `& { ${CODEX_REQUESTS.map((line) => `'${line}'`).join("; ")}; Start-Sleep 6 } | ${powershellCall(program)} -s read-only -a never app-server 2>$null`;
+// Windows PowerShell gives a pipe's input to a program only once the pipe has ended, so no pipe can
+// hold it open. A process of its own can, for as long as `sh` waits above. `cmd` finds an npm
+// `codex.cmd` as well as a `codex.exe`, and the outer quotes are the ones it takes off. The blank line
+// is for the byte order mark .NET writes first where the console's input is UTF-8: on the first
+// request, it would lose that, and the server would answer the others "Not initialized".
+const codexPowershell = (program) => `$go = New-Object Diagnostics.ProcessStartInfo; $go.FileName = $env:ComSpec; $go.Arguments = '/d /c ""' + ${powershellWord(program)} + '" -s read-only -a never app-server 2>nul"'; $go.UseShellExecute = $false; $go.CreateNoWindow = $true; $go.RedirectStandardInput = $true; $go.RedirectStandardOutput = $true; $go.StandardOutputEncoding = New-Object Text.UTF8Encoding $false; $server = [Diagnostics.Process]::Start($go); $server.StandardInput.NewLine = [string][char]10; $server.StandardInput.WriteLine(''); ${CODEX_REQUESTS.map((line) => `$server.StandardInput.WriteLine('${line}')`).join("; ")}; $server.StandardInput.Flush(); $by = (Get-Date).AddSeconds(15); $account = $false; $limits = $false; while (-not ($account -and $limits)) { $left = [int]($by - (Get-Date)).TotalMilliseconds; if ($left -le 0) { break }; $next = $server.StandardOutput.ReadLineAsync(); if (-not $next.Wait($left) -or $null -eq $next.Result) { break }; [Console]::Out.WriteLine($next.Result); if ($next.Result -match '"id":2[,}]') { $account = $true }; if ($next.Result -match '"id":3[,}]') { $limits = $true } }; $server.StandardInput.Close()`;
 
 async function codex(where) {
   return codexReport((await inShell(where, codexPosix(where.program), codexPowershell(where.program))).stdout);
