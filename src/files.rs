@@ -21,7 +21,17 @@ pub fn watch(home: &Path) -> Option<async_channel::Receiver<Changed>> {
         if matches!(event.kind, notify::EventKind::Access(_)) {
             return;
         }
-        let changed: Changed = event.paths.iter().filter_map(|p| p.strip_prefix(&base).ok()).filter(|p| watched(p)).map(Path::to_path_buf).collect();
+        let changed: Changed = event
+            .paths
+            .iter()
+            .filter_map(|p| p.strip_prefix(&base).ok())
+            .filter(|p| watched(p))
+            // Windows also reports a folder as modified when a file in it is
+            // written (each mod's typings on a first start: a reload of every
+            // mod, about half a second). The file reports itself, or is ignored.
+            .filter(|p| !(cfg!(windows) && folder_touched(&event.kind, p)))
+            .map(Path::to_path_buf)
+            .collect();
         if !changed.is_empty() {
             let _ = tx.send_blocking(changed);
         }
@@ -44,6 +54,13 @@ fn watched(rel: &Path) -> bool {
         "settings.json" | "keys.json" | "programs.json" => parts.next().is_none(),
         _ => false,
     }
+}
+
+/// A mod's own folder (`mods/<name>`) only modified, not made, moved or
+/// removed: something in it changed, and that path is reported on its own.
+fn folder_touched(kind: &notify::EventKind, rel: &Path) -> bool {
+    let bare_mod = mod_of(rel).is_some() && rel.components().count() == 2;
+    bare_mod && matches!(kind, notify::EventKind::Modify(m) if !matches!(m, notify::event::ModifyKind::Name(_)))
 }
 
 /// A change inside `mods/` that should reload a mod. The runtime writes its
@@ -157,6 +174,23 @@ mod tests {
         assert!(!watched(Path::new("shared.json")));
         assert!(!watched(Path::new("data/x")));
         assert_eq!(mod_of(Path::new("mods/agents/main.js")).as_deref(), Some("agents"));
+    }
+
+    #[test]
+    fn a_mod_folder_touched_by_a_file_inside_it_is_not_a_change_but_made_moved_or_removed_is() {
+        use notify::event::{CreateKind, ModifyKind, RemoveKind, RenameMode};
+        use notify::EventKind::{Create, Modify, Remove};
+        let folder = Path::new("mods/probe");
+        // What Windows says of a mod's folder when its typings are first written into it.
+        assert!(folder_touched(&Modify(ModifyKind::Any), folder));
+        assert!(folder_touched(&Modify(ModifyKind::Metadata(notify::event::MetadataKind::WriteTime)), folder));
+        assert!(!folder_touched(&Create(CreateKind::Any), folder));
+        assert!(!folder_touched(&Remove(RemoveKind::Any), folder));
+        assert!(!folder_touched(&Modify(ModifyKind::Name(RenameMode::To)), folder));
+        // A file in it still reloads the mod.
+        assert!(!folder_touched(&Modify(ModifyKind::Any), Path::new("mods/probe/main.js")));
+        assert!(!folder_touched(&Modify(ModifyKind::Any), Path::new("mods")));
+        assert!(!folder_touched(&Modify(ModifyKind::Any), Path::new("layouts/main.json")));
     }
 
     #[test]
