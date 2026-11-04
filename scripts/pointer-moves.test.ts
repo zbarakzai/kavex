@@ -1,7 +1,7 @@
 import { test, expect, mock, beforeEach } from "bun:test";
 import { readFileSync } from "node:fs";
 
-// The spaces sidebar and the tab bar listen to the pointer only while a press is held: a
+// The spaces sidebar, the tab bar and the tabs column listen to the pointer only while a press is held: a
 // move handler is a call into the mod on every move over it, at the mouse's rate. Their
 // real code is drawn into a tree of the calls it makes, and driven through its handlers.
 type El = { calls: [string, any[]][]; kids: any[]; self: any };
@@ -53,12 +53,14 @@ mock.module("herdr", () => ({
 }));
 const { default: Spaces } = await import("../defaults/mods/spaces/main.js");
 const { default: Tabs } = await import("../defaults/mods/tabs/main.js");
+const { default: TabsColumn } = await import("../defaults/mods/tabs-column/main.js");
 
 const timers: (() => void)[] = [];
 const cx: any = {
   notify: () => {},
   spawn: () => {},
   stop_propagation: () => {},
+  focus_handle: () => ({ focus: () => {}, is_focused: () => false }),
   timer: { every: () => {}, after: (_ms: number, f: (cx: any) => void) => timers.push(() => f(cx)) },
 };
 const flush = () => { while (timers.length) timers.shift()!(); };
@@ -137,6 +139,41 @@ test("tabs: a press let go without a move is a click, and the bar stops listenin
   const { draw } = bar();
   handler(byId(draw(), "tab-b"), "on_mouse_down", "left")(at(130, 20, { bounds: { x: 92, y: 5 } }), cx);
   handler(byId(draw(), "tab-b"), "on_mouse_up", "left")(at(130, 20), cx);
+  expect(state.ran).toEqual([["tab.select", { id: "b" }]]);
+  expect(listening(draw())).toEqual([]);
+});
+
+function column() {
+  state.spaces = [{ ...space("s0", true), tabs: [tab("a", true), tab("b"), tab("c")] }];
+  const m = mount(TabsColumn);
+  handler(m.draw(), "on_size_change")({ width: 330, height: 700 });
+  return m;
+}
+
+test("tabs column: the column doesn't hear plain pointer moves", () => {
+  expect(listening(column().draw())).toEqual([]);
+});
+
+test("tabs column: pressing a row makes the column listen, and a drag lifts it and lets it go", () => {
+  const { view, draw } = column();
+  handler(byId(draw(), "column-b"), "on_mouse_down", "left")(at(100, 110, { bounds: { x: 8, y: 100 } }), cx);
+  const held = draw();
+  expect(listening(held)).toEqual(["tabs-column"]);
+  handler(held, "on_mouse_move")(at(100, 130), cx); // past START: picked up
+  expect(state.overlays.map((o) => o.mod)).toEqual(["tab-drag"]);
+  const carried = draw();
+  expect(listening(carried)).toEqual(["tabs-column"]);
+  expect(byId(carried, `ghost-${view.drag.n}`)).toBeTruthy();
+  handler(carried, "on_mouse_up", "left")(at(100, 130), cx);
+  flush();
+  expect(view.drag).toBeNull();
+  expect(listening(draw())).toEqual([]);
+});
+
+test("tabs column: a click without a move still selects", () => {
+  const { draw } = column();
+  handler(byId(draw(), "column-b"), "on_mouse_down", "left")(at(100, 110, { bounds: { x: 8, y: 100 } }), cx);
+  handler(byId(draw(), "column-b"), "on_mouse_up", "left")(at(100, 110), cx);
   expect(state.ran).toEqual([["tab.select", { id: "b" }]]);
   expect(listening(draw())).toEqual([]);
 });

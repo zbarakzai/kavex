@@ -1,0 +1,93 @@
+{
+ "label": "before-column-drag-only-mousemove",
+ "binary": "C:\\Users\\ZakiBarakzai\\AppData\\Local\\Temp\\claude\\C--Users-ZakiBarakzai-Desktop-Experements-zaki\\2cafb48c-7198-40ee-a65b-0e8187ee78d0\\scratchpad\\bins\\zaki-head12.exe",
+ "script": "scratchpad ab12.py (one A/B over items a-d, alternating head/fix)",
+ "rows": [
+  {
+   "app_cpu_percent": 7.087,
+   "main_cpu_percent": 6.25887884553027,
+   "js_move_calls_per_s": 110.15626768133275,
+   "moves_per_s": 118.1676326036115,
+   "fps": 0.20028412305696863,
+   "other_load_percent": 733.985
+  },
+  {
+   "app_cpu_percent": 10.469,
+   "main_cpu_percent": 10.006319991706762,
+   "js_move_calls_per_s": 120.07583990048114,
+   "moves_per_s": 117.27407030280325,
+   "fps": 0.20012639983413524,
+   "other_load_percent": 650.285
+  },
+  {
+   "app_cpu_percent": 7.047,
+   "main_cpu_percent": 6.246239763662276,
+   "js_move_calls_per_s": 119.9278034623157,
+   "moves_per_s": 117.12948804819499,
+   "fps": 0.19987967243719282,
+   "other_load_percent": 670.697
+  },
+  {
+   "app_cpu_percent": 5.245,
+   "main_cpu_percent": 4.698555701565784,
+   "js_move_calls_per_s": 110.2594404634104,
+   "moves_per_s": 115.47170492168071,
+   "fps": 0.0,
+   "other_load_percent": 1034.189
+  },
+  {
+   "app_cpu_percent": 28.352,
+   "main_cpu_percent": 24.763618410269483,
+   "js_move_calls_per_s": 120.36999328536054,
+   "moves_per_s": 116.55827683132412,
+   "fps": 30.493731632291336,
+   "other_load_percent": 880.772
+  },
+  {
+   "app_cpu_percent": 22.745,
+   "main_cpu_percent": 17.50533212416502,
+   "js_move_calls_per_s": 120.03656313713157,
+   "moves_per_s": 117.23570999726516,
+   "fps": 10.003046928094298,
+   "other_load_percent": 1072.709
+  }
+ ],
+ "summary": {
+  "app_cpu_percent": {
+   "median": 8.778,
+   "p95": 28.352,
+   "iqr": 15.698,
+   "n": 6
+  },
+  "fps": {
+   "median": 0.2,
+   "p95": 30.494,
+   "iqr": 9.803,
+   "n": 6
+  },
+  "js_move_calls_per_s": {
+   "median": 119.982,
+   "p95": 120.37,
+   "iqr": 9.816,
+   "n": 6
+  },
+  "main_cpu_percent": {
+   "median": 8.133,
+   "p95": 24.764,
+   "iqr": 11.259,
+   "n": 6
+  },
+  "moves_per_s": {
+   "median": 117.183,
+   "p95": 118.168,
+   "iqr": 0.716,
+   "n": 6
+  },
+  "other_load_percent": {
+   "median": 807.379,
+   "p95": 1072.709,
+   "iqr": 363.492,
+   "n": 6
+  }
+ }
+}

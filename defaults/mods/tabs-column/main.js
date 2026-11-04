@@ -343,7 +343,9 @@ export default class TabsColumn extends View {
     const tool = (id, icon, action, on = false) => h_flex().id(id).size(32).flex_none().items_center().justify_center().rounded(9).text_color(on ? k.foreground : k.muted).hover((s) => s.bg(k.hover_strong).text_color(k.foreground)).on_mouse_down("left", (e) => { this.toolAt = e.bounds; this.toolDown = Date.now(); }).on_click(() => { if (!reopening(shared("popup.closed"), id, this.toolDown)) action(); }).child(svg(icon).size(16));
     return v_flex().id("tabs-column").relative().size_full().min_h(0).rounded(14).overflow_hidden().bg(k.surface).text_color(k.foreground).text_size(13)
       .on_size_change((size) => { this.rootH = size.height / settings().zoom; })
-      .on_mouse_move((e, cx) => this.moved(e, v, cx))
+      // Only while a press or a drag is on (pressed() draws once to put it on): plain moves need
+      // nothing from here, and at a mouse's rate each would be a call in.
+      .when(Boolean(this.press || d), (el) => el.on_mouse_move((e, cx) => this.moved(e, v, cx)))
       .on_mouse_up("left", (_e, cx) => this.up(cx))
       .on_hover((on, cx) => { if (!on) { this.press = null; this.over = null; cx.notify(); } })
       .on_scroll_wheel((e) => this.wheel(e, v))
