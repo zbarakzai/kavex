@@ -1459,6 +1459,11 @@ impl Drop for Vt {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::links::PathStyle;
+
+    fn find(text: &str, at: usize) -> Option<std::ops::Range<usize>> {
+        crate::links::find(PathStyle::Posix, text, at)
+    }
 
     #[test]
     fn scrollback_retains_five_thousand_styled_lines() {
@@ -1904,11 +1909,26 @@ mod tests {
     fn links_follow_wrapped_lines() {
         let mut vt = Vt::new(20, 4);
         vt.write(b"go https://example.com/a/long/path ok");
-        let hit = vt.link_at(5, 1, crate::links::find).unwrap();
+        let hit = vt.link_at(5, 1, find).unwrap();
         assert_eq!(hit.target, "https://example.com/a/long/path");
         assert_eq!(hit.spans, vec![(0, 3, 19), (1, 0, 13)]);
-        assert_eq!(vt.link_at(1, 0, crate::links::find), None);
-        assert_eq!(vt.link_at(16, 1, crate::links::find), None);
+        assert_eq!(vt.link_at(1, 0, find), None);
+        assert_eq!(vt.link_at(16, 1, find), None);
+    }
+
+    #[test]
+    fn windows_paths_follow_wrapped_lines() {
+        let find = |text: &str, at: usize| crate::links::find(PathStyle::Windows, text, at);
+        let mut vt = Vt::new(12, 4);
+        vt.write(br"Update(python\tools\x.py) ok");
+        let hit = vt.link_at(2, 1, find).unwrap();
+        assert_eq!(hit.target, r"python\tools\x.py");
+        assert_eq!(hit.spans, vec![(0, 7, 11), (1, 0, 11)]);
+        assert_eq!(vt.link_at(0, 2, find), None, "the closing paren");
+        let mut vt = Vt::new(10, 3);
+        vt.write(br"C:\Users\Zaki Barakzai\x.py then");
+        let hit = vt.link_at(1, 1, find).unwrap();
+        assert_eq!(hit.target, r"C:\Users\Zaki Barakzai\x.py");
     }
 
     #[test]
@@ -1916,7 +1936,7 @@ mod tests {
         let mut vt = Vt::new(10, 2);
         vt.write(b"https://example.com/abcdefgh");
         // Three rows of link on a two-row screen: the first scrolled away.
-        let hit = vt.link_at(2, 0, crate::links::find).unwrap();
+        let hit = vt.link_at(2, 0, find).unwrap();
         assert_eq!(hit.target, "https://example.com/abcdefgh");
         assert_eq!(hit.spans, vec![(0, 0, 9), (1, 0, 7)]);
     }
@@ -1932,10 +1952,10 @@ mod tests {
     fn marked_links_open_their_uri() {
         let mut vt = Vt::new(30, 2);
         vt.write(b"see \x1b]8;;https://herdr.dev\x1b\\the docs\x1b]8;;\x1b\\ now");
-        let hit = vt.link_at(6, 0, crate::links::find).unwrap();
+        let hit = vt.link_at(6, 0, find).unwrap();
         assert_eq!(hit.target, "https://herdr.dev");
         assert_eq!(hit.spans, vec![(0, 4, 11)]);
-        assert_eq!(vt.link_at(13, 0, crate::links::find), None);
+        assert_eq!(vt.link_at(13, 0, find), None);
     }
 
     #[test]

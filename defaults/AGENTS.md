@@ -196,7 +196,7 @@ the highlighted line shows where it will land.
   `terminal.peek` opens one, `terminal.keep` gives one a pane.
   Ctrl-click (Cmd-click on macOS) a live terminal address in terminal text to
   peek at it. The same click on a Markdown file opens it in the Files panel; any other
-  file or URL goes to the system. Bare addresses refer to the machine of the terminal showing them;
+  file or URL goes to the system (on Windows a program or script is shown in Explorer, not run). Bare addresses refer to the machine of the terminal showing them;
   use `machine/address` for another machine. Names and non-live addresses aren't links.
 - **Session context**: a Claude Code, Codex or Pi row in the agents list, and such a sub-agent's, on
   any machine, shows how full its session's context is as a small percent between the name and the
@@ -292,6 +292,14 @@ machine that can't be checked, so there's no underline, but the click still work
 (Ctrl-click) opens it in the reader, and `zaki do file.preview --file plan.md` does the same for an
 agent. In a layout without the panel it opens in a pane beside the focused one, and the next file
 replaces what that pane shows.
+
+In a Windows terminal, Ctrl-click also reads paths as tools there print them: `src\main.rs`,
+`C:\x\y.py`, `D:/x/y.md`, `.\x.py`, with `:42` or `:42:7` after them. A path from a drive or from `.\`
+can hold spaces, and ends at the first word with a file's extension; one with no extension, such
+as a folder, is a link only with no more words after it. A bare `name.ext` with no slash counts if
+it's in the terminal's folder. Other names with no extension (`Makefile`) need a `.\`. Shares
+(`\\host\x`) are never links: looking one up would reach that machine. A terminal on another
+machine reads paths the Unix way, whatever computer shows it.
 
 The Changes panel shows the focused repo's diff by scope: Unstaged (with new
 files), Staged, Commit (a picked commit), Branch (from where it left a picked
