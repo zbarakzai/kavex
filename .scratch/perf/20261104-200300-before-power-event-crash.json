@@ -1,0 +1,43 @@
+{
+ "check": "15 fresh starts",
+ "power": true,
+ "bins": {
+  "fix14": "C:\\Users\\ZakiBarakzai\\AppData\\Local\\Temp\\claude\\C--Users-ZakiBarakzai-Desktop-Experements-zaki\\2cafb48c-7198-40ee-a65b-0e8187ee78d0\\scratchpad\\bins\\zaki-fix14.exe"
+ },
+ "reps": 3,
+ "summary": {
+  "fix14": {
+   "cold.fresh.first_paint_ms": null,
+   "cold.fresh.control_ready_ms": null,
+   "cold.fresh.paint_to_ready_ms": null,
+   "cold.fresh.other_load": null,
+   "starts": 0,
+   "abnormal_exits": 3
+  }
+ },
+ "data": {
+  "fix14": {
+   "starts": [],
+   "exits": [
+    {
+     "round": 0,
+     "code": 3221226505,
+     "exit": "3221226505 (0xC0000409, fail-fast (abort, stack buffer overrun))",
+     "kept": "C:\\Users\\ZakiBarakzai\\Desktop\\Experements\\zaki\\.claude\\worktrees\\perf-windows\\.scratch\\perf\\crashes\\20261104-200335-f15-fix14-start1"
+    },
+    {
+     "round": 1,
+     "code": 3221226505,
+     "exit": "3221226505 (0xC0000409, fail-fast (abort, stack buffer overrun))",
+     "kept": "C:\\Users\\ZakiBarakzai\\Desktop\\Experements\\zaki\\.claude\\worktrees\\perf-windows\\.scratch\\perf\\crashes\\20261104-200410-f15-fix14-start2"
+    },
+    {
+     "round": 2,
+     "code": 3221226505,
+     "exit": "3221226505 (0xC0000409, fail-fast (abort, stack buffer overrun))",
+     "kept": "C:\\Users\\ZakiBarakzai\\Desktop\\Experements\\zaki\\.claude\\worktrees\\perf-windows\\.scratch\\perf\\crashes\\20261104-200444-f15-fix14-start3"
+    }
+   ]
+  }
+ }
+}
