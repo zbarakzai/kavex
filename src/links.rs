@@ -961,6 +961,8 @@ mod tests {
         assert_eq!(resolve(r"~\nowhere-zaki-test", Some(&repo)), None);
     }
 
+    // Windows paths: elsewhere `\` isn't a separator, and only Windows runs what it opens.
+    #[cfg(windows)]
     #[test]
     fn windows_runs_programs_and_scripts_it_is_handed() {
         let runs = |name: &str, pathext| runnable(Path::new(name), pathext);
@@ -988,6 +990,8 @@ mod tests {
         assert!(runs("x.cpl", Some("")), "the default covers what PATHEXT usually has");
     }
 
+    // Windows paths: elsewhere `\` isn't a separator, and only Windows runs what it opens.
+    #[cfg(windows)]
     #[test]
     fn a_runnable_file_is_shown_but_a_folder_still_opens() {
         let dir = std::env::temp_dir().join(format!("zaki-links-reveal-{}", std::process::id()));
@@ -1007,6 +1011,8 @@ mod tests {
         assert!(!package, "a folder named like a script is still a folder");
     }
 
+    // Windows paths: elsewhere `\` isn't a separator, and only Windows runs what it opens.
+    #[cfg(windows)]
     #[test]
     fn a_script_counts_when_its_default_app_is_an_interpreter() {
         // Like the registry, the lookup reads an extension in any case.
@@ -1022,6 +1028,8 @@ mod tests {
         assert!(shown_in_folder(Path::new("x.py."), None, |ext| (ext == "py").then(|| PathBuf::from("python.exe"))), "the extension Windows reads");
     }
 
+    // Windows paths: elsewhere `\` isn't a separator, and only Windows runs what it opens.
+    #[cfg(windows)]
     #[test]
     fn interpreters_are_known_by_their_program_name() {
         let interpreters = [
