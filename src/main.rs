@@ -136,26 +136,18 @@ fn main() {
         checked.save(&file);
         found
     };
-    let core: Result<std::sync::Arc<hc::Core>, setup::Need> = match found {
-        None => Err(setup::Need::Install),
+    // Connecting (about 80 ms, longer when the core has to start) runs beside
+    // the platform's start, and is waited for just before the window needs it.
+    let core: Box<dyn FnOnce() -> Result<std::sync::Arc<hc::Core>, setup::Need>> = match found {
+        None => Box::new(|| Err(setup::Need::Install)),
         Some(bin) => {
+            // On this thread: it sets PATH, before other threads read the environment.
             core_bin::use_core(bin);
-            let _span = bench::span("start:core_connect");
-            match hc::Core::connect() {
-                // One that can't serve this app gets the screen that fixes it.
-                Ok(core) => hc::check(&core.hello).map(|()| core).map_err(setup::Need::Fix),
-                Err(e) => {
-                    eprintln!("zaki: {e:#}");
-                    Err(setup::Need::Install)
-                }
-            }
+            beside("core-connect", connect_core)
         }
     };
     #[cfg(target_os = "macos")]
     core_bin::install_cli_link();
-    if core.is_ok() {
-        update::after_update();
-    }
     update::start();
     telemetry::start(settings::telemetry_setting(&person));
     bench::start();
@@ -218,11 +210,42 @@ fn main() {
             if let Some(tx) = mods::request_sender() {
                 control::listen(tx);
             }
+            let core = {
+                let _span = bench::span("start:core_wait");
+                core()
+            };
+            if core.is_ok() {
+                update::after_update();
+            }
             match core {
                 Ok(core) => open_main(core, requests, cx),
                 Err(need) => setup::open(need, requests, cx),
             }
         });
+}
+
+/// Connects to the core `use_core` chose; one that can't serve this app gets
+/// the screen that fixes it.
+fn connect_core() -> Result<std::sync::Arc<hc::Core>, setup::Need> {
+    let _span = bench::span("start:core_connect");
+    match hc::Core::connect() {
+        Ok(core) => hc::check(&core.hello).map(|()| core).map_err(setup::Need::Fix),
+        Err(e) => {
+            eprintln!("zaki: {e:#}");
+            Err(setup::Need::Install)
+        }
+    }
+}
+
+/// Runs `work` on its own thread now; the returned call waits for its answer
+/// (a panic carries on in the caller, as if it ran there), or runs it in place
+/// if no thread could start.
+fn beside<T: Send + 'static>(name: &str, work: fn() -> T) -> Box<dyn FnOnce() -> T> {
+    let thread = std::thread::Builder::new().name(name.into()).spawn(work);
+    Box::new(move || match thread {
+        Ok(thread) => thread.join().unwrap_or_else(|panic| std::panic::resume_unwind(panic)),
+        Err(_) => work(),
+    })
 }
 
 /// Starts writing what ships into the home `home`, each part on its own
@@ -275,4 +298,22 @@ pub fn open_main(core: std::sync::Arc<hc::Core>, requests: async_channel::Receiv
             cx.open_window(options, |window, cx| cx.new(|cx| window::AppWindow::new(core, requests, window, cx)))
                 .expect("cannot open the Zaki window");
             cx.activate(true);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::beside;
+
+    #[test]
+    fn beside_answers_from_its_own_thread() {
+        let answer = beside("beside-test", || std::thread::current().name().map(str::to_owned));
+        assert_eq!(answer(), Some("beside-test".to_owned()));
+    }
+
+    #[test]
+    fn beside_carries_a_panic_to_the_caller() {
+        let answer = beside("beside-panics", || -> u8 { panic!("stopped") });
+        let caught = std::panic::catch_unwind(std::panic::AssertUnwindSafe(answer)).unwrap_err();
+        assert_eq!(caught.downcast_ref::<&str>(), Some(&"stopped"));
+    }
 }
