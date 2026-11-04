@@ -1,7 +1,7 @@
 # gpui-kit (gpui-shell): an unchanged application reuses its modules
 
 Package: `vendor/gpui-kit` (crate `gpui-shell`, from longbridge/gpui-kit at
-1ccf011). Patch: `gpui-kit-overlay-generation.patch`.
+1ccf011). Commit 79a7bf5. Patch: `gpui-kit-overlay-generation.patch`.
 
 ## What it changes
 

@@ -1,7 +1,7 @@
 # gpui-pre-windows: suspend and resume run from the message loop
 
 Package: `vendor/gpui-pre-windows` (crate `gpui-pre-windows` 0.3.8, GPUI's
-Windows backend from zed-industries/zed). Patch:
+Windows backend from zed-industries/zed). Commit 8fc095c. Patch:
 `gpui-pre-windows-power-event-deferred.patch`.
 
 ## What it changes
