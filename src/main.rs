@@ -103,6 +103,7 @@ fn main() {
         }
     }
 
+    bench::init();
     #[cfg(target_os = "macos")]
     core_bin::fill_path();
     tracing_subscriber::fmt()
@@ -116,48 +117,67 @@ fn main() {
         return;
     }
 
+    // The home's shipped files are written beside finding and connecting the
+    // core and the platform's start, and waited for before anything reads them.
+    let installs = start_installs(mods::app_dir());
+
     telemetry::clock();
     // A first start sizes the app to the screen and the system's text size.
     let fresh = !settings::path().exists();
     // The core people installed; without one, the setup screen installs it.
     let person = settings::load_person();
     let configured = person.as_ref().ok().and_then(|p| p.core.clone());
-    let core: Result<std::sync::Arc<hc::Core>, setup::Need> = match core_bin::find(configured.as_deref()) {
-        None => Err(setup::Need::Install),
+    let found = {
+        let _span = bench::span("start:core_find");
+        // Asking a binary for its version runs it: only one that changed since is asked.
+        let file = mods::app_dir().join("core-checked.json");
+        let mut checked = core_bin::Checked::load(&file);
+        let found = core_bin::find(configured.as_deref(), &mut checked);
+        checked.save(&file);
+        found
+    };
+    // Connecting (about 80 ms, longer when the core has to start) runs beside
+    // the platform's start, and is waited for just before the window needs it.
+    let core: Box<dyn FnOnce() -> Result<std::sync::Arc<hc::Core>, setup::Need>> = match found {
+        None => Box::new(|| Err(setup::Need::Install)),
         Some(bin) => {
+            // On this thread: it sets PATH, before other threads read the environment.
             core_bin::use_core(bin);
-            match hc::Core::connect() {
-                // One that can't serve this app gets the screen that fixes it.
-                Ok(core) => hc::check(&core.hello).map(|()| core).map_err(setup::Need::Fix),
-                Err(e) => {
-                    eprintln!("zaki: {e:#}");
-                    Err(setup::Need::Install)
-                }
-            }
+            beside("core-connect", connect_core)
         }
     };
     #[cfg(target_os = "macos")]
     core_bin::install_cli_link();
-    if core.is_ok() {
-        update::after_update();
-    }
     update::start();
     telemetry::start(settings::telemetry_setting(&person));
     bench::start();
-    if let Err(e) = mods::write_workspace() {
-        eprintln!("zaki: cannot write {}: {e}", mods::app_dir().display());
-    }
 
+    bench::mark("start:platform");
     gpui_platform::application()
         .with_assets(gpui_shell::AppAssets::new(mods::app_dir()))
         .run(move |cx| {
-            let fonts = settings::BUNDLED_FONTS.iter().map(|f| std::borrow::Cow::Borrowed(*f)).collect();
-            if let Err(e) = cx.text_system().add_fonts(fonts) {
-                tracing::warn!("bundled fonts not loaded: {e:#}");
+            bench::mark("start:app_running");
+            {
+                let _span = bench::span("start:installs_wait");
+                for install in installs {
+                    if let Err(e) = install() {
+                        eprintln!("zaki: cannot write {}: {e}", mods::app_dir().display());
+                    }
+                }
             }
-            settings::note_fonts(cx.text_system().all_font_names());
-            settings::load_home_fonts(cx);
-            mods::init(cx);
+            {
+                let _span = bench::span("start:fonts");
+                let fonts = settings::BUNDLED_FONTS.iter().map(|f| std::borrow::Cow::Borrowed(*f)).collect();
+                if let Err(e) = cx.text_system().add_fonts(fonts) {
+                    tracing::warn!("bundled fonts not loaded: {e:#}");
+                }
+                settings::note_fonts(cx.text_system().all_font_names());
+                settings::load_home_fonts(cx);
+            }
+            {
+                let _span = bench::span("start:mods_init");
+                mods::init(cx);
+            }
             // Not restarted for it: the update goes in when the app quits.
             cx.on_app_quit(|cx| {
                 let deadline = std::time::Instant::now() + std::time::Duration::from_millis(250);
@@ -190,11 +210,69 @@ fn main() {
             if let Some(tx) = mods::request_sender() {
                 control::listen(tx);
             }
+            let core = {
+                let _span = bench::span("start:core_wait");
+                core()
+            };
+            if core.is_ok() {
+                update::after_update();
+            }
             match core {
                 Ok(core) => open_main(core, requests, cx),
                 Err(need) => setup::open(need, requests, cx),
             }
         });
+}
+
+/// Connects to the core `use_core` chose; one that can't serve this app gets
+/// the screen that fixes it.
+fn connect_core() -> Result<std::sync::Arc<hc::Core>, setup::Need> {
+    let _span = bench::span("start:core_connect");
+    match hc::Core::connect() {
+        Ok(core) => hc::check(&core.hello).map(|()| core).map_err(setup::Need::Fix),
+        Err(e) => {
+            eprintln!("zaki: {e:#}");
+            Err(setup::Need::Install)
+        }
+    }
+}
+
+/// Runs `work` on its own thread now; the returned call waits for its answer
+/// (a panic carries on in the caller, as if it ran there), or runs it in place
+/// if no thread could start.
+fn beside<T: Send + 'static>(name: &str, work: fn() -> T) -> Box<dyn FnOnce() -> T> {
+    let thread = std::thread::Builder::new().name(name.into()).spawn(work);
+    Box::new(move || match thread {
+        Ok(thread) => thread.join().unwrap_or_else(|panic| std::panic::resume_unwind(panic)),
+        Err(_) => work(),
+    })
+}
+
+/// Starts writing what ships into the home `home`, each part on its own
+/// thread (on Windows creating a file is slow, and these are hundreds). Each
+/// returned call waits for its part, or does it now if its thread didn't start.
+fn start_installs(home: std::path::PathBuf) -> Vec<Box<dyn FnOnce() -> std::io::Result<()>>> {
+    type Part = fn(&std::path::Path) -> std::io::Result<()>;
+    let parts: [(&str, &'static str, Part); 2] = [
+        ("workspace", "start:write_workspace", mods::write_workspace),
+        ("themes-icons", "start:install_themes_icons", |home| {
+            settings::install_themes(home);
+            programs::install_icons(home);
+            Ok(())
+        }),
+    ];
+    parts.into_iter().map(|(name, span, part)| {
+        let at = home.clone();
+        let thread = std::thread::Builder::new().name(name.into()).spawn(move || {
+            let _span = bench::span(span);
+            part(&at)
+        });
+        let home = home.clone();
+        Box::new(move || match thread {
+            Ok(thread) => thread.join().unwrap_or_else(|_| Err(std::io::Error::other(format!("{name} stopped")))),
+            Err(_) => part(&home),
+        }) as Box<dyn FnOnce() -> std::io::Result<()>>
+    }).collect()
 }
 
 /// The main window, on a connected core.
@@ -216,7 +294,26 @@ pub fn open_main(core: std::sync::Arc<hc::Core>, requests: async_channel::Receiv
                 app_id: Some(std::env::var("HERDR_APP_ID").ok().filter(|s| !s.is_empty()).unwrap_or_else(|| "zaki".into())),
                 ..Default::default()
             };
+            let _span = bench::span("start:open_window");
             cx.open_window(options, |window, cx| cx.new(|cx| window::AppWindow::new(core, requests, window, cx)))
                 .expect("cannot open the Zaki window");
             cx.activate(true);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::beside;
+
+    #[test]
+    fn beside_answers_from_its_own_thread() {
+        let answer = beside("beside-test", || std::thread::current().name().map(str::to_owned));
+        assert_eq!(answer(), Some("beside-test".to_owned()));
+    }
+
+    #[test]
+    fn beside_carries_a_panic_to_the_caller() {
+        let answer = beside("beside-panics", || -> u8 { panic!("stopped") });
+        let caught = std::panic::catch_unwind(std::panic::AssertUnwindSafe(answer)).unwrap_err();
+        assert_eq!(caught.downcast_ref::<&str>(), Some(&"stopped"));
+    }
 }

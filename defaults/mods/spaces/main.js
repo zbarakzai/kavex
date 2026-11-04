@@ -283,18 +283,20 @@ export default class Spaces extends View {
           .when(this.pressed < i, line => line.bottom(0))
           .when(this.pressed > i, line => line.top(0)),
       ))
-      .on_mouse_down("left", () => {
+      // Rows hear the pointer only while a press is held: every move would otherwise call in here.
+      .on_mouse_down("left", (_e, cx) => {
         this.pressed = i;
         this.over = i;
+        cx.notify();
       })
-      .on_mouse_move((_e, cx) => {
+      .when(this.pressed !== null, (el) => el.on_mouse_move((_e, cx) => {
         const source = spaces()[this.pressed];
         const over = source && (source.machine ?? null) === (w.machine ?? null) ? i : null;
         if (this.pressed !== null && this.over !== over) {
           this.over = over;
           cx.notify();
         }
-      })
+      }))
       .on_mouse_up("left", (_e, cx) => {
         const from = this.pressed;
         const over = this.over;

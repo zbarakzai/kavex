@@ -4,3 +4,4 @@
 /AGENTS.local.md
 /distribution/worker/.wrangler
 .DS_Store
+__pycache__/

@@ -42,6 +42,40 @@ use gpui::*;
 struct TrackedWindow {
     handle: SafeHwnd,
     frame_signal: Arc<PlatformFrameSignal>,
+    frame_demand: Arc<FrameDemand>, // HERDR: frames on demand.
+}
+
+// HERDR: frames on demand. Upstream invalidates every window on every vsync, so an idle
+// window takes an empty WM_PAINT each refresh. Each window counts the vsyncs it still wants,
+// GPUI's frame waker refills it (window.rs), and the vsync thread invalidates only those
+// windows and sleeps while none wants one.
+#[derive(Default)]
+pub(crate) struct FrameDemand(std::sync::atomic::AtomicU32);
+
+/// The running `VSyncProvider` thread, to wake it; one platform per process.
+static VSYNC_THREAD: std::sync::Mutex<Option<std::thread::Thread>> = std::sync::Mutex::new(None);
+
+impl FrameDemand {
+    /// Vsyncs after a wake. GPUI wakes again after every frame that leaves work behind, so
+    /// these only cover a wake between frames. The macOS idle patch waits as long.
+    pub(crate) const FRAMES: u32 = 3;
+    /// A touchpad gesture only moves when a paint runs DirectManipulation's update.
+    pub(crate) const GESTURE_FRAMES: u32 = 60;
+
+    pub(crate) fn wake(&self, frames: u32) {
+        self.0.fetch_max(frames, Ordering::AcqRel);
+        wake_vsync_thread();
+    }
+
+    fn take_frame(&self) -> bool {
+        self.0.fetch_update(Ordering::AcqRel, Ordering::Acquire, |n| n.checked_sub(1)).is_ok()
+    }
+}
+
+fn wake_vsync_thread() {
+    if let Some(thread) = VSYNC_THREAD.lock().unwrap_or_else(|e| e.into_inner()).as_ref() {
+        thread.unpark();
+    }
 }
 
 impl TrackedWindow {
@@ -423,6 +457,7 @@ impl WindowsPlatform {
             // Not joined: the thread can be sending this thread a message. It exits after its
             // next vsync, and drops its reference to the devices then.
             stop.store(true, Ordering::Release);
+            wake_vsync_thread(); // HERDR: it may be asleep.
         }
         if let Some(text_system) = &self.direct_write_text_system {
             text_system.release_gpu();
@@ -450,8 +485,24 @@ impl WindowsPlatform {
             .name("VSyncProvider".to_owned())
             .spawn(move || {
                 let vsync_provider = VSyncProvider::new();
+                // HERDR: frames on demand (FrameDemand). Asleep, it still checks for a
+                // lost device every second. Woken, it invalidates at once: the first
+                // DwmFlush after idle returns early and `wait_for_vsync` then sleeps a
+                // whole frame.
+                *VSYNC_THREAD.lock().unwrap_or_else(|e| e.into_inner()) = Some(std::thread::current());
                 loop {
-                    let signal_source = vsync_provider.wait_for_vsync();
+                    let wanted = all_windows.upgrade().is_some_and(|windows| {
+                        windows.read().iter().any(|w| w.frame_demand.0.load(Ordering::Acquire) > 0)
+                    });
+                    let parked = !wanted && !stop.load(Ordering::Acquire) && !invalidate_devices.load(Ordering::Acquire);
+                    if parked {
+                        std::thread::park_timeout(std::time::Duration::from_secs(1));
+                    }
+                    let signal_source = if parked {
+                        FrameRequestSource::LocalSchedule
+                    } else {
+                        vsync_provider.wait_for_vsync()
+                    };
                     let signal_at = PlatformFrameSignal::capture(scheduler::Instant::now);
                     if stop.load(Ordering::Acquire) {
                         break;
@@ -473,6 +524,11 @@ impl WindowsPlatform {
                         break;
                     };
                     for hwnd in all_windows.read().iter() {
+                        // HERDR: frames on demand. A window that wants no frame isn't invalidated.
+                        if !hwnd.frame_demand.take_frame() {
+                            hwnd.frame_signal.take();
+                            continue;
+                        }
                         unsafe {
                             if let Some(signal_at) = signal_at {
                                 if IsWindowVisible(hwnd.as_raw()).as_bool()
@@ -763,6 +819,7 @@ impl Platform for WindowsPlatform {
         self.raw_window_handles.write().push(TrackedWindow {
             handle: handle.into(),
             frame_signal: window.state.frame_signal.clone(),
+            frame_demand: window.state.frame_demand.clone(), // HERDR: frames on demand.
         });
 
         Ok(Box::new(window))
@@ -1181,8 +1238,9 @@ impl WindowsPlatformInner {
             | WM_GPUI_DOCK_MENU_ACTION
             | WM_GPUI_KEYBOARD_LAYOUT_CHANGED
             | WM_GPUI_GPU_DEVICE_LOST
+            | WM_GPUI_POWER_EVENT // HERDR: power events run from the message loop.
             | WM_GPUI_END_SESSION => self.handle_gpui_events(msg, wparam, lparam),
-            WM_POWERBROADCAST => self.handle_power_broadcast(wparam),
+            WM_POWERBROADCAST => self.handle_power_broadcast(handle, wparam),
             _ => None,
         };
         if let Some(result) = handled {
@@ -1207,6 +1265,7 @@ impl WindowsPlatformInner {
             WM_GPUI_KEYBOARD_LAYOUT_CHANGED => self.handle_keyboard_layout_change(),
             WM_GPUI_GPU_DEVICE_LOST => self.handle_device_lost(lparam),
             WM_GPUI_END_SESSION => self.handle_end_session(),
+            WM_GPUI_POWER_EVENT => self.run_power_event(lparam.0 as u32), // HERDR
             _ => unreachable!(),
         }
     }
@@ -1339,8 +1398,30 @@ impl WindowsPlatformInner {
         Some(0)
     }
 
-    fn handle_power_broadcast(&self, wparam: WPARAM) -> Option<isize> {
-        match wparam.0 as u32 {
+    // HERDR: WM_POWERBROADCAST is a sent message, so any message pump on this
+    // thread delivers it: also the COM modal loop inside a call made while the
+    // app is borrowed (UiaLookupId while a window is created). The callbacks
+    // borrow the app, and that panic in a window procedure aborts the process
+    // (closing the lid while a window opened). So they run from the message
+    // loop, as the macOS platform runs them from the main queue.
+    fn handle_power_broadcast(&self, handle: HWND, wparam: WPARAM) -> Option<isize> {
+        let event = wparam.0 as u32;
+        if matches!(event, PBT_APMSUSPEND | PBT_APMRESUMEAUTOMATIC) {
+            unsafe {
+                PostMessageW(
+                    Some(handle),
+                    WM_GPUI_POWER_EVENT,
+                    WPARAM(self.validation_number),
+                    LPARAM(event as isize),
+                )
+                .log_err();
+            }
+        }
+        Some(1)
+    }
+
+    fn run_power_event(&self, event: u32) -> Option<isize> {
+        match event {
             PBT_APMSUSPEND => {
                 self.with_callback(|callbacks| &callbacks.system_sleep, |callback| callback());
             }
@@ -1349,7 +1430,7 @@ impl WindowsPlatformInner {
             }
             _ => {}
         }
-        Some(1)
+        Some(0)
     }
 
     fn handle_device_lost(&self, lparam: LPARAM) -> Option<isize> {
@@ -1369,6 +1450,7 @@ impl Drop for WindowsPlatform {
     fn drop(&mut self) {
         if let Some(stop) = self.vsync_stop.borrow_mut().take() {
             stop.store(true, Ordering::Release);
+            wake_vsync_thread(); // HERDR: it may be asleep.
         }
         unsafe {
             if let Some(notification) = self.suspend_resume_notification.borrow_mut().take() {

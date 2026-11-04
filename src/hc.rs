@@ -346,6 +346,7 @@ impl Core {
     }
 
     pub fn call_timeout(&self, method: &str, params: Value, timeout: Duration) -> Result<Value> {
+        let _span = crate::bench::rpc(method);
         let id = self.next_id.fetch_add(1, Ordering::Relaxed);
         let (tx, rx) = mpsc::channel();
         {
@@ -407,6 +408,7 @@ impl Core {
 
     pub fn input(&self, channel: u32, bytes: &[u8]) {
         if !bytes.is_empty() {
+            crate::bench::mark_with("input", &[channel as u64, bytes.len() as u64]);
             self.send(channel, DATA, bytes);
         }
     }
