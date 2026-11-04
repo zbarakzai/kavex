@@ -46,7 +46,7 @@ Input-SHA256: e9a4a14099a87ae063a84f7d903535dc4d9977d2554775f561db4320436fce69 v
 Input-SHA256: fc90571cbef7acefb618bfef0cf9e301d8609ecfd229f17cfce8a935be6efa28 vendor/ghostty/pkg/wuffs/build.zig.zon
 Input-SHA256: cfaa8ecc23407128fab02c87ef67d9d36ec4c0e43274b359600014a38eb8c89f vendor/ghostty/src/build/GhosttyLibVt.zig
 Input-SHA256: 447c5e414458a29d38e260621e584118e77e02e692e05ffab08107e5ab4f03da vendor/ghostty/src/build/GhosttyZig.zig
-Input-SHA256: 77b351212a37ef8107c7dbacb7fca0d73cfde13297186b6d90a7440d940b0126 vendor/gpui-kit/Cargo.toml
+Input-SHA256: 8dbf0c564b7358fd65735583cc3b5a633d0fbe6ec7719fc43a05d0fd59ef179c vendor/gpui-kit/Cargo.toml
 Input-SHA256: d1b0449e5478c574ba4f686c2656df7fe77d66821a61f8b6ed3378a58ed9a811 vendor/gpui-kit/LICENSE-APACHE
 Input-SHA256: 61bcae330899900cb50eb30be894b46e85d1bcbad8ec119c99fa533f710fd18d vendor/gpui-kit/crates/base/Cargo.toml
 Input-SHA256: d1b0449e5478c574ba4f686c2656df7fe77d66821a61f8b6ed3378a58ed9a811 vendor/gpui-kit/crates/base/LICENSE-APACHE
