@@ -1,0 +1,1527 @@
+{
+ "check": "13 cmd-open-check",
+ "bins": {
+  "head10": "C:\\Users\\ZakiBarakzai\\AppData\\Local\\Temp\\claude\\C--Users-ZakiBarakzai-Desktop-Experements-zaki\\2cafb48c-7198-40ee-a65b-0e8187ee78d0\\scratchpad\\bins\\zaki-head10.exe",
+  "fix12": "C:\\Users\\ZakiBarakzai\\AppData\\Local\\Temp\\claude\\C--Users-ZakiBarakzai-Desktop-Experements-zaki\\2cafb48c-7198-40ee-a65b-0e8187ee78d0\\scratchpad\\bins\\zaki-fix12.exe"
+ },
+ "rounds": 3,
+ "reps": 4,
+ "summary": {
+  "head10": {
+   "cmd.total_visible_ms": {
+    "median": 1337.3,
+    "iqr": 78.9,
+    "p95": 1474.7,
+    "min": 1281.4,
+    "max": 1603.4,
+    "n": 12
+   },
+   "cmd.cli_to_app_ms": {
+    "median": 50.3,
+    "iqr": 7.2,
+    "p95": 63.7,
+    "min": 46.1,
+    "max": 76.5,
+    "n": 12
+   },
+   "cmd.command_on_main_thread_ms": {
+    "median": 6.7,
+    "iqr": 1.8,
+    "p95": 8.3,
+    "min": 5.2,
+    "max": 9.9,
+    "n": 12
+   },
+   "cmd.attached_ms": {
+    "median": 130.3,
+    "iqr": 18.8,
+    "p95": 194.4,
+    "min": 119.0,
+    "max": 285.6,
+    "n": 12
+   },
+   "cmd.first_output_ms": {
+    "median": 130.4,
+    "iqr": 18.8,
+    "p95": 194.4,
+    "min": 119.0,
+    "max": 285.6,
+    "n": 12
+   },
+   "cmd.first_output_to_ink_ms": {
+    "median": 1189.1,
+    "iqr": 67.8,
+    "p95": 1282.3,
+    "min": 1131.4,
+    "max": 1315.6,
+    "n": 12
+   },
+   "cmd.shell_quiet_ms": {
+    "median": 1335.3,
+    "iqr": 78.4,
+    "p95": 1473.1,
+    "min": 1279.1,
+    "max": 1601.3,
+    "n": 12
+   },
+   "cmd.ink_ms": {
+    "median": 1335.3,
+    "iqr": 78.4,
+    "p95": 1473.1,
+    "min": 1279.1,
+    "max": 1601.3,
+    "n": 12
+   },
+   "cmd.other_load": {
+    "median": 614.4,
+    "iqr": 92.7,
+    "p95": 753.7,
+    "min": 536.8,
+    "max": 1103.6,
+    "n": 12
+   },
+   "default.total_visible_ms": {
+    "median": 1929.4,
+    "iqr": 59.3,
+    "p95": 2049.9,
+    "min": 1875.0,
+    "max": 2088.6,
+    "n": 12
+   },
+   "default.cli_to_app_ms": {
+    "median": 56.5,
+    "iqr": 7.8,
+    "p95": 66.6,
+    "min": 48.6,
+    "max": 96.2,
+    "n": 12
+   },
+   "default.command_on_main_thread_ms": {
+    "median": 0.8,
+    "iqr": 0.1,
+    "p95": 1.0,
+    "min": 0.7,
+    "max": 1.0,
+    "n": 12
+   },
+   "default.attached_ms": {
+    "median": 142.0,
+    "iqr": 20.3,
+    "p95": 173.1,
+    "min": 112.4,
+    "max": 200.4,
+    "n": 12
+   },
+   "default.first_output_ms": {
+    "median": 142.0,
+    "iqr": 20.4,
+    "p95": 173.1,
+    "min": 112.4,
+    "max": 200.4,
+    "n": 12
+   },
+   "default.first_output_to_ink_ms": {
+    "median": 1782.0,
+    "iqr": 73.6,
+    "p95": 1851.0,
+    "min": 1742.4,
+    "max": 1960.5,
+    "n": 12
+   },
+   "default.shell_quiet_ms": {
+    "median": 1926.7,
+    "iqr": 59.5,
+    "p95": 2047.4,
+    "min": 1872.9,
+    "max": 2086.2,
+    "n": 12
+   },
+   "default.ink_ms": {
+    "median": 1926.7,
+    "iqr": 59.5,
+    "p95": 2047.4,
+    "min": 1872.9,
+    "max": 2086.2,
+    "n": 12
+   },
+   "default.other_load": {
+    "median": 636.3,
+    "iqr": 70.3,
+    "p95": 813.9,
+    "min": 542.7,
+    "max": 901.5,
+    "n": 12
+   },
+   "bare_ps.ms": {
+    "median": 1484.5,
+    "iqr": 330.3,
+    "p95": 1762.2,
+    "min": 1251.8,
+    "max": 2426.3,
+    "n": 12
+   },
+   "bare_ps.other_load": {
+    "median": 668.0,
+    "iqr": 201.6,
+    "p95": 1278.4,
+    "min": 495.5,
+    "max": 1417.9,
+    "n": 12
+   }
+  },
+  "fix12": {
+   "cmd.total_visible_ms": {
+    "median": 1404.1,
+    "iqr": 168.3,
+    "p95": 1739.6,
+    "min": 1279.1,
+    "max": 3173.4,
+    "n": 12
+   },
+   "cmd.cli_to_app_ms": {
+    "median": 54.7,
+    "iqr": 12.2,
+    "p95": 69.9,
+    "min": 45.9,
+    "max": 85.6,
+    "n": 12
+   },
+   "cmd.command_on_main_thread_ms": {
+    "median": 6.2,
+    "iqr": 0.8,
+    "p95": 8.0,
+    "min": 4.7,
+    "max": 9.1,
+    "n": 12
+   },
+   "cmd.attached_ms": {
+    "median": 140.2,
+    "iqr": 18.0,
+    "p95": 154.5,
+    "min": 118.1,
+    "max": 164.9,
+    "n": 12
+   },
+   "cmd.first_output_ms": {
+    "median": 140.3,
+    "iqr": 18.0,
+    "p95": 154.5,
+    "min": 118.2,
+    "max": 164.9,
+    "n": 12
+   },
+   "cmd.first_output_to_ink_ms": {
+    "median": 1256.1,
+    "iqr": 154.1,
+    "p95": 1588.6,
+    "min": 1150.6,
+    "max": 3044.8,
+    "n": 12
+   },
+   "cmd.shell_quiet_ms": {
+    "median": 1402.2,
+    "iqr": 168.6,
+    "p95": 1737.6,
+    "min": 1277.1,
+    "max": 3170.9,
+    "n": 12
+   },
+   "cmd.ink_ms": {
+    "median": 1402.2,
+    "iqr": 168.6,
+    "p95": 1737.6,
+    "min": 1277.1,
+    "max": 3170.9,
+    "n": 12
+   },
+   "cmd.other_load": {
+    "median": 689.5,
+    "iqr": 159.3,
+    "p95": 871.6,
+    "min": 535.0,
+    "max": 1096.6,
+    "n": 12
+   },
+   "default.total_visible_ms": {
+    "median": 2065.6,
+    "iqr": 215.0,
+    "p95": 2566.1,
+    "min": 1824.4,
+    "max": 3491.5,
+    "n": 12
+   },
+   "default.cli_to_app_ms": {
+    "median": 56.2,
+    "iqr": 6.8,
+    "p95": 70.4,
+    "min": 49.6,
+    "max": 94.8,
+    "n": 12
+   },
+   "default.command_on_main_thread_ms": {
+    "median": 0.1,
+    "iqr": 0.0,
+    "p95": 0.1,
+    "min": 0.1,
+    "max": 0.2,
+    "n": 12
+   },
+   "default.attached_ms": {
+    "median": 152.6,
+    "iqr": 50.0,
+    "p95": 205.1,
+    "min": 109.1,
+    "max": 219.6,
+    "n": 12
+   },
+   "default.first_output_ms": {
+    "median": 152.6,
+    "iqr": 50.0,
+    "p95": 205.2,
+    "min": 109.2,
+    "max": 219.7,
+    "n": 12
+   },
+   "default.first_output_to_ink_ms": {
+    "median": 1886.9,
+    "iqr": 176.0,
+    "p95": 2396.2,
+    "min": 1711.7,
+    "max": 3304.4,
+    "n": 12
+   },
+   "default.shell_quiet_ms": {
+    "median": 2063.1,
+    "iqr": 215.4,
+    "p95": 2563.2,
+    "min": 1820.8,
+    "max": 3489.1,
+    "n": 12
+   },
+   "default.ink_ms": {
+    "median": 2063.1,
+    "iqr": 215.4,
+    "p95": 2563.2,
+    "min": 1820.8,
+    "max": 3489.1,
+    "n": 12
+   },
+   "default.other_load": {
+    "median": 661.6,
+    "iqr": 213.6,
+    "p95": 837.0,
+    "min": 447.7,
+    "max": 1041.0,
+    "n": 12
+   },
+   "bare_ps.ms": {
+    "median": 1350.3,
+    "iqr": 276.5,
+    "p95": 1922.0,
+    "min": 1219.7,
+    "max": 2068.5,
+    "n": 12
+   },
+   "bare_ps.other_load": {
+    "median": 790.9,
+    "iqr": 139.5,
+    "p95": 1007.7,
+    "min": 577.0,
+    "max": 1073.1,
+    "n": 12
+   }
+  }
+ },
+ "data": {
+  "head10": {
+   "cmd": [
+    {
+     "total_visible_ms": 1281.435,
+     "from_app_visible_ms": 1217.696,
+     "cli_to_app_ms": 63.739,
+     "command_on_main_thread_ms": 7.26,
+     "reply_ms": 137.234,
+     "attached_ms": 147.579,
+     "first_output_ms": 147.611,
+     "first_output_to_ink_ms": 1131.449,
+     "shell_quiet_ms": 1279.06,
+     "ui:spawn_terminal_ms": 0.057,
+     "ui:save_ms": 6.818,
+     "ui:sync_ms": 8.966,
+     "ui:flush_documents_ms": 0.031,
+     "rpc:terminal.run_ms": 47.994,
+     "rpc:terminal.attach_ms": 1.349,
+     "ink_ms": 1279.06,
+     "other_load": 536.7866320500041
+    },
+    {
+     "total_visible_ms": 1311.934,
+     "from_app_visible_ms": 1260.863,
+     "cli_to_app_ms": 51.071,
+     "command_on_main_thread_ms": 7.104,
+     "reply_ms": 118.077,
+     "attached_ms": 128.831,
+     "first_output_ms": 128.86,
+     "first_output_to_ink_ms": 1181.083,
+     "shell_quiet_ms": 1309.943,
+     "ui:spawn_terminal_ms": 0.055,
+     "ui:save_ms": 6.596,
+     "ui:sync_ms": 5.884,
+     "ui:flush_documents_ms": 0.022,
+     "rpc:terminal.run_ms": 43.647,
+     "rpc:terminal.attach_ms": 12.697,
+     "ink_ms": 1309.9430000000002,
+     "other_load": 617.4096782270514
+    },
+    {
+     "total_visible_ms": 1349.529,
+     "from_app_visible_ms": 1297.28,
+     "cli_to_app_ms": 52.249,
+     "command_on_main_thread_ms": 5.508,
+     "reply_ms": 118.757,
+     "attached_ms": 128.105,
+     "first_output_ms": 128.142,
+     "first_output_to_ink_ms": 1219.377,
+     "shell_quiet_ms": 1347.519,
+     "ui:spawn_terminal_ms": 0.032,
+     "ui:save_ms": 5.967,
+     "ui:sync_ms": 6.627,
+     "ui:flush_documents_ms": 0.035,
+     "rpc:terminal.run_ms": 39.015,
+     "rpc:terminal.attach_ms": 17.182,
+     "ink_ms": 1347.519,
+     "other_load": 611.3265407315972
+    },
+    {
+     "total_visible_ms": 1298.341,
+     "from_app_visible_ms": 1248.863,
+     "cli_to_app_ms": 49.478,
+     "command_on_main_thread_ms": 6.566,
+     "reply_ms": 113.859,
+     "attached_ms": 134.309,
+     "first_output_ms": 134.344,
+     "first_output_to_ink_ms": 1162.069,
+     "shell_quiet_ms": 1296.413,
+     "ui:spawn_terminal_ms": 0.065,
+     "ui:save_ms": 4.971,
+     "ui:sync_ms": 5.872,
+     "ui:flush_documents_ms": 0.053,
+     "rpc:terminal.run_ms": 43.333,
+     "rpc:terminal.attach_ms": 11.46,
+     "ink_ms": 1296.413,
+     "other_load": 733.5117117872076
+    },
+    {
+     "total_visible_ms": 1474.701,
+     "from_app_visible_ms": 1428.606,
+     "cli_to_app_ms": 46.095,
+     "command_on_main_thread_ms": 5.302,
+     "reply_ms": 184.675,
+     "attached_ms": 190.71,
+     "first_output_ms": 190.753,
+     "first_output_to_ink_ms": 1282.34,
+     "shell_quiet_ms": 1473.093,
+     "ui:spawn_terminal_ms": 0.021,
+     "ui:save_ms": 8.685,
+     "ui:sync_ms": 5.62,
+     "ui:flush_documents_ms": 0.034,
+     "rpc:terminal.run_ms": 115.008,
+     "rpc:terminal.attach_ms": 14.077,
+     "ink_ms": 1473.0929999999998,
+     "other_load": 753.6625872280758
+    },
+    {
+     "total_visible_ms": 1295.315,
+     "from_app_visible_ms": 1247.36,
+     "cli_to_app_ms": 47.955,
+     "command_on_main_thread_ms": 5.464,
+     "reply_ms": 114.28,
+     "attached_ms": 131.378,
+     "first_output_ms": 131.413,
+     "first_output_to_ink_ms": 1162.218,
+     "shell_quiet_ms": 1293.631,
+     "ui:spawn_terminal_ms": 0.027,
+     "ui:save_ms": 4.032,
+     "ui:sync_ms": 6.74,
+     "ui:flush_documents_ms": 0.015,
+     "rpc:terminal.run_ms": 43.985,
+     "rpc:terminal.attach_ms": 13.704,
+     "ink_ms": 1293.631,
+     "other_load": 632.6348995289055
+    },
+    {
+     "total_visible_ms": 1365.402,
+     "from_app_visible_ms": 1319.176,
+     "cli_to_app_ms": 46.226,
+     "command_on_main_thread_ms": 5.225,
+     "reply_ms": 116.552,
+     "attached_ms": 129.309,
+     "first_output_ms": 129.344,
+     "first_output_to_ink_ms": 1234.336,
+     "shell_quiet_ms": 1363.68,
+     "ui:spawn_terminal_ms": 0.033,
+     "ui:save_ms": 3.86,
+     "ui:sync_ms": 7.217,
+     "ui:flush_documents_ms": 0.024,
+     "rpc:terminal.run_ms": 45.301,
+     "rpc:terminal.attach_ms": 13.036,
+     "ink_ms": 1363.68,
+     "other_load": 676.760515698394
+    },
+    {
+     "total_visible_ms": 1407.798,
+     "from_app_visible_ms": 1352.9,
+     "cli_to_app_ms": 54.898,
+     "command_on_main_thread_ms": 5.163,
+     "reply_ms": 122.58,
+     "attached_ms": 128.743,
+     "first_output_ms": 128.77,
+     "first_output_to_ink_ms": 1277.396,
+     "shell_quiet_ms": 1406.166,
+     "ui:spawn_terminal_ms": 0.035,
+     "ui:save_ms": 4.809,
+     "ui:sync_ms": 6.179,
+     "ui:flush_documents_ms": 0.053,
+     "rpc:terminal.run_ms": 46.933,
+     "rpc:terminal.attach_ms": 12.938,
+     "ink_ms": 1406.166,
+     "other_load": 583.943306278952
+    },
+    {
+     "total_visible_ms": 1325.022,
+     "from_app_visible_ms": 1277.357,
+     "cli_to_app_ms": 47.665,
+     "command_on_main_thread_ms": 8.263,
+     "reply_ms": 118.684,
+     "attached_ms": 125.963,
+     "first_output_ms": 125.992,
+     "first_output_to_ink_ms": 1197.057,
+     "shell_quiet_ms": 1323.049,
+     "ui:spawn_terminal_ms": 0.04,
+     "ui:save_ms": 6.497,
+     "ui:sync_ms": 5.952,
+     "ui:flush_documents_ms": 0.052,
+     "rpc:terminal.run_ms": 46.9,
+     "rpc:terminal.attach_ms": 12.992,
+     "ink_ms": 1323.049,
+     "other_load": 562.3746407624262
+    },
+    {
+     "total_visible_ms": 1377.254,
+     "from_app_visible_ms": 1300.785,
+     "cli_to_app_ms": 76.469,
+     "command_on_main_thread_ms": 9.928,
+     "reply_ms": 181.411,
+     "attached_ms": 194.396,
+     "first_output_ms": 194.422,
+     "first_output_to_ink_ms": 1180.4,
+     "shell_quiet_ms": 1374.822,
+     "ui:flush_documents_ms": 0.057,
+     "ui:spawn_terminal_ms": 0.039,
+     "ui:save_ms": 8.848,
+     "ui:sync_ms": 8.172,
+     "rpc:terminal.run_ms": 74.87,
+     "rpc:terminal.attach_ms": 13.044,
+     "ink_ms": 1374.8220000000001,
+     "other_load": 586.2256967277024
+    },
+    {
+     "total_visible_ms": 1288.144,
+     "from_app_visible_ms": 1241.882,
+     "cli_to_app_ms": 46.262,
+     "command_on_main_thread_ms": 6.904,
+     "reply_ms": 112.144,
+     "attached_ms": 119.007,
+     "first_output_ms": 119.035,
+     "first_output_to_ink_ms": 1166.534,
+     "shell_quiet_ms": 1285.569,
+     "ui:spawn_terminal_ms": 0.036,
+     "ui:save_ms": 7.079,
+     "ui:sync_ms": 5.79,
+     "ui:flush_documents_ms": 0.051,
+     "rpc:terminal.run_ms": 42.805,
+     "rpc:terminal.attach_ms": 14.956,
+     "ink_ms": 1285.5690000000002,
+     "other_load": 584.0721411577426
+    },
+    {
+     "total_visible_ms": 1603.362,
+     "from_app_visible_ms": 1547.672,
+     "cli_to_app_ms": 55.69,
+     "command_on_main_thread_ms": 7.52,
+     "reply_ms": 278.683,
+     "attached_ms": 285.622,
+     "first_output_ms": 285.647,
+     "first_output_to_ink_ms": 1315.64,
+     "shell_quiet_ms": 1601.287,
+     "ui:flush_documents_ms": 0.023,
+     "ui:spawn_terminal_ms": 0.047,
+     "ui:save_ms": 5.327,
+     "ui:sync_ms": 6.92,
+     "rpc:terminal.run_ms": 198.707,
+     "rpc:terminal.attach_ms": 13.392,
+     "ink_ms": 1601.287,
+     "other_load": 1103.6485877139414
+    }
+   ],
+   "default": [
+    {
+     "total_visible_ms": 1920.249,
+     "from_app_visible_ms": 1824.081,
+     "cli_to_app_ms": 96.168,
+     "command_on_main_thread_ms": 0.907,
+     "reply_ms": 164.18,
+     "attached_ms": 173.063,
+     "first_output_ms": 173.092,
+     "first_output_to_ink_ms": 1744.392,
+     "shell_quiet_ms": 1917.484,
+     "ui:flush_documents_ms": 0.032,
+     "ui:spawn_terminal_ms": 0.026,
+     "ui:save_ms": 5.224,
+     "ui:sync_ms": 6.772,
+     "rpc:terminal.run_ms": 49.818,
+     "rpc:terminal.attach_ms": 15.362,
+     "ink_ms": 1917.4840000000002,
+     "other_load": 625.2641400146408
+    },
+    {
+     "total_visible_ms": 2088.593,
+     "from_app_visible_ms": 2034.864,
+     "cli_to_app_ms": 53.729,
+     "command_on_main_thread_ms": 0.846,
+     "reply_ms": 117.473,
+     "attached_ms": 125.671,
+     "first_output_ms": 125.702,
+     "first_output_to_ink_ms": 1960.461,
+     "shell_quiet_ms": 2086.163,
+     "ui:flush_documents_ms": 0.019,
+     "ui:spawn_terminal_ms": 0.051,
+     "ui:save_ms": 10.68,
+     "ui:sync_ms": 7.37,
+     "rpc:terminal.run_ms": 45.664,
+     "rpc:terminal.attach_ms": 1.391,
+     "ink_ms": 2086.163,
+     "other_load": 683.9078827407851
+    },
+    {
+     "total_visible_ms": 1914.067,
+     "from_app_visible_ms": 1856.295,
+     "cli_to_app_ms": 57.772,
+     "command_on_main_thread_ms": 0.99,
+     "reply_ms": 128.727,
+     "attached_ms": 142.132,
+     "first_output_ms": 142.184,
+     "first_output_to_ink_ms": 1769.179,
+     "shell_quiet_ms": 1911.363,
+     "ui:spawn_terminal_ms": 0.028,
+     "ui:save_ms": 4.895,
+     "ui:sync_ms": 6.096,
+     "ui:flush_documents_ms": 0.06,
+     "rpc:terminal.run_ms": 53.969,
+     "rpc:terminal.attach_ms": 15.394,
+     "ink_ms": 1911.363,
+     "other_load": 653.9855522075493
+    },
+    {
+     "total_visible_ms": 1938.495,
+     "from_app_visible_ms": 1876.95,
+     "cli_to_app_ms": 61.545,
+     "command_on_main_thread_ms": 0.991,
+     "reply_ms": 131.085,
+     "attached_ms": 141.78,
+     "first_output_ms": 141.811,
+     "first_output_to_ink_ms": 1794.035,
+     "shell_quiet_ms": 1935.846,
+     "ui:spawn_terminal_ms": 0.055,
+     "ui:save_ms": 5.234,
+     "ui:sync_ms": 8.435,
+     "ui:flush_documents_ms": 0.024,
+     "rpc:terminal.run_ms": 50.561,
+     "rpc:terminal.attach_ms": 13.065,
+     "ink_ms": 1935.846,
+     "other_load": 710.0309578502595
+    },
+    {
+     "total_visible_ms": 1965.463,
+     "from_app_visible_ms": 1902.684,
+     "cli_to_app_ms": 62.779,
+     "command_on_main_thread_ms": 0.797,
+     "reply_ms": 158.618,
+     "attached_ms": 166.387,
+     "first_output_ms": 166.413,
+     "first_output_to_ink_ms": 1797.093,
+     "shell_quiet_ms": 1963.506,
+     "ui:flush_documents_ms": 0.018,
+     "ui:spawn_terminal_ms": 0.033,
+     "ui:save_ms": 4.972,
+     "ui:sync_ms": 7.388,
+     "rpc:terminal.run_ms": 67.363,
+     "rpc:terminal.attach_ms": 11.681,
+     "ink_ms": 1963.506,
+     "other_load": 901.4680629750555
+    },
+    {
+     "total_visible_ms": 2049.918,
+     "from_app_visible_ms": 1995.183,
+     "cli_to_app_ms": 54.735,
+     "command_on_main_thread_ms": 0.769,
+     "reply_ms": 195.403,
+     "attached_ms": 200.398,
+     "first_output_ms": 200.422,
+     "first_output_to_ink_ms": 1846.981,
+     "shell_quiet_ms": 2047.403,
+     "ui:spawn_terminal_ms": 0.025,
+     "ui:save_ms": 5.213,
+     "ui:sync_ms": 5.715,
+     "ui:flush_documents_ms": 0.057,
+     "rpc:terminal.run_ms": 121.965,
+     "rpc:terminal.attach_ms": 14.779,
+     "ink_ms": 2047.403,
+     "other_load": 813.8804125829429
+    },
+    {
+     "total_visible_ms": 1906.127,
+     "from_app_visible_ms": 1850.458,
+     "cli_to_app_ms": 55.669,
+     "command_on_main_thread_ms": 0.823,
+     "reply_ms": 126.504,
+     "attached_ms": 134.125,
+     "first_output_ms": 134.15,
+     "first_output_to_ink_ms": 1769.897,
+     "shell_quiet_ms": 1904.047,
+     "ui:spawn_terminal_ms": 0.018,
+     "ui:save_ms": 6.47,
+     "ui:sync_ms": 4.414,
+     "ui:flush_documents_ms": 0.033,
+     "rpc:terminal.run_ms": 55.819,
+     "rpc:terminal.attach_ms": 12.376,
+     "ink_ms": 1904.047,
+     "other_load": 634.2609458063416
+    },
+    {
+     "total_visible_ms": 1875.028,
+     "from_app_visible_ms": 1826.341,
+     "cli_to_app_ms": 48.687,
+     "command_on_main_thread_ms": 0.706,
+     "reply_ms": 110.73,
+     "attached_ms": 121.378,
+     "first_output_ms": 121.414,
+     "first_output_to_ink_ms": 1751.447,
+     "shell_quiet_ms": 1872.861,
+     "ui:spawn_terminal_ms": 0.023,
+     "ui:save_ms": 5.076,
+     "ui:sync_ms": 5.372,
+     "ui:flush_documents_ms": 0.058,
+     "rpc:terminal.run_ms": 45.504,
+     "rpc:terminal.attach_ms": 13.36,
+     "ink_ms": 1872.8609999999999,
+     "other_load": 613.6200480264233
+    },
+    {
+     "total_visible_ms": 2000.51,
+     "from_app_visible_ms": 1933.925,
+     "cli_to_app_ms": 66.585,
+     "command_on_main_thread_ms": 0.869,
+     "reply_ms": 137.744,
+     "attached_ms": 146.405,
+     "first_output_ms": 146.431,
+     "first_output_to_ink_ms": 1851.026,
+     "shell_quiet_ms": 1997.457,
+     "ui:spawn_terminal_ms": 0.026,
+     "ui:save_ms": 5.181,
+     "ui:sync_ms": 6.896,
+     "ui:flush_documents_ms": 0.03,
+     "rpc:terminal.run_ms": 55.042,
+     "rpc:terminal.attach_ms": 13.623,
+     "ink_ms": 1997.457,
+     "other_load": 596.5597353200379
+    },
+    {
+     "total_visible_ms": 1899.472,
+     "from_app_visible_ms": 1842.145,
+     "cli_to_app_ms": 57.327,
+     "command_on_main_thread_ms": 0.732,
+     "reply_ms": 145.31,
+     "attached_ms": 154.475,
+     "first_output_ms": 154.51,
+     "first_output_to_ink_ms": 1742.382,
+     "shell_quiet_ms": 1896.892,
+     "ui:flush_documents_ms": 0.055,
+     "ui:spawn_terminal_ms": 0.012,
+     "ui:save_ms": 5.949,
+     "ui:sync_ms": 6.666,
+     "rpc:terminal.run_ms": 70.484,
+     "rpc:terminal.attach_ms": 13.886,
+     "ink_ms": 1896.892,
+     "other_load": 542.6648298864181
+    },
+    {
+     "total_visible_ms": 1940.055,
+     "from_app_visible_ms": 1889.132,
+     "cli_to_app_ms": 50.923,
+     "command_on_main_thread_ms": 0.773,
+     "reply_ms": 121.775,
+     "attached_ms": 112.39,
+     "first_output_ms": 112.41,
+     "first_output_to_ink_ms": 1825.008,
+     "shell_quiet_ms": 1937.418,
+     "ui:spawn_terminal_ms": 0.024,
+     "ui:save_ms": 5.129,
+     "ui:sync_ms": 5.97,
+     "ui:flush_documents_ms": 0.016,
+     "rpc:terminal.run_ms": 53.459,
+     "rpc:terminal.attach_ms": 1.307,
+     "ink_ms": 1937.4180000000001,
+     "other_load": 568.8640502642256
+    },
+    {
+     "total_visible_ms": 1888.411,
+     "from_app_visible_ms": 1839.854,
+     "cli_to_app_ms": 48.557,
+     "command_on_main_thread_ms": 0.805,
+     "reply_ms": 122.396,
+     "attached_ms": 135.149,
+     "first_output_ms": 135.174,
+     "first_output_to_ink_ms": 1750.77,
+     "shell_quiet_ms": 1885.944,
+     "ui:spawn_terminal_ms": 0.021,
+     "ui:save_ms": 5.594,
+     "ui:sync_ms": 6.97,
+     "ui:flush_documents_ms": 0.024,
+     "rpc:terminal.run_ms": 53.925,
+     "rpc:terminal.attach_ms": 13.816,
+     "ink_ms": 1885.944,
+     "other_load": 638.3670148134132
+    }
+   ],
+   "bare_ps": [
+    {
+     "ms": 1299.518399988301,
+     "other_load": 536.2563546666778
+    },
+    {
+     "ms": 1519.2634999984875,
+     "other_load": 1278.3743570499348
+    },
+    {
+     "ms": 1355.3344999672845,
+     "other_load": 840.4290601526745
+    },
+    {
+     "ms": 1741.5395999560133,
+     "other_load": 815.5499306681705
+    },
+    {
+     "ms": 1667.2991000232287,
+     "other_load": 1417.899463849686
+    },
+    {
+     "ms": 1449.6682999888435,
+     "other_load": 879.5115406812802
+    },
+    {
+     "ms": 2426.295100012794,
+     "other_load": 532.5763960011237
+    },
+    {
+     "ms": 1301.2731000198983,
+     "other_load": 638.7974976100628
+    },
+    {
+     "ms": 1762.198399985209,
+     "other_load": 675.6475320883242
+    },
+    {
+     "ms": 1251.7741000046954,
+     "other_load": 495.54668050543086
+    },
+    {
+     "ms": 1638.5550999548286,
+     "other_load": 644.6228143497393
+    },
+    {
+     "ms": 1337.044500047341,
+     "other_load": 660.2715915354665
+    }
+   ],
+   "stretches": [
+    {
+     "round": 0,
+     "cmd_total_median": {
+      "median": 1305.1,
+      "iqr": 13.6,
+      "p95": 1349.5,
+      "min": 1281.4,
+      "max": 1349.5,
+      "n": 4
+     },
+     "bare_ps_median": {
+      "median": 1437.3,
+      "iqr": 163.9,
+      "p95": 1741.5,
+      "min": 1299.5,
+      "max": 1741.5,
+      "n": 4
+     },
+     "other_load_median": {
+      "median": 639.6,
+      "iqr": 66.5,
+      "p95": 733.5,
+      "min": 536.8,
+      "max": 733.5,
+      "n": 8
+     }
+    },
+    {
+     "round": 1,
+     "cmd_total_median": {
+      "median": 1386.6,
+      "iqr": 42.4,
+      "p95": 1474.7,
+      "min": 1295.3,
+      "max": 1474.7,
+      "n": 4
+     },
+     "bare_ps_median": {
+      "median": 1558.5,
+      "iqr": 217.6,
+      "p95": 2426.3,
+      "min": 1301.3,
+      "max": 2426.3,
+      "n": 4
+     },
+     "other_load_median": {
+      "median": 655.5,
+      "iqr": 121.0,
+      "p95": 901.5,
+      "min": 583.9,
+      "max": 901.5,
+      "n": 8
+     }
+    },
+    {
+     "round": 2,
+     "cmd_total_median": {
+      "median": 1351.1,
+      "iqr": 52.2,
+      "p95": 1603.4,
+      "min": 1288.1,
+      "max": 1603.4,
+      "n": 4
+     },
+     "bare_ps_median": {
+      "median": 1487.8,
+      "iqr": 301.5,
+      "p95": 1762.2,
+      "min": 1251.8,
+      "max": 1762.2,
+      "n": 4
+     },
+     "other_load_median": {
+      "median": 585.1,
+      "iqr": 27.7,
+      "p95": 1103.6,
+      "min": 542.7,
+      "max": 1103.6,
+      "n": 8
+     }
+    }
+   ]
+  },
+  "fix12": {
+   "cmd": [
+    {
+     "total_visible_ms": 1477.611,
+     "from_app_visible_ms": 1413.135,
+     "cli_to_app_ms": 64.476,
+     "command_on_main_thread_ms": 9.097,
+     "reply_ms": 141.33,
+     "attached_ms": 164.881,
+     "first_output_ms": 164.91,
+     "first_output_to_ink_ms": 1310.431,
+     "shell_quiet_ms": 1475.341,
+     "ui:spawn_terminal_ms": 0.039,
+     "ui:flush_documents_ms": 0.049,
+     "rpc:terminal.run_ms": 52.75,
+     "ui:save_ms": 0.321,
+     "ui:sync_ms": 2.075,
+     "rpc:terminal.attach_ms": 12.436,
+     "ink_ms": 1475.3410000000001,
+     "other_load": 1096.614326834782
+    },
+    {
+     "total_visible_ms": 1739.636,
+     "from_app_visible_ms": 1675.602,
+     "cli_to_app_ms": 64.034,
+     "command_on_main_thread_ms": 7.967,
+     "reply_ms": 140.543,
+     "attached_ms": 148.96,
+     "first_output_ms": 149.033,
+     "first_output_to_ink_ms": 1588.555,
+     "shell_quiet_ms": 1737.588,
+     "ui:spawn_terminal_ms": 0.058,
+     "ui:flush_documents_ms": 0.03,
+     "rpc:terminal.run_ms": 55.396,
+     "ui:save_ms": 0.297,
+     "ui:sync_ms": 1.586,
+     "rpc:terminal.attach_ms": 13.897,
+     "ink_ms": 1737.588,
+     "other_load": 806.6339422057644
+    },
+    {
+     "total_visible_ms": 1457.861,
+     "from_app_visible_ms": 1403.479,
+     "cli_to_app_ms": 54.382,
+     "command_on_main_thread_ms": 6.357,
+     "reply_ms": 121.83,
+     "attached_ms": 138.824,
+     "first_output_ms": 138.86,
+     "first_output_to_ink_ms": 1316.352,
+     "shell_quiet_ms": 1455.212,
+     "ui:spawn_terminal_ms": 0.038,
+     "ui:flush_documents_ms": 0.028,
+     "rpc:terminal.run_ms": 47.489,
+     "ui:save_ms": 0.307,
+     "ui:sync_ms": 1.144,
+     "rpc:terminal.attach_ms": 10.343,
+     "ink_ms": 1455.212,
+     "other_load": 871.5631043619017
+    },
+    {
+     "total_visible_ms": 1286.265,
+     "from_app_visible_ms": 1234.443,
+     "cli_to_app_ms": 51.822,
+     "command_on_main_thread_ms": 6.658,
+     "reply_ms": 115.901,
+     "attached_ms": 124.202,
+     "first_output_ms": 124.233,
+     "first_output_to_ink_ms": 1159.888,
+     "shell_quiet_ms": 1284.121,
+     "ui:spawn_terminal_ms": 0.04,
+     "ui:flush_documents_ms": 0.036,
+     "rpc:terminal.run_ms": 44.482,
+     "ui:save_ms": 0.366,
+     "ui:sync_ms": 1.468,
+     "rpc:terminal.attach_ms": 14.025,
+     "ink_ms": 1284.1209999999999,
+     "other_load": 707.2134650562135
+    },
+    {
+     "total_visible_ms": 1297.001,
+     "from_app_visible_ms": 1234.897,
+     "cli_to_app_ms": 62.104,
+     "command_on_main_thread_ms": 4.67,
+     "reply_ms": 129.974,
+     "attached_ms": 141.619,
+     "first_output_ms": 141.653,
+     "first_output_to_ink_ms": 1153.041,
+     "shell_quiet_ms": 1294.694,
+     "ui:spawn_terminal_ms": 0.061,
+     "ui:flush_documents_ms": 0.035,
+     "rpc:terminal.run_ms": 47.99,
+     "ui:save_ms": 0.422,
+     "ui:sync_ms": 2.213,
+     "rpc:terminal.attach_ms": 11.529,
+     "ink_ms": 1294.694,
+     "other_load": 671.8754746342513
+    },
+    {
+     "total_visible_ms": 1364.699,
+     "from_app_visible_ms": 1309.593,
+     "cli_to_app_ms": 55.106,
+     "command_on_main_thread_ms": 6.341,
+     "reply_ms": 126.031,
+     "attached_ms": 137.582,
+     "first_output_ms": 137.609,
+     "first_output_to_ink_ms": 1225.284,
+     "shell_quiet_ms": 1362.893,
+     "ui:spawn_terminal_ms": 0.036,
+     "ui:flush_documents_ms": 0.06,
+     "rpc:terminal.run_ms": 48.414,
+     "ui:save_ms": 0.316,
+     "ui:sync_ms": 1.438,
+     "rpc:terminal.attach_ms": 12.743,
+     "ink_ms": 1362.893,
+     "other_load": 734.7383158565016
+    },
+    {
+     "total_visible_ms": 1443.578,
+     "from_app_visible_ms": 1358.0,
+     "cli_to_app_ms": 85.578,
+     "command_on_main_thread_ms": 6.051,
+     "reply_ms": 147.693,
+     "attached_ms": 154.471,
+     "first_output_ms": 154.5,
+     "first_output_to_ink_ms": 1286.991,
+     "shell_quiet_ms": 1441.491,
+     "ui:flush_documents_ms": 0.035,
+     "ui:spawn_terminal_ms": 0.04,
+     "rpc:terminal.run_ms": 43.514,
+     "ui:save_ms": 0.335,
+     "ui:sync_ms": 1.365,
+     "rpc:terminal.attach_ms": 13.396,
+     "ink_ms": 1441.491,
+     "other_load": 797.4274521681606
+    },
+    {
+     "total_visible_ms": 1465.324,
+     "from_app_visible_ms": 1395.389,
+     "cli_to_app_ms": 69.935,
+     "command_on_main_thread_ms": 7.151,
+     "reply_ms": 140.534,
+     "attached_ms": 149.27,
+     "first_output_ms": 149.298,
+     "first_output_to_ink_ms": 1313.985,
+     "shell_quiet_ms": 1463.283,
+     "ui:flush_documents_ms": 0.026,
+     "ui:spawn_terminal_ms": 0.041,
+     "rpc:terminal.run_ms": 49.86,
+     "ui:save_ms": 0.459,
+     "ui:sync_ms": 1.405,
+     "rpc:terminal.attach_ms": 11.362,
+     "ink_ms": 1463.283,
+     "other_load": 644.7327733243989
+    },
+    {
+     "total_visible_ms": 3173.448,
+     "from_app_visible_ms": 3123.508,
+     "cli_to_app_ms": 49.94,
+     "command_on_main_thread_ms": 5.88,
+     "reply_ms": 116.12,
+     "attached_ms": 126.157,
+     "first_output_ms": 126.187,
+     "first_output_to_ink_ms": 3044.758,
+     "shell_quiet_ms": 3170.945,
+     "ui:spawn_terminal_ms": 0.029,
+     "ui:flush_documents_ms": 0.032,
+     "rpc:terminal.run_ms": 45.4,
+     "ui:save_ms": 0.257,
+     "ui:sync_ms": 1.087,
+     "rpc:terminal.attach_ms": 1.408,
+     "ink_ms": 3170.9449999999997,
+     "other_load": 534.9718873311082
+    },
+    {
+     "total_visible_ms": 1334.597,
+     "from_app_visible_ms": 1284.87,
+     "cli_to_app_ms": 49.727,
+     "command_on_main_thread_ms": 6.034,
+     "reply_ms": 111.014,
+     "attached_ms": 146.042,
+     "first_output_ms": 146.069,
+     "first_output_to_ink_ms": 1186.413,
+     "shell_quiet_ms": 1332.482,
+     "ui:spawn_terminal_ms": 0.035,
+     "ui:flush_documents_ms": 0.033,
+     "rpc:terminal.run_ms": 41.511,
+     "ui:save_ms": 0.221,
+     "ui:sync_ms": 1.487,
+     "rpc:terminal.attach_ms": 13.606,
+     "ink_ms": 1332.482,
+     "other_load": 638.1338928902302
+    },
+    {
+     "total_visible_ms": 1279.059,
+     "from_app_visible_ms": 1233.135,
+     "cli_to_app_ms": 45.924,
+     "command_on_main_thread_ms": 5.526,
+     "reply_ms": 110.557,
+     "attached_ms": 118.089,
+     "first_output_ms": 118.175,
+     "first_output_to_ink_ms": 1158.919,
+     "shell_quiet_ms": 1277.094,
+     "ui:spawn_terminal_ms": 0.043,
+     "ui:flush_documents_ms": 0.026,
+     "rpc:terminal.run_ms": 44.141,
+     "ui:save_ms": 0.22,
+     "ui:sync_ms": 1.87,
+     "rpc:terminal.attach_ms": 12.483,
+     "ink_ms": 1277.094,
+     "other_load": 553.6138530753026
+    },
+    {
+     "total_visible_ms": 1283.587,
+     "from_app_visible_ms": 1229.941,
+     "cli_to_app_ms": 53.646,
+     "command_on_main_thread_ms": 5.637,
+     "reply_ms": 124.203,
+     "attached_ms": 130.995,
+     "first_output_ms": 131.026,
+     "first_output_to_ink_ms": 1150.609,
+     "shell_quiet_ms": 1281.635,
+     "ui:flush_documents_ms": 0.038,
+     "ui:spawn_terminal_ms": 0.044,
+     "rpc:terminal.run_ms": 52.03,
+     "ui:save_ms": 0.354,
+     "ui:sync_ms": 1.701,
+     "rpc:terminal.attach_ms": 14.338,
+     "ink_ms": 1281.635,
+     "other_load": 538.7988496118609
+    }
+   ],
+   "default": [
+    {
+     "total_visible_ms": 1874.204,
+     "from_app_visible_ms": 1814.538,
+     "cli_to_app_ms": 59.666,
+     "command_on_main_thread_ms": 0.082,
+     "reply_ms": 125.974,
+     "attached_ms": 135.727,
+     "first_output_ms": 135.759,
+     "first_output_to_ink_ms": 1735.721,
+     "shell_quiet_ms": 1871.48,
+     "ui:spawn_terminal_ms": 0.027,
+     "ui:flush_documents_ms": 0.025,
+     "rpc:terminal.run_ms": 53.402,
+     "ui:save_ms": 0.333,
+     "ui:sync_ms": 1.282,
+     "rpc:terminal.attach_ms": 12.102,
+     "ink_ms": 1871.48,
+     "other_load": 609.399236027061
+    },
+    {
+     "total_visible_ms": 2100.561,
+     "from_app_visible_ms": 2050.982,
+     "cli_to_app_ms": 49.579,
+     "command_on_main_thread_ms": 0.102,
+     "reply_ms": 192.387,
+     "attached_ms": 205.119,
+     "first_output_ms": 205.151,
+     "first_output_to_ink_ms": 1892.939,
+     "shell_quiet_ms": 2098.09,
+     "ui:flush_documents_ms": 0.025,
+     "ui:spawn_terminal_ms": 0.056,
+     "rpc:terminal.run_ms": 129.29,
+     "ui:save_ms": 0.276,
+     "ui:sync_ms": 1.34,
+     "rpc:terminal.attach_ms": 16.176,
+     "ink_ms": 2098.09,
+     "other_load": 837.0221325764567
+    },
+    {
+     "total_visible_ms": 2006.169,
+     "from_app_visible_ms": 1935.742,
+     "cli_to_app_ms": 70.427,
+     "command_on_main_thread_ms": 0.118,
+     "reply_ms": 132.378,
+     "attached_ms": 139.138,
+     "first_output_ms": 139.163,
+     "first_output_to_ink_ms": 1864.193,
+     "shell_quiet_ms": 2003.356,
+     "ui:flush_documents_ms": 0.057,
+     "ui:spawn_terminal_ms": 0.032,
+     "rpc:terminal.run_ms": 48.782,
+     "ui:save_ms": 0.272,
+     "ui:sync_ms": 1.417,
+     "rpc:terminal.attach_ms": 12.32,
+     "ink_ms": 2003.356,
+     "other_load": 801.8081347933926
+    },
+    {
+     "total_visible_ms": 2103.193,
+     "from_app_visible_ms": 2050.271,
+     "cli_to_app_ms": 52.922,
+     "command_on_main_thread_ms": 0.084,
+     "reply_ms": 201.548,
+     "attached_ms": 219.615,
+     "first_output_ms": 219.65,
+     "first_output_to_ink_ms": 1880.92,
+     "shell_quiet_ms": 2100.57,
+     "ui:spawn_terminal_ms": 0.034,
+     "ui:flush_documents_ms": 0.022,
+     "rpc:terminal.run_ms": 134.626,
+     "ui:save_ms": 0.361,
+     "ui:sync_ms": 1.518,
+     "rpc:terminal.attach_ms": 11.103,
+     "ink_ms": 2100.57,
+     "other_load": 740.5427456838703
+    },
+    {
+     "total_visible_ms": 2293.052,
+     "from_app_visible_ms": 2198.276,
+     "cli_to_app_ms": 94.776,
+     "command_on_main_thread_ms": 0.076,
+     "reply_ms": 169.452,
+     "attached_ms": 180.339,
+     "first_output_ms": 180.368,
+     "first_output_to_ink_ms": 2110.342,
+     "shell_quiet_ms": 2290.71,
+     "ui:flush_documents_ms": 0.053,
+     "ui:spawn_terminal_ms": 0.025,
+     "rpc:terminal.run_ms": 60.218,
+     "ui:save_ms": 0.281,
+     "ui:sync_ms": 1.496,
+     "rpc:terminal.attach_ms": 12.455,
+     "ink_ms": 2290.71,
+     "other_load": 827.7311643906485
+    },
+    {
+     "total_visible_ms": 2030.64,
+     "from_app_visible_ms": 1979.295,
+     "cli_to_app_ms": 51.345,
+     "command_on_main_thread_ms": 0.09,
+     "reply_ms": 111.947,
+     "attached_ms": 119.484,
+     "first_output_ms": 119.519,
+     "first_output_to_ink_ms": 1908.568,
+     "shell_quiet_ms": 2028.087,
+     "ui:spawn_terminal_ms": 0.041,
+     "ui:flush_documents_ms": 0.031,
+     "rpc:terminal.run_ms": 47.054,
+     "ui:save_ms": 0.48,
+     "ui:sync_ms": 1.391,
+     "rpc:terminal.attach_ms": 11.412,
+     "ink_ms": 2028.087,
+     "other_load": 639.9303954175589
+    },
+    {
+     "total_visible_ms": 2186.839,
+     "from_app_visible_ms": 2127.727,
+     "cli_to_app_ms": 59.112,
+     "command_on_main_thread_ms": 0.065,
+     "reply_ms": 148.412,
+     "attached_ms": 166.067,
+     "first_output_ms": 166.096,
+     "first_output_to_ink_ms": 2018.527,
+     "shell_quiet_ms": 2184.623,
+     "ui:flush_documents_ms": 0.025,
+     "ui:spawn_terminal_ms": 0.043,
+     "rpc:terminal.run_ms": 73.967,
+     "ui:save_ms": 0.417,
+     "ui:sync_ms": 1.539,
+     "rpc:terminal.attach_ms": 13.348,
+     "ink_ms": 2184.623,
+     "other_load": 1041.0402161517065
+    },
+    {
+     "total_visible_ms": 1971.848,
+     "from_app_visible_ms": 1919.118,
+     "cli_to_app_ms": 52.73,
+     "command_on_main_thread_ms": 0.182,
+     "reply_ms": 114.349,
+     "attached_ms": 126.631,
+     "first_output_ms": 126.675,
+     "first_output_to_ink_ms": 1842.575,
+     "shell_quiet_ms": 1969.25,
+     "ui:spawn_terminal_ms": 0.036,
+     "ui:flush_documents_ms": 0.035,
+     "rpc:terminal.run_ms": 48.059,
+     "ui:save_ms": 0.311,
+     "ui:sync_ms": 1.312,
+     "rpc:terminal.attach_ms": 16.972,
+     "ink_ms": 1969.25,
+     "other_load": 683.2844517767317
+    },
+    {
+     "total_visible_ms": 2566.142,
+     "from_app_visible_ms": 2500.033,
+     "cli_to_app_ms": 66.109,
+     "command_on_main_thread_ms": 0.084,
+     "reply_ms": 139.063,
+     "attached_ms": 166.954,
+     "first_output_ms": 166.984,
+     "first_output_to_ink_ms": 2396.238,
+     "shell_quiet_ms": 2563.222,
+     "ui:spawn_terminal_ms": 0.029,
+     "ui:flush_documents_ms": 0.033,
+     "rpc:terminal.run_ms": 57.006,
+     "ui:save_ms": 0.314,
+     "ui:sync_ms": 1.515,
+     "rpc:terminal.attach_ms": 9.336,
+     "ink_ms": 2563.2219999999998,
+     "other_load": 588.254861528084
+    },
+    {
+     "total_visible_ms": 3491.481,
+     "from_app_visible_ms": 3433.999,
+     "cli_to_app_ms": 57.482,
+     "command_on_main_thread_ms": 0.084,
+     "reply_ms": 164.345,
+     "attached_ms": 184.66,
+     "first_output_ms": 184.697,
+     "first_output_to_ink_ms": 3304.45,
+     "shell_quiet_ms": 3489.147,
+     "ui:flush_documents_ms": 0.034,
+     "ui:spawn_terminal_ms": 0.03,
+     "ui:save_ms": 0.388,
+     "rpc:terminal.run_ms": 77.834,
+     "ui:sync_ms": 4.105,
+     "rpc:terminal.attach_ms": 13.577,
+     "ink_ms": 3489.147,
+     "other_load": 447.73052399447664
+    },
+    {
+     "total_visible_ms": 1942.788,
+     "from_app_visible_ms": 1889.94,
+     "cli_to_app_ms": 52.848,
+     "command_on_main_thread_ms": 0.119,
+     "reply_ms": 120.321,
+     "attached_ms": 130.304,
+     "first_output_ms": 130.335,
+     "first_output_to_ink_ms": 1810.016,
+     "shell_quiet_ms": 1940.351,
+     "ui:spawn_terminal_ms": 0.03,
+     "ui:flush_documents_ms": 0.035,
+     "rpc:terminal.run_ms": 53.26,
+     "ui:save_ms": 0.289,
+     "ui:sync_ms": 1.26,
+     "rpc:terminal.attach_ms": 13.214,
+     "ink_ms": 1940.351,
+     "other_load": 573.687658792029
+    },
+    {
+     "total_visible_ms": 1824.386,
+     "from_app_visible_ms": 1769.421,
+     "cli_to_app_ms": 54.965,
+     "command_on_main_thread_ms": 0.097,
+     "reply_ms": 117.348,
+     "attached_ms": 109.132,
+     "first_output_ms": 109.151,
+     "first_output_to_ink_ms": 1711.657,
+     "shell_quiet_ms": 1820.808,
+     "ui:spawn_terminal_ms": 0.029,
+     "ui:flush_documents_ms": 0.033,
+     "rpc:terminal.run_ms": 50.515,
+     "ui:save_ms": 0.29,
+     "ui:sync_ms": 1.603,
+     "rpc:terminal.attach_ms": 1.277,
+     "ink_ms": 1820.808,
+     "other_load": 484.88519408065406
+    }
+   ],
+   "bare_ps": [
+    {
+     "ms": 1922.0412999857217,
+     "other_load": 1073.0778781992467
+    },
+    {
+     "ms": 1655.1838999730535,
+     "other_load": 869.4275602991474
+    },
+    {
+     "ms": 1355.350800033193,
+     "other_load": 803.5281345414991
+    },
+    {
+     "ms": 1345.2018999960274,
+     "other_load": 778.2289037824669
+    },
+    {
+     "ms": 1378.753199998755,
+     "other_load": 836.3534532511267
+    },
+    {
+     "ms": 1554.720600019209,
+     "other_load": 718.5776659717487
+    },
+    {
+     "ms": 1278.1820999807678,
+     "other_load": 576.9913379408903
+    },
+    {
+     "ms": 1297.8672999888659,
+     "other_load": 841.5247845518334
+    },
+    {
+     "ms": 2068.497100030072,
+     "other_load": 1007.6760561906019
+    },
+    {
+     "ms": 1219.74189998582,
+     "other_load": 701.9927740532273
+    },
+    {
+     "ms": 1222.1744999988005,
+     "other_load": 678.8617337383608
+    },
+    {
+     "ms": 1248.2769999769516,
+     "other_load": 623.3592383856848
+    }
+   ],
+   "stretches": [
+    {
+     "round": 0,
+     "cmd_total_median": {
+      "median": 1467.7,
+      "iqr": 19.8,
+      "p95": 1739.6,
+      "min": 1286.3,
+      "max": 1739.6,
+      "n": 4
+     },
+     "bare_ps_median": {
+      "median": 1505.3,
+      "iqr": 299.8,
+      "p95": 1922.0,
+      "min": 1345.2,
+      "max": 1922.0,
+      "n": 4
+     },
+     "other_load_median": {
+      "median": 804.2,
+      "iqr": 96.5,
+      "p95": 1096.6,
+      "min": 609.4,
+      "max": 1096.6,
+      "n": 8
+     }
+    },
+    {
+     "round": 1,
+     "cmd_total_median": {
+      "median": 1404.1,
+      "iqr": 78.9,
+      "p95": 1465.3,
+      "min": 1297.0,
+      "max": 1465.3,
+      "n": 4
+     },
+     "bare_ps_median": {
+      "median": 1338.3,
+      "iqr": 80.9,
+      "p95": 1554.7,
+      "min": 1278.2,
+      "max": 1554.7,
+      "n": 4
+     },
+     "other_load_median": {
+      "median": 709.0,
+      "iqr": 125.6,
+      "p95": 1041.0,
+      "min": 639.9,
+      "max": 1041.0,
+      "n": 8
+     }
+    },
+    {
+     "round": 2,
+     "cmd_total_median": {
+      "median": 1309.1,
+      "iqr": 51.0,
+      "p95": 3173.4,
+      "min": 1279.1,
+      "max": 3173.4,
+      "n": 4
+     },
+     "bare_ps_median": {
+      "median": 1235.2,
+      "iqr": 26.1,
+      "p95": 2068.5,
+      "min": 1219.7,
+      "max": 2068.5,
+      "n": 4
+     },
+     "other_load_median": {
+      "median": 546.2,
+      "iqr": 38.7,
+      "p95": 638.1,
+      "min": 447.7,
+      "max": 638.1,
+      "n": 8
+     }
+    }
+   ]
+  }
+ }
+}
