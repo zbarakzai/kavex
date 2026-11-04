@@ -1,0 +1,9 @@
+{
+ "check": "17 spare-shell: can the core host a terminal that hc and mods don't see?",
+ "method": "isolated core (scripts/perf/instance.py, session probe17, hc from %LOCALAPPDATA%\\Programs\\herdr-core); hc run --bg --json --keep --no-parent --cwd <folder> with no argv and no labels, then hc ls --json and hc ls",
+ "run": {"address": "t1", "agent": "powershell.exe", "state": "live", "turn": 0},
+ "hc_ls_json": {"hidden_finished": 0, "terminals": [{"address": "t1", "agent": "powershell.exe", "state": "live", "turn": 0}]},
+ "hc_ls_help": "List live terminals. --all: include finished terminals; --label K=V: only terminals carrying all of these labels. No option or label hides a live terminal.",
+ "app_side": "mods' terminals() is the core's event snapshot (src/hc.rs:52, src/mods.rs:1123): every core terminal, documented as such in defaults/AGENTS.md:1072-1073",
+ "conclusion": "A spare shows in hc ls (agents and mods' hc() call it) and in terminals(); hiding it needs herdr-core. Stopped before building, as the brief asked."
+}
