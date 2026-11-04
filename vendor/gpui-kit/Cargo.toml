@@ -1,5 +1,7 @@
 # Vendored from https://github.com/longbridge/gpui-kit at 1ccf011: only the
 # crates Herdr uses. Herdr patches are marked `HERDR:`.
+# Also ours, to offer upstream: loader dots drawn by the spinner layer, not
+# their whole view (crates/shell/src/materialize.rs `Dot`, marked HERDR:).
 [workspace]
 members = [
     "crates/base",

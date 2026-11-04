@@ -1,0 +1,624 @@
+{
+ "files": [
+  "ab78-fix7c-1.json",
+  "ab78-fix7c-2.json"
+ ],
+ "rows": {
+  "start_screen": [
+   {
+    "fps": 18.39333475260281,
+    "app_cpu_percent": 16.707,
+    "app_wakeups_per_s": 923.149,
+    "main_cpu_percent": 13.39886083118237,
+    "main_wakeups_per_s": 472.75841485743985,
+    "main_frame_ms_per_s": 122.07929689737998,
+    "frame_ms_p50": 6.5375,
+    "materialize_ms_per_s": 32.95837029088686,
+    "script_ms_per_s": 0.0,
+    "other_load_percent": 548.411,
+    "cursor_over_window": 0.0,
+    "cursor_moves_over_window": 0
+   },
+   {
+    "fps": 17.746059351012956,
+    "app_cpu_percent": 15.128,
+    "app_wakeups_per_s": 922.419,
+    "main_cpu_percent": 12.215928093463901,
+    "main_wakeups_per_s": 500.24031639114145,
+    "main_frame_ms_per_s": 130.10715765586718,
+    "frame_ms_p50": 7.293,
+    "materialize_ms_per_s": 34.60096868664393,
+    "script_ms_per_s": 0.0,
+    "other_load_percent": 695.329,
+    "cursor_over_window": 0.0,
+    "cursor_moves_over_window": 0
+   },
+   {
+    "fps": 18.238446471462353,
+    "app_cpu_percent": 18.812,
+    "app_wakeups_per_s": 883.26,
+    "main_cpu_percent": 14.345716824917243,
+    "main_wakeups_per_s": 447.5243294052021,
+    "main_frame_ms_per_s": 133.8866985521031,
+    "frame_ms_p50": 6.828,
+    "materialize_ms_per_s": 33.920656802438046,
+    "script_ms_per_s": 5.423146226310337,
+    "other_load_percent": 511.426,
+    "cursor_over_window": 0.0,
+    "cursor_moves_over_window": 0
+   },
+   {
+    "fps": 18.14300841152121,
+    "app_cpu_percent": 15.537,
+    "app_wakeups_per_s": 869.338,
+    "main_cpu_percent": 14.562560261816039,
+    "main_wakeups_per_s": 457.6760272577576,
+    "main_frame_ms_per_s": 127.32924850540756,
+    "frame_ms_p50": 6.797000000000001,
+    "materialize_ms_per_s": 34.3524194882255,
+    "script_ms_per_s": 0.0,
+    "other_load_percent": 491.17,
+    "cursor_over_window": 0.0,
+    "cursor_moves_over_window": 0
+   },
+   {
+    "fps": 18.096808256011826,
+    "app_cpu_percent": 16.858,
+    "app_wakeups_per_s": 878.525,
+    "main_cpu_percent": 15.687515718503402,
+    "main_wakeups_per_s": 464.0715760993718,
+    "main_frame_ms_per_s": 127.12549182104834,
+    "frame_ms_p50": 6.939,
+    "materialize_ms_per_s": 34.74599580228419,
+    "script_ms_per_s": 0.346690223918254,
+    "other_load_percent": 451.881,
+    "cursor_over_window": 0.0,
+    "cursor_moves_over_window": 0
+   },
+   {
+    "fps": 18.357909778315832,
+    "app_cpu_percent": 13.963,
+    "app_wakeups_per_s": 970.117,
+    "main_cpu_percent": 12.985430269712424,
+    "main_wakeups_per_s": 570.9558020918093,
+    "main_frame_ms_per_s": 124.30289558814772,
+    "frame_ms_p50": 6.750500000000001,
+    "materialize_ms_per_s": 33.67299601087582,
+    "script_ms_per_s": 0.0,
+    "other_load_percent": 628.548,
+    "cursor_over_window": 0.0,
+    "cursor_moves_over_window": 0
+   },
+   {
+    "fps": 18.380805074294468,
+    "app_cpu_percent": 14.948,
+    "app_wakeups_per_s": 1005.772,
+    "main_cpu_percent": 13.389733426164678,
+    "main_wakeups_per_s": 594.3954938214414,
+    "main_frame_ms_per_s": 130.35281955340108,
+    "frame_ms_p50": 7.0440000000000005,
+    "materialize_ms_per_s": 34.748415214438175,
+    "script_ms_per_s": 0.0,
+    "other_load_percent": 904.279,
+    "cursor_over_window": 0.0,
+    "cursor_moves_over_window": 0
+   },
+   {
+    "fps": 18.09961931293845,
+    "app_cpu_percent": 16.283,
+    "app_wakeups_per_s": 1016.562,
+    "main_cpu_percent": 13.946624470586134,
+    "main_wakeups_per_s": 574.7248981834429,
+    "main_frame_ms_per_s": 131.10074942341555,
+    "frame_ms_p50": 6.9275,
+    "materialize_ms_per_s": 34.32679581695483,
+    "script_ms_per_s": 0.4461680130634622,
+    "other_load_percent": 696.49,
+    "cursor_over_window": 0.0,
+    "cursor_moves_over_window": 0
+   },
+   {
+    "fps": 18.012773665275212,
+    "app_cpu_percent": 16.312,
+    "app_wakeups_per_s": 941.559,
+    "main_cpu_percent": 14.75184050173401,
+    "main_wakeups_per_s": 543.1161825143671,
+    "main_frame_ms_per_s": 123.81334642178737,
+    "frame_ms_p50": 6.796,
+    "materialize_ms_per_s": 33.87917006580128,
+    "script_ms_per_s": 0.0,
+    "other_load_percent": 683.356,
+    "cursor_over_window": 0.0,
+    "cursor_moves_over_window": 0
+   },
+   {
+    "fps": 18.383796025323928,
+    "app_cpu_percent": 14.952,
+    "app_wakeups_per_s": 960.559,
+    "main_cpu_percent": 13.003740854061476,
+    "main_wakeups_per_s": 566.0470168067644,
+    "main_frame_ms_per_s": 127.74266362323752,
+    "frame_ms_p50": 7.043,
+    "materialize_ms_per_s": 33.75389165087482,
+    "script_ms_per_s": 0.33301998070198274,
+    "other_load_percent": 767.428,
+    "cursor_over_window": 0.0,
+    "cursor_moves_over_window": 0
+   }
+  ],
+  "idle_terminal": [
+   {
+    "fps": 0.37209076186699763,
+    "app_cpu_percent": 4.265,
+    "app_wakeups_per_s": 682.927,
+    "main_cpu_percent": 1.9379727180572792,
+    "main_wakeups_per_s": 357.45519190022907,
+    "main_frame_ms_per_s": 4.397120563236267,
+    "frame_ms_p50": 8.038,
+    "materialize_ms_per_s": 0.0,
+    "script_ms_per_s": 0.0,
+    "other_load_percent": 469.947,
+    "cursor_over_window": 0.0,
+    "cursor_moves_over_window": 0
+   },
+   {
+    "fps": 0.0,
+    "app_cpu_percent": 2.906,
+    "app_wakeups_per_s": 646.524,
+    "main_cpu_percent": 2.323195239717197,
+    "main_wakeups_per_s": 340.36359058683416,
+    "main_frame_ms_per_s": 0.0,
+    "frame_ms_p50": 0,
+    "materialize_ms_per_s": 0.0,
+    "script_ms_per_s": 0.0,
+    "other_load_percent": 505.387,
+    "cursor_over_window": 0.0,
+    "cursor_moves_over_window": 0
+   },
+   {
+    "fps": 0.12409175691963557,
+    "app_cpu_percent": 3.686,
+    "app_wakeups_per_s": 689.706,
+    "main_cpu_percent": 2.326720442243167,
+    "main_wakeups_per_s": 362.22383844841625,
+    "main_frame_ms_per_s": 0.8969352190151259,
+    "frame_ms_p50": 7.228,
+    "materialize_ms_per_s": 0.0,
+    "script_ms_per_s": 0.0,
+    "other_load_percent": 634.571,
+    "cursor_over_window": 0.0,
+    "cursor_moves_over_window": 0
+   },
+   {
+    "fps": 0.0,
+    "app_cpu_percent": 5.048,
+    "app_wakeups_per_s": 689.275,
+    "main_cpu_percent": 2.329101118515099,
+    "main_wakeups_per_s": 356.5077445407112,
+    "main_frame_ms_per_s": 0.0,
+    "frame_ms_p50": 0,
+    "materialize_ms_per_s": 0.0,
+    "script_ms_per_s": 0.0,
+    "other_load_percent": 764.787,
+    "cursor_over_window": 0.0,
+    "cursor_moves_over_window": 0
+   },
+   {
+    "fps": 0.12411963494429447,
+    "app_cpu_percent": 5.238,
+    "app_wakeups_per_s": 683.953,
+    "main_cpu_percent": 2.1333062256050614,
+    "main_wakeups_per_s": 361.8087358626184,
+    "main_frame_ms_per_s": 0.7167908918033006,
+    "frame_ms_p50": 5.775,
+    "materialize_ms_per_s": 0.0,
+    "script_ms_per_s": 0.0,
+    "other_load_percent": 614.164,
+    "cursor_over_window": 0.0,
+    "cursor_moves_over_window": 0
+   },
+   {
+    "fps": 0.3725274884929364,
+    "app_cpu_percent": 5.047,
+    "app_wakeups_per_s": 688.405,
+    "main_cpu_percent": 2.716346270260994,
+    "main_wakeups_per_s": 368.18133446051877,
+    "main_frame_ms_per_s": 3.4474935543431307,
+    "frame_ms_p50": 6.717,
+    "materialize_ms_per_s": 0.015397802857708035,
+    "script_ms_per_s": 0.1882505575184305,
+    "other_load_percent": 564.12,
+    "cursor_over_window": 0.0,
+    "cursor_moves_over_window": 0
+   },
+   {
+    "fps": 0.49458375151419903,
+    "app_cpu_percent": 3.287,
+    "app_wakeups_per_s": 803.197,
+    "main_cpu_percent": 2.511558113158042,
+    "main_wakeups_per_s": 539.096289150477,
+    "main_frame_ms_per_s": 3.597478562576405,
+    "frame_ms_p50": 7.124499999999999,
+    "materialize_ms_per_s": 0.22998144445410257,
+    "script_ms_per_s": 0.0,
+    "other_load_percent": 698.466,
+    "cursor_over_window": 0.23357664233576642,
+    "cursor_moves_over_window": 20
+   },
+   {
+    "fps": 0.24813997377408617,
+    "app_cpu_percent": 3.684,
+    "app_wakeups_per_s": 712.368,
+    "main_cpu_percent": 1.7447341905990432,
+    "main_wakeups_per_s": 398.76093785495647,
+    "main_frame_ms_per_s": 1.567252074357128,
+    "frame_ms_p50": 6.316,
+    "materialize_ms_per_s": 0.0,
+    "script_ms_per_s": 0.0,
+    "other_load_percent": 657.374,
+    "cursor_over_window": 0.0,
+    "cursor_moves_over_window": 0
+   },
+   {
+    "fps": 0.0,
+    "app_cpu_percent": 2.91,
+    "app_wakeups_per_s": 704.444,
+    "main_cpu_percent": 1.1636428089480966,
+    "main_wakeups_per_s": 389.24627721186465,
+    "main_frame_ms_per_s": 0.0,
+    "frame_ms_p50": 0,
+    "materialize_ms_per_s": 0.0,
+    "script_ms_per_s": 0.0,
+    "other_load_percent": 762.123,
+    "cursor_over_window": 0.0,
+    "cursor_moves_over_window": 0
+   },
+   {
+    "fps": 0.24832131685787615,
+    "app_cpu_percent": 5.046,
+    "app_wakeups_per_s": 694.099,
+    "main_cpu_percent": 2.1340113167473733,
+    "main_wakeups_per_s": 376.951758990256,
+    "main_frame_ms_per_s": 2.160519617321951,
+    "frame_ms_p50": 8.7005,
+    "materialize_ms_per_s": 0.0,
+    "script_ms_per_s": 0.0,
+    "other_load_percent": 682.586,
+    "cursor_over_window": 0.0,
+    "cursor_moves_over_window": 0
+   }
+  ],
+  "agent_working": [
+   {
+    "fps": 19.531383636805835,
+    "app_cpu_percent": 10.306,
+    "app_wakeups_per_s": 841.787,
+    "main_cpu_percent": 7.58085153100545,
+    "main_wakeups_per_s": 399.95795154350805,
+    "main_frame_ms_per_s": 57.687745425208796,
+    "frame_ms_p50": 2.866,
+    "materialize_ms_per_s": 0.021895054268011638,
+    "script_ms_per_s": 0.2621186326289803,
+    "other_load_percent": 706.065,
+    "cursor_over_window": 0.0,
+    "cursor_moves_over_window": 0
+   },
+   {
+    "fps": 19.392859300579126,
+    "app_cpu_percent": 8.744,
+    "app_wakeups_per_s": 840.312,
+    "main_cpu_percent": 6.992617536266512,
+    "main_wakeups_per_s": 396.43479685606945,
+    "main_frame_ms_per_s": 57.06957983878567,
+    "frame_ms_p50": 2.8575,
+    "materialize_ms_per_s": 0.0,
+    "script_ms_per_s": 0.0,
+    "other_load_percent": 619.671,
+    "cursor_over_window": 0.0,
+    "cursor_moves_over_window": 0
+   },
+   {
+    "fps": 19.617096622519508,
+    "app_cpu_percent": 9.897,
+    "app_wakeups_per_s": 894.06,
+    "main_cpu_percent": 6.789936528759719,
+    "main_wakeups_per_s": 410.7174406790793,
+    "main_frame_ms_per_s": 60.74818861565253,
+    "frame_ms_p50": 2.8455,
+    "materialize_ms_per_s": 0.23850913045480995,
+    "script_ms_per_s": 3.291078355526105,
+    "other_load_percent": 520.831,
+    "cursor_over_window": 0.0,
+    "cursor_moves_over_window": 0
+   },
+   {
+    "fps": 19.369322444959774,
+    "app_cpu_percent": 7.957,
+    "app_wakeups_per_s": 855.95,
+    "main_cpu_percent": 6.402119798514349,
+    "main_wakeups_per_s": 392.9737534506262,
+    "main_frame_ms_per_s": 55.618636913731905,
+    "frame_ms_p50": 2.75,
+    "materialize_ms_per_s": 0.030047282254360676,
+    "script_ms_per_s": 0.3551042448242625,
+    "other_load_percent": 438.821,
+    "cursor_over_window": 0.0,
+    "cursor_moves_over_window": 0
+   },
+   {
+    "fps": 19.346727966030123,
+    "app_cpu_percent": 9.694,
+    "app_wakeups_per_s": 856.914,
+    "main_cpu_percent": 6.9759836415974,
+    "main_wakeups_per_s": 411.8620741999105,
+    "main_frame_ms_per_s": 56.41047010192625,
+    "frame_ms_p50": 2.864,
+    "materialize_ms_per_s": 0.0,
+    "script_ms_per_s": 0.0,
+    "other_load_percent": 500.983,
+    "cursor_over_window": 0.0,
+    "cursor_moves_over_window": 0
+   },
+   {
+    "fps": 19.274181574727994,
+    "app_cpu_percent": 6.608,
+    "app_wakeups_per_s": 864.529,
+    "main_cpu_percent": 4.468812260269595,
+    "main_wakeups_per_s": 422.91284861709613,
+    "main_frame_ms_per_s": 56.38692907076311,
+    "frame_ms_p50": 2.859,
+    "materialize_ms_per_s": 0.030216942726831626,
+    "script_ms_per_s": 0.3034129228537826,
+    "other_load_percent": 573.372,
+    "cursor_over_window": 0.0,
+    "cursor_moves_over_window": 0
+   },
+   {
+    "fps": 19.0906929400882,
+    "app_cpu_percent": 10.854,
+    "app_wakeups_per_s": 881.445,
+    "main_cpu_percent": 7.554150006731328,
+    "main_wakeups_per_s": 437.7223166977366,
+    "main_frame_ms_per_s": 59.084578959725825,
+    "frame_ms_p50": 2.878,
+    "materialize_ms_per_s": 0.0,
+    "script_ms_per_s": 0.0,
+    "other_load_percent": 766.737,
+    "cursor_over_window": 0.0,
+    "cursor_moves_over_window": 0
+   },
+   {
+    "fps": 19.75505471591051,
+    "app_cpu_percent": 10.103,
+    "app_wakeups_per_s": 863.787,
+    "main_cpu_percent": 6.018147564791921,
+    "main_wakeups_per_s": 424.54730795135987,
+    "main_frame_ms_per_s": 60.07425167169386,
+    "frame_ms_p50": 2.831,
+    "materialize_ms_per_s": 0.17866521183320325,
+    "script_ms_per_s": 1.7497511670702373,
+    "other_load_percent": 543.014,
+    "cursor_over_window": 0.0,
+    "cursor_moves_over_window": 0
+   },
+   {
+    "fps": 19.594743499226812,
+    "app_cpu_percent": 8.918,
+    "app_wakeups_per_s": 878.054,
+    "main_cpu_percent": 7.169753851576266,
+    "main_wakeups_per_s": 432.2005132582623,
+    "main_frame_ms_per_s": 58.711928374515566,
+    "frame_ms_p50": 2.902,
+    "materialize_ms_per_s": 0.022819194961124896,
+    "script_ms_per_s": 0.26862161024889414,
+    "other_load_percent": 588.37,
+    "cursor_over_window": 0.0,
+    "cursor_moves_over_window": 0
+   },
+   {
+    "fps": 19.36115630782749,
+    "app_cpu_percent": 6.985,
+    "app_wakeups_per_s": 871.653,
+    "main_cpu_percent": 5.817655140573164,
+    "main_wakeups_per_s": 434.6331371154607,
+    "main_frame_ms_per_s": 57.00371212939209,
+    "frame_ms_p50": 2.792,
+    "materialize_ms_per_s": 0.0,
+    "script_ms_per_s": 0.0,
+    "other_load_percent": 604.625,
+    "cursor_over_window": 0.0,
+    "cursor_moves_over_window": 0
+   }
+  ]
+ },
+ "summary": {
+  "start_screen": {
+   "fps": {
+    "median": 18.19,
+    "iqr": 0.28,
+    "n": 10
+   },
+   "app_cpu_percent": {
+    "median": 15.91,
+    "iqr": 1.76,
+    "n": 10
+   },
+   "app_wakeups_per_s": {
+    "median": 932.35,
+    "iqr": 86.86,
+    "n": 10
+   },
+   "main_cpu_percent": {
+    "median": 13.67,
+    "iqr": 1.56,
+    "n": 10
+   },
+   "main_wakeups_per_s": {
+    "median": 521.68,
+    "iqr": 106.88,
+    "n": 10
+   },
+   "main_frame_ms_per_s": {
+    "median": 127.54,
+    "iqr": 6.05,
+    "n": 10
+   },
+   "frame_ms_p50": {
+    "median": 6.88,
+    "iqr": 0.25,
+    "n": 10
+   },
+   "materialize_ms_per_s": {
+    "median": 34.12,
+    "iqr": 0.85,
+    "n": 10
+   },
+   "script_ms_per_s": {
+    "median": 0.0,
+    "iqr": 0.35,
+    "n": 10
+   },
+   "other_load_percent": {
+    "median": 655.95,
+    "iqr": 185.06,
+    "n": 10
+   },
+   "cursor_over_window": {
+    "median": 0.0,
+    "iqr": 0.0,
+    "n": 10
+   },
+   "cursor_moves_over_window": {
+    "median": 0.0,
+    "iqr": 0,
+    "n": 10
+   }
+  },
+  "idle_terminal": {
+   "fps": {
+    "median": 0.19,
+    "iqr": 0.37,
+    "n": 10
+   },
+   "app_cpu_percent": {
+    "median": 3.98,
+    "iqr": 1.76,
+    "n": 10
+   },
+   "app_wakeups_per_s": {
+    "median": 689.49,
+    "iqr": 20.49,
+    "n": 10
+   },
+   "main_cpu_percent": {
+    "median": 2.23,
+    "iqr": 0.39,
+    "n": 10
+   },
+   "main_wakeups_per_s": {
+    "median": 365.2,
+    "iqr": 31.79,
+    "n": 10
+   },
+   "main_frame_ms_per_s": {
+    "median": 1.23,
+    "iqr": 3.45,
+    "n": 10
+   },
+   "frame_ms_p50": {
+    "median": 6.52,
+    "iqr": 7.23,
+    "n": 10
+   },
+   "materialize_ms_per_s": {
+    "median": 0.0,
+    "iqr": 0.0,
+    "n": 10
+   },
+   "script_ms_per_s": {
+    "median": 0.0,
+    "iqr": 0.0,
+    "n": 10
+   },
+   "other_load_percent": {
+    "median": 645.97,
+    "iqr": 134.35,
+    "n": 10
+   },
+   "cursor_over_window": {
+    "median": 0.0,
+    "iqr": 0.0,
+    "n": 10
+   },
+   "cursor_moves_over_window": {
+    "median": 0.0,
+    "iqr": 0,
+    "n": 10
+   }
+  },
+  "agent_working": {
+   "fps": {
+    "median": 19.38,
+    "iqr": 0.25,
+    "n": 10
+   },
+   "app_cpu_percent": {
+    "median": 9.31,
+    "iqr": 2.15,
+    "n": 10
+   },
+   "app_wakeups_per_s": {
+    "median": 864.16,
+    "iqr": 22.1,
+    "n": 10
+   },
+   "main_cpu_percent": {
+    "median": 6.88,
+    "iqr": 1.15,
+    "n": 10
+   },
+   "main_wakeups_per_s": {
+    "median": 417.39,
+    "iqr": 32.24,
+    "n": 10
+   },
+   "main_frame_ms_per_s": {
+    "median": 57.38,
+    "iqr": 2.67,
+    "n": 10
+   },
+   "frame_ms_p50": {
+    "median": 2.86,
+    "iqr": 0.04,
+    "n": 10
+   },
+   "materialize_ms_per_s": {
+    "median": 0.02,
+    "iqr": 0.03,
+    "n": 10
+   },
+   "script_ms_per_s": {
+    "median": 0.27,
+    "iqr": 0.36,
+    "n": 10
+   },
+   "other_load_percent": {
+    "median": 580.87,
+    "iqr": 98.84,
+    "n": 10
+   },
+   "cursor_over_window": {
+    "median": 0.0,
+    "iqr": 0.0,
+    "n": 10
+   },
+   "cursor_moves_over_window": {
+    "median": 0.0,
+    "iqr": 0,
+    "n": 10
+   }
+  }
+ },
+ "label": "fix-working-agent-redraw",
+ "script": "scratchpad ab78.py, 5 stretches of 8 s per scenario per instance, 2 instances per binary alternating"
+}
