@@ -1238,8 +1238,9 @@ impl WindowsPlatformInner {
             | WM_GPUI_DOCK_MENU_ACTION
             | WM_GPUI_KEYBOARD_LAYOUT_CHANGED
             | WM_GPUI_GPU_DEVICE_LOST
+            | WM_GPUI_POWER_EVENT // HERDR: power events run from the message loop.
             | WM_GPUI_END_SESSION => self.handle_gpui_events(msg, wparam, lparam),
-            WM_POWERBROADCAST => self.handle_power_broadcast(wparam),
+            WM_POWERBROADCAST => self.handle_power_broadcast(handle, wparam),
             _ => None,
         };
         if let Some(result) = handled {
@@ -1264,6 +1265,7 @@ impl WindowsPlatformInner {
             WM_GPUI_KEYBOARD_LAYOUT_CHANGED => self.handle_keyboard_layout_change(),
             WM_GPUI_GPU_DEVICE_LOST => self.handle_device_lost(lparam),
             WM_GPUI_END_SESSION => self.handle_end_session(),
+            WM_GPUI_POWER_EVENT => self.run_power_event(lparam.0 as u32), // HERDR
             _ => unreachable!(),
         }
     }
@@ -1396,8 +1398,30 @@ impl WindowsPlatformInner {
         Some(0)
     }
 
-    fn handle_power_broadcast(&self, wparam: WPARAM) -> Option<isize> {
-        match wparam.0 as u32 {
+    // HERDR: WM_POWERBROADCAST is a sent message, so any message pump on this
+    // thread delivers it: also the COM modal loop inside a call made while the
+    // app is borrowed (UiaLookupId while a window is created). The callbacks
+    // borrow the app, and that panic in a window procedure aborts the process
+    // (closing the lid while a window opened). So they run from the message
+    // loop, as the macOS platform runs them from the main queue.
+    fn handle_power_broadcast(&self, handle: HWND, wparam: WPARAM) -> Option<isize> {
+        let event = wparam.0 as u32;
+        if matches!(event, PBT_APMSUSPEND | PBT_APMRESUMEAUTOMATIC) {
+            unsafe {
+                PostMessageW(
+                    Some(handle),
+                    WM_GPUI_POWER_EVENT,
+                    WPARAM(self.validation_number),
+                    LPARAM(event as isize),
+                )
+                .log_err();
+            }
+        }
+        Some(1)
+    }
+
+    fn run_power_event(&self, event: u32) -> Option<isize> {
+        match event {
             PBT_APMSUSPEND => {
                 self.with_callback(|callbacks| &callbacks.system_sleep, |callback| callback());
             }
@@ -1406,7 +1430,7 @@ impl WindowsPlatformInner {
             }
             _ => {}
         }
-        Some(1)
+        Some(0)
     }
 
     fn handle_device_lost(&self, lparam: LPARAM) -> Option<isize> {
