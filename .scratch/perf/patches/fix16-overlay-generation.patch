@@ -1,0 +1,276 @@
+diff --git a/vendor/gpui-kit/crates/shell/src/engine/quickjs/mod.rs b/vendor/gpui-kit/crates/shell/src/engine/quickjs/mod.rs
+index 3701b06..f1b31fc 100644
+--- a/vendor/gpui-kit/crates/shell/src/engine/quickjs/mod.rs
++++ b/vendor/gpui-kit/crates/shell/src/engine/quickjs/mod.rs
+@@ -1408,6 +1408,10 @@ pub struct ShellRuntime {
+     /// behind them. Each holds a `Persistent` class, so this drops before
+     /// `context` like every other field that does.
+     panel_scripts: RefCell<HashMap<String, Rc<dock_api::ScriptPanelClass>>>,
++    /// HERDR: loads a later load of the same unchanged application can reuse
++    /// (see [`ReusableApp`]). Each holds a `Persistent` class, so this drops
++    /// before `context` too.
++    reusable_apps: RefCell<Vec<ReusableApp>>,
+     /// A runtime whose opaque QuickJS job queue could not reach an ownership
+     /// boundary safely is never entered again. QuickJS exposes no selective
+     /// pending-job removal, so terminal quarantine is the only way to prevent
+@@ -1722,6 +1726,7 @@ impl ShellRuntime {
+             nested_view_handles: RefCell::new(HashMap::new()),
+             next_nested_view_token: Cell::new(0),
+             panel_scripts: RefCell::new(HashMap::new()),
++            reusable_apps: RefCell::new(Vec::new()),
+             active_context: Cell::new(None),
+             terminal_job_error: RefCell::new(None),
+             metrics: Metrics::default(),
+@@ -2191,12 +2196,7 @@ impl ShellRuntime {
+             BTreeMap::new()
+         };
+ 
+-        // Every load is a new generation, which is what makes a reload pick up
+-        // a change in an imported module rather than only in the entry point.
+-        let module_lease = self
+-            .app_modules
+-            .register_with_dependencies(root.clone(), dependencies);
+-        let generation = module_lease.generation();
++        let entry = root.join(entry);
+         let application = ApplicationGeneration::new(self.next_application_generation.get());
+         self.next_application_generation.set(
+             self.next_application_generation
+@@ -2205,7 +2205,45 @@ impl ShellRuntime {
+                 .expect("a shell runtime exhausted its application generations"),
+         );
+ 
+-        let entry = root.join(entry);
++        // HERDR: an unchanged application whose earlier load no copy holds any
++        // more is served from that load's modules, under a new application
++        // generation: QuickJS cannot free a module, so a fresh one per load
++        // (every overlay open) was a leak. A changed file still loads fresh.
++        {
++            let mut reusable = self.reusable_apps.borrow_mut();
++            reusable.retain(|app| {
++                app.modules.root != root
++                    || app.live.strong_count() > 0
++                    || app.serves(&entry, &dependencies)
++            });
++            if let Some(app) = reusable
++                .iter_mut()
++                .find(|app| app.modules.root == root && app.live.strong_count() == 0)
++            {
++                let module_lease = self.app_modules.reregister(app.modules.clone());
++                app.live = Rc::downgrade(&module_lease.0);
++                return Ok(ViewType {
++                    value: app.class.clone(),
++                    module_lease: Some(module_lease),
++                    application: Some(application),
++                });
++            }
++        }
++
++        // Every load is a new generation, which is what makes a reload pick up
++        // a change in an imported module rather than only in the entry point.
++        let module_lease = self
++            .app_modules
++            .register_with_dependencies(root.clone(), dependencies);
++        let generation = module_lease.generation();
++        // HERDR: kept for reuse once the load succeeds; the entry is stamped
++        // before it is read, like every module the loader reads.
++        let modules = self.app_modules.modules(generation);
++        let live = Rc::downgrade(&module_lease.0);
++        if let Some(modules) = &modules {
++            modules.files.borrow_mut().push((entry.clone(), file_stamp(&entry)));
++        }
++
+         let source = read_module_source(&entry)?;
+ 
+         // The entry carries the generation too: it is a cached module like any
+@@ -2218,8 +2256,17 @@ impl ShellRuntime {
+             Some(module_lease),
+             Some(application.clone()),
+         );
+-        if loaded.is_err() {
+-            self.release_application_generation_without_context(&application);
++        match (&loaded, modules) {
++            (Ok(view_type), Some(modules)) => {
++                self.reusable_apps.borrow_mut().push(ReusableApp {
++                    modules,
++                    entry,
++                    class: view_type.value.clone(),
++                    live,
++                })
++            }
++            (Ok(_), None) => {}
++            (Err(_), _) => self.release_application_generation_without_context(&application),
+         }
+         loaded
+     }
+@@ -5292,6 +5339,55 @@ struct ApplicationModules {
+     root: std::path::PathBuf,
+     generation: u32,
+     dependencies: BTreeMap<String, MaterializedDependency>,
++    // HERDR: every file this generation read, with its size and mtime then,
++    // so a later load can tell the application is unchanged and reuse it.
++    files: Rc<RefCell<Vec<(std::path::PathBuf, FileStamp)>>>,
++}
++
++// HERDR: what a module file looked like when a generation read it.
++type FileStamp = Option<(u64, std::time::SystemTime)>;
++
++fn file_stamp(path: &Path) -> FileStamp {
++    let metadata = std::fs::metadata(path).ok()?;
++    Some((metadata.len(), metadata.modified().ok()?))
++}
++
++/// HERDR: the evaluated entry of a load, kept for the next load of the same
++/// unchanged application once no copy holds this one any more.
++///
++/// QuickJS frees an evaluated module only with its context, so evaluating a
++/// fresh generation per load (every overlay open) kept each one's bytecode and
++/// JIT feedback for the life of the app, and each open got slower and bigger.
++struct ReusableApp {
++    modules: ApplicationModules,
++    entry: std::path::PathBuf,
++    class: Persistent<Object<'static>>,
++    /// Alive while a copy holds this generation; reuse waits until it is not,
++    /// so copies alive at the same time keep their own modules.
++    live: Weak<ApplicationModuleRegistration>,
++}
++
++impl ReusableApp {
++    fn serves(
++        &self,
++        entry: &Path,
++        dependencies: &BTreeMap<String, MaterializedDependency>,
++    ) -> bool {
++        self.entry == entry
++            && self.modules.dependencies.len() == dependencies.len()
++            && self
++                .modules
++                .dependencies
++                .iter()
++                .zip(dependencies)
++                .all(|((a, x), (b, y))| a == b && x.root == y.root && x.entry == y.entry)
++            && self
++                .modules
++                .files
++                .borrow()
++                .iter()
++                .all(|(path, stamp)| stamp.is_some() && file_stamp(path) == *stamp)
++    }
+ }
+ 
+ #[derive(Clone)]
+@@ -5330,11 +5426,18 @@ impl AppModules {
+     ) -> ApplicationModuleLease {
+         let generation = self.next_generation.get().wrapping_add(1);
+         self.next_generation.set(generation);
+-        self.applications.borrow_mut().push(ApplicationModules {
+-            root: root.clone(),
++        self.reregister(ApplicationModules {
++            root,
+             generation,
+             dependencies,
+-        });
++            files: Rc::default(),
++        })
++    }
++
++    // HERDR: registers a generation again, for a reused load.
++    fn reregister(&self, modules: ApplicationModules) -> ApplicationModuleLease {
++        let (root, generation) = (modules.root.clone(), modules.generation);
++        self.applications.borrow_mut().push(modules);
+         ApplicationModuleLease(Rc::new(ApplicationModuleRegistration {
+             applications: self.applications.clone(),
+             root,
+@@ -5342,6 +5445,15 @@ impl AppModules {
+         }))
+     }
+ 
++    // HERDR: the registration a lease holds, to keep for reuse.
++    fn modules(&self, generation: u32) -> Option<ApplicationModules> {
++        self.applications
++            .borrow()
++            .iter()
++            .find(|application| application.generation == generation)
++            .cloned()
++    }
++
+     /// Strips the generation tag a resolved name carries.
+     fn untag(name: &str) -> &str {
+         name.split_once("?v=").map(|(path, _)| path).unwrap_or(name)
+@@ -5485,6 +5597,13 @@ impl Loader for AppModules {
+         _attributes: Option<ImportAttributes<'js>>,
+     ) -> JsResult<Module<'js, Declared>> {
+         let path = Self::untag(name);
++        // HERDR: stamped before the read, so a change during it counts.
++        if let Some(application) = Self::generation(name).and_then(|g| self.modules(g)) {
++            application
++                .files
++                .borrow_mut()
++                .push((Path::new(path).to_path_buf(), file_stamp(Path::new(path))));
++        }
+         let source = read_module_source(Path::new(path))
+             .map_err(|error| Exception::throw_message(ctx, &error.to_string()))?;
+         Module::declare(ctx.clone(), name, source)
+@@ -10603,6 +10722,63 @@ export default class Panel extends View { render() { return div(); } }
+         let _ = std::fs::remove_dir_all(root);
+     }
+ 
++    // HERDR: reopening an unchanged application reuses its evaluated modules.
++    #[test]
++    fn a_released_unchanged_application_reuses_its_modules() {
++        let runtime = ShellRuntime::new_isolated().expect("runtime");
++        let root = std::env::temp_dir().join(format!(
++            "gpui-shell-reused-module-generation-{}",
++            std::process::id()
++        ));
++        let _ = std::fs::remove_dir_all(&root);
++        std::fs::create_dir_all(&root).expect("application directory");
++        std::fs::write(
++            root.join("main.js"),
++            "import { label } from './feature.js';\n\
++             export default class Panel { static label() { return label; } }",
++        )
++        .expect("entry module");
++        std::fs::write(root.join("feature.js"), "export const label = 'first';")
++            .expect("first feature");
++        let label = |view_type: &super::ViewType| {
++            runtime
++                .with_js(|ctx| {
++                    let class = view_type.value.clone().restore(ctx)?;
++                    let label: rquickjs::Function = class.get("label")?;
++                    label.call::<_, String>(())
++                })
++                .expect("label")
++        };
++        let generation =
++            |view_type: &super::ViewType| view_type.module_lease.as_ref().unwrap().generation();
++
++        let first = runtime.load_app(&root, "main.js").expect("first load");
++        let first_generation = generation(&first);
++        // Alive at the same time: its own modules, as before.
++        let beside = runtime.load_app(&root, "main.js").expect("concurrent load");
++        assert_ne!(generation(&beside), first_generation);
++        drop(beside);
++        drop(first);
++        assert_eq!(runtime.app_modules.registration_count(), 0);
++
++        let again = runtime.load_app(&root, "main.js").expect("reopen");
++        assert!(
++            [first_generation, first_generation + 1].contains(&generation(&again)),
++            "a released unchanged load is reused"
++        );
++        assert!(again.application.as_ref().unwrap().is_active());
++        assert_eq!(runtime.app_modules.registration_count(), 1);
++        drop(again);
++
++        std::fs::write(root.join("feature.js"), "export const label = 'second one';")
++            .expect("second feature");
++        let changed = runtime.load_app(&root, "main.js").expect("changed load");
++        assert!(generation(&changed) > first_generation + 1, "a changed import loads fresh");
++        assert_eq!(label(&changed), "second one");
++        drop(changed);
++        let _ = std::fs::remove_dir_all(root);
++    }
++
+     #[test]
+     fn a_bare_dependency_import_loads_its_entry_and_relative_modules() {
+         let runtime = ShellRuntime::new_isolated().expect("runtime");

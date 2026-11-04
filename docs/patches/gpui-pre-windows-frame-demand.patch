@@ -1,0 +1,192 @@
+diff --git a/vendor/gpui-pre-windows/Cargo.toml b/vendor/gpui-pre-windows/Cargo.toml
+index f641ddf..61b6d92 100644
+--- a/vendor/gpui-pre-windows/Cargo.toml
++++ b/vendor/gpui-pre-windows/Cargo.toml
+@@ -9,6 +9,10 @@
+ # will likely look very different (and much more reasonable).
+ # See Cargo.toml.orig for the original contents.
+ 
++# HERDR: also ours, to offer upstream as a Windows `frame_waker`: windows are
++# drawn only on demand, so an idle or minimised window no longer repaints every
++# vsync (FrameDemand in src/platform.rs, src/window.rs, src/events.rs, marked HERDR:).
++
+ [package]
+ edition = "2024"
+ name = "gpui-pre-windows"
+diff --git a/vendor/gpui-pre-windows/src/events.rs b/vendor/gpui-pre-windows/src/events.rs
+index 42729d4..7d5ec15 100644
+--- a/vendor/gpui-pre-windows/src/events.rs
++++ b/vendor/gpui-pre-windows/src/events.rs
+@@ -261,6 +261,8 @@ impl WindowsWindowInner {
+                 .callbacks
+                 .request_frame
+                 .set(Some(restore_from_minimized));
++            // HERDR: frames on demand. Demand that came while minimized found no callback.
++            self.state.frame_demand.wake(FrameDemand::FRAMES);
+         } else {
+             should_resize_renderer = true;
+         }
+@@ -1324,6 +1326,7 @@ impl WindowsWindowInner {
+ 
+     fn handle_dm_pointer_hit_test(&self, wparam: WPARAM) -> Option<isize> {
+         self.state.direct_manipulation.on_pointer_hit_test(wparam);
++        self.state.frame_demand.wake(FrameDemand::GESTURE_FRAMES); // HERDR: frames on demand.
+         None
+     }
+ 
+@@ -1340,6 +1343,7 @@ impl WindowsWindowInner {
+             // re-invalidates every window on each vsync (see
+             // `begin_vsync_thread`), so the deferred frame still gets drawn,
+             // at most one vsync late.
++            self.state.frame_demand.wake(FrameDemand::FRAMES); // HERDR: frames on demand.
+             unsafe { ValidateRect(Some(handle), None).ok().log_err() };
+             return Some(0);
+         };
+@@ -1349,6 +1353,7 @@ impl WindowsWindowInner {
+ 
+         let events = self.state.direct_manipulation.drain_events();
+         if !events.is_empty() {
++            self.state.frame_demand.wake(FrameDemand::GESTURE_FRAMES); // HERDR: frames on demand.
+             if let Some(mut func) = self.state.callbacks.input.take() {
+                 for event in events {
+                     func(event);
+diff --git a/vendor/gpui-pre-windows/src/platform.rs b/vendor/gpui-pre-windows/src/platform.rs
+index ae879a5..3a3747e 100644
+--- a/vendor/gpui-pre-windows/src/platform.rs
++++ b/vendor/gpui-pre-windows/src/platform.rs
+@@ -42,6 +42,40 @@ use gpui::*;
+ struct TrackedWindow {
+     handle: SafeHwnd,
+     frame_signal: Arc<PlatformFrameSignal>,
++    frame_demand: Arc<FrameDemand>, // HERDR: frames on demand.
++}
++
++// HERDR: frames on demand. Upstream invalidates every window on every vsync, so an idle
++// window takes an empty WM_PAINT each refresh. Each window counts the vsyncs it still wants,
++// GPUI's frame waker refills it (window.rs), and the vsync thread invalidates only those
++// windows and sleeps while none wants one.
++#[derive(Default)]
++pub(crate) struct FrameDemand(std::sync::atomic::AtomicU32);
++
++/// The running `VSyncProvider` thread, to wake it; one platform per process.
++static VSYNC_THREAD: std::sync::Mutex<Option<std::thread::Thread>> = std::sync::Mutex::new(None);
++
++impl FrameDemand {
++    /// Vsyncs after a wake. GPUI wakes again after every frame that leaves work behind, so
++    /// these only cover a wake between frames. The macOS idle patch waits as long.
++    pub(crate) const FRAMES: u32 = 3;
++    /// A touchpad gesture only moves when a paint runs DirectManipulation's update.
++    pub(crate) const GESTURE_FRAMES: u32 = 60;
++
++    pub(crate) fn wake(&self, frames: u32) {
++        self.0.fetch_max(frames, Ordering::AcqRel);
++        wake_vsync_thread();
++    }
++
++    fn take_frame(&self) -> bool {
++        self.0.fetch_update(Ordering::AcqRel, Ordering::Acquire, |n| n.checked_sub(1)).is_ok()
++    }
++}
++
++fn wake_vsync_thread() {
++    if let Some(thread) = VSYNC_THREAD.lock().unwrap_or_else(|e| e.into_inner()).as_ref() {
++        thread.unpark();
++    }
+ }
+ 
+ impl TrackedWindow {
+@@ -423,6 +457,7 @@ impl WindowsPlatform {
+             // Not joined: the thread can be sending this thread a message. It exits after its
+             // next vsync, and drops its reference to the devices then.
+             stop.store(true, Ordering::Release);
++            wake_vsync_thread(); // HERDR: it may be asleep.
+         }
+         if let Some(text_system) = &self.direct_write_text_system {
+             text_system.release_gpu();
+@@ -450,8 +485,24 @@ impl WindowsPlatform {
+             .name("VSyncProvider".to_owned())
+             .spawn(move || {
+                 let vsync_provider = VSyncProvider::new();
++                // HERDR: frames on demand (FrameDemand). Asleep, it still checks for a
++                // lost device every second. Woken, it invalidates at once: the first
++                // DwmFlush after idle returns early and `wait_for_vsync` then sleeps a
++                // whole frame.
++                *VSYNC_THREAD.lock().unwrap_or_else(|e| e.into_inner()) = Some(std::thread::current());
+                 loop {
+-                    let signal_source = vsync_provider.wait_for_vsync();
++                    let wanted = all_windows.upgrade().is_some_and(|windows| {
++                        windows.read().iter().any(|w| w.frame_demand.0.load(Ordering::Acquire) > 0)
++                    });
++                    let parked = !wanted && !stop.load(Ordering::Acquire) && !invalidate_devices.load(Ordering::Acquire);
++                    if parked {
++                        std::thread::park_timeout(std::time::Duration::from_secs(1));
++                    }
++                    let signal_source = if parked {
++                        FrameRequestSource::LocalSchedule
++                    } else {
++                        vsync_provider.wait_for_vsync()
++                    };
+                     let signal_at = PlatformFrameSignal::capture(scheduler::Instant::now);
+                     if stop.load(Ordering::Acquire) {
+                         break;
+@@ -473,6 +524,11 @@ impl WindowsPlatform {
+                         break;
+                     };
+                     for hwnd in all_windows.read().iter() {
++                        // HERDR: frames on demand. A window that wants no frame isn't invalidated.
++                        if !hwnd.frame_demand.take_frame() {
++                            hwnd.frame_signal.take();
++                            continue;
++                        }
+                         unsafe {
+                             if let Some(signal_at) = signal_at {
+                                 if IsWindowVisible(hwnd.as_raw()).as_bool()
+@@ -763,6 +819,7 @@ impl Platform for WindowsPlatform {
+         self.raw_window_handles.write().push(TrackedWindow {
+             handle: handle.into(),
+             frame_signal: window.state.frame_signal.clone(),
++            frame_demand: window.state.frame_demand.clone(), // HERDR: frames on demand.
+         });
+ 
+         Ok(Box::new(window))
+@@ -1369,6 +1426,7 @@ impl Drop for WindowsPlatform {
+     fn drop(&mut self) {
+         if let Some(stop) = self.vsync_stop.borrow_mut().take() {
+             stop.store(true, Ordering::Release);
++            wake_vsync_thread(); // HERDR: it may be asleep.
+         }
+         unsafe {
+             if let Some(notification) = self.suspend_resume_notification.borrow_mut().take() {
+diff --git a/vendor/gpui-pre-windows/src/window.rs b/vendor/gpui-pre-windows/src/window.rs
+index c0bec1c..122c12a 100644
+--- a/vendor/gpui-pre-windows/src/window.rs
++++ b/vendor/gpui-pre-windows/src/window.rs
+@@ -55,6 +55,7 @@ pub struct WindowsWindowState {
+ 
+     pub callbacks: Callbacks,
+     pub frame_signal: Arc<PlatformFrameSignal>,
++    pub(crate) frame_demand: Arc<FrameDemand>, // HERDR: frames on demand (platform.rs).
+     pub input_handler: Cell<Option<PlatformInputHandler>>,
+     pub ime_enabled: Cell<bool>,
+     pub pending_surrogate: Cell<Option<u16>>,
+@@ -170,6 +171,7 @@ impl WindowsWindowState {
+             min_size,
+             callbacks,
+             frame_signal: Arc::new(PlatformFrameSignal::new()),
++            frame_demand: Arc::default(), // HERDR: frames on demand.
+             input_handler: Cell::new(input_handler),
+             ime_enabled: Cell::new(true),
+             pending_surrogate: Cell::new(pending_surrogate),
+@@ -971,6 +973,12 @@ impl PlatformWindow for WindowsWindow {
+         self.state.callbacks.request_frame.set(Some(callback));
+     }
+ 
++    // HERDR: GPUI calls this whenever the window needs a frame (frames on demand, platform.rs).
++    fn frame_waker(&self) -> Option<Rc<dyn Fn()>> {
++        let demand = self.state.frame_demand.clone();
++        Some(Rc::new(move || demand.wake(FrameDemand::FRAMES)))
++    }
++
+     fn on_input(&self, callback: Box<dyn FnMut(PlatformInput) -> DispatchEventResult>) {
+         self.state.callbacks.input.set(Some(callback));
+     }

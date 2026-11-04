@@ -1,0 +1,320 @@
+{
+ "what": "tab switch attribution on d46a715 (6 spaces, 7 cmd.exe tabs in the active one, a switch every 150 ms); scratchpad scripts renders11.py, sections11.py, ablate11.py, ablate11c.py, reads11.py, changes11.py",
+ "renders_per_switch_by_mod": {
+  "switches": 40,
+  "frames_per_switch": 1.025,
+  "renders_per_switch": {
+   "spaces": 1.0,
+   "agents": 1.0,
+   "workspace-chrome": 1.02,
+   "tabs": 1.0
+  },
+  "render_ms_median": {
+   "spaces": 4.0,
+   "agents": 3.0,
+   "workspace-chrome": 2,
+   "tabs": 4.0
+  },
+  "render_ms_per_switch": {
+   "spaces": 5.03,
+   "agents": 4.15,
+   "workspace-chrome": 3.2,
+   "tabs": 8.6
+  },
+  "bench_script_renders_per_switch": 1.925,
+  "other_lines": []
+ },
+ "tabs_render_sections_ms": {
+  "renders": 60,
+  "mean_ms": {
+   "reads": 1.067,
+   "reconcile": 1.283,
+   "v": 1.0,
+   "runs": 0.067,
+   "layout_sync": 0.633,
+   "pills": 1.467,
+   "rest": 0.783
+  },
+  "total_mean": 6.3,
+  "total_median": 4.0,
+  "total_max": 86,
+  "slow_renders": [
+   10,
+   14,
+   15,
+   15,
+   15,
+   16,
+   19,
+   86
+  ]
+ },
+ "stub_ablation_interleaved": [
+  {
+   "name": "control",
+   "switches": 21,
+   "over_budget_per_switch": 0.8095238095238095,
+   "median_frame_ms": 19.055,
+   "frame_ms_per_switch": 20.064238095238096,
+   "render_to_paint_ms_per_switch": 17.82561904761905,
+   "script_ms_per_switch": 3.95,
+   "script_renders_per_switch": 1.5238095238095237,
+   "materialize_ms_per_switch": 0.3770952380952381,
+   "main_cpu_ms_per_switch": 25.297619047619047,
+   "round": 0
+  },
+  {
+   "name": "tabs",
+   "switches": 23,
+   "over_budget_per_switch": 0.0,
+   "median_frame_ms": 12.751,
+   "frame_ms_per_switch": 12.834000000000001,
+   "render_to_paint_ms_per_switch": 11.369217391304348,
+   "script_ms_per_switch": 2.7989565217391306,
+   "script_renders_per_switch": 1.7391304347826086,
+   "materialize_ms_per_switch": 0.3166086956521739,
+   "main_cpu_ms_per_switch": 18.342391304347824,
+   "round": 0
+  },
+  {
+   "name": "agents",
+   "switches": 23,
+   "over_budget_per_switch": 0.5217391304347826,
+   "median_frame_ms": 16.221,
+   "frame_ms_per_switch": 20.36582608695652,
+   "render_to_paint_ms_per_switch": 18.328869565217392,
+   "script_ms_per_switch": 6.054565217391304,
+   "script_renders_per_switch": 2.130434782608696,
+   "materialize_ms_per_switch": 0.5045652173913043,
+   "main_cpu_ms_per_switch": 23.097826086956523,
+   "round": 0
+  },
+  {
+   "name": "all4",
+   "switches": 22,
+   "over_budget_per_switch": 0.045454545454545456,
+   "median_frame_ms": 4.4830000000000005,
+   "frame_ms_per_switch": 5.1589090909090904,
+   "render_to_paint_ms_per_switch": 2.8290454545454544,
+   "script_ms_per_switch": 0.17063636363636364,
+   "script_renders_per_switch": 1.6363636363636365,
+   "materialize_ms_per_switch": 0.01972727272727273,
+   "main_cpu_ms_per_switch": 11.363636363636363,
+   "round": 0
+  },
+  {
+   "name": "control",
+   "switches": 23,
+   "over_budget_per_switch": 1.0,
+   "median_frame_ms": 28.109,
+   "frame_ms_per_switch": 37.78395652173913,
+   "render_to_paint_ms_per_switch": 35.455608695652174,
+   "script_ms_per_switch": 10.13195652173913,
+   "script_renders_per_switch": 1.7391304347826086,
+   "materialize_ms_per_switch": 0.5064347826086957,
+   "main_cpu_ms_per_switch": 40.08152173913044,
+   "round": 1
+  },
+  {
+   "name": "tabs",
+   "switches": 23,
+   "over_budget_per_switch": 0.391304347826087,
+   "median_frame_ms": 15.392,
+   "frame_ms_per_switch": 18.60213043478261,
+   "render_to_paint_ms_per_switch": 16.952173913043477,
+   "script_ms_per_switch": 5.350304347826087,
+   "script_renders_per_switch": 2.0,
+   "materialize_ms_per_switch": 0.4295652173913044,
+   "main_cpu_ms_per_switch": 21.059782608695652,
+   "round": 1
+  },
+  {
+   "name": "agents",
+   "switches": 21,
+   "over_budget_per_switch": 0.9047619047619048,
+   "median_frame_ms": 31.998,
+   "frame_ms_per_switch": 41.57285714285714,
+   "render_to_paint_ms_per_switch": 38.87195238095238,
+   "script_ms_per_switch": 17.45404761904762,
+   "script_renders_per_switch": 1.7142857142857142,
+   "materialize_ms_per_switch": 0.5058571428571428,
+   "main_cpu_ms_per_switch": 45.38690476190476,
+   "round": 1
+  },
+  {
+   "name": "all4",
+   "switches": 22,
+   "over_budget_per_switch": 0.0,
+   "median_frame_ms": 4.5715,
+   "frame_ms_per_switch": 5.088590909090909,
+   "render_to_paint_ms_per_switch": 3.0190454545454544,
+   "script_ms_per_switch": 0.661409090909091,
+   "script_renders_per_switch": 1.8181818181818181,
+   "materialize_ms_per_switch": 0.02668181818181818,
+   "main_cpu_ms_per_switch": 9.232954545454545,
+   "round": 1
+  },
+  {
+   "name": "control",
+   "switches": 23,
+   "over_budget_per_switch": 1.0434782608695652,
+   "median_frame_ms": 35.284000000000006,
+   "frame_ms_per_switch": 58.67630434782609,
+   "render_to_paint_ms_per_switch": 56.16213043478261,
+   "script_ms_per_switch": 18.859217391304348,
+   "script_renders_per_switch": 1.9565217391304348,
+   "materialize_ms_per_switch": 0.568695652173913,
+   "main_cpu_ms_per_switch": 65.21739130434783,
+   "round": 2
+  },
+  {
+   "name": "tabs",
+   "switches": 23,
+   "over_budget_per_switch": 0.5217391304347826,
+   "median_frame_ms": 16.731499999999997,
+   "frame_ms_per_switch": 19.281782608695654,
+   "render_to_paint_ms_per_switch": 17.597739130434782,
+   "script_ms_per_switch": 4.292,
+   "script_renders_per_switch": 1.7826086956521738,
+   "materialize_ms_per_switch": 0.416695652173913,
+   "main_cpu_ms_per_switch": 25.815217391304348,
+   "round": 2
+  },
+  {
+   "name": "agents",
+   "switches": 22,
+   "over_budget_per_switch": 1.0,
+   "median_frame_ms": 28.804000000000002,
+   "frame_ms_per_switch": 50.557500000000005,
+   "render_to_paint_ms_per_switch": 47.919681818181814,
+   "script_ms_per_switch": 13.422272727272729,
+   "script_renders_per_switch": 1.8181818181818181,
+   "materialize_ms_per_switch": 0.5438636363636363,
+   "main_cpu_ms_per_switch": 53.97727272727273,
+   "round": 2
+  },
+  {
+   "name": "all4",
+   "switches": 22,
+   "over_budget_per_switch": 0.045454545454545456,
+   "median_frame_ms": 4.202500000000001,
+   "frame_ms_per_switch": 5.006954545454546,
+   "render_to_paint_ms_per_switch": 3.1029545454545455,
+   "script_ms_per_switch": 0.22918181818181818,
+   "script_renders_per_switch": 1.6363636363636365,
+   "materialize_ms_per_switch": 0.022136363636363635,
+   "main_cpu_ms_per_switch": 7.1022727272727275,
+   "round": 2
+  }
+ ],
+ "stub_ablation_single": [
+  {
+   "name": "control",
+   "switches": 28,
+   "over_budget_per_switch": 0.42857142857142855,
+   "median_frame_ms": 15.96,
+   "frame_ms_per_switch": 16.614464285714284,
+   "render_to_paint_ms_per_switch": 14.916857142857143,
+   "script_ms_per_switch": 4.435714285714286,
+   "script_renders_per_switch": 1.8571428571428572,
+   "materialize_ms_per_switch": 0.45635714285714285,
+   "main_cpu_ms_per_switch": 22.879464285714285
+  },
+  {
+   "name": "stub:tabs",
+   "switches": 28,
+   "over_budget_per_switch": 0.0,
+   "median_frame_ms": 11.528,
+   "frame_ms_per_switch": 11.755535714285713,
+   "render_to_paint_ms_per_switch": 10.531535714285713,
+   "script_ms_per_switch": 2.7051071428571425,
+   "script_renders_per_switch": 1.7142857142857142,
+   "materialize_ms_per_switch": 0.3077142857142857,
+   "main_cpu_ms_per_switch": 15.625
+  },
+  {
+   "name": "stub:spaces",
+   "switches": 27,
+   "over_budget_per_switch": 0.25925925925925924,
+   "median_frame_ms": 14.245,
+   "frame_ms_per_switch": 15.790259259259258,
+   "render_to_paint_ms_per_switch": 14.009629629629629,
+   "script_ms_per_switch": 5.129888888888889,
+   "script_renders_per_switch": 2.0,
+   "materialize_ms_per_switch": 0.33229629629629626,
+   "main_cpu_ms_per_switch": 20.25462962962963
+  },
+  {
+   "name": "control",
+   "switches": 28,
+   "over_budget_per_switch": 0.5714285714285714,
+   "median_frame_ms": 17.1705,
+   "frame_ms_per_switch": 17.909321428571428,
+   "render_to_paint_ms_per_switch": 16.199285714285715,
+   "script_ms_per_switch": 5.220428571428571,
+   "script_renders_per_switch": 1.8571428571428572,
+   "materialize_ms_per_switch": 0.45875000000000005,
+   "main_cpu_ms_per_switch": 23.4375
+  },
+  {
+   "name": "stub:agents",
+   "switches": 28,
+   "over_budget_per_switch": 0.17857142857142858,
+   "median_frame_ms": 13.912,
+   "frame_ms_per_switch": 14.681,
+   "render_to_paint_ms_per_switch": 12.93525,
+   "script_ms_per_switch": 3.8787857142857143,
+   "script_renders_per_switch": 1.8928571428571428,
+   "materialize_ms_per_switch": 0.4014642857142857,
+   "main_cpu_ms_per_switch": 20.089285714285715
+  },
+  {
+   "name": "stub:workspace-chrome",
+   "switches": 28,
+   "over_budget_per_switch": 0.2857142857142857,
+   "median_frame_ms": 15.039,
+   "frame_ms_per_switch": 17.267892857142858,
+   "render_to_paint_ms_per_switch": 15.687821428571429,
+   "script_ms_per_switch": 5.994142857142857,
+   "script_renders_per_switch": 2.0357142857142856,
+   "materialize_ms_per_switch": 0.34889285714285717,
+   "main_cpu_ms_per_switch": 21.763392857142858
+  },
+  {
+   "name": "control",
+   "switches": 27,
+   "over_budget_per_switch": 0.5555555555555556,
+   "median_frame_ms": 18.002,
+   "frame_ms_per_switch": 18.82937037037037,
+   "render_to_paint_ms_per_switch": 16.779814814814817,
+   "script_ms_per_switch": 5.643148148148149,
+   "script_renders_per_switch": 1.7777777777777777,
+   "materialize_ms_per_switch": 0.4054074074074074,
+   "main_cpu_ms_per_switch": 21.412037037037038
+  }
+ ],
+ "read_cost_ms_per_call": {
+  "head": {
+   "spaces": 0.125,
+   "panes": 0.165,
+   "terminals": 0.31,
+   "updates": 0.17,
+   "theme": 0.085,
+   "layout": 0.07,
+   "focused": 0.01,
+   "settings": 0.01
+  },
+  "json_parse_patch": {
+   "spaces": 0.28,
+   "panes": 0.28,
+   "terminals": 0.84,
+   "updates": 0.235,
+   "theme": 0.135,
+   "layout": 0.16,
+   "focused": 0.015,
+   "settings": 0.015
+  }
+ },
+ "parts_changed_between_renders": "spaces, panes, focused on 30 of 30 switches; layout, theme, window, settings, machines, updates, agents, terminals unchanged",
+ "read_shapes_equal_head_vs_patch": true
+}

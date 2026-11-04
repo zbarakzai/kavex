@@ -76,7 +76,8 @@ gpui-pre-linux = { path = "vendor/gpui-pre-linux" }
 # HERDR: XIM's Latin-1/COMPOUND_TEXT must decode without panicking.
 zed-xim = { path = "vendor/zed-xim" }
 xim-ctext = { path = "vendor/xim-ctext" }
-# Our copy: Windows completes dead keys through native text input (HERDR:).
+# Our copy: Windows completes dead keys through native text input, draws only
+# on demand, and runs suspend/resume callbacks from the message loop (HERDR:).
 gpui-pre-windows = { path = "vendor/gpui-pre-windows" }
 # Our copy: a flex item's min-content was measured even when unused (HERDR:).
 taffy = { path = "vendor/taffy" }

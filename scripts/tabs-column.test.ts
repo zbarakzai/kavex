@@ -280,7 +280,8 @@ test("the ring goes when the keyboard leaves by itself", () => {
 const lifted = (id: string, y: number) => {
   const { view, draw } = column(), root = draw();
   press(byId(root, id)!, y);
-  move(root, y + 20);
+  // The column hears moves only once a press has drawn it again.
+  move(draw(), y + 20);
   return { view, draw };
 };
 // Carries it over a place the way the drag layer does, by the pointer's position.

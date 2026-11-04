@@ -1,0 +1,217 @@
+{
+ "label": "before-tab-bar-reads-once",
+ "binary": "C:\\Users\\ZakiBarakzai\\AppData\\Local\\Temp\\claude\\C--Users-ZakiBarakzai-Desktop-Experements-zaki\\2cafb48c-7198-40ee-a65b-0e8187ee78d0\\scratchpad\\bins\\zaki-head12.exe",
+ "script": "scratchpad ab12.py (one A/B over items a-d, alternating head/fix)",
+ "rows": [
+  {
+   "switches": 28,
+   "tabs_renders_per_switch": 1.0,
+   "tabs_js_ms_per_switch": 6.785714285714286,
+   "tabs_js_ms_per_render": 6.785714285714286,
+   "main_cpu_ms_per_switch": 27.34375,
+   "frames_per_switch": 1.0357142857142858,
+   "over_budget_per_switch": 0.8928571428571429,
+   "median_frame_ms": 21.09
+  },
+  {
+   "switches": 28,
+   "tabs_renders_per_switch": 1.0,
+   "tabs_js_ms_per_switch": 3.75,
+   "tabs_js_ms_per_render": 3.75,
+   "main_cpu_ms_per_switch": 25.111607142857142,
+   "frames_per_switch": 1.0,
+   "over_budget_per_switch": 0.8571428571428571,
+   "median_frame_ms": 19.744500000000002
+  },
+  {
+   "switches": 28,
+   "tabs_renders_per_switch": 1.0,
+   "tabs_js_ms_per_switch": 4.321428571428571,
+   "tabs_js_ms_per_render": 4.321428571428571,
+   "main_cpu_ms_per_switch": 24.553571428571427,
+   "frames_per_switch": 1.0,
+   "over_budget_per_switch": 0.9642857142857143,
+   "median_frame_ms": 20.055
+  },
+  {
+   "switches": 21,
+   "tabs_renders_per_switch": 1.0,
+   "tabs_js_ms_per_switch": 4.142857142857143,
+   "tabs_js_ms_per_render": 4.142857142857143,
+   "main_cpu_ms_per_switch": 20.089285714285715,
+   "frames_per_switch": 1.0476190476190477,
+   "over_budget_per_switch": 1.0,
+   "median_frame_ms": 19.654
+  },
+  {
+   "switches": 28,
+   "tabs_renders_per_switch": 1.0,
+   "tabs_js_ms_per_switch": 3.8214285714285716,
+   "tabs_js_ms_per_render": 3.8214285714285716,
+   "main_cpu_ms_per_switch": 22.879464285714285,
+   "frames_per_switch": 1.0,
+   "over_budget_per_switch": 0.8571428571428571,
+   "median_frame_ms": 20.113999999999997
+  },
+  {
+   "switches": 28,
+   "tabs_renders_per_switch": 1.0,
+   "tabs_js_ms_per_switch": 3.1785714285714284,
+   "tabs_js_ms_per_render": 3.1785714285714284,
+   "main_cpu_ms_per_switch": 23.4375,
+   "frames_per_switch": 1.0357142857142858,
+   "over_budget_per_switch": 0.8571428571428571,
+   "median_frame_ms": 18.275
+  },
+  {
+   "switches": 27,
+   "tabs_renders_per_switch": 1.0,
+   "tabs_js_ms_per_switch": 8.703703703703704,
+   "tabs_js_ms_per_render": 8.703703703703704,
+   "main_cpu_ms_per_switch": 30.09259259259259,
+   "frames_per_switch": 1.0,
+   "over_budget_per_switch": 0.9629629629629629,
+   "median_frame_ms": 25.527
+  },
+  {
+   "switches": 25,
+   "tabs_renders_per_switch": 1.0,
+   "tabs_js_ms_per_switch": 4.84,
+   "tabs_js_ms_per_render": 4.84,
+   "main_cpu_ms_per_switch": 28.75,
+   "frames_per_switch": 1.04,
+   "over_budget_per_switch": 1.0,
+   "median_frame_ms": 23.139
+  },
+  {
+   "switches": 26,
+   "tabs_renders_per_switch": 1.0,
+   "tabs_js_ms_per_switch": 4.730769230769231,
+   "tabs_js_ms_per_render": 4.730769230769231,
+   "main_cpu_ms_per_switch": 27.64423076923077,
+   "frames_per_switch": 1.0,
+   "over_budget_per_switch": 1.0,
+   "median_frame_ms": 22.8445
+  },
+  {
+   "switches": 27,
+   "tabs_renders_per_switch": 1.0,
+   "tabs_js_ms_per_switch": 4.37037037037037,
+   "tabs_js_ms_per_render": 4.37037037037037,
+   "main_cpu_ms_per_switch": 31.25,
+   "frames_per_switch": 1.037037037037037,
+   "over_budget_per_switch": 1.0,
+   "median_frame_ms": 21.4165
+  },
+  {
+   "switches": 27,
+   "tabs_renders_per_switch": 1.0,
+   "tabs_js_ms_per_switch": 4.518518518518518,
+   "tabs_js_ms_per_render": 4.518518518518518,
+   "main_cpu_ms_per_switch": 24.88425925925926,
+   "frames_per_switch": 1.0,
+   "over_budget_per_switch": 1.0,
+   "median_frame_ms": 21.194
+  },
+  {
+   "switches": 27,
+   "tabs_renders_per_switch": 1.0,
+   "tabs_js_ms_per_switch": 4.148148148148148,
+   "tabs_js_ms_per_render": 4.148148148148148,
+   "main_cpu_ms_per_switch": 23.72685185185185,
+   "frames_per_switch": 1.037037037037037,
+   "over_budget_per_switch": 1.0,
+   "median_frame_ms": 20.909
+  },
+  {
+   "switches": 27,
+   "tabs_renders_per_switch": 1.0,
+   "tabs_js_ms_per_switch": 4.592592592592593,
+   "tabs_js_ms_per_render": 4.592592592592593,
+   "main_cpu_ms_per_switch": 28.935185185185187,
+   "frames_per_switch": 1.0,
+   "over_budget_per_switch": 0.9629629629629629,
+   "median_frame_ms": 21.75
+  },
+  {
+   "switches": 27,
+   "tabs_renders_per_switch": 1.0,
+   "tabs_js_ms_per_switch": 4.592592592592593,
+   "tabs_js_ms_per_render": 4.592592592592593,
+   "main_cpu_ms_per_switch": 23.72685185185185,
+   "frames_per_switch": 1.037037037037037,
+   "over_budget_per_switch": 1.0,
+   "median_frame_ms": 22.8135
+  },
+  {
+   "switches": 27,
+   "tabs_renders_per_switch": 1.0,
+   "tabs_js_ms_per_switch": 4.074074074074074,
+   "tabs_js_ms_per_render": 4.074074074074074,
+   "main_cpu_ms_per_switch": 27.77777777777778,
+   "frames_per_switch": 1.0,
+   "over_budget_per_switch": 0.9629629629629629,
+   "median_frame_ms": 21.207
+  },
+  {
+   "switches": 26,
+   "tabs_renders_per_switch": 1.0,
+   "tabs_js_ms_per_switch": 4.230769230769231,
+   "tabs_js_ms_per_render": 4.230769230769231,
+   "main_cpu_ms_per_switch": 24.03846153846154,
+   "frames_per_switch": 1.0384615384615385,
+   "over_budget_per_switch": 1.0,
+   "median_frame_ms": 23.077
+  }
+ ],
+ "summary": {
+  "frames_per_switch": {
+   "median": 1.018,
+   "p95": 1.04,
+   "iqr": 0.037,
+   "n": 16
+  },
+  "main_cpu_ms_per_switch": {
+   "median": 24.998,
+   "p95": 30.093,
+   "iqr": 4.051,
+   "n": 16
+  },
+  "median_frame_ms": {
+   "median": 21.2,
+   "p95": 23.139,
+   "iqr": 2.7,
+   "n": 16
+  },
+  "over_budget_per_switch": {
+   "median": 0.982,
+   "p95": 1.0,
+   "iqr": 0.037,
+   "n": 16
+  },
+  "switches": {
+   "median": 27.0,
+   "p95": 28,
+   "iqr": 1,
+   "n": 16
+  },
+  "tabs_js_ms_per_render": {
+   "median": 4.346,
+   "p95": 6.786,
+   "iqr": 0.45,
+   "n": 16
+  },
+  "tabs_js_ms_per_switch": {
+   "median": 4.346,
+   "p95": 6.786,
+   "iqr": 0.45,
+   "n": 16
+  },
+  "tabs_renders_per_switch": {
+   "median": 1.0,
+   "p95": 1.0,
+   "iqr": 0.0,
+   "n": 16
+  }
+ }
+}

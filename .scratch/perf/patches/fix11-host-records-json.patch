@@ -1,0 +1,69 @@
+diff --git a/vendor/gpui-kit/crates/shell/src/engine/quickjs/host_modules.rs b/vendor/gpui-kit/crates/shell/src/engine/quickjs/host_modules.rs
+index ea503ef..13f9ac6 100644
+--- a/vendor/gpui-kit/crates/shell/src/engine/quickjs/host_modules.rs
++++ b/vendor/gpui-kit/crates/shell/src/engine/quickjs/host_modules.rs
+@@ -418,7 +418,64 @@ impl<'js> IntoJs<'js> for Bridged {
+     }
+ }
+ 
++// HERDR: a host record (an array or object) reaches the script through one JSON.parse
++// instead of a property set per field: each set crosses into the engine and makes an
++// atom from a Rust string, which made reading a mod's live data most of its render.
++// Same values; NaN and infinities, which JSON can't carry, take the old path.
++fn write_json(value: &HostValue, out: &mut Vec<u8>) -> bool {
++    match value {
++        HostValue::Null => out.extend_from_slice(b"null"),
++        HostValue::Bool(flag) => out.extend_from_slice(if *flag { b"true" } else { b"false" }),
++        HostValue::Number(number) => {
++            if !number.is_finite() || serde_json::to_writer(&mut *out, number).is_err() {
++                return false;
++            }
++        }
++        HostValue::Str(text) => {
++            if serde_json::to_writer(&mut *out, text.as_str()).is_err() {
++                return false;
++            }
++        }
++        HostValue::Array(values) => {
++            out.push(b'[');
++            for (index, value) in values.iter().enumerate() {
++                if index > 0 {
++                    out.push(b',');
++                }
++                if !write_json(value, out) {
++                    return false;
++                }
++            }
++            out.push(b']');
++        }
++        HostValue::Object(fields) => {
++            out.push(b'{');
++            for (index, (key, value)) in fields.iter().enumerate() {
++                if index > 0 {
++                    out.push(b',');
++                }
++                if serde_json::to_writer(&mut *out, key.as_str()).is_err() {
++                    return false;
++                }
++                out.push(b':');
++                if !write_json(value, out) {
++                    return false;
++                }
++            }
++            out.push(b'}');
++        }
++    }
++    true
++}
++
+ pub(super) fn into_js<'js>(ctx: &Ctx<'js>, value: HostValue) -> JsResult<Value<'js>> {
++    // HERDR: records through JSON.parse (see `write_json`).
++    if matches!(value, HostValue::Array(_) | HostValue::Object(_)) {
++        let mut json = Vec::new();
++        if write_json(&value, &mut json) {
++            return ctx.json_parse(json);
++        }
++    }
+     Ok(match value {
+         HostValue::Null => Value::new_null(ctx.clone()),
+         HostValue::Bool(flag) => Value::new_bool(ctx.clone(), flag),

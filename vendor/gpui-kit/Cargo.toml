@@ -1,5 +1,11 @@
 # Vendored from https://github.com/longbridge/gpui-kit at 1ccf011: only the
 # crates Herdr uses. Herdr patches are marked `HERDR:`.
+# Also ours, to offer upstream: loader dots drawn by the spinner layer, not
+# their whole view (crates/shell/src/materialize.rs `Dot`, marked HERDR:).
+# Also ours, to offer upstream: reloading an unchanged application reuses its
+# evaluated modules instead of keeping a new copy per load, so reopening an
+# overlay no longer grows memory (crates/shell/src/engine/quickjs/mod.rs
+# `ReusableApp`, marked HERDR:).
 [workspace]
 members = [
     "crates/base",

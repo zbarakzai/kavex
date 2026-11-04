@@ -83,7 +83,7 @@ first frame or during GPU recovery it reports an error instead of a PNG.
 | `icons/` | the shipped program and file type logos | written by Zaki (put your own elsewhere) |
 | `frame/` | the app's own screens (welcome, ...) | rewritten by Zaki on every start: don't edit, it won't stick |
 | `view.json` | this screen's selected space/tab/pane, zoom, settled tabs, recent spaces and seen attention | written by Zaki |
-| `shared.json`, `data/`, `seen.json`, `installed.json`, `window.json`, `windows.json` | mod state, bookkeeping, where the window was (size, maximized), mods' windows (spots, kept ones) | written by Zaki |
+| `shared.json`, `data/`, `seen.json`, `installed.json`, `installed-stamps.json`, `core-checked.json`, `window.json`, `windows.json` | mod state, bookkeeping (which herdr-core binaries answered, so an unchanged one isn't run again at start), where the window was (size, maximized), mods' windows (spots, kept ones) | written by Zaki |
 
 Shared state is saved atomically in the background, with the latest change winning.
 If `shared.json` is invalid, Zaki logs a warning and keeps it as
@@ -912,9 +912,12 @@ has 120 programs (agents, editors, runtimes, tools, databases, infra);
 - A copy starts the first time it shows, then stays alive while its block is in
   the layout, shown or not (a hidden column, the other child of a stack, a pane
   in another tab or behind a zoom): switching back finds it as it was. Its
-  timers keep running while hidden, so poll gently. Another layout starts its
-  mods fresh (pane mods belong to their tab and stay); a block removed or given
-  another mod or props starts over. `<mod>.<command>` reaches shown copies only.
+  timers keep running while hidden, so poll gently. Another layout starts new
+  copies of its mods (pane mods belong to their tab and stay); a block removed or
+  given another mod or props starts a new copy. `<mod>.<command>` reaches shown copies only.
+- A mod's top-level code runs once per app run until one of its files changes:
+  a new copy (an overlay opened again) can find module-level variables as the
+  last copy left them, so keep per-copy state on the View (`this`).
 - Images and SVGs are referenced from `~/.config/zaki`:
   `image("mods/<name>/logo.svg")` (full color), `svg("mods/<name>/icon.svg")`
   (tinted with the text color). Zaki's interface icons are for every mod:

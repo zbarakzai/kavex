@@ -1,0 +1,93 @@
+{
+ "label": "fix-column-drag-only-mousemove",
+ "binary": "C:\\Users\\ZakiBarakzai\\AppData\\Local\\Temp\\claude\\C--Users-ZakiBarakzai-Desktop-Experements-zaki\\2cafb48c-7198-40ee-a65b-0e8187ee78d0\\scratchpad\\bins\\zaki-fix12.exe",
+ "script": "scratchpad ab12.py (one A/B over items a-d, alternating head/fix)",
+ "rows": [
+  {
+   "app_cpu_percent": 6.769,
+   "main_cpu_percent": 4.378509813466475,
+   "js_move_calls_per_s": 0.0,
+   "moves_per_s": 117.89450423459445,
+   "fps": 0.0,
+   "other_load_percent": 551.094
+  },
+  {
+   "app_cpu_percent": 4.314,
+   "main_cpu_percent": 3.7534043377343247,
+   "js_move_calls_per_s": 0.0,
+   "moves_per_s": 117.10621533731093,
+   "fps": 0.0,
+   "other_load_percent": 1157.588
+  },
+  {
+   "app_cpu_percent": 1.233,
+   "main_cpu_percent": 1.253091125187613,
+   "js_move_calls_per_s": 0.0,
+   "moves_per_s": 117.08883473753055,
+   "fps": 0.20049458003001805,
+   "other_load_percent": 771.415
+  },
+  {
+   "app_cpu_percent": 5.833,
+   "main_cpu_percent": 4.376472245263306,
+   "js_move_calls_per_s": 0.0,
+   "moves_per_s": 116.63923743947463,
+   "fps": 0.0,
+   "other_load_percent": 1103.694
+  },
+  {
+   "app_cpu_percent": 6.762,
+   "main_cpu_percent": 5.943398228401866,
+   "js_move_calls_per_s": 0.0,
+   "moves_per_s": 116.51563011132248,
+   "fps": 2.0019867716722075,
+   "other_load_percent": 872.669
+  },
+  {
+   "app_cpu_percent": 6.144,
+   "main_cpu_percent": 4.376989779553785,
+   "js_move_calls_per_s": 0.0,
+   "moves_per_s": 116.25284854494853,
+   "fps": 0.0,
+   "other_load_percent": 1024.843
+  }
+ ],
+ "summary": {
+  "app_cpu_percent": {
+   "median": 5.989,
+   "p95": 6.769,
+   "iqr": 2.448,
+   "n": 6
+  },
+  "fps": {
+   "median": 0.0,
+   "p95": 2.002,
+   "iqr": 0.2,
+   "n": 6
+  },
+  "js_move_calls_per_s": {
+   "median": 0.0,
+   "p95": 0.0,
+   "iqr": 0.0,
+   "n": 6
+  },
+  "main_cpu_percent": {
+   "median": 4.377,
+   "p95": 5.943,
+   "iqr": 0.625,
+   "n": 6
+  },
+  "moves_per_s": {
+   "median": 116.864,
+   "p95": 117.895,
+   "iqr": 0.591,
+   "n": 6
+  },
+  "other_load_percent": {
+   "median": 948.756,
+   "p95": 1157.588,
+   "iqr": 332.279,
+   "n": 6
+  }
+ }
+}

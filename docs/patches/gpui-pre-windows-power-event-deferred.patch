@@ -1,0 +1,94 @@
+diff --git a/vendor/gpui-pre-windows/Cargo.toml b/vendor/gpui-pre-windows/Cargo.toml
+index 61b6d92..b937bb6 100644
+--- a/vendor/gpui-pre-windows/Cargo.toml
++++ b/vendor/gpui-pre-windows/Cargo.toml
+@@ -12,6 +12,10 @@
+ # HERDR: also ours, to offer upstream as a Windows `frame_waker`: windows are
+ # drawn only on demand, so an idle or minimised window no longer repaints every
+ # vsync (FrameDemand in src/platform.rs, src/window.rs, src/events.rs, marked HERDR:).
++# HERDR: also ours, to offer upstream: suspend and resume (WM_POWERBROADCAST)
++# run their callbacks from the message loop, not inside the window procedure, so
++# closing the lid while a window opens no longer aborts the app
++# (WM_GPUI_POWER_EVENT in src/platform.rs, src/events.rs, marked HERDR:).
+ 
+ [package]
+ edition = "2024"
+diff --git a/vendor/gpui-pre-windows/src/events.rs b/vendor/gpui-pre-windows/src/events.rs
+index 7d5ec15..87c9475 100644
+--- a/vendor/gpui-pre-windows/src/events.rs
++++ b/vendor/gpui-pre-windows/src/events.rs
+@@ -29,6 +29,9 @@ pub(crate) const WM_GPUI_KEYBOARD_LAYOUT_CHANGED: u32 = WM_USER + 6;
+ pub(crate) const WM_GPUI_GPU_DEVICE_LOST: u32 = WM_USER + 7;
+ pub(crate) const WM_GPUI_KEYDOWN: u32 = WM_USER + 8;
+ pub(crate) const WM_GPUI_END_SESSION: u32 = WM_USER + 9;
++// HERDR: a suspend or resume, posted back to the platform window: see
++// `handle_power_broadcast`. lparam is the PBT_ code.
++pub(crate) const WM_GPUI_POWER_EVENT: u32 = WM_USER + 10;
+ 
+ const SIZE_MOVE_LOOP_TIMER_ID: usize = 1;
+ 
+diff --git a/vendor/gpui-pre-windows/src/platform.rs b/vendor/gpui-pre-windows/src/platform.rs
+index 3a3747e..d9c8e14 100644
+--- a/vendor/gpui-pre-windows/src/platform.rs
++++ b/vendor/gpui-pre-windows/src/platform.rs
+@@ -1238,8 +1238,9 @@ impl WindowsPlatformInner {
+             | WM_GPUI_DOCK_MENU_ACTION
+             | WM_GPUI_KEYBOARD_LAYOUT_CHANGED
+             | WM_GPUI_GPU_DEVICE_LOST
++            | WM_GPUI_POWER_EVENT // HERDR: power events run from the message loop.
+             | WM_GPUI_END_SESSION => self.handle_gpui_events(msg, wparam, lparam),
+-            WM_POWERBROADCAST => self.handle_power_broadcast(wparam),
++            WM_POWERBROADCAST => self.handle_power_broadcast(handle, wparam),
+             _ => None,
+         };
+         if let Some(result) = handled {
+@@ -1264,6 +1265,7 @@ impl WindowsPlatformInner {
+             WM_GPUI_KEYBOARD_LAYOUT_CHANGED => self.handle_keyboard_layout_change(),
+             WM_GPUI_GPU_DEVICE_LOST => self.handle_device_lost(lparam),
+             WM_GPUI_END_SESSION => self.handle_end_session(),
++            WM_GPUI_POWER_EVENT => self.run_power_event(lparam.0 as u32), // HERDR
+             _ => unreachable!(),
+         }
+     }
+@@ -1396,8 +1398,30 @@ impl WindowsPlatformInner {
+         Some(0)
+     }
+ 
+-    fn handle_power_broadcast(&self, wparam: WPARAM) -> Option<isize> {
+-        match wparam.0 as u32 {
++    // HERDR: WM_POWERBROADCAST is a sent message, so any message pump on this
++    // thread delivers it: also the COM modal loop inside a call made while the
++    // app is borrowed (UiaLookupId while a window is created). The callbacks
++    // borrow the app, and that panic in a window procedure aborts the process
++    // (closing the lid while a window opened). So they run from the message
++    // loop, as the macOS platform runs them from the main queue.
++    fn handle_power_broadcast(&self, handle: HWND, wparam: WPARAM) -> Option<isize> {
++        let event = wparam.0 as u32;
++        if matches!(event, PBT_APMSUSPEND | PBT_APMRESUMEAUTOMATIC) {
++            unsafe {
++                PostMessageW(
++                    Some(handle),
++                    WM_GPUI_POWER_EVENT,
++                    WPARAM(self.validation_number),
++                    LPARAM(event as isize),
++                )
++                .log_err();
++            }
++        }
++        Some(1)
++    }
++
++    fn run_power_event(&self, event: u32) -> Option<isize> {
++        match event {
+             PBT_APMSUSPEND => {
+                 self.with_callback(|callbacks| &callbacks.system_sleep, |callback| callback());
+             }
+@@ -1406,7 +1430,7 @@ impl WindowsPlatformInner {
+             }
+             _ => {}
+         }
+-        Some(1)
++        Some(0)
+     }
+ 
+     fn handle_device_lost(&self, lparam: LPARAM) -> Option<isize> {

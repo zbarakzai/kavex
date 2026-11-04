@@ -134,9 +134,10 @@ pub fn path() -> std::path::PathBuf {
     crate::mods::app_dir().join("programs.json")
 }
 
-/// Writes the shipped icons into the home folder.
-pub fn install_icons() {
-    let dir = crate::mods::app_dir().join("icons");
+/// Writes the shipped icons into the home folder `home` (it reads no
+/// environment: it runs on a start thread, main.rs).
+pub fn install_icons(home: &std::path::Path) {
+    let dir = home.join("icons");
     let _ = std::fs::create_dir_all(&dir);
     for (name, bytes) in DEFAULT_ICONS {
         let file = dir.join(name);
