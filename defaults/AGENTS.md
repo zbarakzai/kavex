@@ -425,8 +425,13 @@ Properties any node can have:
   draws its own (a bar mod in a `window_drag` block). macOS keeps its window
   buttons over the layout at `"traffic_lights": [x, y]` (px); leave them
   room. Where the system draws no buttons (`window().buttons`, Linux and
-  Windows), the bar draws them with `window.minimize`, `window.maximize`, `window.close`.
-  Windows' shipped tab bar and system strip use vector window icons, with a
+  Windows), the layout draws them with `window.minimize`, `window.maximize`, `window.close`.
+  In `main` they keep to the window's top right corner: the rightmost of the
+  `tabs` bar, the `panel` (Files or Changes) and the `tabs-column` that's shown draws
+  them, one place at a time, as three small buttons at the end of its header; close
+  turns red on hover. Each of those mods has a copy of `window-buttons.js`, which
+  decides. A panel under 370 px wide puts them on a row above its tabs.
+  Windows' shipped window buttons and system strip use vector window icons, with a
   restore icon when maximized, rather than font glyphs.
 - Root only: `"preview": "layouts/<name>.svg"` (or png): the picture the
   settings screen shows for this layout. Draw one when you make a layout;

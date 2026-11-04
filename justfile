@@ -43,6 +43,7 @@ test:
     bun test scripts/files.test.ts scripts/markdown.test.ts scripts/tab-groups.test.ts scripts/changes.test.ts scripts/look.test.ts
     bun test scripts/tabs-column.test.ts
     bun test scripts/pointer-moves.test.ts
+    bun test scripts/window-buttons.test.ts
     bun test scripts/tab-menu.test.ts
     bun test scripts/settings.test.ts
     bun test scripts/file-menu.test.ts

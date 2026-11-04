@@ -24,7 +24,7 @@ test("every mod's look.js is the same file", () => {
 });
 
 test("mods that share a file keep the same copy", () => {
-  for (const [file, mods] of [["groups.js", ["tabs", "tabs-column", "tab-menu"]], ["filetypes.js", ["files", "changes"]], ["panel.js", ["files", "changes"]], ["checks.js", ["usage", "workspace-chrome"]]] as const) {
+  for (const [file, mods] of [["groups.js", ["tabs", "tabs-column", "tab-menu"]], ["filetypes.js", ["files", "changes"]], ["panel.js", ["files", "changes"]], ["window-buttons.js", ["tabs", "tabs-column", "files", "changes"]], ["checks.js", ["usage", "workspace-chrome"]]] as const) {
     expect(new Set(mods.map((mod) => readFileSync(join(root, "mods", mod, file), "utf8"))).size, file).toBe(1);
   }
 });

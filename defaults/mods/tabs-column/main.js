@@ -6,6 +6,7 @@ import { h_flex, v_flex } from "gpui-base";
 import { spaces, panes, terminals, theme, run, openOverlay, closeOverlay, shared, setShared, settings, nextCommand, window } from "herdr";
 import { look, badge, duration, groupHue, tabHue, tile, MONO } from "./look.js";
 import { loader } from "./loader.js";
+import { holdsButtons, windowButtons } from "./window-buttons.js";
 import { COLUMN, clicked, columnHome, columnRuns, columnSlots, columnStops, failed, groupOf, groupStop, landed, moves, nearestY, reopening, sectionHeight, shownIn, shows, slotKey, stepped, stoppedGroup } from "./groups.js";
 
 const SLIDE = { response: 150, damping: 1 }; // room opening and shutting
@@ -341,6 +342,7 @@ export default class TabsColumn extends View {
     const { loose, sections } = columnRuns(list, groups), going = d?.moving.tabs ?? [];
     const stay = loose.filter((c) => !going.includes(c.id)), shown = sections.filter((c) => c.group !== d?.moving.group);
     const tool = (id, icon, action, on = false) => h_flex().id(id).size(32).flex_none().items_center().justify_center().rounded(9).text_color(on ? k.foreground : k.muted).hover((s) => s.bg(k.hover_strong).text_color(k.foreground)).on_mouse_down("left", (e) => { this.toolAt = e.bounds; this.toolDown = Date.now(); }).on_click(() => { if (!reopening(shared("popup.closed"), id, this.toolDown)) action(); }).child(svg(icon).size(16));
+    const corner = holdsButtons("tabs-column");
     return v_flex().id("tabs-column").relative().size_full().min_h(0).rounded(14).overflow_hidden().bg(k.surface).text_color(k.foreground).text_size(13)
       .on_size_change((size) => { this.rootH = size.height / settings().zoom; })
       // Only while a press or a drag is on (pressed() draws once to put it on): plain moves need
@@ -357,7 +359,8 @@ export default class TabsColumn extends View {
         .child(div().flex_1())
         .child(h_flex().flex_none().gap(2).items_center()
           .child(tool("column-group", "mods/workspace-chrome/icons/layers.svg", () => active && this.group(picks), picks.length > 1))
-          .child(tool("column-new", "mods/workspace-chrome/icons/plus.svg", () => openOverlay({ mod: "new-menu", kind: "popup", at: this.under(250), width: 250, height: 512, props: { from: "column-new" } })))))
+          .child(tool("column-new", "mods/workspace-chrome/icons/plus.svg", () => openOverlay({ mod: "new-menu", kind: "popup", at: this.under(250), width: 250, height: 512, props: { from: "column-new" } }))))
+        .when(corner, (el) => el.child(windowButtons(k))))
       .child(v_flex().id("column-list").flex_1().min_h(0).gap(COLUMN.gap).px(INSET).pb(12).overflow_y_scrollbar()
         .when(stay.length > 0 || Boolean(d?.moving.tabs), (el) => el.child(v_flex().flex_none().gap(COLUMN.rowGap)
           // With no loose tabs there's no section yet: nothing shifts until a row heads here.
