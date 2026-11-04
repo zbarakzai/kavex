@@ -2909,6 +2909,7 @@ impl AppWindow {
 
     fn dispatch(&mut self, name: &str, a: &Value, person: bool, window: &mut Window, cx: &mut Context<Self>) {
         let active_ctx = self.model.active_tab().map(|c| c.id.clone());
+        let was_opening = self.opening.is_some();
         match name {
             // ---- spaces
             "space.new" => {
@@ -3458,6 +3459,11 @@ impl AppWindow {
                 tracing::warn!("command {other:?} is listed but not handled");
                 return;
             }
+        }
+        // It started a terminal and changed nothing else: the model gets its tab, pane or
+        // space once the core answers, and placing it syncs then (finish_open).
+        if self.opening.is_some() && !was_opening {
+            return;
         }
         self.sync(window, cx);
     }
