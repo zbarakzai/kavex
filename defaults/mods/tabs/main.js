@@ -5,13 +5,16 @@ import { GAP, HUES, INNER, away, clicked, columnOrder, failed, gathered, groupOf
 import { look, groupHue, tabHue, spaced, MONO } from "./look.js";
 import { loader } from "./loader.js";
 
-function find(node, id) {
-  if (node?.id === id) return node;
-  for (const child of node?.children ?? []) {
-    const found = find(child, id);
-    if (found) return found;
-  }
-  return null;
+// The first node with each of these ids, from one walk of the layout (a walk per id cost as much again).
+function find(root, ids) {
+  const out = Object.fromEntries(ids.map((id) => [id, null]));
+  const walk = (node) => {
+    if (!node) return;
+    if (out[node.id] === null) out[node.id] = node;
+    for (const child of node.children ?? []) walk(child);
+  };
+  walk(root);
+  return out;
 }
 
 const tabState = () => ({ groups: shared("tab.groups") ?? {}, colors: shared("tab.colors") ?? {} });
@@ -69,12 +72,13 @@ export default class Tabs extends View {
     } else if (name === "color") setShared("tab.colors", nextColor(colors, shown.id, groups[own]?.fill));
   }
 
-  // Shared state says how tabs should stand, whoever changed it; this makes it so.
-  reconcile(space, { groups, colors }, ps) {
+  // Shared state says how tabs should stand, whoever changed it; this makes it so. `all` and
+  // `terms` are the render's spaces() and terminals(): each read is a copy of the whole list.
+  reconcile(space, { groups, colors }, ps, all, terms, right) {
     const ready = (m) => machines().some((k) => k.name === m && k.layout === "ready");
-    const known = new Set(spaces().flatMap((p) => p.tabs.map((c) => c.id)));
+    const known = new Set(all.flatMap((p) => p.tabs.map((c) => c.id)));
     const kept = (id) => known.has(id) || !ready(machineOf(id));
-    let next = this.byLabel(pruned(groups, kept), space, ps);
+    let next = this.byLabel(pruned(groups, kept), space, ps, terms);
     // A tab opened from a group's menu joins it.
     const fresh = this.seen && space.tabs.find((c) => !this.seen.has(c.id));
     const adopting = fresh && Object.keys(next).find((id) => next[id].adopt);
@@ -87,7 +91,7 @@ export default class Tabs extends View {
     const paints = Object.fromEntries(Object.entries(colors).filter(([id]) => kept(id)));
     if (!same(paints, colors)) setShared("tab.colors", paints);
     // In the column, the tabs' order is the one it draws. On the bar a group only stays together.
-    const order = space.tabs.map((c) => c.id), want = shared("tabs.placement") === "right" ? columnOrder(space.tabs, next) : gathered(order, next);
+    const order = space.tabs.map((c) => c.id), want = right ? columnOrder(space.tabs, next) : gathered(order, next);
     if (ready(space.machine) && !this.drag && Date.now() > Math.max(this.hold, shared("tabs.hold") ?? 0)) for (const m of moves(order, want)) run("tab.move", m);
     // Unfolded or left its group: back. A tab settled for any other reason stays settled.
     const out = away(space.tabs, next);
@@ -100,9 +104,9 @@ export default class Tabs extends View {
 
   // A terminal started with the label `zaki.group=<name>` lands in that group, once: after
   // that where its tab sits is the person's to change.
-  byLabel(groups, space, ps) {
+  byLabel(groups, space, ps, terms) {
     let next = groups;
-    for (const k of terminals()) {
+    for (const k of terms) {
       const name = k.labels?.["zaki.group"], tab = name && ps.find((p) => p.terminal === k.address)?.tab;
       if (!tab || this.placed.has(k.address) || !space.tabs.some((c) => c.id === tab)) continue;
       next = labeled(next, tab, name, HUES, `g${Date.now().toString(36)}${this.placed.size}`);
@@ -356,10 +360,9 @@ export default class Tabs extends View {
       .when(Boolean(path), (el) => el.child(spaced(path.slice(-46), 10.5, 0.06).text_color(k.label))));
   }
 
-  syncColumn(root, panel) {
-    const column = find(root, "tabs-column");
+  syncColumn(column, panel, right) {
     if (!column) return;
-    const want = shared("tabs.placement") === "right" && (!panel || Boolean(panel.hidden));
+    const want = right && (!panel || Boolean(panel.hidden));
     if (want === this.column || want !== Boolean(column.hidden)) { this.column = want; return; }
     this.column = want;
     run(want ? "layout.show" : "layout.hide", { id: "tabs-column" });
@@ -395,29 +398,30 @@ export default class Tabs extends View {
 
   render() {
     const t = theme(), k = look(t);
-    const space = spaces().find(p => p.active);
+    // Each live read copies its whole list into the script: once per render.
+    const all = spaces(), terms = terminals(), right = shared("tabs.placement") === "right";
+    const space = all.find(p => p.active);
     const shown = space?.tabs ?? [];
     const s = tabState();
     const ps = panes();
-    if (space) this.reconcile(space, s, ps);
-    const v = { k, s, ps, words: new Map(terminals().map((x) => [x.address, x.status])), space, order: shown.map((c) => c.id), picked: space ? this.picked(space) : [] };
+    if (space) this.reconcile(space, s, ps, all, terms, right);
+    const v = { k, s, ps, words: new Map(terms.map((x) => [x.address, x.status])), space, order: shown.map((c) => c.id), picked: space ? this.picked(space) : [] };
     if (this.drag?.next && same(v.order, this.drag.next)) this.drag = null;
     const d = this.drag;
     const bar = runs(shown, s.groups).filter((r) => !d || (r.group ? r.group !== d.moving.group : !d.moving.tabs?.includes(r.tab.id)));
     const stop = (_e, cx) => cx.stop_propagation();
     const button = (id, label, action) => div().id(id).size(26).flex_none().flex().items_center().justify_center().rounded(8).text_color(k.muted).hover(s => s.bg(k.hover_strong).text_color(k.foreground))
       .on_mouse_down("left", stop).on_click(action).child(label);
-    const root = layout(), sidebar = find(root, "sidebar"), w = window();
+    const root = layout(), w = window();
+    const { sidebar, panel, "panel-body": body, "tabs-column": column } = find(root, ["sidebar", "panel", "panel-body", "tabs-column"]);
     // Old saved rails and a dragged-narrow sidebar can be smaller than the window buttons.
     const lightsPadding = w?.platform === "macos" && w.titlebar === "none" && !w.fullscreen && root?.traffic_lights
       ? Math.max(6, (root.traffic_lights[0] + 64) / settings().zoom - (sidebar?.hidden ? 0 : sidebar?.size?.px ?? 0))
       : 6;
     this.padding = lightsPadding;
-    const panel = find(root, "panel"), body = find(root, "panel-body");
     const enabled = shared("workspace.panels") ?? ["files", "changes"];
     this.syncPanel(space, panel, body, enabled);
-    this.syncColumn(root, panel);
-    const right = shared("tabs.placement") === "right";
+    this.syncColumn(column, panel, right);
     const open = panel && !panel.hidden;
     // A panel turned off (Settings) doesn't stay open, or come back by its key.
     if (open && body && !enabled.includes(body.active)) run(...(enabled.length ? ["layout.select", { stack: "panel-body", child: enabled[0] }] : ["layout.hide", { id: "panel" }]));
