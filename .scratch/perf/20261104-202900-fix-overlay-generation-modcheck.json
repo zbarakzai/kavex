@@ -1,0 +1,54 @@
+{
+ "fix14": [
+  {
+   "overlay": "o1",
+   "count": 1
+  },
+  {
+   "overlay": "o1",
+   "count": 1
+  },
+  {
+   "overlay": "o1",
+   "count": 1
+  },
+  {
+   "overlay": "o2",
+   "count": 1
+  },
+  {
+   "overlay": "o3",
+   "count": 1
+  },
+  {
+   "overlay": "o4",
+   "count": 1
+  }
+ ],
+ "fix16": [
+  {
+   "overlay": "o1",
+   "count": 1
+  },
+  {
+   "overlay": "o1",
+   "count": 1
+  },
+  {
+   "overlay": "o1",
+   "count": 2
+  },
+  {
+   "overlay": "o2",
+   "count": 3
+  },
+  {
+   "overlay": "o3",
+   "count": 4
+  },
+  {
+   "overlay": "o4",
+   "count": 5
+  }
+ ]
+}
