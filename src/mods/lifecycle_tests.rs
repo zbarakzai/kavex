@@ -339,17 +339,22 @@ export default class extends View {
     let calls = completed.clone();
     gpui_shell::policy::set_default(Policy::new().with_host_module(
         HostModule::new("fixture")
-            .async_function("wait", |_| Ok(async {
-                std::thread::sleep(Duration::from_millis(10));
-                Ok(HostValue::Null)
-            }))
+            // Native work that finishes on another thread: its answer reaches the script only
+            // through close_now's pump. Nothing here waits on the clock, so a busy machine
+            // can't push it past the deadline (it used to sleep 10 ms twice inside 250).
+            .async_function("wait", |_| {
+                let (tx, rx) = async_channel::bounded(1);
+                std::thread::spawn(move || { let _ = tx.send_blocking(()); });
+                Ok(async move { let _ = rx.recv().await; Ok(HostValue::Null) })
+            })
             .function("note", move |_| { calls.set(calls.get() + 1); Ok(HostValue::Null) })
     ).unwrap());
     let runtime = ShellRuntime::new_isolated().unwrap();
     let window = cx.add_window(|_, _| Empty);
     let root = window.update(cx, |_, window, cx| runtime.try_load(&fixture.0, window, cx).unwrap()).unwrap();
     window.update(cx, |_, window, cx| {
-        runtime.close_now(&root, Instant::now() + Duration::from_millis(250), window, cx);
+        // The deadline only stops a pump that never finishes; final_close_stops_waiting_at_its_deadline tests it.
+        runtime.close_now(&root, Instant::now() + Duration::from_secs(30), window, cx);
         assert_eq!(completed.get(), 2, "both native awaits must finish before window destruction");
         window.remove_window();
     }).unwrap();
