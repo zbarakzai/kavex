@@ -9,6 +9,10 @@
 # will likely look very different (and much more reasonable).
 # See Cargo.toml.orig for the original contents.
 
+# HERDR: also ours, to offer upstream as a Windows `frame_waker`: windows are
+# drawn only on demand, so an idle or minimised window no longer repaints every
+# vsync (FrameDemand in src/platform.rs, src/window.rs, src/events.rs, marked HERDR:).
+
 [package]
 edition = "2024"
 name = "gpui-pre-windows"

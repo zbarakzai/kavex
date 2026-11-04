@@ -261,6 +261,8 @@ impl WindowsWindowInner {
                 .callbacks
                 .request_frame
                 .set(Some(restore_from_minimized));
+            // HERDR: frames on demand. Demand that came while minimized found no callback.
+            self.state.frame_demand.wake(FrameDemand::FRAMES);
         } else {
             should_resize_renderer = true;
         }
@@ -1324,6 +1326,7 @@ impl WindowsWindowInner {
 
     fn handle_dm_pointer_hit_test(&self, wparam: WPARAM) -> Option<isize> {
         self.state.direct_manipulation.on_pointer_hit_test(wparam);
+        self.state.frame_demand.wake(FrameDemand::GESTURE_FRAMES); // HERDR: frames on demand.
         None
     }
 
@@ -1340,6 +1343,7 @@ impl WindowsWindowInner {
             // re-invalidates every window on each vsync (see
             // `begin_vsync_thread`), so the deferred frame still gets drawn,
             // at most one vsync late.
+            self.state.frame_demand.wake(FrameDemand::FRAMES); // HERDR: frames on demand.
             unsafe { ValidateRect(Some(handle), None).ok().log_err() };
             return Some(0);
         };
@@ -1349,6 +1353,7 @@ impl WindowsWindowInner {
 
         let events = self.state.direct_manipulation.drain_events();
         if !events.is_empty() {
+            self.state.frame_demand.wake(FrameDemand::GESTURE_FRAMES); // HERDR: frames on demand.
             if let Some(mut func) = self.state.callbacks.input.take() {
                 for event in events {
                     func(event);
