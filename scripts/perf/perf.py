@@ -32,7 +32,7 @@ sys.path.insert(0, HERE)
 REPO = os.path.dirname(os.path.dirname(HERE))
 
 import winapi as w  # noqa: E402
-from instance import CoreClient, Instance, core_binary  # noqa: E402
+from instance import AppExited, CoreClient, Instance, core_binary, exit_text  # noqa: E402
 
 RESULTS = os.path.join(REPO, ".scratch", "perf")
 SCENARIOS = ("cold", "open", "input", "frames", "throughput", "idle", "overhead")
@@ -439,6 +439,7 @@ def cold(results, args, work, live_ids, survivors):
     for kind, about in variants:
         print(f"cold {kind}: {about}", flush=True)
         rows = []
+        exits = 0
         reps = args.cold_reps
         instance = Instance(work, f"cold-{kind}", args.binary)
         instance.seed_home()
@@ -451,7 +452,18 @@ def cold(results, args, work, live_ids, survivors):
                 if kind == "core_down" and rep > 0:
                     instance.hc("server", "stop")
                     time.sleep(0.3)
-                marks = launch_once(instance, kind != "fresh" and rep > 0)
+                try:
+                    marks = launch_once(instance, kind != "fresh" and rep > 0)
+                except AppExited as e:
+                    # A start that crashes is a result: its evidence is kept
+                    # (instance.keep_evidence) and the next start goes on.
+                    if rep == 0 and kind != "fresh":
+                        raise
+                    exits += 1
+                    results.note(f"cold {kind} rep {rep}: the app exited with {exit_text(e.code)}; evidence in {e.kept}")
+                    instance.quit_app()
+                    time.sleep(0.4)
+                    continue
                 status = instance.core_status()
                 if status:
                     instance.note_core(status)
@@ -469,6 +481,9 @@ def cold(results, args, work, live_ids, survivors):
             instance.clean_files()
         for key in sorted({k for r in rows for k in r}):
             results.add(f"cold.{kind}.{key}_ms", stat([r.get(key) for r in rows]))
+        results.add(f"cold.{kind}.abnormal_exits", one(exits, "starts"))
+        for kept in instance.kept:
+            results.note(f"cold {kind}: evidence of an abnormal exit kept in {kept}")
 
 
 def new_terminal(instance, events, command, args):

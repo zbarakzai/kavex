@@ -43,6 +43,17 @@ pointer is over the window when it moves. So test instances get
 `WM_MOUSELEAVE`: hover draws a frame only when what's under the pointer changes,
 as it does for a person.
 
+## When the app exits on its own
+
+The app's log (stdout) goes to the instance's `app.log` and its stderr (panics,
+with `RUST_BACKTRACE=1`) to `stderr.log`. If a start exits while it should be
+running, exits nonzero when closed, or has to be ended, `Instance.keep_evidence`
+copies `app.log`, `stderr.log`, the events' tail, the exit code (`exit.json`),
+Windows Error Reporting's dump from `%LOCALAPPDATA%\CrashDumps` and the
+Application Error entry for its pid to `.scratch/perf/crashes/<time>-<instance>-start<n>/`
+before cleanup runs. That folder is git-ignored (it's for this machine). `cold` notes each such start, counts it
+as `cold.<variant>.abnormal_exits` and goes on with the next one.
+
 ## Instrumentation
 
 All of it is off unless `HERDR_APP_BENCH_EVENTS=<file>` is set; each call is then
