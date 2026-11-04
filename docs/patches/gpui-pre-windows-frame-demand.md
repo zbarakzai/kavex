@@ -1,7 +1,7 @@
 # gpui-pre-windows: windows drawn only on demand
 
 Package: `vendor/gpui-pre-windows` (crate `gpui-pre-windows` 0.3.8, GPUI's
-Windows backend from zed-industries/zed). Patch:
+Windows backend from zed-industries/zed). Commit d46a715. Patch:
 `gpui-pre-windows-frame-demand.patch`.
 
 ## What it changes
