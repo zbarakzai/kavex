@@ -81,10 +81,65 @@ pub fn version(bin: &Path) -> Option<String> {
     (out.status.success() && text.starts_with("hc ")).then_some(text)
 }
 
-/// The first herdr-core found, or None.
-pub fn find(configured: Option<&str>) -> Option<PathBuf> {
+/// What `--version` said of the binaries that answered `hc …`, by path, size and
+/// modification time. Asking runs the binary (about 80 ms at every start on Windows);
+/// a start asks again only once the file changed. A binary that didn't answer is
+/// never remembered: it's asked again next time, as before.
+#[derive(Default, serde::Serialize, serde::Deserialize)]
+pub struct Checked {
+    #[serde(default)]
+    answers: Vec<Answer>,
+    #[serde(skip)]
+    changed: bool,
+}
+
+#[derive(serde::Serialize, serde::Deserialize)]
+struct Answer {
+    path: PathBuf,
+    size: u64,
+    modified_ns: u64,
+    version: String,
+}
+
+/// The file as it is now: its size and modification time.
+fn stamp(bin: &Path) -> Option<(u64, u64)> {
+    let meta = std::fs::metadata(bin).ok()?;
+    let modified = meta.modified().ok()?.duration_since(std::time::UNIX_EPOCH).ok()?;
+    Some((meta.len(), u64::try_from(modified.as_nanos()).ok()?))
+}
+
+impl Checked {
+    /// The answers in `file`; none if it's missing or unreadable.
+    pub fn load(file: &Path) -> Self {
+        std::fs::read(file).ok().and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or_default()
+    }
+
+    /// Writes them back if a binary was asked this time.
+    pub fn save(&self, file: &Path) {
+        if !self.changed { return; }
+        if let Err(e) = serde_json::to_vec(self).map_err(std::io::Error::other).and_then(|body| crate::persist::write_atomic(file, body)) {
+            tracing::warn!("cannot write {}: {e}", file.display());
+        }
+    }
+
+    /// `version(bin)`, without running it again while it's the same file.
+    fn version(&mut self, bin: &Path) -> Option<String> {
+        let Some((size, modified_ns)) = stamp(bin) else { return version(bin) };
+        if let Some(a) = self.answers.iter().find(|a| a.path == bin && a.size == size && a.modified_ns == modified_ns) {
+            return Some(a.version.clone());
+        }
+        let answer = version(bin)?;
+        self.answers.retain(|a| a.path != bin);
+        self.answers.push(Answer { path: bin.to_owned(), size, modified_ns, version: answer.clone() });
+        self.changed = true;
+        Some(answer)
+    }
+}
+
+/// The first herdr-core found, or None. `checked` keeps what earlier starts asked.
+pub fn find(configured: Option<&str>, checked: &mut Checked) -> Option<PathBuf> {
     let home = crate::mods::home();
-    let pick = |candidates: Vec<PathBuf>| candidates.into_iter().filter(|c| c.is_file()).find(|c| version(c).is_some());
+    let mut pick = |candidates: Vec<PathBuf>| candidates.into_iter().filter(|c| c.is_file()).find(|c| checked.version(c).is_some());
     if let Some(found) = pick(configured.map(|c| vec![expand(c, &home)]).unwrap_or_default()) {
         return Some(found);
     }
@@ -246,7 +301,37 @@ mod tests {
         std::fs::write(&real, "#!/bin/sh\necho 'hc 0.1.1'\n").unwrap();
         std::fs::set_permissions(&real, std::os::unix::fs::PermissionsExt::from_mode(0o755)).unwrap();
         assert_eq!(version(&real).as_deref(), Some("hc 0.1.1"));
-        assert_eq!(find(Some(real.to_str().unwrap())), Some(real.clone()));
+        assert_eq!(find(Some(real.to_str().unwrap()), &mut Checked::default()), Some(real.clone()));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    // A text file can't run on any OS, so an answer for it can only come from what's remembered.
+    #[test]
+    fn a_binary_is_asked_again_only_once_it_changes() {
+        let dir = std::env::temp_dir().join(format!("herdr-core-checked-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let bin = dir.join(format!("herdr-core{}", std::env::consts::EXE_SUFFIX));
+        std::fs::write(&bin, "not a program").unwrap();
+        let mut checked = Checked::default();
+        assert_eq!(checked.version(&bin), None);
+        assert!(checked.answers.is_empty() && !checked.changed, "no answer isn't remembered: the next start asks again");
+
+        // As a start that ran it would have left it.
+        let (size, modified_ns) = stamp(&bin).unwrap();
+        checked.answers.push(Answer { path: bin.clone(), size, modified_ns, version: "hc 0.1.9".into() });
+        assert_eq!(checked.version(&bin).as_deref(), Some("hc 0.1.9"), "the same file isn't run again");
+        assert_eq!(find(Some(bin.to_str().unwrap()), &mut checked), Some(bin.clone()));
+
+        let file = dir.join("core-checked.json");
+        checked.changed = true;
+        checked.save(&file);
+        let mut loaded = Checked::load(&file);
+        assert_eq!(loaded.version(&bin).as_deref(), Some("hc 0.1.9"), "remembered across starts");
+
+        // An update replaces the file: it's asked again (and this one doesn't answer).
+        std::fs::write(&bin, "another file, another size").unwrap();
+        assert_eq!(loaded.version(&bin), None);
+        assert!(Checked::load(&dir.join("missing.json")).answers.is_empty());
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

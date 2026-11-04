@@ -129,7 +129,12 @@ fn main() {
     let configured = person.as_ref().ok().and_then(|p| p.core.clone());
     let found = {
         let _span = bench::span("start:core_find");
-        core_bin::find(configured.as_deref())
+        // Asking a binary for its version runs it: only one that changed since is asked.
+        let file = mods::app_dir().join("core-checked.json");
+        let mut checked = core_bin::Checked::load(&file);
+        let found = core_bin::find(configured.as_deref(), &mut checked);
+        checked.save(&file);
+        found
     };
     let core: Result<std::sync::Arc<hc::Core>, setup::Need> = match found {
         None => Err(setup::Need::Install),

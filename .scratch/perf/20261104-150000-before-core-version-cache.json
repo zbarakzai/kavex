@@ -1,0 +1,95 @@
+{
+ "label": "before-core-version-cache",
+ "binary": "C:\\Users\\ZakiBarakzai\\AppData\\Local\\Temp\\claude\\C--Users-ZakiBarakzai-Desktop-Experements-zaki\\2cafb48c-7198-40ee-a65b-0e8187ee78d0\\scratchpad\\bins\\zaki-head12.exe",
+ "script": "scratchpad ab12.py (one A/B over items a-d, alternating head/fix)",
+ "rows": [
+  {
+   "core_find_ms": 91.714,
+   "core_connect_ms": 70.729,
+   "to_platform_ms": 233.198,
+   "first_paint_ms": 7142.392,
+   "control_ready_ms": 7319.512
+  },
+  {
+   "core_find_ms": 331.886,
+   "core_connect_ms": 71.887,
+   "to_platform_ms": 459.648,
+   "first_paint_ms": 1215.74,
+   "control_ready_ms": 1387.711
+  },
+  {
+   "core_find_ms": 86.841,
+   "core_connect_ms": 82.573,
+   "to_platform_ms": 226.346,
+   "first_paint_ms": 910.836,
+   "control_ready_ms": 1063.527
+  },
+  {
+   "core_find_ms": 88.495,
+   "core_connect_ms": 70.0,
+   "to_platform_ms": 216.271,
+   "first_paint_ms": 907.966,
+   "control_ready_ms": 1068.249
+  },
+  {
+   "core_find_ms": 75.336,
+   "core_connect_ms": 81.77,
+   "to_platform_ms": 210.505,
+   "first_paint_ms": 947.696,
+   "control_ready_ms": 1066.362
+  },
+  {
+   "core_find_ms": 80.899,
+   "core_connect_ms": 68.164,
+   "to_platform_ms": 206.031,
+   "first_paint_ms": 938.417,
+   "control_ready_ms": 1098.321
+  },
+  {
+   "core_find_ms": 100.873,
+   "core_connect_ms": 93.572,
+   "to_platform_ms": 277.032,
+   "first_paint_ms": 1115.312,
+   "control_ready_ms": 1300.907
+  },
+  {
+   "core_find_ms": 82.774,
+   "core_connect_ms": 73.514,
+   "to_platform_ms": 204.907,
+   "first_paint_ms": 905.274,
+   "control_ready_ms": 1079.614
+  }
+ ],
+ "summary": {
+  "control_ready_ms": {
+   "median": 1088.967,
+   "p95": 7319.512,
+   "iqr": 232.658,
+   "n": 8
+  },
+  "core_connect_ms": {
+   "median": 72.701,
+   "p95": 93.572,
+   "iqr": 11.041,
+   "n": 8
+  },
+  "core_find_ms": {
+   "median": 87.668,
+   "p95": 331.886,
+   "iqr": 8.94,
+   "n": 8
+  },
+  "first_paint_ms": {
+   "median": 943.057,
+   "p95": 7142.392,
+   "iqr": 204.476,
+   "n": 8
+  },
+  "to_platform_ms": {
+   "median": 221.308,
+   "p95": 459.648,
+   "iqr": 22.693,
+   "n": 8
+  }
+ }
+}

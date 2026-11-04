@@ -83,7 +83,7 @@ first frame or during GPU recovery it reports an error instead of a PNG.
 | `icons/` | the shipped program and file type logos | written by Zaki (put your own elsewhere) |
 | `frame/` | the app's own screens (welcome, ...) | rewritten by Zaki on every start: don't edit, it won't stick |
 | `view.json` | this screen's selected space/tab/pane, zoom, settled tabs, recent spaces and seen attention | written by Zaki |
-| `shared.json`, `data/`, `seen.json`, `installed.json`, `installed-stamps.json`, `window.json`, `windows.json` | mod state, bookkeeping, where the window was (size, maximized), mods' windows (spots, kept ones) | written by Zaki |
+| `shared.json`, `data/`, `seen.json`, `installed.json`, `installed-stamps.json`, `core-checked.json`, `window.json`, `windows.json` | mod state, bookkeeping (which herdr-core binaries answered, so an unchanged one isn't run again at start), where the window was (size, maximized), mods' windows (spots, kept ones) | written by Zaki |
 
 Shared state is saved atomically in the background, with the latest change winning.
 If `shared.json` is invalid, Zaki logs a warning and keeps it as
