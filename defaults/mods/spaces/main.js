@@ -28,6 +28,9 @@ function place(s, ps) {
 }
 const rowHeight = ({ tree }) => (tree ? 28 : 36);
 const HEADER = 44, TALLEST = 340;
+// The scrollbar's lane (gpui-kit's 16 px track) at the list's right edge. The rows always stop
+// short of it, so the bar never covers their right end; the narrow rail keeps the whole width.
+const BAR = 16;
 const where = (s, ps) => JSON.stringify([s.machine ?? null, place(s, ps)]);
 const base = (path) => path.replace(/\/+$/, "").split("/").pop();
 // Changes made outside Zaki (an editor's save, a commit in another app): looked
@@ -353,8 +356,9 @@ export default class Spaces extends View {
         .when(!collapsed, el => el.child(sectionLabel(k, "SPACES")))
         .child(div().id("space-new").size(26).flex_none().flex().items_center().justify_center().rounded(7).text_color(t.muted).hover(s => s.bg(t.raised).text_color(t.foreground))
           .on_click(() => run("space.new")).child(svg("mods/workspace-chrome/icons/plus.svg").size(16))))
-      .child(v_flex().flex_1().min_h(0).overflow_y_scrollbar().mode("always")
+      .child(v_flex().id("space-list").flex_1().min_h(0).overflow_y_scrollbar().mode("always")
         .on_mouse_up("left", (_e, cx) => { this.pressed = null; cx.notify(); })
-        .child(v_flex().id("space-rows").flex_none().gap(2).on_size_change((size) => this.fit(size.height)).children(this.grouped(t, collapsed))));
+        .child(v_flex().id("space-rows").flex_none().gap(2).when(!collapsed, (el) => el.pr(BAR))
+          .on_size_change((size) => this.fit(size.height)).children(this.grouped(t, collapsed))));
   }
 }
