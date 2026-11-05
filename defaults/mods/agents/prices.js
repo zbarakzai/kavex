@@ -3,16 +3,16 @@
 // a similar name. Every figure comes from the provider's own pricing page, and the list is
 // checked at each release (see the release steps in AGENTS.md).
 //
-// Claude: platform.claude.com/docs/en/about-claude/pricing, read 2026-11-01.
+// Claude: platform.claude.com/docs/en/about-claude/pricing, read 2026-11-05.
 // `fast` is fast mode: the page gives its input and output, and its caching multipliers apply on
 // top of those. `over` is the price of a message whose prompt is over `tokens`, cache included.
 //
-// OpenAI: developers.openai.com/api/docs/pricing, read 2026-11-01.
+// OpenAI: developers.openai.com/api/docs/pricing, read 2026-11-05.
 // Standard and Fast tiers, short and long context; long is a response over 272K input tokens.
 // `read` is cached input. Cache writes aren't listed: the page prices 30-minute and 12-hour ones
 // and Codex writes one figure, so a session with any reads "no price". The page's "-" is no price
-// too: GPT-5.5 and GPT-5.4 have no long Fast price. GPT-5.6 Sol's is promotional until at least
-// 2026-11-21, so check it at the next release.
+// too: GPT-5.5 and GPT-5.4 have no long Fast price. GPT-5.6 Sol's is promotional until
+// 2026-11-30, so check it at the next release.
 
 const claude = (input, write5m, write1h, read, output) => ({ input, write5m, write1h, read, output });
 

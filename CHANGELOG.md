@@ -1,5 +1,16 @@
 # Zaki changelog
 
+## [0.4.1] - 2026-11-05
+
+### Fixed
+- Zaki on Windows is faster and lighter. It starts quicker, the window keeps drawing while a new terminal opens, Settings opens without a stall, and an idle or minimized window no longer redraws all the time. (#10)
+- Keys you type into a new terminal before it's ready are no longer lost. (#10)
+- Ctrl-click opens Windows paths shown in a terminal, and Ctrl-click on a program shows it in Explorer instead of running it. (#11)
+- Agents show context and cost for Claude Code sessions that use another config folder, such as one set by `CLAUDE_CONFIG_DIR` for a second account. (#11)
+- On Windows, usage limits show Claude Code's reset times and Codex's limits. (#11)
+- On Windows, the window buttons always sit at the right end of the tab bar, and close turns red on hover. (#11)
+- The scrollbar in Spaces and Agents no longer covers the right end of the rows. (#11)
+
 ## [0.4.0] - 2026-11-01
 
 ### New
