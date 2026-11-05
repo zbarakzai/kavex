@@ -4,7 +4,7 @@ import { spaces, panes, terminals, machines, run, openOverlay, closeOverlay, the
 import { GAP, HUES, INNER, away, clicked, columnOrder, failed, gathered, groupOf, home, labeled, landed, moves, nearest, nextColor, pruned, reopening, runs, shows, slotKey, slots, stepped } from "./groups.js";
 import { look, groupHue, tabHue, spaced, MONO } from "./look.js";
 import { loader } from "./loader.js";
-import { holdsButtons, windowButtons } from "./window-buttons.js";
+import { windowButtons } from "./window-buttons.js";
 
 // The first node with each of these ids, from one walk of the layout (a walk per id cost as much again).
 function find(root, ids) {
@@ -435,7 +435,6 @@ export default class Tabs extends View {
     const strip = h_flex().id("tab-scroll").flex_1().min_w(0).h_full().items_center().gap(GAP).overflow_x_scroll()
       .on_size_change((size) => { this.stripW = size.width / settings().zoom; })
       .children(bar.map((r, i) => this.roomed(r.group ? this.tray(r, v) : this.pill(r.tab, v), r.group ? slotKey.before(r.group) : r.tab.id, i === bar.length - 1 ? "end" : null)));
-    const corner = holdsButtons("tabs");
     return h_flex().id("tabs").relative().size_full().min_w(0).pl(lightsPadding).pr(6).pt(TOP).gap(GAP).items_center()
       // Plain moves need nothing from here, and at a mouse's rate each would be a call in.
       .when(Boolean(this.press || d), (el) => el.on_mouse_move((e, cx) => this.moved(e, v, cx)))
@@ -450,7 +449,7 @@ export default class Tabs extends View {
         .on_mouse_down("left", (e, cx) => this.armed(e, cx)).on_click(this.unlessShut("tab-new", () => openOverlay({ mod: "new-menu", kind: "popup", width: 250, height: 512, props: { from: "tab-new" } }))).child(svg("mods/workspace-chrome/icons/plus.svg").size(16))))
       .child(this.placement(k))
       .when(enabled.length > 0, (el) => el.child(folder))
-      .when(corner, (el) => el.child(windowButtons(k)))
+      .when(Boolean(w?.buttons), (el) => el.child(windowButtons(k)))
       .when(Boolean(d), el => el.child(this.ghost(v)));
   }
 }

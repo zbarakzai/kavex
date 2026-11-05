@@ -2,7 +2,7 @@ import { test, expect, mock, beforeEach } from "bun:test";
 import { readFileSync } from "node:fs";
 
 // The real tab bar, Tabs column and side panel header, drawn into a tree of the calls they make.
-// Where the system draws no window buttons (`window().buttons`), one of them draws them.
+// Where the system draws no window buttons (`window().buttons`), only the tab bar draws them.
 type El = { calls: [string, any[]][]; kids: any[]; hover?: El; self: any };
 function make(): any {
   const el: El = { calls: [], kids: [], self: null };
@@ -79,91 +79,78 @@ beforeEach(() => {
   show({});
 });
 
-test("the tab bar holds them when nothing is open on the right", () => {
-  expect(holders()).toEqual(["tabs"]);
+const STATES = { "nothing on the right": {}, "the side panel open": { panel: true }, "the Tabs column open": { column: true }, "both, mid-switch": { panel: true, column: true } };
+
+test("the tab bar draws them at its right end in every layout state, and nothing else does", () => {
+  for (const [name, open] of Object.entries(STATES)) {
+    show(open);
+    expect(holders(), name).toEqual(["tabs"]);
+    const tabs = draw(Tabs);
+    expect(tabs.kids.map(mine).at(-1), name).toBe(byId(tabs, "window-buttons")!); // after the folder button
+    expect(arg(tabs, "pr"), name).toBe(6);
+  }
 });
 
-test("an open side panel holds them, and the tab bar gives them up", () => {
-  show({ panel: true });
-  expect(holders()).toEqual(["files", "changes"]); // the panel's two mods: its stack shows one at a time
-});
-
-test("the Tabs column holds them while it's open", () => {
+test("with the Tabs column shown the bar still draws, showing the current tab, with the buttons", () => {
   show({ column: true });
-  expect(holders()).toEqual(["column"]);
-});
-
-test("mid-switch, with panel and column both shown for a moment, only the rightmost has them", () => {
-  show({ panel: true, column: true });
-  expect(holders()).toEqual(["column"]);
-});
-
-test("a sidebar moved to the right edge has no buttons, so the rightmost that can hold them does", () => {
-  const root = show({});
-  root.children.push(root.children.shift());
+  state.shared["tabs.placement"] = "right";
+  const tabs = draw(Tabs);
+  expect(byId(tabs, "tab-scroll")).toBeUndefined();
+  expect(byId(tabs, "close-window")).toBeDefined();
   expect(holders()).toEqual(["tabs"]);
-  root.children.find((n: any) => n.id === "panel").hidden = false;
-  expect(holders()).toEqual(["files", "changes"]);
+});
+
+test("the side panel and the Tabs column keep their headers as they were, at any width", () => {
+  for (const width of [330, 370, 680, 900]) {
+    show({ panel: true, column: true, width });
+    for (const panel of ["files", "changes"]) {
+      const h = header(panel);
+      expect([arg(h, "h"), arg(h, "px"), byId(h, "window-buttons")], `${panel} ${width}`).toEqual([46, 6, undefined]);
+      expect(byId(h, "panel-expand")).toBeDefined();
+    }
+  }
+  const row = draw(TabsColumn).kids.map(mine).find((k) => arg(k!, "h") === 56)!;
+  expect([arg(row, "pl"), arg(row, "pr")]).toEqual([18, 10]);
+  expect(mine(row.kids.at(-1))!.kids.map((x) => arg(mine(x)!, "id"))).toEqual(["column-group", "column-new"]);
 });
 
 test("a tab bar in a block with another name keeps them", () => {
-  const root = show({});
+  const root = show({ panel: true });
   root.children.find((n: any) => n.id === "work").children[0].id = "my-bar";
   expect(holders()).toEqual(["tabs"]);
 });
 
-test("Files or Changes open as a pane never draw them, wherever the corner is", () => {
-  const root = show({ panel: true });
-  root.children.find((n: any) => n.id === "panel").children = [];
-  expect(byId(header("files"), "close-window")).toBeUndefined();
-});
-
-test("where the system draws the buttons (macOS), no block draws any and every header stays as it was", () => {
+test("where the system draws the buttons (macOS), no block draws any", () => {
   for (const window of [{ platform: "macos", titlebar: "none", buttons: false }, { platform: "linux", titlebar: "none", buttons: false }]) {
     state.window = window;
-    for (const open of [{}, { panel: true }, { column: true }]) {
+    for (const open of Object.values(STATES)) {
       show(open);
       expect(holders()).toEqual([]);
     }
   }
   show({});
   expect(arg(draw(Tabs), "pr")).toBe(6);
-  const row = draw(TabsColumn).kids.map(mine).find((k) => arg(k!, "h") === 56)!;
-  expect([arg(row, "pl"), arg(row, "pr")]).toEqual([18, 10]);
-  show({ panel: true });
-  expect([arg(header("files"), "px"), arg(header("files"), "h")]).toEqual([6, 46]);
 });
 
-test("Linux with client decorations gets the same place and buttons, with its own glyphs", () => {
+test("Linux with client decorations gets them in the tab bar too, with its own glyphs", () => {
   state.window = { ...WINDOWS, platform: "linux" };
   show({ column: true });
-  expect(holders()).toEqual(["column"]);
-  const root = draw(TabsColumn), buttons = byId(root, "window-buttons")!;
+  expect(holders()).toEqual(["tabs"]);
+  const buttons = byId(draw(Tabs), "window-buttons")!;
   expect(icons(buttons)).toEqual(["mods/workspace-chrome/icons/close.svg"]);
   expect(arg(byId(buttons, "close-window")!, "size")).toBe(26);
 });
 
-test("they're the tab bar's small buttons, at the end of each header with its usual padding", () => {
-  const places = [draw(Tabs), (show({ column: true }), draw(TabsColumn)), (show({ panel: true }), header("files"))];
-  for (const root of places) {
-    const row = byId(root, "window-buttons")!;
-    expect([arg(row, "gap"), has(row, "flex_none")]).toEqual([4, true]);
-    for (const button of row.kids.map((b) => mine(b)!)) {
-      expect([arg(button, "size"), arg(button, "rounded"), has(button, "flex_none")]).toEqual([26, 8, true]);
-      expect([has(button, "w"), has(button, "rounded_tr"), has(button, "mt")]).toEqual([false, false, false]);
-    }
+test("they're small: 26 px, rounded 8, 4 apart", () => {
+  const row = byId(draw(Tabs), "window-buttons")!;
+  expect([arg(row, "gap"), has(row, "flex_none"), has(row, "mt")]).toEqual([4, true, false]);
+  for (const button of row.kids.map((b) => mine(b)!)) {
+    expect([arg(button, "size"), arg(button, "rounded"), has(button, "flex_none")]).toEqual([26, 8, true]);
+    expect([has(button, "w"), has(button, "rounded_tr"), has(button, "mt")]).toEqual([false, false, false]);
   }
-  const tabs = (show({}), draw(Tabs));
-  expect(arg(tabs, "pr")).toBe(6);
-  expect(tabs.kids.map(mine).at(-1)).toBe(byId(tabs, "window-buttons")!); // after the folder button
-  expect(has(byId(tabs, "window-buttons")!, "mt")).toBe(false);
-  const column = (show({ column: true }), draw(TabsColumn)), row = column.kids.map(mine).find((k) => arg(k!, "h") === 56)!;
-  expect([arg(row, "pl"), arg(row, "pr")]).toEqual([18, 10]);
-  show({ panel: true });
-  expect(arg(header("files"), "px")).toBe(6);
 });
 
-test("they look as before, muted at rest, and only close turns red on hover", () => {
+test("they're muted at rest, and only close turns red with a white icon on hover", () => {
   const strip = byId(draw(Tabs), "window-buttons")!, [min, max, close] = strip.kids.map((k) => mine(k)!);
   for (const button of [min, max, close]) expect(arg(button, "text_color")).toBe(k.muted);
   for (const button of [min, max]) expect([arg(button.hover!, "bg"), arg(button.hover!, "text_color")]).toEqual([k.hover_strong, k.foreground]);
@@ -190,26 +177,4 @@ test("the middle button shows what it will do", () => {
   };
   expect(icon(false)).toEqual(["mods/workspace-chrome/icons/win-maximize.svg"]);
   expect(icon(true)).toEqual(["mods/workspace-chrome/icons/win-restore.svg"]);
-});
-
-test("the column's own controls stay beside the strip", () => {
-  show({ column: true });
-  const row = draw(TabsColumn).kids.map(mine).find((k) => arg(k!, "h") === 56)!, ids = all(row).map((e) => arg(e, "id")).filter(Boolean);
-  expect(ids.indexOf("column-group")).toBeLessThan(ids.indexOf("column-new"));
-  expect(ids.indexOf("column-new")).toBeLessThan(ids.indexOf("window-buttons"));
-  expect(row.kids.map(mine).at(-1)).toBe(byId(row, "window-buttons")!);
-});
-
-test("a panel too narrow for the buttons beside its tabs gives them a row of their own, and a wider one doesn't", () => {
-  show({ panel: true, width: 330 });
-  const narrow = header("files"), [top, tabs] = narrow.kids.map((k) => mine(k)!);
-  expect(arg(top, "h")).toBe(34);
-  expect(byId(top, "window-buttons")).toBeDefined();
-  expect([arg(tabs, "h"), byId(tabs, "window-buttons")]).toEqual([46, undefined]);
-  expect(byId(tabs, "panel-expand")).toBeDefined();
-  for (const width of [370, 680]) {
-    show({ panel: true, width });
-    const wide = header("files");
-    expect([arg(wide, "h"), byId(wide, "panel-expand") !== undefined, byId(wide, "window-buttons") !== undefined]).toEqual([46, true, true]);
-  }
 });

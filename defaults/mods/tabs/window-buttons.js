@@ -1,33 +1,18 @@
-// The window's minimize, maximize and close buttons, where the system draws none. They belong in
-// the window's top right corner, so whichever block holds that corner draws them: one rule, read
-// from the layout by every mod that can hold it. tabs, tabs-column, files and changes each keep a
-// copy, as mods can't import each other's files; scripts/look.test.ts keeps them equal.
+// The window's minimize, maximize and close buttons, where the system draws none
+// (`window().buttons`). Only the tab bar above the terminals draws them, at its right end,
+// whatever else is open beside it: the side panel and the Tabs column never do.
 
 import { div, svg } from "gpui-kit";
 import { h_flex } from "gpui-base";
-import { layout, run, window } from "herdr";
+import { run, window } from "herdr";
 
-const HOLDERS = ["tabs-column", "panel", "tabs"];
 const SIZE = 26, GAP = 4; // each button, and the room between them
 // Close turns the system's red on hover, with a white icon.
 const CLOSE = "#c42b1c", CLOSE_TEXT = "#ffffff";
 
 const stop = (_e, cx) => cx.stop_propagation();
 
-// The rightmost shown block that can hold them. A sidebar moved to the right edge can't, so it's skipped.
-function rightmost(node) {
-  if (!node || node.hidden) return null;
-  if (HOLDERS.includes(node.id)) return node.id;
-  return [...(node.children ?? [])].reverse().reduce((hit, child) => hit ?? rightmost(child), null);
-}
-
-// Whether this block holds the corner and draws them. A clone's tab bar may have another id, so
-// with no holder it's the bar.
-export function holdsButtons(holder) {
-  return Boolean(window()?.buttons) && (rightmost(layout()) ?? "tabs") === holder;
-}
-
-// The three buttons in a row, for the end of the holder's header.
+// The three buttons in a row, for the end of the tab bar.
 export function windowButtons(k) {
   const w = window(), native = w.platform === "windows";
   const icon = (name) => svg(`mods/workspace-chrome/icons/${name}.svg`).size(16);
