@@ -2490,7 +2490,7 @@ impl AppWindow {
             let asked = machine.clone();
             let home = cx.background_spawn(async move { mods::run_on(&asked, "sh", &["-c".into(), r#"printf %s "$HOME""#.into()]) }).await;
             let _ = this.update_in(cx, |this, window, cx| match home.filter(|home| !home.is_empty()) {
-                Some(home) => this.run("file.preview", json!({ "file": PathBuf::from(home).join(under_home), "on": machine }), window, cx),
+                Some(home) => this.run("file.preview", json!({ "file": crate::links::remote_join(std::path::Path::new(&home), &under_home), "on": machine }), window, cx),
                 None => this.show_failure("file.preview", &format!("cannot find the home folder on {machine}"), window, cx),
             });
         })

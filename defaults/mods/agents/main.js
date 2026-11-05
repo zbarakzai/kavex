@@ -30,6 +30,10 @@ function toggleSidebar() {
   run("layout.resize", { id: "sidebar", px: narrow() ? (shared("sidebar.width") ?? 230) : window()?.platform === "macos" ? 76 : 44 });
 }
 
+// The scrollbar's lane (gpui-kit's 16 px track) at the list's right edge. The rows always stop
+// short of it, so the bar never covers their percent, time and badge; the narrow rail keeps the whole width.
+const BAR = 16;
+
 const RANK = { failed: 4, blocked: 4, done: 3, working: 2, idle: 1 };
 // agents() folds a program's own "error" into blocked; terminals() still has the word.
 const failed = (a, words) => (words.get(a.address) === "error" ? "failed" : a.status);
@@ -413,7 +417,8 @@ export default class Agents extends View {
       .when(list.length === 0 && !collapsed, (el) =>
         el.child(div().px(10).text_size(12).text_color(k.label).child("No agent status yet. Agents show up here when they report their status. Older versions and agents inside tmux may not.")),
       )
-      .child(v_flex().id("ag-list").flex_1().min_h(0).gap(2).overflow_y_scrollbar().mode("always").children(rows))
+      .child(v_flex().id("ag-list").flex_1().min_h(0).overflow_y_scrollbar().mode("always")
+        .child(v_flex().id("ag-rows").flex_none().gap(2).when(!collapsed, (el) => el.pr(BAR)).children(rows)))
       .when(collapsed, (el) =>
         el.child(h_flex().h(28).items_center().justify_center()
           .child(div().id("collapse").text_size(13).text_color(t.dim).hover((s) => s.text_color(t.foreground)).on_click(toggleSidebar).child(svg("mods/workspace-chrome/icons/sidebar.svg").size(16)))),

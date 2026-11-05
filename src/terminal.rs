@@ -668,25 +668,9 @@ impl TerminalView {
         let (col, row) = (x / f32::from(g.cell.width), y / f32::from(g.cell.height));
         let mut target = None;
         let hit = g.vt.link_at(col as u16, row as u16, |text, at| {
-            // On another machine `~` and variables aren't this one's.
-            if let Some(range) = links::find(text, at)
-                && !(self.remote() && text[range.clone()].starts_with(['~', '$']))
-                && let Some(link) = links::resolve(&text[range.clone()], self.cwd.as_deref())
-            {
+            if let Some((range, link)) = links::target_at(text, at, self.cwd.as_deref(), self.remote()) {
                 target = Some(LinkTarget::External(link));
                 return Some(range);
-            }
-            if let Some(range) = links::markdown_word(text, at) {
-                let word = &text[range.clone()];
-                let link = if self.remote() {
-                    links::remote_path(word, self.cwd.as_deref()).map(links::Target::File)
-                } else {
-                    links::resolve(word, self.cwd.as_deref())
-                };
-                if let Some(link) = link {
-                    target = Some(LinkTarget::External(link));
-                    return Some(range);
-                }
             }
             let range = links::word(text, at)?;
             let address = crate::mods::terminal_address(&text[range.clone()], &self.address)?;

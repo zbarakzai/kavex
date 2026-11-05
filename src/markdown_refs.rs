@@ -127,7 +127,7 @@ impl MarkdownRefs {
         if !mentioned {
             return;
         }
-        for word in links::markdown_words(&text) {
+        for word in links::markdown_words(links::PathStyle::of(self.remote), &text) {
             let mut spans = Spans::new();
             for &(y, x) in &spots[word.clone()] {
                 match spans.last_mut() {
@@ -296,6 +296,51 @@ mod tests {
         assert!(!refs.keep_rechecking(false), "off screen");
         refs.read(&[row("nothing here")], &[false]);
         assert!(!refs.keep_rechecking(true), "no names");
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn windows_paths_get_underlined() {
+        let dir = cwd_with(&["README.md", "docs/plan.md"]);
+        let mut refs = refs_in(&dir);
+        refs.read(&[row(r"see docs\plan.md and .\README.md, gone\no.md")], &[false]);
+        checked(&mut refs);
+        assert_eq!(refs.spans(), [(0, 4, 15), (0, 21, 31)]);
+        let whole = dir.join(r"docs\plan.md").display().to_string();
+        refs.read(&[row(&format!("({whole})"))], &[false]);
+        checked(&mut refs);
+        assert_eq!(refs.spans(), [(0, 1, whole.len() as u16)]);
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn a_wrapped_windows_path_counts_as_one_name_on_each_row() {
+        let dir = cwd_with(&["docs/plan.md"]);
+        let mut refs = refs_in(&dir);
+        refs.read(&[row(r"open docs\"), row("plan.md now")], &[true, false]);
+        checked(&mut refs);
+        assert_eq!(refs.spans(), [(0, 5, 9), (1, 0, 6)]);
+        let whole = dir.join(r"docs\plan.md").display().to_string();
+        let (head, tail) = whole.split_at(2);
+        refs.read(&[row(head), row(tail)], &[true, false]);
+        checked(&mut refs);
+        assert_eq!(refs.spans(), [(0, 0, 1), (1, 0, tail.len() as u16 - 1)], "the wrap falls after its drive");
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn a_windows_path_with_spaces_gets_underlined_whole() {
+        let dir = cwd_with(&[]);
+        std::fs::create_dir_all(dir.join("Digital Twin")).unwrap();
+        std::fs::write(dir.join("Digital Twin/plan.md"), "").unwrap();
+        let whole = dir.join(r"Digital Twin\plan.md").display().to_string();
+        let mut refs = refs_in(&dir);
+        refs.read(&[row(&format!("wrote {whole} just now"))], &[false]);
+        checked(&mut refs);
+        assert_eq!(refs.spans(), [(0, 6, 5 + whole.len() as u16)]);
         std::fs::remove_dir_all(dir).unwrap();
     }
 

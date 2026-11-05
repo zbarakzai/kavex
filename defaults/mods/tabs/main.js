@@ -4,6 +4,7 @@ import { spaces, panes, terminals, machines, run, openOverlay, closeOverlay, the
 import { GAP, HUES, INNER, away, clicked, columnOrder, failed, gathered, groupOf, home, labeled, landed, moves, nearest, nextColor, pruned, reopening, runs, shows, slotKey, slots, stepped } from "./groups.js";
 import { look, groupHue, tabHue, spaced, MONO } from "./look.js";
 import { loader } from "./loader.js";
+import { windowButtons } from "./window-buttons.js";
 
 // The first node with each of these ids, from one walk of the layout (a walk per id cost as much again).
 function find(root, ids) {
@@ -410,8 +411,6 @@ export default class Tabs extends View {
     const d = this.drag;
     const bar = runs(shown, s.groups).filter((r) => !d || (r.group ? r.group !== d.moving.group : !d.moving.tabs?.includes(r.tab.id)));
     const stop = (_e, cx) => cx.stop_propagation();
-    const button = (id, label, action) => div().id(id).size(26).flex_none().flex().items_center().justify_center().rounded(8).text_color(k.muted).hover(s => s.bg(k.hover_strong).text_color(k.foreground))
-      .on_mouse_down("left", stop).on_click(action).child(label);
     const root = layout(), w = window();
     const { sidebar, panel, "panel-body": body, "tabs-column": column } = find(root, ["sidebar", "panel", "panel-body", "tabs-column"]);
     // Old saved rails and a dragged-narrow sidebar can be smaller than the window buttons.
@@ -450,9 +449,7 @@ export default class Tabs extends View {
         .on_mouse_down("left", (e, cx) => this.armed(e, cx)).on_click(this.unlessShut("tab-new", () => openOverlay({ mod: "new-menu", kind: "popup", width: 250, height: 512, props: { from: "tab-new" } }))).child(svg("mods/workspace-chrome/icons/plus.svg").size(16))))
       .child(this.placement(k))
       .when(enabled.length > 0, (el) => el.child(folder))
-      .when(w?.buttons, el => el.child(button("minimize", w.platform === "windows" ? svg("mods/workspace-chrome/icons/win-minimize.svg").size(16) : "−", () => run("window.minimize")))
-        .child(button("maximize", w.platform === "windows" ? svg(`mods/workspace-chrome/icons/${w.maximized ? "win-restore" : "win-maximize"}.svg`).size(16) : "□", () => run("window.maximize")))
-        .child(button("close-window", w.platform === "windows" ? svg("mods/workspace-chrome/icons/win-close.svg").size(16) : svg("mods/workspace-chrome/icons/close.svg").size(16), () => run("window.close"))))
+      .when(Boolean(w?.buttons), (el) => el.child(windowButtons(k)))
       .when(Boolean(d), el => el.child(this.ghost(v)));
   }
 }
