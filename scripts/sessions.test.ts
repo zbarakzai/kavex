@@ -87,6 +87,7 @@ const printed = (stdout: string) => ({ code: 0, stdout, stderr: "" });
 function powershell(script: string, [a, b, c, d, e]: string[]) {
   if (script.includes("say $HOME")) return printed(`${state.win.home}\n`);
   if (script.includes("Win32_Process")) return printed(state.win.processes.map(([pid, parent, started = 0]: number[]) => `${pid} ${parent} ${started}\n`).join(""));
+  if (script.includes("CLAUDE_CONFIG_DIR")) return printed(readdirSync(onDisk(a)).filter((name) => name.startsWith(".claude") && existsSync(join(onDisk(a), name, "sessions"))).map((name) => `${a}\\${name}\n`).join(""));
   if (script.includes("-Recurse")) return printed(walk(onDisk(a)).filter((path) => path.endsWith(".jsonl")).map((path) => `${asWindows(path)}\n`).join(""));
   if (script.includes("Get-ChildItem")) return printed(walk(onDisk(a)).filter((path) => path.endsWith(".jsonl")).map((path) => `${statSync(path).size} ${asWindows(path)}\n`).join(""));
   if (script.includes("Get-Item")) return printed(a.split("\n").filter((path) => existsSync(onDisk(path))).map((path) => `${statSync(onDisk(path)).size} ${path}\n`).join(""));
@@ -245,12 +246,12 @@ const running = (address: string, pid: number | null, program: any = CLAUDE, mor
 const listed = (term: any) => ({ address: term.address, pane: `p-${term.address}`, space: "s", space_name: "one", tab: "tb", tab_index: 1, status: "idle", program: term.program, seq: 1, focused: false });
 
 const folderOf = (cwd: string) => cwd.replace(/[^a-zA-Z0-9]/g, "-");
-const recordOf = (pid: number, sessionId: string, cwd = "/work/project", at = home, startedAt: number | undefined = 1) => {
-  const path = join(at, ".claude", "sessions", `${pid}.json`);
+const recordOf = (pid: number, sessionId: string, cwd = "/work/project", at = home, startedAt: number | undefined = 1, config = ".claude") => {
+  const path = join(at, config, "sessions", `${pid}.json`);
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, JSON.stringify({ pid, sessionId, cwd, startedAt, version: "2.1.316", kind: "interactive", entrypoint: "cli", status: "idle" }));
 };
-const fileOf = (sessionId: string, cwd = "/work/project", at = home) => join(at, ".claude", "projects", folderOf(cwd), `${sessionId}.jsonl`);
+const fileOf = (sessionId: string, cwd = "/work/project", at = home, config = ".claude") => join(at, config, "projects", folderOf(cwd), `${sessionId}.jsonl`);
 
 // One assistant line as Claude writes it, with made-up words.
 type Said = { id: string; input?: number; read?: number; write?: number; write5m?: number; output?: number; model?: string; side?: boolean; text?: string; speed?: string; geo?: string };
@@ -263,9 +264,9 @@ const said = ({ id, input = 0, read = 0, write = 0, write5m = 0, output = 0, mod
     },
     requestId: "r", requestedModel: model, type: "assistant", uuid: "u", timestamp: "2026-11-01T10:00:00.000Z", cwd: "/work/project", sessionId: "s", version: "2.1.316",
   });
-const writes = (sessionId: string, lines: string[], cwd = "/work/project", at = home) => {
-  mkdirSync(dirname(fileOf(sessionId, cwd, at)), { recursive: true });
-  appendFileSync(fileOf(sessionId, cwd, at), lines.map((l) => `${l}\n`).join(""));
+const writes = (sessionId: string, lines: string[], cwd = "/work/project", at = home, config = ".claude") => {
+  mkdirSync(dirname(fileOf(sessionId, cwd, at, config)), { recursive: true });
+  appendFileSync(fileOf(sessionId, cwd, at, config), lines.map((l) => `${l}\n`).join(""));
 };
 
 const contextReply = (tokens: string) => JSON.stringify({ type: "result", subtype: "success", is_error: false, total_cost_usd: 0, local_command: "context", result: `## Context Usage\n\n**Model:** claude-opus-5-5  \n**Tokens:** ${tokens}\n\n### Estimated usage by category\n` });
@@ -280,7 +281,7 @@ const open = async () => {
 const shows = (draw: () => El, address: string) => words(byId(draw(), `ag-${address}`)!);
 
 beforeEach(() => {
-  for (const folder of [".claude", ".codex", ".zaki", ".pi", "machines"]) rmSync(join(home, folder), { recursive: true, force: true });
+  for (const folder of [".claude", ".claude-work", ".claude-tools", "elsewhere", ".codex", ".zaki", ".pi", "machines"]) rmSync(join(home, folder), { recursive: true, force: true });
   state = {
     agents: [], terminals: [], ran: [], shared: {}, opened: [], closed: [], props: {}, layout: null, platform: "macos", away: {}, fed: [],
     reads: [], readOn: [], watched: [], watchers: [], execs: [], execOn: [], running: 0, parked: 0, timers: [], notified: 0, stopped: 0,
@@ -3358,6 +3359,130 @@ const claudeOnWindows = async (lines: string[]) => {
   return { ...list, root };
 };
 const noShell = () => expect(state.execs.filter(([cmd]: string[]) => cmd !== "powershell" && cmd !== "cmd")).toEqual([]);
+
+// `CLAUDE_CONFIG_DIR` picks a config folder per process, as a second account's shell function does,
+// and nothing outside that process can see which: only its record, in whichever folder it's in.
+const twoAccounts = (at = home, cwd = "/work/project") => {
+  const own = running("t1", 101, CLAUDE, { foreground: { pid: 101, name: "claude", argv: ["claude"], cwd } });
+  const work = running("t2", 102, CLAUDE, { foreground: { pid: 102, name: "claude", argv: ["claude"], cwd } });
+  recordOf(101, "own", cwd, at);
+  writes("own", [said({ id: "m1", read: 70000 })], cwd, at);
+  recordOf(102, "wrk", cwd, at, 1, ".claude-work");
+  writes("wrk", [said({ id: "m2", read: 430000 })], cwd, at, ".claude-work");
+  return [own, work];
+};
+
+test("agents on two config folders each show their own numbers", async () => {
+  const terms = twoAccounts();
+  state.terminals = terms;
+  state.agents = terms.map(listed);
+  const { draw } = await open();
+  await ticks();
+  expect(rowPercents(draw, "t1")).toEqual(["7%"]);
+  expect(rowPercents(draw, "t2")).toEqual(["43%"]);
+});
+
+test("a helper in a second config folder counts, and its folder is watched", async () => {
+  const terms = twoAccounts();
+  state.terminals = terms;
+  state.agents = terms.map(listed);
+  const helper = join(fileOf("wrk", "/work/project", home, ".claude-work").replace(/\.jsonl$/, ""), "subagents", "agent-a.jsonl");
+  mkdirSync(dirname(helper), { recursive: true });
+  writeFileSync(helper, `${said({ id: "h1", input: 5000, output: 7 })}\n`);
+  const { draw } = await open();
+  await ticks();
+  clicks(byId(draw(), "logo-t2")!);
+  expect(words((await dropdown()).draw())).toContain("in 5k · out 7 · cached 430k");
+  expect(state.watched.some((folder: string) => folder.includes(".claude-work"))).toBe(true);
+});
+
+test("a config folder named by CLAUDE_CONFIG_DIR counts wherever it is", async () => {
+  const term = running("t1", 101);
+  state.terminals = [term];
+  state.agents = [listed(term)];
+  recordOf(101, "one", "/work/project", home, 1, "elsewhere");
+  writes("one", [said({ id: "m1", read: 70000 })], "/work/project", home, "elsewhere");
+  process.env.CLAUDE_CONFIG_DIR = join(home, "elsewhere");
+  try {
+    const { draw } = await open();
+    await ticks();
+    expect(rowPercents(draw, "t1")).toEqual(["7%"]);
+  } finally {
+    delete process.env.CLAUDE_CONFIG_DIR;
+  }
+});
+
+test("a folder that only looks like Claude's is never read", async () => {
+  const term = running("t1", 101);
+  state.terminals = [term];
+  state.agents = [listed(term)];
+  mkdirSync(join(home, ".claude-tools"), { recursive: true });
+  recordOf(101, "one");
+  writes("one", [said({ id: "m1", read: 70000 })]);
+  const { draw } = await open();
+  await ticks();
+  expect(rowPercents(draw, "t1")).toEqual(["7%"]);
+  expect(state.reads.filter((path: string) => path.includes(".claude-tools"))).toEqual([]);
+});
+
+test("a config folder made after the app started is found within a minute", async () => {
+  const start = Date.now();
+  const term = running("t1", 102);
+  state.terminals = [term];
+  state.agents = [listed(term)];
+  mkdirSync(join(home, ".claude", "sessions"), { recursive: true });
+  const { draw } = await open();
+  await ticks();
+  expect(rowPercents(draw, "t1")).toEqual([]);
+  recordOf(102, "wrk", "/work/project", home, 1, ".claude-work");
+  writes("wrk", [said({ id: "m1", read: 430000 })], "/work/project", home, ".claude-work");
+  setSystemTime(start + 61000);
+  try {
+    await ticks();
+    await ticks();
+    expect(rowPercents(draw, "t1")).toEqual(["43%"]);
+  } finally {
+    setSystemTime();
+  }
+});
+
+test("an added machine's second config folder counts, and is asked for there", async () => {
+  const [, work] = twoAccounts(addMachine("vps"));
+  const remote = { ...work, address: "vps/t2" };
+  state.terminals = [remote];
+  state.agents = [listed(remote)];
+  const { draw } = await open();
+  await ticks();
+  expect(rowPercents(draw, "vps/t2")).toEqual(["43%"]);
+});
+
+test("on Windows a Claude under its shell is found in a second config folder", async () => {
+  const root = onWindows();
+  const term = running("t1", 900, CLAUDE, { foreground: { pid: 900, name: "powershell.exe", argv: ["powershell.exe"], cwd: WINDOWS_CWD } });
+  state.terminals = [term];
+  state.agents = [listed(term)];
+  state.win.processes = [[4, 0], [900, 4], [901, 900]];
+  recordOf(901, "one", WINDOWS_CWD, root, 1, ".claude-work");
+  writes("one", [said({ id: "m1", read: 430000 })], WINDOWS_CWD, root, ".claude-work");
+  const { draw } = await open();
+  await ticks();
+  expect(rowPercents(draw, "t1")).toEqual(["43%"]);
+  noShell();
+});
+
+test("when config folders can't be listed, the default one is still looked in", async () => {
+  const root = onWindows();
+  const term = running("t1", 900, CLAUDE, { foreground: { pid: 900, name: "powershell.exe", argv: ["powershell.exe"], cwd: WINDOWS_CWD } });
+  state.terminals = [term];
+  state.agents = [listed(term)];
+  state.win.processes = [[4, 0], [900, 4], [901, 900]];
+  state.powershell = (script: string) => (script.includes("CLAUDE_CONFIG_DIR") ? { code: 4, stdout: "", stderr: "" } : null);
+  recordOf(901, "one", WINDOWS_CWD, root);
+  writes("one", [said({ id: "m1", read: 70000 })], WINDOWS_CWD, root);
+  const { draw } = await open();
+  await ticks();
+  expect(rowPercents(draw, "t1")).toEqual(["7%"]);
+});
 
 test("a Claude on Windows is found under the shell its terminal started, and only that one", async () => {
   const { draw } = await claudeOnWindows([said({ id: "m1", input: 5, read: 60000, write: 10000, output: 900 })]);

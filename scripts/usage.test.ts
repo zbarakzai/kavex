@@ -602,6 +602,20 @@ test("Claude's reset text: date and time, time only, the turn of the year, and n
   ]);
 });
 
+// As Claude printed it on Windows, where `TZ` changes nothing: the machine's own zone, by name.
+test("Claude's reset text with a comma and a named zone reads as this computer's time", async () => {
+  claude(
+    "Current week (all models): 35% used · resets Nov 6, 7:59pm (Europe/London)",
+    "Current week (Fable): 3% used · resets Nov 6, 7:59pm (Europe/London)",
+    "Current session: 40% used · resets 7pm (Europe/London)",
+  );
+  const { popover } = await opened();
+  expect(limits(popover.draw()).map((limit) => words(limit)[0])).toEqual(["THIS WEEK", "FABLE", "5 HOURS"]);
+  const [{ limits: saved }] = Object.values<any>(state.shared.usage.entries);
+  expect(saved[0].resetsAt).toBe(new Date(2026, 10, 6, 19, 59).getTime());
+  expect(saved[2].resetsAt).toBe(new Date(2026, 10, 1, 19, 0).getTime());
+});
+
 test("Claude is asked with no hooks, plugins, MCP or saved session, and in UTC", async () => {
   claude(WEEK);
   await opened();
@@ -962,7 +976,22 @@ test("on Windows the agents are asked through PowerShell, with no PATH to fetch 
   const line = (piece: string) => state.runs.find((run) => run.line.includes(piece))!.line;
   expect(line("auth status")).toEndWith("-Command & 'C:\\made up\\it''s\\claude.exe' auth status");
   expect(line("/usage")).toContain("$env:TZ='UTC'; & 'C:\\made up\\it''s\\claude.exe' -p /usage");
-  expect(line("app-server")).toContain("| & 'C:\\made up\\it’’s\\codex.CMD' -s read-only -a never app-server");
+  expect(line("app-server")).toContain(`'/d /c ""' + 'C:\\made up\\it’’s\\codex.CMD' + '" -s read-only -a never app-server 2>nul"'`);
+});
+
+// Windows PowerShell gives a pipe's input to a program only once the pipe has ended, and the server
+// stops answering when its input ends: a sleep in a pipe got the first answer and no others.
+test("on Windows Codex's input stays open in a process of its own until both answers are in", async () => {
+  state.platform = "windows";
+  state.agents[""] = [CODEX];
+  delete state.says["printenv PATH"];
+  state.says["app-server"] = codexSays(PRO);
+  await opened();
+  const asked = state.runs.find((run) => run.line.includes("app-server"))!.line;
+  expect(asked).not.toContain("Start-Sleep");
+  expect(asked).toContain("RedirectStandardInput = $true");
+  // Where the console's input is UTF-8, .NET puts a byte order mark ahead of the first line it writes.
+  expect(asked).toMatch(/WriteLine\(''\);.*initialize.*"id":2\[,}\].*"id":3\[,}\].*StandardInput\.Close\(\)/);
 });
 
 const OTHER = { ...ACCOUNT, email: "someone-else@example.test", orgId: "org-also-made-up" };

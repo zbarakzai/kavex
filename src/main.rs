@@ -36,6 +36,7 @@ mod update_notes;
 mod vt;
 mod win32_keys;
 mod window;
+mod windows_paths;
 
 use gpui::*;
 
