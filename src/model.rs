@@ -267,6 +267,25 @@ impl Model {
         true
     }
 
+    /// Adds a space at the end and leaves the shown one shown (the first space is shown anyway).
+    pub fn add_space_behind(&mut self, id: &str, name: &str, folder: &str, ctx: Tab) {
+        let shown = self.active.take();
+        self.add_space(id, name, folder, ctx);
+        if shown.is_some() {
+            self.active = shown;
+        }
+    }
+
+    /// Adds a tab at the end of its space and leaves the space's selected tab as it was.
+    pub fn add_tab_behind(&mut self, space: &str, ctx: Tab) -> bool {
+        let Some(p) = self.space_mut(space) else { return false };
+        if p.active.is_none() {
+            p.active = Some(ctx.id.clone());
+        }
+        p.tabs.push(ctx);
+        true
+    }
+
     /// Splits `target` (a pane) with a new terminal pane and focuses it.
     pub fn split(&mut self, target: &str, axis: Axis, new_pane: &str, address: &str) -> bool {
         self.split_with(target, axis, pane(new_pane, address))
@@ -796,6 +815,26 @@ mod tests {
             assert!(!m.move_pane(source, target, None));
             assert_eq!(format!("{:?}", m.spaces), before);
         }
+    }
+
+    #[test]
+    fn background_tabs_and_spaces_leave_what_is_shown() {
+        let mut m = model_with_one();
+        m.add_tab("p1", Tab::new("c2", "b", "x2", "t2"));
+        m.select_tab("c1");
+        m.add_tab_behind("p1", Tab::new("c3", "c", "x3", "t3"));
+        m.add_tab_behind("p1", Tab::new("c4", "d", "x4", "t4"));
+        let order: Vec<&str> = m.spaces[0].tabs.iter().map(|c| c.id.as_str()).collect();
+        assert_eq!(order, ["c1", "c2", "c3", "c4"]);
+        assert_eq!(m.active_tab().map(|c| c.id.as_str()), Some("c1"));
+        m.add_space_behind("p2", "web", "/w", Tab::new("c5", "", "x5", "t5"));
+        assert_eq!(m.active.as_deref(), Some("p1"));
+        assert_eq!(m.space("p2").and_then(|p| p.active.as_deref()), Some("c5"));
+        assert!(!m.add_tab_behind("gone", Tab::new("c6", "", "x6", "t6")));
+
+        let mut empty = Model::default();
+        empty.add_space_behind("p9", "", "/", Tab::new("c9", "", "x9", "t9"));
+        assert_eq!(empty.active.as_deref(), Some("p9"));
     }
 
     #[test]

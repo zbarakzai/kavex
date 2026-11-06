@@ -593,7 +593,8 @@ The default window, in short (`layouts/main.json` is the whole of it):
 Sidebar on the right: move `sidebar` to the end of `root`'s children. No sidebar: set
 `"hidden": true` on `sidebar` (the user can toggle it: `ctrl-shift-b`).
 Narrower than 160px, the sidebar mods draw a compact rail; folding resizes
-`sidebar` to 44 (76 on macOS, room for the traffic lights). On macOS,
+`sidebar` to 44 (76 on macOS, room for the traffic lights). Left between the
+rail and 200px, it settles to the nearer of the two once it holds still. On macOS,
 the tabs also leave room for the window buttons when the sidebar is narrower.
 
 ### Layouts and mods other people made
@@ -692,15 +693,18 @@ valid names; they never fall back to the current target. For example, closing a
 space uses `zaki do space.close --id <id> --confirmed true`, not `--space`.
 The main ones:
 
-- Spaces: `space.new {name?, folder?, tab?, argv?, task?, machine?}`
+- Spaces: `space.new {name?, folder?, tab?, argv?, task?, machine?, background?}`
   (machine: another machine from `hc machine ls`; the space lives there, its
   terminals start in that machine's home unless folder, and its tabs and
   splits stay there; `spaces()` gives each space's `machine`, null here),
   `space.close {id?, confirmed?}`, `space.rename {id?, name}` ("": Zaki's name again),
   `space.move {id, index}`, `space.select {index | id}`, `space.next`, `space.prev`.
   With no `argv`, the target core chooses that machine's default shell (PowerShell 7 when available on Windows).
-- Tabs: `tab.new {name?, space?, folder?, argv?, task?}` (argv: an
-  agent to run, task: its first message). Agents run in your interactive
+- Tabs: `tab.new {name?, space?, folder?, argv?, task?, background?}` (argv: an
+  agent to run, task: its first message). `background: true` (on `space.new`
+  too) makes it without showing it: the shown space, tab and focused pane stay,
+  so keys the person is typing don't land in it; a background tab goes at the
+  end of its space. Agents run in your interactive
   shell (including fish), which stays open after the agent exits. A terminal
   that exits with a nonzero code within two seconds of launch shows an error
   toast with its exit code and last output lines. Or `tab.new {name?, space?, mod,
