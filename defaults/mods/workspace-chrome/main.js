@@ -4,6 +4,7 @@ import { theme, run, props, window, shared, setShared, updates, layout, agents, 
 import { allowOpencode, checkUsage, EVERY, nearLimit, POPOVER_HEIGHT, POPOVER_WIDTH, usageOff } from "./checks.js";
 import { look, spaced } from "./look.js";
 import { SETTLE_MS, snapTarget } from "./snap.js";
+import { checkSkills, EVERY as SKILLS_EVERY } from "./skills.js";
 
 function find(node, id) {
   if (node?.id === id) return node;
@@ -14,11 +15,12 @@ function find(node, id) {
   return null;
 }
 
-const LINE = 25; // letters that fit beside Add machine and Settings
+const LINE = 21; // letters that fit beside Add machine, Customize and Settings
 const GAUGE_LETTERS = 4;
-const PAST_BUTTONS = 72;
+const PAST_BUTTONS = 94;
 const FIRST_CHECK = 5000;
 const WATCH = 60_000;
+const FIRST_SKILLS_CHECK = 20_000;
 
 // The sidebar's rail goes by its width, not a flag: dragging its edge narrows it too.
 const narrow = () => (find(layout(), "sidebar")?.size?.px ?? Infinity) < 160;
@@ -49,8 +51,11 @@ export default class WorkspaceChrome extends View {
   init(_props, cx) {
     if (!props()?.footer) return;
     cx.timer.after(FIRST_CHECK, (cx) => cx.spawn(() => checkUsage()));
+    // Skills follow the same rule: any footer may run a due check (skills.js).
+    cx.timer.after(FIRST_SKILLS_CHECK, (cx) => cx.spawn(() => checkSkills({ within: SKILLS_EVERY })));
     cx.timer.every(WATCH, (cx) => {
       cx.spawn(() => checkUsage({ within: EVERY }));
+      cx.spawn(() => checkSkills({ within: SKILLS_EVERY }));
       // A limit passing its reset time changes no data, so nothing else would redraw the dot.
       const warned = this.warned;
       this.warned = warning();
@@ -62,6 +67,7 @@ export default class WorkspaceChrome extends View {
         if (command === "check-usage") cx.spawn(() => checkUsage());
         if (command === "refresh-usage") cx.spawn(() => checkUsage({ force: true }));
         if (command === "allow-opencode") cx.spawn(() => allowOpencode());
+        if (command === "check-skills") cx.spawn(() => checkSkills({ force: true }));
       }
     });
   }
@@ -94,6 +100,8 @@ export default class WorkspaceChrome extends View {
     const k = look(t), collapsed = narrow();
     this.warned = warning();
     const settings = this.action("settings", "settings", "Settings", () => run("app.settings"), k, updates().app.ready ? k.accent : null);
+    const customize = this.action("customize", "layers", "Customize", () => run("mod.open", { name: "customize" }), k, (shared("skills.updates") ?? []).length ? k.accent : null);
+    // The rail has room for one button: Customize waits for the wider sidebar (and its toast).
     if (collapsed) return h_flex().size_full().pb(4).items_center().justify_center().child(settings);
     const list = agents().length, tail = ` · ${list} ${list === 1 ? "AGENT" : "AGENTS"}`;
     const machine = (spaces().find(s => s.active)?.machine ?? "This computer").toUpperCase();
@@ -105,6 +113,7 @@ export default class WorkspaceChrome extends View {
         .child(spaced(`${name}${tail}`, 9.5, 0.05).text_color(k.label)))
       .when(usage, el => el.child(this.action("usage", "gauge", "Usage limits", () => this.usage(), k, this.warned ? k.blocked : null)))
       .child(this.action("machine", "machine", "Add machine", () => run("mod.open", { name: "machine-add" }), k))
+      .child(customize)
       .child(settings);
   }
   // A width left between the rail and the minimum goes to the nearer one once it holds still.
