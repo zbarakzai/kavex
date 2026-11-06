@@ -166,6 +166,12 @@ fn module(values: BTreeMap<String, Value>, calls: Rc<RefCell<Calls>>) -> HostMod
             let first = a.get(0).map(from_host).unwrap_or(Value::Null);
             let reply = match name {
                 "readTextFile" if first == "/fixture/app/settings.json" || first == "/fixture/.ssh/config" => Some(Value::Null),
+                // Customize's skills: their list, what's installed, Claude Code's plugins (skills.js).
+                "readTextFile"
+                    if first.as_str().is_some_and(|p| p.starts_with("/fixture/app/skills") || p.ends_with("/.claude/plugins/installed_plugins.json")) =>
+                {
+                    Some(Value::Null)
+                }
                 "readTextFile" => first
                     .as_str()
                     .and_then(|p| p.strip_prefix("/fixture/app/layouts/"))
@@ -177,6 +183,10 @@ fn module(values: BTreeMap<String, Value>, calls: Rc<RefCell<Calls>>) -> HostMod
                 }
                 "hc" if first.as_array().and_then(|a| a.first()).and_then(Value::as_str) == Some("run") => {
                     Some(json!({"code":0,"stdout":"{\"address\":\"t-setup\"}","stderr":""}))
+                }
+                // Skills tidy, scan and link with sh scripts named zaki-skills (skills.js): none found.
+                "exec" if first == "sh" && a.get(1).map(from_host).and_then(|v| v.get(2).cloned()) == Some(json!("zaki-skills")) => {
+                    Some(json!({"code":0,"stdout":"","stderr":""}))
                 }
                 // The files panel lists a folder with sh: kind and name pairs.
                 "exec" if first == "sh" && a.get(1).map(from_host).and_then(|v| v.get(2).cloned()) == Some(json!("files")) => {
