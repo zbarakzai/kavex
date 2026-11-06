@@ -23,6 +23,8 @@ its terminals.
 ## Show something when asked
 
 New spaces and tabs are shown immediately: only create them when asked.
+When the person works elsewhere (an agent opening workers, say), add
+`--background true`: it appears without taking the window or their keys.
 Pick an explicit, useful name for every new space and tab; don't rely on
 default names. Use IDs from `ls` rather than guessing or acting on the wrong
 focused pane.
@@ -30,6 +32,7 @@ focused pane.
 ```sh
 zaki do space.new --name api --folder /path/to/api
 zaki do tab.new --name "fix login" --argv '["claude"]' --task "Look at the login bug"
+zaki do tab.new --space sp4 --name "worker 2" --argv '["claude"]' --background true
 zaki do pane.split --direction right --pane p12
 zaki do agent.focus --terminal t7
 ```

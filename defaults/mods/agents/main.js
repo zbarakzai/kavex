@@ -6,6 +6,7 @@ import { v_flex, h_flex } from "gpui-base";
 import { agents, terminals, focused, spaces, run, theme, shared, setShared, setAgentOrder, openOverlay, closeOverlay, props, window, layout } from "herdr";
 import { look, badge, duration, sectionLabel, tile, MONO } from "./look.js";
 import { loader } from "./loader.js";
+import { fitRow } from "./fit.js";
 import { dropdown } from "./dropdown.js";
 import { Sessions, hasSession } from "./sessions.js";
 
@@ -35,6 +36,7 @@ function toggleSidebar() {
 const BAR = 16;
 
 const RANK = { failed: 4, blocked: 4, done: 3, working: 2, idle: 1 };
+const percentText = (context) => (typeof context === "number" ? `${context}%` : context);
 // agents() folds a program's own "error" into blocked; terminals() still has the word.
 const failed = (a, words) => (words.get(a.address) === "error" ? "failed" : a.status);
 // A sub-agent without a pane isn't in agents(): its raw word. It's never done: it reports
@@ -88,7 +90,7 @@ export default class Agents extends View {
   percent(t, k, address) {
     const context = this.sessions.contextOf(address);
     if (context === null) return [];
-    return [div().flex_none().font_family(MONO).text_size(10).text_color(context >= 90 ? t.blocked : k.label).child(typeof context === "number" ? `${context}%` : context)];
+    return [div().flex_none().font_family(MONO).text_size(10).text_color(context >= 90 ? t.blocked : k.label).child(percentText(context))];
   }
 
   // `none` has nothing true to say, so its logo is part of the row, as for an agent with no numbers.
@@ -145,6 +147,13 @@ export default class Agents extends View {
     const same = cur && cur.address === this.held?.address;
     // Arriving, or any change but done turning idle, sets what it was.
     if (!same || cur.status !== "idle") this.held = cur ? { address: cur.address, rank: RANK[cur.status] ?? 0 } : null;
+  }
+
+  // A row's width: the list's, less the scrollbar's room. Before the list is measured, the sidebar's.
+  rowWidth() {
+    if (this.listWidth) return this.listWidth - BAR;
+    const px = find(layout(), "sidebar")?.size?.px;
+    return px ? px - 8 - BAR : Infinity;
   }
 
   rank(a) {
@@ -219,10 +228,10 @@ export default class Agents extends View {
       .child(this.status(t, { status: st }));
   }
 
-  status(t, a, compact = false) {
+  status(t, a, compact = false, spinner = true) {
     const k = look(t);
     if (compact) return a.status === "working" ? loader(t.accent, 2) : div().size(6).mx(1).flex_none().rounded(3).bg((k.status[a.status] ?? k.status.idle).dot);
-    if (a.status === "working") return h_flex().flex_none().gap(6).items_center().child(loader(t.accent)).child(badge(k, a.status));
+    if (a.status === "working" && spinner) return h_flex().flex_none().gap(6).items_center().child(loader(t.accent)).child(badge(k, a.status));
     return badge(k, a.status);
   }
 
@@ -300,6 +309,12 @@ export default class Agents extends View {
           .child(h_flex().w(14).flex_none().items_center().justify_center().child(this.status(t, { status: failed(a, words) }, true)));
       }
       const when = this.since(a);
+      const status = failed(a, words), context = this.sessions.contextOf(a.address), hovered = this.hovered === a.address;
+      const fit = fitRow(this.rowWidth(), {
+        name: a.space_name || a.program?.name || "", tab: a.tab_index, status, label: (k.status[status] ?? k.status.idle).label,
+        percent: context === null ? null : percentText(context), hot: typeof context === "number" && context >= 90,
+        time: when ? duration(now - when) : null, hovered, extra: (machine ? machine.length * 6.2 : 0) + (subs.length > 0 ? 30 : 0),
+      });
       const isPinned = this.pins.includes(a.address);
       const pin = div()
         .id(`pin-${a.address}`)
@@ -325,7 +340,8 @@ export default class Agents extends View {
         .flex_none()
         .rounded(9)
         .items_center()
-        .gap(9)
+        .gap(fit.gap)
+        .overflow_hidden()
         .when(a.focused, (el) => el.bg(t.selected))
         .cursor_pointer()
         .hover((s) => s.bg(t.hover))
@@ -336,15 +352,17 @@ export default class Agents extends View {
         })
         .on_click(() => run("pane.focus", { pane: a.pane }))
         .child(this.logo(a, tile(a.program, 22, k)))
-        .child(h_flex().flex_1().min_w(0).gap(4).items_center()
+        // The name gives way down to a few letters; its tab number never covers what follows.
+        .child(h_flex().flex_1().min_w(0).gap(4).items_center().overflow_hidden()
           .child(div().min_w(0).truncate().child(a.space_name || a.program?.name || ""))
-          .child(div().flex_none().text_color(k.label).child(`\u00b7 ${a.tab_index}`)))
-        .when(Boolean(machine), el => el.child(div().text_size(10).text_color(k.label).child(machine)))
+          .child(div().flex_none().text_color(k.label).child(`\u00b7 ${a.tab_index}`))
+          .child(div().flex_1()))
+        .when(Boolean(machine), el => el.child(div().flex_none().text_size(10).text_color(k.label).child(machine)))
         .when(subs.length > 0, el => el.child(fold(a, subs)))
-        .children(this.percent(t, k, a.address))
-        .when(this.hovered === a.address, el => el.child(pin))
-        .when(this.hovered !== a.address && Boolean(when), el => el.child(div().flex_none().font_family(MONO).text_size(10).text_color(k.label).child(duration(now - when))))
-        .child(this.status(t, { status: failed(a, words) }));
+        .when(fit.percent, el => el.children(this.percent(t, k, a.address)))
+        .when(hovered, el => el.child(pin))
+        .when(!hovered && fit.time, el => el.child(div().flex_none().font_family(MONO).text_size(10).text_color(k.label).child(duration(now - when))))
+        .child(this.status(t, { status }, !fit.word, fit.spinner));
     };
 
     // Grouped: agents of a space are next to each other in agents(), so neighbours make a
@@ -418,6 +436,11 @@ export default class Agents extends View {
         el.child(div().px(10).text_size(12).text_color(k.label).child("No agent status yet. Agents show up here when they report their status. Older versions and agents inside tmux may not.")),
       )
       .child(v_flex().id("ag-list").flex_1().min_h(0).overflow_y_scrollbar().mode("always")
+        .on_size_change((size, cx) => {
+          if (Math.round(size.width) === this.listWidth) return;
+          this.listWidth = Math.round(size.width);
+          cx.notify();
+        })
         .child(v_flex().id("ag-rows").flex_none().gap(2).when(!collapsed, (el) => el.pr(BAR)).children(rows)))
       .when(collapsed, (el) =>
         el.child(h_flex().h(28).items_center().justify_center()
