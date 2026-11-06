@@ -283,8 +283,9 @@ struct PendingTerminalChange {
 
 /// Where a terminal goes once the core has started it.
 enum Placement {
-    Space { space: String, name: String, folder: String, tab: String, tab_name: String, pane: String, machine: Option<String> },
-    Tab { space: String, tab: String, name: String, pane: String },
+    /// `background`: made without showing it (what's shown and focused stays).
+    Space { space: String, name: String, folder: String, tab: String, tab_name: String, pane: String, machine: Option<String>, background: bool },
+    Tab { space: String, tab: String, name: String, pane: String, background: bool },
     Split { target: String, axis: Axis, pane: String },
 }
 
@@ -2419,10 +2420,10 @@ impl AppWindow {
         })
     }
 
-    /// A space with its first tab and terminal, shown at once.
+    /// A space with its first tab and terminal, shown at once unless `background`.
     /// `machine`: another machine (`hc machine ls`); its space starts in that machine's home.
     #[allow(clippy::too_many_arguments)]
-    fn new_space(&mut self, name: &str, folder: Option<String>, ctx_name: Option<&str>, argv: Option<Vec<String>>, task: Option<&str>, machine: Option<String>, window: &mut Window, cx: &mut Context<Self>) -> Result<(), String> {
+    fn new_space(&mut self, name: &str, folder: Option<String>, ctx_name: Option<&str>, argv: Option<Vec<String>>, task: Option<&str>, machine: Option<String>, background: bool, window: &mut Window, cx: &mut Context<Self>) -> Result<(), String> {
         let on = machine.as_deref();
         // The focused pane's folder only means something on its own machine.
         let here = || self.model.focused_pane().and_then(|p| self.model.address_of(&p))
@@ -2432,12 +2433,13 @@ impl AppWindow {
         let (space, ctx, pane) = (self.model.fresh_id_on("sp", on), self.model.fresh_id_on("tb", on), self.model.fresh_id_on("p", on));
         let tab_name = ctx_name.map(str::trim).unwrap_or_default().to_owned();
         let argv = Self::agent_argv(argv.clone(), task, on).or(argv);
-        let placement = Placement::Space { space: space.clone(), name: name.trim().to_owned(), folder: folder.clone(), tab: ctx.clone(), tab_name, pane, machine: machine.clone() };
+        let placement = Placement::Space { space: space.clone(), name: name.trim().to_owned(), folder: folder.clone(), tab: ctx.clone(), tab_name, pane, machine: machine.clone(), background };
         self.start_open(argv, folder, &space, &ctx, machine.as_deref(), placement, window, cx)
     }
 
-    /// A tab in a space (default: the shown one), shown at once.
-    fn new_tab(&mut self, space: Option<String>, name: &str, folder: Option<String>, argv: Option<Vec<String>>, task: Option<&str>, window: &mut Window, cx: &mut Context<Self>) -> Result<(), String> {
+    /// A tab in a space (default: the shown one), shown at once unless `background`.
+    #[allow(clippy::too_many_arguments)]
+    fn new_tab(&mut self, space: Option<String>, name: &str, folder: Option<String>, argv: Option<Vec<String>>, task: Option<&str>, background: bool, window: &mut Window, cx: &mut Context<Self>) -> Result<(), String> {
         let space = space.or_else(|| self.model.active_space().map(|p| p.id.clone())).ok_or("no space yet: make one first (space.new)")?;
         if self.model.space(&space).is_none() {
             return Err(format!("no space {space:?}"));
@@ -2446,12 +2448,12 @@ impl AppWindow {
         let on = self.machine_of(&space);
         let (ctx, pane) = (self.model.fresh_id_on("tb", on.as_deref()), self.model.fresh_id_on("p", on.as_deref()));
         let argv = Self::agent_argv(argv.clone(), task, on.as_deref()).or(argv);
-        let placement = Placement::Tab { space: space.clone(), tab: ctx.clone(), name: name.trim().to_owned(), pane };
+        let placement = Placement::Tab { space: space.clone(), tab: ctx.clone(), name: name.trim().to_owned(), pane, background };
         self.start_open(argv, folder, &space, &ctx, on.as_deref(), placement, window, cx)
     }
 
-    /// A tab whose only pane is a mod (a file, a board), shown at once.
-    fn new_mod_tab(&mut self, space: Option<String>, name: &str, m: String, props: Value) -> Result<Value, String> {
+    /// A tab whose only pane is a mod (a file, a board), shown at once unless `background`.
+    fn new_mod_tab(&mut self, space: Option<String>, name: &str, m: String, props: Value, background: bool) -> Result<Value, String> {
         let space = space.or_else(|| self.model.active_space().map(|p| p.id.clone())).ok_or("no space yet: make one first (space.new)")?;
         if self.model.space(&space).is_none() {
             return Err(format!("no space {space:?}"));
@@ -2462,8 +2464,13 @@ impl AppWindow {
         let machine = self.machine_of(&space);
         self.require_document(machine.as_deref())?;
         let (ctx, pane) = (self.model.fresh_id_on("tb", machine.as_deref()), self.model.fresh_id_on("p", machine.as_deref()));
-        self.model.add_tab(&space, Tab::with_pane(&ctx, name.trim(), Node::block(pane.clone(), Content::Mod { name: m, props })));
-        self.model.active = Some(space.clone());
+        let tab = Tab::with_pane(&ctx, name.trim(), Node::block(pane.clone(), Content::Mod { name: m, props }));
+        if background {
+            self.model.add_tab_behind(&space, tab);
+        } else {
+            self.model.add_tab(&space, tab);
+            self.model.active = Some(space.clone());
+        }
         Ok(json!({ "space": space, "tab": ctx, "pane": pane }))
     }
 
@@ -2722,6 +2729,10 @@ impl AppWindow {
         Self::arg(args, k).map(str::to_owned)
     }
 
+    fn background(args: &Value) -> bool {
+        args.get("background").and_then(Value::as_bool) == Some(true)
+    }
+
     fn reply_value(r: Result<Value, String>) -> Value {
         if let Err(e) = &r {
             tracing::warn!("{e}");
@@ -2914,7 +2925,7 @@ impl AppWindow {
             // ---- spaces
             "space.new" => {
                 let name = Self::arg(a, "name").unwrap_or_default();
-                let r = self.new_space(name, Self::owned(a, "folder"), Self::arg(a, "tab"), Self::argv(a), Self::arg(a, "task"), Self::owned(a, "machine").filter(|m| !m.is_empty()), window, cx);
+                let r = self.new_space(name, Self::owned(a, "folder"), Self::arg(a, "tab"), Self::argv(a), Self::arg(a, "task"), Self::owned(a, "machine").filter(|m| !m.is_empty()), Self::background(a), window, cx);
                 self.answer_open(r);
             }
             "space.close" => {
@@ -2964,11 +2975,11 @@ impl AppWindow {
                 let name = Self::arg(a, "name").unwrap_or_default();
                 match Self::owned(a, "mod") {
                     Some(m) => {
-                        let r = self.new_mod_tab(Self::owned(a, "space"), name, m, a.get("props").cloned().unwrap_or(Value::Null));
+                        let r = self.new_mod_tab(Self::owned(a, "space"), name, m, a.get("props").cloned().unwrap_or(Value::Null), Self::background(a));
                         self.answer(r);
                     }
                     None => {
-                        let r = self.new_tab(Self::owned(a, "space"), name, Self::owned(a, "folder"), Self::argv(a), Self::arg(a, "task"), window, cx);
+                        let r = self.new_tab(Self::owned(a, "space"), name, Self::owned(a, "folder"), Self::argv(a), Self::arg(a, "task"), Self::background(a), window, cx);
                         self.answer_open(r);
                     }
                 }
@@ -3122,7 +3133,7 @@ impl AppWindow {
                         let name = Self::owned(a, "name")
                             .or_else(|| argv.as_ref().and_then(|v| v.first()).map(|p| p.rsplit('/').next().unwrap_or(p).to_owned()))
                             .unwrap_or_else(|| "shell".into());
-                        self.new_tab(None, &name, Self::owned(a, "folder"), argv, None, window, cx)
+                        self.new_tab(None, &name, Self::owned(a, "folder"), argv, None, false, window, cx)
                     }
                 };
                 self.answer_open(r);
@@ -4614,18 +4625,27 @@ fn preview_split(pane: Option<String>, file: Value) -> Value {
 /// what it made. Fails if that place went away while it started.
 fn place(model: &mut Model, placement: &Placement, addr: &str) -> Result<Value, String> {
     match placement {
-        Placement::Space { space, name, folder, tab, tab_name, pane, machine } => {
-            model.add_space(space, name, folder, Tab::new(tab, tab_name, pane, addr));
+        Placement::Space { space, name, folder, tab, tab_name, pane, machine, background } => {
+            let tab_node = Tab::new(tab, tab_name, pane, addr);
+            if *background {
+                model.add_space_behind(space, name, folder, tab_node);
+            } else {
+                model.add_space(space, name, folder, tab_node);
+            }
             if let Some(p) = model.space_mut(space) {
                 p.machine = machine.clone();
             }
             Ok(json!({ "space": space, "tab": tab, "terminal": addr }))
         }
-        Placement::Tab { space, tab, name, pane } => {
-            if !model.add_tab(space, Tab::new(tab, name, pane, addr)) {
+        Placement::Tab { space, tab, name, pane, background } => {
+            let tab_node = Tab::new(tab, name, pane, addr);
+            let added = if *background { model.add_tab_behind(space, tab_node) } else { model.add_tab(space, tab_node) };
+            if !added {
                 return Err(format!("no space {space:?}: it closed while its terminal started"));
             }
-            model.active = Some(space.clone());
+            if !*background {
+                model.active = Some(space.clone());
+            }
             Ok(json!({ "space": space, "tab": tab, "terminal": addr }))
         }
         Placement::Split { target, axis, pane } => {
@@ -4962,10 +4982,10 @@ mod tests {
         use crate::layout::Axis;
         use serde_json::json;
         let mut m = crate::model::Model::default();
-        let space = Placement::Space { space: "s".into(), name: "work".into(), folder: "/w".into(), tab: "t".into(), tab_name: String::new(), pane: "p".into(), machine: None };
+        let space = Placement::Space { space: "s".into(), name: "work".into(), folder: "/w".into(), tab: "t".into(), tab_name: String::new(), pane: "p".into(), machine: None, background: false };
         assert_eq!(place(&mut m, &space, "t1").unwrap(), json!({ "space": "s", "tab": "t", "terminal": "t1" }));
         assert_eq!((m.active.as_deref(), m.pane_of("t1").as_deref()), (Some("s"), Some("p")));
-        let tab = Placement::Tab { space: "s".into(), tab: "t2".into(), name: "two".into(), pane: "p2".into() };
+        let tab = Placement::Tab { space: "s".into(), tab: "t2".into(), name: "two".into(), pane: "p2".into(), background: false };
         assert_eq!(place(&mut m, &tab, "t2").unwrap(), json!({ "space": "s", "tab": "t2", "terminal": "t2" }));
         assert_eq!(m.active_tab().map(|t| t.id.as_str()), Some("t2"));
         let split = Placement::Split { target: "p2".into(), axis: Axis::Row, pane: "p3".into() };
@@ -4975,10 +4995,29 @@ mod tests {
         let before = format!("{:?}", m.spaces);
         let split = Placement::Split { target: "gone".into(), axis: Axis::Column, pane: "p4".into() };
         assert!(place(&mut m, &split, "t4").unwrap_err().contains("no pane \"gone\""));
-        let tab = Placement::Tab { space: "gone".into(), tab: "t5".into(), name: String::new(), pane: "p5".into() };
+        let tab = Placement::Tab { space: "gone".into(), tab: "t5".into(), name: String::new(), pane: "p5".into(), background: false };
         assert!(place(&mut m, &tab, "t5").unwrap_err().contains("no space \"gone\""));
         assert_eq!(format!("{:?}", m.spaces), before);
         assert_eq!(m.active.as_deref(), Some("s"));
+    }
+
+    #[test]
+    fn a_background_terminal_leaves_the_shown_space_tab_and_focus() {
+        use super::{place, Placement};
+        use serde_json::json;
+        let mut m = crate::model::Model::default();
+        let first = Placement::Space { space: "s".into(), name: "work".into(), folder: "/w".into(), tab: "t".into(), tab_name: String::new(), pane: "p".into(), machine: None, background: true };
+        place(&mut m, &first, "t1").unwrap();
+        assert_eq!(m.active.as_deref(), Some("s"));
+        let other = Placement::Space { space: "s2".into(), name: "agents".into(), folder: "/a".into(), tab: "u".into(), tab_name: String::new(), pane: "q".into(), machine: None, background: true };
+        assert_eq!(place(&mut m, &other, "t2").unwrap(), json!({ "space": "s2", "tab": "u", "terminal": "t2" }));
+        for (tab, pane, addr, space) in [("t3", "p3", "t3", "s"), ("u2", "q2", "t4", "s2")] {
+            let p = Placement::Tab { space: space.into(), tab: tab.into(), name: String::new(), pane: pane.into(), background: true };
+            assert_eq!(place(&mut m, &p, addr).unwrap(), json!({ "space": space, "tab": tab, "terminal": addr }));
+        }
+        assert_eq!((m.active.as_deref(), m.active_tab().map(|t| t.id.as_str()), m.focused_pane().as_deref()), (Some("s"), Some("t"), Some("p")));
+        assert_eq!(m.space("s2").and_then(|p| p.active.as_deref()), Some("u"));
+        assert_eq!(m.pane_of("t4").as_deref(), Some("q2"));
     }
 
     #[test]

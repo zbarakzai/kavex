@@ -3,6 +3,7 @@ import { h_flex, HoverCard } from "gpui-base";
 import { theme, run, props, window, shared, setShared, updates, layout, agents, spaces, openOverlay, settings, nextCommand } from "herdr";
 import { allowOpencode, checkUsage, EVERY, nearLimit, POPOVER_HEIGHT, POPOVER_WIDTH, usageOff } from "./checks.js";
 import { look, spaced } from "./look.js";
+import { SETTLE_MS, snapTarget } from "./snap.js";
 
 function find(node, id) {
   if (node?.id === id) return node;
@@ -24,13 +25,16 @@ const narrow = () => (find(layout(), "sidebar")?.size?.px ?? Infinity) < 160;
 
 const warning = () => nearLimit(shared("usage")?.entries, Date.now());
 
+const sidebarPx = () => find(layout(), "sidebar")?.size?.px;
+const railPx = () => (window()?.platform === "macos" ? 76 : 44);
+
 // To the rail (on macOS wide enough for the traffic lights), or back to the width it had.
 function toggleSidebar() {
   const width = find(layout(), "sidebar")?.size?.px;
   if (!narrow()) setShared("sidebar.width", width);
   // Mods edited before the rail went by width still read the flag.
   setShared("sidebar.collapsed", !narrow());
-  run("layout.resize", { id: "sidebar", px: narrow() ? (shared("sidebar.width") ?? 230) : window()?.platform === "macos" ? 76 : 44 });
+  run("layout.resize", { id: "sidebar", px: narrow() ? (shared("sidebar.width") ?? 230) : railPx() });
 }
 
 export default class WorkspaceChrome extends View {
@@ -103,9 +107,25 @@ export default class WorkspaceChrome extends View {
       .child(this.action("machine", "machine", "Add machine", () => run("mod.open", { name: "machine-add" }), k))
       .child(settings);
   }
-  render() {
+  // A width left between the rail and the minimum goes to the nearer one once it holds still.
+  settle(cx) {
+    const px = sidebarPx();
+    if (snapTarget(px, railPx()) === null || this.settling === px) return;
+    this.settling = px;
+    cx.timer.after(SETTLE_MS, () => {
+      if (this.settling !== px) return;
+      this.settling = null;
+      const to = sidebarPx() === px ? snapTarget(px, railPx()) : null;
+      if (to === null) return;
+      setShared("sidebar.collapsed", to === railPx());
+      run("layout.resize", { id: "sidebar", px: to });
+    });
+  }
+
+  render(cx) {
     const t = theme();
     if (props()?.footer) return this.footer(t);
+    this.settle(cx);
     const collapsed = narrow(), mac = window()?.platform === "macos";
     return h_flex().size_full().pl(mac && !collapsed ? 76 : 8).gap(8).items_center()
       .when(!collapsed, el => el.child(image("mods/workspace-chrome/logo.png").size(22).flex_none())

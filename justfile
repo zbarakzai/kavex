@@ -51,6 +51,7 @@ test:
     bun test scripts/start.test.ts
     bun test scripts/sessions.test.ts
     bun test scripts/usage.test.ts
+    bun test scripts/sidebar-fit.test.ts
     cargo test --locked
 
 docs-generate: build
