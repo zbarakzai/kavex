@@ -1,0 +1,109 @@
+{
+ "label": "before-open-one-sync",
+ "binary": "C:\\Users\\ZakiBarakzai\\AppData\\Local\\Temp\\claude\\C--Users-ZakiBarakzai-Desktop-Experements-zaki\\2cafb48c-7198-40ee-a65b-0e8187ee78d0\\scratchpad\\bins\\zaki-head12.exe",
+ "script": "scratchpad ab12.py (one A/B over items a-d, alternating head/fix)",
+ "rows": [
+  {
+   "syncs": 2,
+   "sync_ms": 2.47,
+   "cmd_ms": 6.994,
+   "placed_after_ms": 51.611,
+   "main_cpu_ms": 93.75,
+   "frames": 8
+  },
+  {
+   "syncs": 2,
+   "sync_ms": 2.465,
+   "cmd_ms": 7.191,
+   "placed_after_ms": 49.737,
+   "main_cpu_ms": 109.375,
+   "frames": 8
+  },
+  {
+   "syncs": 2,
+   "sync_ms": 2.99,
+   "cmd_ms": 7.812,
+   "placed_after_ms": 51.699,
+   "main_cpu_ms": 62.5,
+   "frames": 8
+  },
+  {
+   "syncs": 2,
+   "sync_ms": 3.383,
+   "cmd_ms": 6.405,
+   "placed_after_ms": 76.934,
+   "main_cpu_ms": 109.375,
+   "frames": 8
+  },
+  {
+   "syncs": 2,
+   "sync_ms": 2.995,
+   "cmd_ms": 6.667,
+   "placed_after_ms": 53.849,
+   "main_cpu_ms": 46.875,
+   "frames": 8
+  },
+  {
+   "syncs": 2,
+   "sync_ms": 4.142,
+   "cmd_ms": 12.36,
+   "placed_after_ms": 62.968,
+   "main_cpu_ms": 125.0,
+   "frames": 8
+  },
+  {
+   "syncs": 2,
+   "sync_ms": 3.802,
+   "cmd_ms": 6.2,
+   "placed_after_ms": 52.967,
+   "main_cpu_ms": 78.125,
+   "frames": 8
+  },
+  {
+   "syncs": 2,
+   "sync_ms": 4.343,
+   "cmd_ms": 8.236,
+   "placed_after_ms": 54.865,
+   "main_cpu_ms": 93.75,
+   "frames": 8
+  }
+ ],
+ "summary": {
+  "cmd_ms": {
+   "median": 7.092,
+   "p95": 12.36,
+   "iqr": 1.145,
+   "n": 8
+  },
+  "frames": {
+   "median": 8.0,
+   "p95": 8,
+   "iqr": 0,
+   "n": 8
+  },
+  "main_cpu_ms": {
+   "median": 93.75,
+   "p95": 125.0,
+   "iqr": 31.25,
+   "n": 8
+  },
+  "placed_after_ms": {
+   "median": 53.408,
+   "p95": 76.934,
+   "iqr": 3.166,
+   "n": 8
+  },
+  "sync_ms": {
+   "median": 3.189,
+   "p95": 4.343,
+   "iqr": 0.812,
+   "n": 8
+  },
+  "syncs": {
+   "median": 2.0,
+   "p95": 2,
+   "iqr": 0,
+   "n": 8
+  }
+ }
+}

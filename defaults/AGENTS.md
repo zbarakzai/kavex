@@ -84,7 +84,7 @@ first frame or during GPU recovery it reports an error instead of a PNG.
 | `frame/` | the app's own screens (welcome, ...) | rewritten by Zaki on every start: don't edit, it won't stick |
 | `skills/`, `skills.json` | skills installed from Customize → Skills: one copy each, and where each came from | written by Zaki (see Skills) |
 | `view.json` | this screen's selected space/tab/pane, zoom, settled tabs, recent spaces and seen attention | written by Zaki |
-| `shared.json`, `data/`, `seen.json`, `installed.json`, `window.json`, `windows.json` | mod state, bookkeeping, where the window was (size, maximized), mods' windows (spots, kept ones) | written by Zaki |
+| `shared.json`, `data/`, `seen.json`, `installed.json`, `installed-stamps.json`, `core-checked.json`, `window.json`, `windows.json` | mod state, bookkeeping (which herdr-core binaries answered, so an unchanged one isn't run again at start), where the window was (size, maximized), mods' windows (spots, kept ones) | written by Zaki |
 
 Shared state is saved atomically in the background, with the latest change winning.
 If `shared.json` is invalid, Zaki logs a warning and keeps it as
@@ -197,7 +197,7 @@ the highlighted line shows where it will land.
   `terminal.peek` opens one, `terminal.keep` gives one a pane.
   Ctrl-click (Cmd-click on macOS) a live terminal address in terminal text to
   peek at it. The same click on a Markdown file opens it in the Files panel; any other
-  file or URL goes to the system. Bare addresses refer to the machine of the terminal showing them;
+  file or URL goes to the system (on Windows a program or script is shown in Explorer, not run). Bare addresses refer to the machine of the terminal showing them;
   use `machine/address` for another machine. Names and non-live addresses aren't links.
 - **Session context**: a Claude Code, Codex or Pi row in the agents list, and such a sub-agent's, on
   any machine, shows how full its session's context is as a small percent between the name and the
@@ -218,6 +218,9 @@ the highlighted line shows where it will land.
     a new model waits for a release; Pi stores its own. A model with no exact price, a helper Zaki can't
     count, or a usage line it can't read shows "no price", and the token counts stay. It counts tokens
     only, and can read a little under Claude's own `/cost`.
+  - **Claude Code's config folders:** an agent's session is looked for in every `~/.claude*` folder with
+    a `sessions` folder in it, and in `CLAUDE_CONFIG_DIR` if it's set for Zaki, so a second account's
+    agents show too. One set only for that agent, somewhere else, can't be seen and shows no percent.
   - **Claude Code's total:** `claude -p "/context"`, which spends no tokens, once per model per machine,
     kept for a day in `shared("agents.totals")`. Until then the dropdown shows tokens alone and the row
     shows nothing.
@@ -291,6 +294,14 @@ machine that can't be checked, so there's no underline, but the click still work
 agent. In a layout without the panel it opens in a pane beside the focused one, and the next file
 replaces what that pane shows.
 
+In a Windows terminal, Ctrl-click also reads paths as tools there print them: `src\main.rs`,
+`C:\x\y.py`, `D:/x/y.md`, `.\x.py`, with `:42` or `:42:7` after them. A path from a drive or from `.\`
+can hold spaces, and ends at the first word with a file's extension; one with no extension, such
+as a folder, is a link only with no more words after it. A bare `name.ext` with no slash counts if
+it's in the terminal's folder. Other names with no extension (`Makefile`) need a `.\`. Shares
+(`\\host\x`) are never links: looking one up would reach that machine. A terminal on another
+machine reads paths the Unix way, whatever computer shows it.
+
 The Changes panel shows the focused repo's diff by scope: Unstaged (with new
 files), Staged, Commit (a picked commit), Branch (from where it left a picked
 branch, with uncommitted and new files) or Last turn (what the latest agent turn
@@ -321,7 +332,8 @@ before it resets also says when, from 5% of the way through its window: a straig
   sent. From programs.json's `run` they take only a path to the agent's own program, never flags;
   a program of another name means the plain agent.
 - **Rows:** none for an agent signed out, on an API key or not installed. One account on several
-  machines is one row, with the newest numbers. A removed machine's rows go at the next check.
+  machines is one row, with the newest numbers. A removed machine's rows go at the next check. Only
+  the login in an agent's default config counts: a second account through `CLAUDE_CONFIG_DIR` has no row.
 - **Checks:** on opening (a result under a minute old is reused), on the refresh button, and 5 seconds
   after the footer starts and every 15 minutes, so only in a layout with that footer: not Terminals
   or Zaki 98. `workspace-chrome.check-usage` and `workspace-chrome.refresh-usage` run one.
@@ -444,8 +456,11 @@ Properties any node can have:
   draws its own (a bar mod in a `window_drag` block). macOS keeps its window
   buttons over the layout at `"traffic_lights": [x, y]` (px); leave them
   room. Where the system draws no buttons (`window().buttons`, Linux and
-  Windows), the bar draws them with `window.minimize`, `window.maximize`, `window.close`.
-  Windows' shipped tab bar and system strip use vector window icons, with a
+  Windows), the layout draws them with `window.minimize`, `window.maximize`, `window.close`.
+  In `main` the `tabs` bar above the terminals always draws them, as three small
+  buttons at its right end, even with Files, Changes or the Tabs column open beside
+  it; those never draw them. Close turns red on hover.
+  Windows' shipped window buttons and system strip use vector window icons, with a
   restore icon when maximized, rather than font glyphs.
 - Root only: `"preview": "layouts/<name>.svg"` (or png): the picture the
   settings screen shows for this layout. Draw one when you make a layout;
@@ -609,7 +624,8 @@ The default window, in short (`layouts/main.json` is the whole of it):
 Sidebar on the right: move `sidebar` to the end of `root`'s children. No sidebar: set
 `"hidden": true` on `sidebar` (the user can toggle it: `ctrl-shift-b`).
 Narrower than 160px, the sidebar mods draw a compact rail; folding resizes
-`sidebar` to 44 (76 on macOS, room for the traffic lights). On macOS,
+`sidebar` to 44 (76 on macOS, room for the traffic lights). Left between the
+rail and 200px, it settles to the nearer of the two once it holds still. On macOS,
 the tabs also leave room for the window buttons when the sidebar is narrower.
 
 ### Layouts and mods other people made
@@ -708,15 +724,18 @@ valid names; they never fall back to the current target. For example, closing a
 space uses `zaki do space.close --id <id> --confirmed true`, not `--space`.
 The main ones:
 
-- Spaces: `space.new {name?, folder?, tab?, argv?, task?, machine?}`
+- Spaces: `space.new {name?, folder?, tab?, argv?, task?, machine?, background?}`
   (machine: another machine from `hc machine ls`; the space lives there, its
   terminals start in that machine's home unless folder, and its tabs and
   splits stay there; `spaces()` gives each space's `machine`, null here),
   `space.close {id?, confirmed?}`, `space.rename {id?, name}` ("": Zaki's name again),
   `space.move {id, index}`, `space.select {index | id}`, `space.next`, `space.prev`.
   With no `argv`, the target core chooses that machine's default shell (PowerShell 7 when available on Windows).
-- Tabs: `tab.new {name?, space?, folder?, argv?, task?}` (argv: an
-  agent to run, task: its first message). Agents run in your interactive
+- Tabs: `tab.new {name?, space?, folder?, argv?, task?, background?}` (argv: an
+  agent to run, task: its first message). `background: true` (on `space.new`
+  too) makes it without showing it: the shown space, tab and focused pane stay,
+  so keys the person is typing don't land in it; a background tab goes at the
+  end of its space. Agents run in your interactive
   shell (including fish), which stays open after the agent exits. A terminal
   that exits with a nonzero code within two seconds of launch shows an error
   toast with its exit code and last output lines. Or `tab.new {name?, space?, mod,
@@ -943,9 +962,12 @@ has 120 programs (agents, editors, runtimes, tools, databases, infra);
 - A copy starts the first time it shows, then stays alive while its block is in
   the layout, shown or not (a hidden column, the other child of a stack, a pane
   in another tab or behind a zoom): switching back finds it as it was. Its
-  timers keep running while hidden, so poll gently. Another layout starts its
-  mods fresh (pane mods belong to their tab and stay); a block removed or given
-  another mod or props starts over. `<mod>.<command>` reaches shown copies only.
+  timers keep running while hidden, so poll gently. Another layout starts new
+  copies of its mods (pane mods belong to their tab and stay); a block removed or
+  given another mod or props starts a new copy. `<mod>.<command>` reaches shown copies only.
+- A mod's top-level code runs once per app run until one of its files changes:
+  a new copy (an overlay opened again) can find module-level variables as the
+  last copy left them, so keep per-copy state on the View (`this`).
 - Images and SVGs are referenced from `~/.config/zaki`:
   `image("mods/<name>/logo.svg")` (full color), `svg("mods/<name>/icon.svg")`
   (tinted with the text color). Zaki's interface icons are for every mod:

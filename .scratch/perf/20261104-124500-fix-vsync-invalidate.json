@@ -1,0 +1,1130 @@
+{
+ "label": "fix-vsync-invalidate",
+ "runs": [
+  "fix9b-1",
+  "fix9b-2"
+ ],
+ "rows": {
+  "start_screen": [
+   {
+    "fps": 32.13487216772666,
+    "app_cpu_percent": 49.456,
+    "app_wakeups_per_s": 1447.181,
+    "main_cpu_percent": 48.27209923844075,
+    "main_wakeups_per_s": 964.5424564938497,
+    "vsync_cpu_percent": 0.19386385236321588,
+    "vsync_wakeups_per_s": 117.00071217824804,
+    "vsync_thread_alive": true,
+    "empty_paints_per_s": 31.145918057222875,
+    "main_frame_ms_per_s": 285.0508326530005,
+    "other_load_percent": 666.206,
+    "cursor_over_window": 0.9683544303797469
+   },
+   {
+    "fps": 22.94692896288192,
+    "app_cpu_percent": 22.493,
+    "app_wakeups_per_s": 877.627,
+    "main_cpu_percent": 21.70655442434776,
+    "main_wakeups_per_s": 468.365425750498,
+    "vsync_cpu_percent": 0.7752340865838486,
+    "vsync_wakeups_per_s": 126.64224038433751,
+    "vsync_thread_alive": true,
+    "empty_paints_per_s": 41.976283257666935,
+    "main_frame_ms_per_s": 154.80333179485547,
+    "other_load_percent": 740.327,
+    "cursor_over_window": 1.0
+   },
+   {
+    "fps": 21.364742485914487,
+    "app_cpu_percent": 16.699,
+    "app_wakeups_per_s": 862.949,
+    "main_cpu_percent": 14.944451048468528,
+    "main_wakeups_per_s": 420.33888704845714,
+    "vsync_cpu_percent": 0.1940837798502406,
+    "vsync_wakeups_per_s": 121.97777396027922,
+    "vsync_thread_alive": true,
+    "empty_paints_per_s": 41.96511688778727,
+    "main_frame_ms_per_s": 134.54347209609367,
+    "other_load_percent": 728.743,
+    "cursor_over_window": 1.0
+   },
+   {
+    "fps": 21.06249900108001,
+    "app_cpu_percent": 16.857,
+    "app_wakeups_per_s": 924.583,
+    "main_cpu_percent": 15.099953327980153,
+    "main_wakeups_per_s": 504.38490254939245,
+    "vsync_cpu_percent": 0.1935891452305148,
+    "vsync_wakeups_per_s": 127.8617586418504,
+    "vsync_thread_alive": true,
+    "empty_paints_per_s": 41.817811742185505,
+    "main_frame_ms_per_s": 143.0459619658349,
+    "other_load_percent": 663.428,
+    "cursor_over_window": 0.0
+   },
+   {
+    "fps": 20.85574084060553,
+    "app_cpu_percent": 16.689,
+    "app_wakeups_per_s": 984.154,
+    "main_cpu_percent": 14.935751904079481,
+    "main_wakeups_per_s": 536.2904787584279,
+    "vsync_cpu_percent": 0.38794160789816834,
+    "vsync_wakeups_per_s": 129.10696710851042,
+    "vsync_thread_alive": true,
+    "empty_paints_per_s": 41.66494247749418,
+    "main_frame_ms_per_s": 151.04720647282747,
+    "other_load_percent": 583.154,
+    "cursor_over_window": 0.0
+   },
+   {
+    "fps": 21.22174451923627,
+    "app_cpu_percent": 20.567,
+    "app_wakeups_per_s": 951.561,
+    "main_cpu_percent": 17.839916810761487,
+    "main_wakeups_per_s": 470.35328495851155,
+    "vsync_cpu_percent": 0.38782427849481493,
+    "vsync_wakeups_per_s": 123.73145781098576,
+    "vsync_thread_alive": true,
+    "empty_paints_per_s": 41.38000466982596,
+    "main_frame_ms_per_s": 159.9937104209811,
+    "other_load_percent": 506.211,
+    "cursor_over_window": 0.0
+   }
+  ],
+  "start_screen.minimised": [
+   {
+    "fps": 18.36112790423729,
+    "app_cpu_percent": 19.394,
+    "app_wakeups_per_s": 826.656,
+    "main_cpu_percent": 16.089248480275497,
+    "main_wakeups_per_s": 431.7346290996336,
+    "vsync_cpu_percent": 1.3569245706256443,
+    "vsync_wakeups_per_s": 98.75309332278975,
+    "vsync_thread_alive": true,
+    "empty_paints_per_s": 34.1190864159691,
+    "main_frame_ms_per_s": 137.86514917734084,
+    "other_load_percent": 562.818,
+    "cursor_over_window": 0.056962025316455694
+   },
+   {
+    "fps": 21.24258698932541,
+    "app_cpu_percent": 16.31,
+    "app_wakeups_per_s": 912.631,
+    "main_cpu_percent": 13.781283591393496,
+    "main_wakeups_per_s": 477.1507405029176,
+    "vsync_cpu_percent": 1.1646155147656476,
+    "vsync_wakeups_per_s": 131.18229158320256,
+    "vsync_thread_alive": true,
+    "empty_paints_per_s": 42.47182016039291,
+    "main_frame_ms_per_s": 148.9014663223628,
+    "other_load_percent": 447.174,
+    "cursor_over_window": 0.0
+   },
+   {
+    "fps": 0.0,
+    "app_cpu_percent": 2.522,
+    "app_wakeups_per_s": 271.553,
+    "main_cpu_percent": 0.5817764169001737,
+    "main_wakeups_per_s": 75.08794287458241,
+    "vsync_cpu_percent": 0.0,
+    "vsync_wakeups_per_s": 0.9928984181762963,
+    "vsync_thread_alive": true,
+    "empty_paints_per_s": 0.0,
+    "main_frame_ms_per_s": 0.0,
+    "other_load_percent": 540.902,
+    "cursor_over_window": 0.0
+   },
+   {
+    "fps": 0.0,
+    "app_cpu_percent": 1.548,
+    "app_wakeups_per_s": 279.414,
+    "main_cpu_percent": 0.19342417233951395,
+    "main_wakeups_per_s": 76.75071158431913,
+    "vsync_cpu_percent": 0.0,
+    "vsync_wakeups_per_s": 0.9903317623783114,
+    "vsync_thread_alive": true,
+    "empty_paints_per_s": 0.0,
+    "main_frame_ms_per_s": 0.0,
+    "other_load_percent": 452.452,
+    "cursor_over_window": 0.0
+   }
+  ],
+  "start_screen.inactive": [
+   {
+    "fps": 21.509488668478106,
+    "app_cpu_percent": 21.377,
+    "app_wakeups_per_s": 921.614,
+    "main_cpu_percent": 19.038384117691965,
+    "main_wakeups_per_s": 484.1499934974205,
+    "vsync_cpu_percent": 0.582807677072203,
+    "vsync_wakeups_per_s": 130.42458735973142,
+    "vsync_thread_alive": true,
+    "empty_paints_per_s": 42.038259076393885,
+    "main_frame_ms_per_s": 160.1156389897155,
+    "other_load_percent": 574.065,
+    "cursor_over_window": 0.0
+   },
+   {
+    "fps": 21.212096402651735,
+    "app_cpu_percent": 19.585,
+    "app_wakeups_per_s": 899.117,
+    "main_cpu_percent": 17.83180618643969,
+    "main_wakeups_per_s": 466.4180261635703,
+    "vsync_cpu_percent": 0.7752959211495517,
+    "vsync_wakeups_per_s": 130.12566740574076,
+    "vsync_thread_alive": true,
+    "empty_paints_per_s": 42.2263674518591,
+    "main_frame_ms_per_s": 150.5843002203825,
+    "other_load_percent": 459.176,
+    "cursor_over_window": 0.0
+   },
+   {
+    "fps": 21.530371372921252,
+    "app_cpu_percent": 16.056,
+    "app_wakeups_per_s": 924.704,
+    "main_cpu_percent": 11.407075350236655,
+    "main_wakeups_per_s": 493.3424750795232,
+    "vsync_cpu_percent": 0.19334026017350261,
+    "vsync_wakeups_per_s": 121.63422448035396,
+    "vsync_thread_alive": true,
+    "empty_paints_per_s": 41.84563952123482,
+    "main_frame_ms_per_s": 153.20059488168627,
+    "other_load_percent": 462.337,
+    "cursor_over_window": 0.0
+   },
+   {
+    "fps": 20.593563568546976,
+    "app_cpu_percent": 14.159,
+    "app_wakeups_per_s": 933.84,
+    "main_cpu_percent": 12.987281241459408,
+    "main_wakeups_per_s": 505.90694115984684,
+    "vsync_cpu_percent": 0.1938400185292449,
+    "vsync_wakeups_per_s": 122.94109335198827,
+    "vsync_thread_alive": true,
+    "empty_paints_per_s": 41.35324822683786,
+    "main_frame_ms_per_s": 146.63609721700317,
+    "other_load_percent": 401.487,
+    "cursor_over_window": 0.0
+   }
+  ],
+  "idle_terminal": [
+   {
+    "fps": 0.0,
+    "app_cpu_percent": 0.967,
+    "app_wakeups_per_s": 284.539,
+    "main_cpu_percent": 0.3864320193737847,
+    "main_wakeups_per_s": 74.6895807045651,
+    "vsync_cpu_percent": 0.0,
+    "vsync_wakeups_per_s": 0.9892659695968888,
+    "vsync_thread_alive": true,
+    "empty_paints_per_s": 0.0,
+    "main_frame_ms_per_s": 0.0,
+    "other_load_percent": 628.034,
+    "cursor_over_window": 0.0
+   },
+   {
+    "fps": 0.3726997900706316,
+    "app_cpu_percent": 2.525,
+    "app_wakeups_per_s": 313.448,
+    "main_cpu_percent": 0.970572369975603,
+    "main_wakeups_per_s": 91.55991509401849,
+    "vsync_cpu_percent": 0.0,
+    "vsync_wakeups_per_s": 2.9815983205650527,
+    "vsync_thread_alive": true,
+    "empty_paints_per_s": 0.8506972456408146,
+    "main_frame_ms_per_s": 4.392763959035821,
+    "other_load_percent": 439.659,
+    "cursor_over_window": 0.0
+   },
+   {
+    "fps": 0.0,
+    "app_cpu_percent": 1.748,
+    "app_wakeups_per_s": 286.594,
+    "main_cpu_percent": 0.7767988455153415,
+    "main_wakeups_per_s": 78.67418707379379,
+    "vsync_cpu_percent": 0.0,
+    "vsync_wakeups_per_s": 1.367165968107001,
+    "vsync_thread_alive": true,
+    "empty_paints_per_s": 0.0,
+    "main_frame_ms_per_s": 0.0,
+    "other_load_percent": 389.521,
+    "cursor_over_window": 0.0
+   },
+   {
+    "fps": 0.0,
+    "app_cpu_percent": 1.356,
+    "app_wakeups_per_s": 291.829,
+    "main_cpu_percent": 0.7743978375343075,
+    "main_wakeups_per_s": 79.1744349095076,
+    "vsync_cpu_percent": 0.0,
+    "vsync_wakeups_per_s": 1.1151328860494027,
+    "vsync_thread_alive": true,
+    "empty_paints_per_s": 0.0,
+    "main_frame_ms_per_s": 0.0,
+    "other_load_percent": 417.629,
+    "cursor_over_window": 0.0
+   },
+   {
+    "fps": 0.3718773459262572,
+    "app_cpu_percent": 3.294,
+    "app_wakeups_per_s": 296.033,
+    "main_cpu_percent": 1.549488941359405,
+    "main_wakeups_per_s": 83.42448460279037,
+    "vsync_cpu_percent": 0.0,
+    "vsync_wakeups_per_s": 3.4708552286450676,
+    "vsync_thread_alive": true,
+    "empty_paints_per_s": 0.8967672884402661,
+    "main_frame_ms_per_s": 2.858125321673904,
+    "other_load_percent": 486.192,
+    "cursor_over_window": 0.0
+   },
+   {
+    "fps": 0.0,
+    "app_cpu_percent": 1.162,
+    "app_wakeups_per_s": 292.619,
+    "main_cpu_percent": 0.5809332682109721,
+    "main_wakeups_per_s": 78.94495826141637,
+    "vsync_cpu_percent": 0.0,
+    "vsync_wakeups_per_s": 1.2393243055167407,
+    "vsync_thread_alive": true,
+    "empty_paints_per_s": 0.0,
+    "main_frame_ms_per_s": 0.0,
+    "other_load_percent": 585.082,
+    "cursor_over_window": 0.0
+   }
+  ],
+  "idle_terminal.minimised": [
+   {
+    "fps": 0.0,
+    "app_cpu_percent": 2.134,
+    "app_wakeups_per_s": 281.995,
+    "main_cpu_percent": 0.7758364075075145,
+    "main_wakeups_per_s": 76.21816867353823,
+    "vsync_cpu_percent": 0.0,
+    "vsync_wakeups_per_s": 1.117204426810821,
+    "vsync_thread_alive": true,
+    "empty_paints_per_s": 0.0,
+    "main_frame_ms_per_s": 0.0,
+    "other_load_percent": 596.997,
+    "cursor_over_window": 0.0
+   },
+   {
+    "fps": 0.0,
+    "app_cpu_percent": 2.912,
+    "app_wakeups_per_s": 296.579,
+    "main_cpu_percent": 0.1940487092687102,
+    "main_wakeups_per_s": 81.59360127330727,
+    "vsync_cpu_percent": 0.0,
+    "vsync_wakeups_per_s": 1.1177205653877709,
+    "vsync_thread_alive": true,
+    "empty_paints_per_s": 0.0,
+    "main_frame_ms_per_s": 0.0,
+    "other_load_percent": 421.859,
+    "cursor_over_window": 0.0
+   },
+   {
+    "fps": 4.091934610884918,
+    "app_cpu_percent": 8.339,
+    "app_wakeups_per_s": 677.919,
+    "main_cpu_percent": 6.199900925583209,
+    "main_wakeups_per_s": 457.5526883080408,
+    "vsync_cpu_percent": 0.19374690392447527,
+    "vsync_wakeups_per_s": 16.615734480563,
+    "vsync_thread_alive": true,
+    "empty_paints_per_s": 3.9835201770276365,
+    "main_frame_ms_per_s": 26.275676114695685,
+    "other_load_percent": 545.72,
+    "cursor_over_window": 0.879746835443038
+   },
+   {
+    "fps": 8.674256393174797,
+    "app_cpu_percent": 14.335,
+    "app_wakeups_per_s": 830.53,
+    "main_cpu_percent": 10.26195510799697,
+    "main_wakeups_per_s": 542.5127784188467,
+    "vsync_cpu_percent": 0.3872435889810178,
+    "vsync_wakeups_per_s": 25.651015334102617,
+    "vsync_thread_alive": true,
+    "empty_paints_per_s": 6.545445956173686,
+    "main_frame_ms_per_s": 60.356219491401085,
+    "other_load_percent": 522.839,
+    "cursor_over_window": 1.0
+   }
+  ],
+  "idle_terminal.inactive": [
+   {
+    "fps": 0.0,
+    "app_cpu_percent": 0.97,
+    "app_wakeups_per_s": 263.797,
+    "main_cpu_percent": 0.38770798206990154,
+    "main_wakeups_per_s": 74.31586600315873,
+    "vsync_cpu_percent": 0.0,
+    "vsync_wakeups_per_s": 1.1165989883613165,
+    "vsync_thread_alive": true,
+    "empty_paints_per_s": 0.0,
+    "main_frame_ms_per_s": 0.0,
+    "other_load_percent": 360.975,
+    "cursor_over_window": 0.0
+   },
+   {
+    "fps": 0.12425086049933437,
+    "app_cpu_percent": 0.971,
+    "app_wakeups_per_s": 266.639,
+    "main_cpu_percent": 0.7765678781208398,
+    "main_wakeups_per_s": 77.53253695158465,
+    "vsync_cpu_percent": 0.0,
+    "vsync_wakeups_per_s": 1.6152611864913469,
+    "vsync_thread_alive": true,
+    "empty_paints_per_s": 0.28430146986702937,
+    "main_frame_ms_per_s": 0.7712250911193684,
+    "other_load_percent": 468.094,
+    "cursor_over_window": 0.0
+   },
+   {
+    "fps": 16.373012958123415,
+    "app_cpu_percent": 17.064,
+    "app_wakeups_per_s": 1362.425,
+    "main_cpu_percent": 13.179035051519794,
+    "main_wakeups_per_s": 854.3735852693491,
+    "vsync_cpu_percent": 0.19380933899293815,
+    "vsync_wakeups_per_s": 46.39020338134968,
+    "vsync_thread_alive": true,
+    "empty_paints_per_s": 9.518785607539332,
+    "main_frame_ms_per_s": 85.72773143098769,
+    "other_load_percent": 520.659,
+    "cursor_over_window": 1.0
+   },
+   {
+    "fps": 2.35566441204786,
+    "app_cpu_percent": 5.427,
+    "app_wakeups_per_s": 545.473,
+    "main_cpu_percent": 4.261892850744483,
+    "main_wakeups_per_s": 332.024699761272,
+    "vsync_cpu_percent": 0.0,
+    "vsync_wakeups_per_s": 12.646198422572722,
+    "vsync_thread_alive": true,
+    "empty_paints_per_s": 3.984553593384275,
+    "main_frame_ms_per_s": 11.431667444655835,
+    "other_load_percent": 443.887,
+    "cursor_over_window": 1.0
+   }
+  ],
+  "agent_working": [
+   {
+    "fps": 21.46643815457126,
+    "app_cpu_percent": 11.055,
+    "app_wakeups_per_s": 940.854,
+    "main_cpu_percent": 7.56133569389703,
+    "main_wakeups_per_s": 466.057466523524,
+    "vsync_cpu_percent": 0.5816412072228484,
+    "vsync_wakeups_per_s": 124.08345754087433,
+    "vsync_thread_alive": true,
+    "empty_paints_per_s": 42.192690180354575,
+    "main_frame_ms_per_s": 70.41512865221044,
+    "other_load_percent": 515.111,
+    "cursor_over_window": 0.13924050632911392
+   },
+   {
+    "fps": 21.443674964955708,
+    "app_cpu_percent": 7.947,
+    "app_wakeups_per_s": 883.964,
+    "main_cpu_percent": 6.584943540539144,
+    "main_wakeups_per_s": 418.709445269482,
+    "vsync_cpu_percent": 0.19367481001585718,
+    "vsync_wakeups_per_s": 131.01713547952707,
+    "vsync_thread_alive": true,
+    "empty_paints_per_s": 42.34815698831276,
+    "main_frame_ms_per_s": 69.13453203889561,
+    "other_load_percent": 461.109,
+    "cursor_over_window": 0.0
+   },
+   {
+    "fps": 21.1884489497778,
+    "app_cpu_percent": 12.008,
+    "app_wakeups_per_s": 933.647,
+    "main_cpu_percent": 9.680395170768367,
+    "main_wakeups_per_s": 470.4826939316158,
+    "vsync_cpu_percent": 0.7744316136614693,
+    "vsync_wakeups_per_s": 129.73278392056935,
+    "vsync_thread_alive": true,
+    "empty_paints_per_s": 42.5083267983297,
+    "main_frame_ms_per_s": 76.69735274492639,
+    "other_load_percent": 541.926,
+    "cursor_over_window": 0.0
+   },
+   {
+    "fps": 21.312146746521133,
+    "app_cpu_percent": 11.431,
+    "app_wakeups_per_s": 1148.726,
+    "main_cpu_percent": 7.937845354354709,
+    "main_wakeups_per_s": 700.0792390572349,
+    "vsync_cpu_percent": 0.38721196850510775,
+    "vsync_wakeups_per_s": 128.24460396889168,
+    "vsync_thread_alive": true,
+    "empty_paints_per_s": 42.211621783300316,
+    "main_frame_ms_per_s": 70.02304066097392,
+    "other_load_percent": 539.008,
+    "cursor_over_window": 0.310126582278481
+   },
+   {
+    "fps": 21.24997312686147,
+    "app_cpu_percent": 8.74,
+    "app_wakeups_per_s": 996.916,
+    "main_cpu_percent": 7.184292815185255,
+    "main_wakeups_per_s": 508.50812886033407,
+    "vsync_cpu_percent": 0.7766803043443519,
+    "vsync_wakeups_per_s": 131.84924846549717,
+    "vsync_thread_alive": true,
+    "empty_paints_per_s": 42.375430099950556,
+    "main_frame_ms_per_s": 69.03830450565293,
+    "other_load_percent": 617.44,
+    "cursor_over_window": 0.0
+   },
+   {
+    "fps": 21.26002578057863,
+    "app_cpu_percent": 9.133,
+    "app_wakeups_per_s": 906.366,
+    "main_cpu_percent": 7.576215327508832,
+    "main_wakeups_per_s": 427.93572360673477,
+    "vsync_cpu_percent": 0.19426193147458543,
+    "vsync_wakeups_per_s": 128.30612050033417,
+    "vsync_thread_alive": true,
+    "empty_paints_per_s": 42.42661508120015,
+    "main_frame_ms_per_s": 65.11286960119672,
+    "other_load_percent": 433.914,
+    "cursor_over_window": 0.0
+   }
+  ],
+  "agent_working.minimised": [
+   {
+    "fps": 0.0,
+    "app_cpu_percent": 4.254,
+    "app_wakeups_per_s": 301.359,
+    "main_cpu_percent": 1.9328931656237704,
+    "main_wakeups_per_s": 75.70755951115184,
+    "vsync_cpu_percent": 0.0,
+    "vsync_wakeups_per_s": 1.3607567885991345,
+    "vsync_thread_alive": true,
+    "empty_paints_per_s": 0.0,
+    "main_frame_ms_per_s": 0.0,
+    "other_load_percent": 760.36,
+    "cursor_over_window": 0.0
+   },
+   {
+    "fps": 0.0,
+    "app_cpu_percent": 1.354,
+    "app_wakeups_per_s": 282.649,
+    "main_cpu_percent": 0.3867407212237986,
+    "main_wakeups_per_s": 78.46195752188426,
+    "vsync_cpu_percent": 0.0,
+    "vsync_wakeups_per_s": 1.2375703079161555,
+    "vsync_thread_alive": true,
+    "empty_paints_per_s": 0.0,
+    "main_frame_ms_per_s": 0.0,
+    "other_load_percent": 677.452,
+    "cursor_over_window": 0.0
+   },
+   {
+    "fps": 0.0,
+    "app_cpu_percent": 1.358,
+    "app_wakeups_per_s": 306.714,
+    "main_cpu_percent": 0.0,
+    "main_wakeups_per_s": 83.78180388305698,
+    "vsync_cpu_percent": 0.0,
+    "vsync_wakeups_per_s": 1.1170907184407597,
+    "vsync_thread_alive": true,
+    "empty_paints_per_s": 0.0,
+    "main_frame_ms_per_s": 0.0,
+    "other_load_percent": 533.374,
+    "cursor_over_window": 0.0
+   },
+   {
+    "fps": 0.0,
+    "app_cpu_percent": 1.937,
+    "app_wakeups_per_s": 307.449,
+    "main_cpu_percent": 0.5808450139458565,
+    "main_wakeups_per_s": 81.7829779635766,
+    "vsync_cpu_percent": 0.0,
+    "vsync_wakeups_per_s": 1.4869632357013927,
+    "vsync_thread_alive": true,
+    "empty_paints_per_s": 0.0,
+    "main_frame_ms_per_s": 0.0,
+    "other_load_percent": 523.198,
+    "cursor_over_window": 0.0
+   }
+  ],
+  "agent_working.inactive": [
+   {
+    "fps": 21.117461532059412,
+    "app_cpu_percent": 9.127,
+    "app_wakeups_per_s": 883.432,
+    "main_cpu_percent": 6.40511241321655,
+    "main_wakeups_per_s": 421.97656955532835,
+    "vsync_cpu_percent": 0.7763772622080667,
+    "vsync_wakeups_per_s": 126.4563284684499,
+    "vsync_thread_alive": true,
+    "empty_paints_per_s": 42.48255551184162,
+    "main_frame_ms_per_s": 64.2322374198934,
+    "other_load_percent": 529.385,
+    "cursor_over_window": 0.0
+   },
+   {
+    "fps": 21.495876954121215,
+    "app_cpu_percent": 12.821,
+    "app_wakeups_per_s": 905.306,
+    "main_cpu_percent": 10.095606950996235,
+    "main_wakeups_per_s": 437.9940246432213,
+    "vsync_cpu_percent": 0.7765851500766334,
+    "vsync_wakeups_per_s": 128.47824722867824,
+    "vsync_thread_alive": true,
+    "empty_paints_per_s": 42.49667994687915,
+    "main_frame_ms_per_s": 64.85132121984753,
+    "other_load_percent": 621.8,
+    "cursor_over_window": 0.0
+   },
+   {
+    "fps": 21.00248724129969,
+    "app_cpu_percent": 7.77,
+    "app_wakeups_per_s": 910.18,
+    "main_cpu_percent": 6.602113223041692,
+    "main_wakeups_per_s": 437.6968051115829,
+    "vsync_cpu_percent": 0.38835960135539366,
+    "vsync_wakeups_per_s": 128.37614982403892,
+    "vsync_thread_alive": true,
+    "empty_paints_per_s": 42.41208145729614,
+    "main_frame_ms_per_s": 67.64267337553218,
+    "other_load_percent": 509.537,
+    "cursor_over_window": 0.0
+   },
+   {
+    "fps": 21.3404640260572,
+    "app_cpu_percent": 14.546,
+    "app_wakeups_per_s": 906.339,
+    "main_cpu_percent": 10.662477483949365,
+    "main_wakeups_per_s": 443.68313579756136,
+    "vsync_cpu_percent": 0.9693161349044878,
+    "vsync_wakeups_per_s": 126.6779870383977,
+    "vsync_thread_alive": true,
+    "empty_paints_per_s": 42.22941149120583,
+    "main_frame_ms_per_s": 66.57046087709803,
+    "other_load_percent": 475.93,
+    "cursor_over_window": 0.0
+   }
+  ]
+ },
+ "summary": {
+  "start_screen": {
+   "fps": {
+    "median": 21.293,
+    "iqr": 1.884,
+    "n": 6
+   },
+   "app_cpu_percent": {
+    "median": 18.712,
+    "iqr": 5.794,
+    "n": 6
+   },
+   "app_wakeups_per_s": {
+    "median": 938.072,
+    "iqr": 106.527,
+    "n": 6
+   },
+   "main_cpu_percent": {
+    "median": 16.47,
+    "iqr": 6.762,
+    "n": 6
+   },
+   "main_wakeups_per_s": {
+    "median": 487.369,
+    "iqr": 67.925,
+    "n": 6
+   },
+   "vsync_cpu_percent": {
+    "median": 0.291,
+    "iqr": 0.194,
+    "n": 6
+   },
+   "vsync_wakeups_per_s": {
+    "median": 125.187,
+    "iqr": 5.884,
+    "n": 6
+   },
+   "empty_paints_per_s": {
+    "median": 41.741,
+    "iqr": 0.585,
+    "n": 6
+   },
+   "main_frame_ms_per_s": {
+    "median": 152.925,
+    "iqr": 16.948,
+    "n": 6
+   },
+   "other_load_percent": {
+    "median": 664.817,
+    "iqr": 145.589,
+    "n": 6
+   },
+   "cursor_over_window": {
+    "median": 0.484,
+    "iqr": 1.0,
+    "n": 6
+   }
+  },
+  "start_screen.minimised": {
+   "fps": {
+    "median": 9.181,
+    "iqr": 18.361,
+    "n": 4
+   },
+   "app_cpu_percent": {
+    "median": 9.416,
+    "iqr": 13.788,
+    "n": 4
+   },
+   "app_wakeups_per_s": {
+    "median": 553.035,
+    "iqr": 547.242,
+    "n": 4
+   },
+   "main_cpu_percent": {
+    "median": 7.182,
+    "iqr": 13.2,
+    "n": 4
+   },
+   "main_wakeups_per_s": {
+    "median": 254.243,
+    "iqr": 354.984,
+    "n": 4
+   },
+   "vsync_cpu_percent": {
+    "median": 0.582,
+    "iqr": 1.165,
+    "n": 4
+   },
+   "vsync_wakeups_per_s": {
+    "median": 49.873,
+    "iqr": 97.76,
+    "n": 4
+   },
+   "empty_paints_per_s": {
+    "median": 17.06,
+    "iqr": 34.119,
+    "n": 4
+   },
+   "main_frame_ms_per_s": {
+    "median": 68.933,
+    "iqr": 137.865,
+    "n": 4
+   },
+   "other_load_percent": {
+    "median": 496.677,
+    "iqr": 88.45,
+    "n": 4
+   },
+   "cursor_over_window": {
+    "median": 0.0,
+    "iqr": 0.0,
+    "n": 4
+   }
+  },
+  "start_screen.inactive": {
+   "fps": {
+    "median": 21.361,
+    "iqr": 0.297,
+    "n": 4
+   },
+   "app_cpu_percent": {
+    "median": 17.821,
+    "iqr": 3.529,
+    "n": 4
+   },
+   "app_wakeups_per_s": {
+    "median": 923.159,
+    "iqr": 3.09,
+    "n": 4
+   },
+   "main_cpu_percent": {
+    "median": 15.41,
+    "iqr": 4.845,
+    "n": 4
+   },
+   "main_wakeups_per_s": {
+    "median": 488.746,
+    "iqr": 9.192,
+    "n": 4
+   },
+   "vsync_cpu_percent": {
+    "median": 0.388,
+    "iqr": 0.389,
+    "n": 4
+   },
+   "vsync_wakeups_per_s": {
+    "median": 126.533,
+    "iqr": 7.185,
+    "n": 4
+   },
+   "empty_paints_per_s": {
+    "median": 41.942,
+    "iqr": 0.193,
+    "n": 4
+   },
+   "main_frame_ms_per_s": {
+    "median": 151.892,
+    "iqr": 2.616,
+    "n": 4
+   },
+   "other_load_percent": {
+    "median": 460.756,
+    "iqr": 3.161,
+    "n": 4
+   },
+   "cursor_over_window": {
+    "median": 0.0,
+    "iqr": 0.0,
+    "n": 4
+   }
+  },
+  "idle_terminal": {
+   "fps": {
+    "median": 0.0,
+    "iqr": 0.372,
+    "n": 6
+   },
+   "app_cpu_percent": {
+    "median": 1.552,
+    "iqr": 1.363,
+    "n": 6
+   },
+   "app_wakeups_per_s": {
+    "median": 292.224,
+    "iqr": 9.439,
+    "n": 6
+   },
+   "main_cpu_percent": {
+    "median": 0.776,
+    "iqr": 0.39,
+    "n": 6
+   },
+   "main_wakeups_per_s": {
+    "median": 79.06,
+    "iqr": 4.75,
+    "n": 6
+   },
+   "vsync_cpu_percent": {
+    "median": 0.0,
+    "iqr": 0.0,
+    "n": 6
+   },
+   "vsync_wakeups_per_s": {
+    "median": 1.303,
+    "iqr": 1.866,
+    "n": 6
+   },
+   "empty_paints_per_s": {
+    "median": 0.0,
+    "iqr": 0.851,
+    "n": 6
+   },
+   "main_frame_ms_per_s": {
+    "median": 0.0,
+    "iqr": 2.858,
+    "n": 6
+   },
+   "other_load_percent": {
+    "median": 462.925,
+    "iqr": 167.453,
+    "n": 6
+   },
+   "cursor_over_window": {
+    "median": 0.0,
+    "iqr": 0.0,
+    "n": 6
+   }
+  },
+  "idle_terminal.minimised": {
+   "fps": {
+    "median": 2.046,
+    "iqr": 4.092,
+    "n": 4
+   },
+   "app_cpu_percent": {
+    "median": 5.626,
+    "iqr": 5.427,
+    "n": 4
+   },
+   "app_wakeups_per_s": {
+    "median": 487.249,
+    "iqr": 381.34,
+    "n": 4
+   },
+   "main_cpu_percent": {
+    "median": 3.488,
+    "iqr": 5.424,
+    "n": 4
+   },
+   "main_wakeups_per_s": {
+    "median": 269.573,
+    "iqr": 375.959,
+    "n": 4
+   },
+   "vsync_cpu_percent": {
+    "median": 0.097,
+    "iqr": 0.194,
+    "n": 4
+   },
+   "vsync_wakeups_per_s": {
+    "median": 8.867,
+    "iqr": 15.498,
+    "n": 4
+   },
+   "empty_paints_per_s": {
+    "median": 1.992,
+    "iqr": 3.984,
+    "n": 4
+   },
+   "main_frame_ms_per_s": {
+    "median": 13.138,
+    "iqr": 26.276,
+    "n": 4
+   },
+   "other_load_percent": {
+    "median": 534.28,
+    "iqr": 22.881,
+    "n": 4
+   },
+   "cursor_over_window": {
+    "median": 0.44,
+    "iqr": 0.88,
+    "n": 4
+   }
+  },
+  "idle_terminal.inactive": {
+   "fps": {
+    "median": 1.24,
+    "iqr": 2.231,
+    "n": 4
+   },
+   "app_cpu_percent": {
+    "median": 3.199,
+    "iqr": 4.456,
+    "n": 4
+   },
+   "app_wakeups_per_s": {
+    "median": 406.056,
+    "iqr": 278.834,
+    "n": 4
+   },
+   "main_cpu_percent": {
+    "median": 2.519,
+    "iqr": 3.485,
+    "n": 4
+   },
+   "main_wakeups_per_s": {
+    "median": 204.779,
+    "iqr": 254.492,
+    "n": 4
+   },
+   "vsync_cpu_percent": {
+    "median": 0.0,
+    "iqr": 0.0,
+    "n": 4
+   },
+   "vsync_wakeups_per_s": {
+    "median": 7.131,
+    "iqr": 11.031,
+    "n": 4
+   },
+   "empty_paints_per_s": {
+    "median": 2.134,
+    "iqr": 3.7,
+    "n": 4
+   },
+   "main_frame_ms_per_s": {
+    "median": 6.101,
+    "iqr": 10.66,
+    "n": 4
+   },
+   "other_load_percent": {
+    "median": 455.99,
+    "iqr": 24.207,
+    "n": 4
+   },
+   "cursor_over_window": {
+    "median": 0.5,
+    "iqr": 1.0,
+    "n": 4
+   }
+  },
+  "agent_working": {
+   "fps": {
+    "median": 21.286,
+    "iqr": 0.194,
+    "n": 6
+   },
+   "app_cpu_percent": {
+    "median": 10.094,
+    "iqr": 2.691,
+    "n": 6
+   },
+   "app_wakeups_per_s": {
+    "median": 937.251,
+    "iqr": 90.55,
+    "n": 6
+   },
+   "main_cpu_percent": {
+    "median": 7.569,
+    "iqr": 0.754,
+    "n": 6
+   },
+   "main_wakeups_per_s": {
+    "median": 468.27,
+    "iqr": 80.572,
+    "n": 6
+   },
+   "vsync_cpu_percent": {
+    "median": 0.484,
+    "iqr": 0.58,
+    "n": 6
+   },
+   "vsync_wakeups_per_s": {
+    "median": 129.019,
+    "iqr": 2.773,
+    "n": 6
+   },
+   "empty_paints_per_s": {
+    "median": 42.362,
+    "iqr": 0.215,
+    "n": 6
+   },
+   "main_frame_ms_per_s": {
+    "median": 69.579,
+    "iqr": 1.377,
+    "n": 6
+   },
+   "other_load_percent": {
+    "median": 527.06,
+    "iqr": 80.817,
+    "n": 6
+   },
+   "cursor_over_window": {
+    "median": 0.0,
+    "iqr": 0.139,
+    "n": 6
+   }
+  },
+  "agent_working.minimised": {
+   "fps": {
+    "median": 0.0,
+    "iqr": 0.0,
+    "n": 4
+   },
+   "app_cpu_percent": {
+    "median": 1.647,
+    "iqr": 0.579,
+    "n": 4
+   },
+   "app_wakeups_per_s": {
+    "median": 304.036,
+    "iqr": 5.355,
+    "n": 4
+   },
+   "main_cpu_percent": {
+    "median": 0.484,
+    "iqr": 0.194,
+    "n": 4
+   },
+   "main_wakeups_per_s": {
+    "median": 80.122,
+    "iqr": 3.321,
+    "n": 4
+   },
+   "vsync_cpu_percent": {
+    "median": 0.0,
+    "iqr": 0.0,
+    "n": 4
+   },
+   "vsync_wakeups_per_s": {
+    "median": 1.299,
+    "iqr": 0.123,
+    "n": 4
+   },
+   "empty_paints_per_s": {
+    "median": 0.0,
+    "iqr": 0.0,
+    "n": 4
+   },
+   "main_frame_ms_per_s": {
+    "median": 0.0,
+    "iqr": 0.0,
+    "n": 4
+   },
+   "other_load_percent": {
+    "median": 605.413,
+    "iqr": 144.078,
+    "n": 4
+   },
+   "cursor_over_window": {
+    "median": 0.0,
+    "iqr": 0.0,
+    "n": 4
+   }
+  },
+  "agent_working.inactive": {
+   "fps": {
+    "median": 21.229,
+    "iqr": 0.223,
+    "n": 4
+   },
+   "app_cpu_percent": {
+    "median": 10.974,
+    "iqr": 3.694,
+    "n": 4
+   },
+   "app_wakeups_per_s": {
+    "median": 905.822,
+    "iqr": 1.033,
+    "n": 4
+   },
+   "main_cpu_percent": {
+    "median": 8.349,
+    "iqr": 3.493,
+    "n": 4
+   },
+   "main_wakeups_per_s": {
+    "median": 437.845,
+    "iqr": 0.297,
+    "n": 4
+   },
+   "vsync_cpu_percent": {
+    "median": 0.776,
+    "iqr": 0.0,
+    "n": 4
+   },
+   "vsync_wakeups_per_s": {
+    "median": 127.527,
+    "iqr": 1.698,
+    "n": 4
+   },
+   "empty_paints_per_s": {
+    "median": 42.447,
+    "iqr": 0.07,
+    "n": 4
+   },
+   "main_frame_ms_per_s": {
+    "median": 65.711,
+    "iqr": 1.719,
+    "n": 4
+   },
+   "other_load_percent": {
+    "median": 519.461,
+    "iqr": 19.848,
+    "n": 4
+   },
+   "cursor_over_window": {
+    "median": 0.0,
+    "iqr": 0.0,
+    "n": 4
+   }
+  }
+ }
+}

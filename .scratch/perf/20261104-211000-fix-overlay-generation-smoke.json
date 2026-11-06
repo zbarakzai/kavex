@@ -1,0 +1,100 @@
+{
+ "opens": [
+  {
+   "first_frame_ms": 263.863,
+   "drawn_ms": 367.633,
+   "worst_frame_ms": 237.091,
+   "frames": 4,
+   "main_busy_ms": 587.437,
+   "app_cpu_ms": 234.375,
+   "js_ms": 118.751,
+   "script_renders": 2,
+   "spans": {
+    "ui:mod_load": 26.264,
+    "ui:flush_documents": 0.05,
+    "cmd:app.settings": 26.422,
+    "ui:paint_grid": 0.329,
+    "ui:tend_terminals": 0.129,
+    "ui:update_status": 0.154,
+    "ui:poll": 0.18
+   }
+  },
+  {
+   "first_frame_ms": 178.895,
+   "drawn_ms": 281.485,
+   "worst_frame_ms": 92.778,
+   "frames": 4,
+   "main_busy_ms": 355.557,
+   "app_cpu_ms": 234.375,
+   "js_ms": 117.829,
+   "script_renders": 5,
+   "spans": {
+    "ui:mod_load": 84.961,
+    "ui:flush_documents": 0.02,
+    "cmd:app.settings": 85.094,
+    "ui:refresh_mods": 0.013,
+    "ui:paint_grid": 0.451
+   }
+  },
+  {
+   "first_frame_ms": 70.436,
+   "drawn_ms": 219.217,
+   "worst_frame_ms": 49.631,
+   "frames": 5,
+   "main_busy_ms": 238.352,
+   "app_cpu_ms": 218.75,
+   "js_ms": 103.521,
+   "script_renders": 3,
+   "spans": {
+    "ui:mod_load": 18.574,
+    "ui:flush_documents": 0.042,
+    "cmd:app.settings": 18.731,
+    "ui:paint_grid": 0.354,
+    "ui:tend_terminals": 0.056
+   }
+  },
+  {
+   "first_frame_ms": 75.963,
+   "drawn_ms": 324.963,
+   "worst_frame_ms": 56.669,
+   "frames": 2,
+   "main_busy_ms": 181.849,
+   "app_cpu_ms": 234.375,
+   "js_ms": 36.789,
+   "script_renders": 1,
+   "spans": {
+    "ui:mod_load": 18.695,
+    "ui:flush_documents": 0.043,
+    "cmd:app.settings": 18.841,
+    "ui:paint_grid": 0.394,
+    "ui:tend_terminals": 0.07
+   }
+  },
+  {
+   "first_frame_ms": 74.915,
+   "drawn_ms": 231.651,
+   "worst_frame_ms": 56.377,
+   "frames": 5,
+   "main_busy_ms": 248.972,
+   "app_cpu_ms": 312.5,
+   "js_ms": 107.406,
+   "script_renders": 3,
+   "spans": {
+    "ui:mod_load": 20.963,
+    "ui:flush_documents": 0.02,
+    "cmd:app.settings": 21.156,
+    "ui:paint_grid": 0.566
+   }
+  }
+ ],
+ "shot": "C:\\Users\\ZakiBarakzai\\AppData\\Local\\Temp\\claude\\C--Users-ZakiBarakzai-Desktop-Experements-zaki\\2cafb48c-7198-40ee-a65b-0e8187ee78d0\\scratchpad\\smoke16-settings.png",
+ "alive": true,
+ "app.log": {
+  "bytes": 39,
+  "flagged": []
+ },
+ "stderr.log": {
+  "bytes": 39,
+  "flagged": []
+ }
+}

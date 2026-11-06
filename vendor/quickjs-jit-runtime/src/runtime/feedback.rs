@@ -1,4 +1,5 @@
 use std::collections::{btree_map::Entry as MapEntry, BTreeMap};
+use std::sync::{Arc, OnceLock};
 
 use super::FunctionKey;
 
@@ -197,18 +198,35 @@ struct FeedbackKey {
     kind: FeedbackKind,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug)]
 struct Entry {
     observations: Vec<ObservedType>,
     megamorphic: bool,
+    /// HERDR: `observations` as snapshots hold them, made once per change
+    /// (`observe` is the only mutator), so a snapshot doesn't allocate a copy
+    /// of every list each time it's taken.
+    shared: OnceLock<Arc<[ObservedType]>>,
 }
 
+impl PartialEq for Entry {
+    fn eq(&self, other: &Self) -> bool {
+        self.observations == other.observations && self.megamorphic == other.megamorphic
+    }
+}
+
+impl Eq for Entry {}
+
 impl Entry {
+    fn shared(&self) -> Arc<[ObservedType]> {
+        self.shared.get_or_init(|| self.observations.as_slice().into()).clone()
+    }
+
     fn observe(&mut self, observation: ObservedType, diversity_limit: usize) -> FeedbackState {
         if self.megamorphic {
             return FeedbackState::Megamorphic;
         }
         if !self.observations.contains(&observation) {
+            self.shared = OnceLock::new();
             if self.observations.len() >= diversity_limit {
                 self.megamorphic = true;
                 self.observations.clear();
@@ -230,7 +248,7 @@ pub struct FeedbackSnapshotEntry {
     pc: u32,
     kind: FeedbackKind,
     state: FeedbackState,
-    observations: Box<[ObservedType]>,
+    observations: Arc<[ObservedType]>,
 }
 
 impl FeedbackSnapshotEntry {
@@ -270,10 +288,10 @@ pub struct CallSignatureFeedbackSnapshot {
     pc: u32,
     state: FeedbackState,
     target_state: FeedbackState,
-    targets: Box<[FunctionKey]>,
+    targets: Arc<[FunctionKey]>,
     stable_arity: Option<usize>,
-    arguments: Box<[Box<[ObservedType]>]>,
-    results: Box<[ObservedType]>,
+    arguments: Arc<[Arc<[ObservedType]>]>,
+    results: Arc<[ObservedType]>,
     callee_identity: u64,
     callee_bytecode_identity: u64,
 }
@@ -289,7 +307,7 @@ impl CallSignatureFeedbackSnapshot {
         &self.targets
     }
     pub fn argument(&self, index: usize) -> &[ObservedType] {
-        self.arguments.get(index).map_or(&[], Box::as_ref)
+        self.arguments.get(index).map_or(&[], |a| a)
     }
     pub fn results(&self) -> &[ObservedType] {
         &self.results
@@ -301,8 +319,8 @@ pub struct ConversionFeedbackSnapshot {
     function: FunctionKey,
     pc: u32,
     state: FeedbackState,
-    operand: Box<[ObservedType]>,
-    result: Box<[ObservedType]>,
+    operand: Arc<[ObservedType]>,
+    result: Arc<[ObservedType]>,
 }
 
 impl ConversionFeedbackSnapshot {
@@ -322,7 +340,7 @@ pub struct BranchFeedbackSnapshot {
     function: FunctionKey,
     pc: u32,
     state: FeedbackState,
-    condition_types: Box<[ObservedType]>,
+    condition_types: Arc<[ObservedType]>,
     outcomes: u8,
 }
 
@@ -346,9 +364,9 @@ pub struct BinaryFeedbackSnapshot {
     function: FunctionKey,
     pc: u32,
     state: FeedbackState,
-    lhs: Box<[ObservedType]>,
-    rhs: Box<[ObservedType]>,
-    result: Box<[ObservedType]>,
+    lhs: Arc<[ObservedType]>,
+    rhs: Arc<[ObservedType]>,
+    result: Arc<[ObservedType]>,
     flags: BinaryFeedbackFlags,
 }
 
@@ -356,8 +374,8 @@ pub struct BinaryFeedbackSnapshot {
 pub struct CallFeedbackSnapshot {
     function: FunctionKey,
     state: FeedbackState,
-    arguments: Box<[Box<[ObservedType]>]>,
-    stable_types: Option<Box<[ObservedType]>>,
+    arguments: Arc<[Arc<[ObservedType]>]>,
+    stable_types: Option<Arc<[ObservedType]>>,
     stable_arity: Option<usize>,
 }
 
@@ -369,7 +387,7 @@ impl CallFeedbackSnapshot {
         self.arguments.len()
     }
     pub fn argument(&self, index: usize) -> &[ObservedType] {
-        self.arguments.get(index).map_or(&[], Box::as_ref)
+        self.arguments.get(index).map_or(&[], |a| a)
     }
 }
 
@@ -776,6 +794,8 @@ struct CallFeedbackEntry {
     slots: Vec<Entry>,
     arities: Vec<usize>,
     arity_megamorphic: bool,
+    /// HERDR: this entry as a snapshot holds it; `observe_call` clears it.
+    frozen: OnceLock<CallFeedbackSnapshot>,
 }
 
 #[derive(Debug)]
@@ -808,6 +828,9 @@ struct CallSignatureFeedbackEntry {
     results: Entry,
     callee_identity: u64,
     callee_bytecode_identity: u64,
+    /// HERDR: this entry as a snapshot holds it; its one mutator,
+    /// `observe_call_signature_with_identity`, clears it.
+    frozen: OnceLock<CallSignatureFeedbackSnapshot>,
 }
 
 fn combined_state(entries: &[&Entry], additional_polymorphism: bool) -> FeedbackState {
@@ -889,6 +912,7 @@ fn empty_entry(capacity: usize) -> Entry {
     Entry {
         observations: Vec::with_capacity(capacity),
         megamorphic: false,
+        shared: OnceLock::new(),
     }
 }
 
@@ -982,6 +1006,7 @@ impl FeedbackTable {
             MapEntry::Occupied(entry) => (entry.into_mut(), false),
             MapEntry::Vacant(entry) => (entry.insert(CallFeedbackEntry::default()), true),
         };
+        call.frozen = OnceLock::new();
         let before = (
             call.arities.len(),
             call.arity_megamorphic,
@@ -1149,8 +1174,10 @@ impl FeedbackTable {
                 results: empty_entry(self.diversity_limit),
                 callee_identity,
                 callee_bytecode_identity,
+                frozen: OnceLock::new(),
             }
         });
+        entry.frozen = OnceLock::new();
         let before = (
             entry.targets.len(),
             entry.targets_megamorphic,
@@ -1264,6 +1291,37 @@ impl FeedbackTable {
             .saturating_add(self.arrays.dropped_observations())
     }
 
+    /// Forgets every kept copy, so the next build starts from the lattice alone.
+    #[cfg(test)]
+    fn thaw(&mut self) {
+        fn entry(e: &mut Entry) {
+            e.shared = OnceLock::new();
+        }
+        self.entries.values_mut().for_each(entry);
+        for call in self.calls.values_mut() {
+            call.frozen = OnceLock::new();
+            call.slots.iter_mut().for_each(entry);
+        }
+        for b in self.binaries.values_mut() {
+            [&mut b.lhs, &mut b.rhs, &mut b.result].into_iter().for_each(entry);
+        }
+        for c in self.conversions.values_mut() {
+            [&mut c.operand, &mut c.result].into_iter().for_each(entry);
+        }
+        self.branches.values_mut().for_each(|b| entry(&mut b.condition_types));
+        for s in self.call_signatures.values_mut() {
+            s.frozen = OnceLock::new();
+            s.arguments.iter_mut().for_each(entry);
+            entry(&mut s.results);
+        }
+    }
+
+    /// HERDR: maintenance takes one of these at nearly every hot event while
+    /// new code warms up, and it covers every live function. Each lattice cell
+    /// keeps the shared copy a snapshot holds (`Entry::shared`, and whole
+    /// call entries in `frozen`), made again only when the cell changes, so a
+    /// snapshot copies pointers instead of allocating every list. On Windows
+    /// that copying was most of the main thread while Zaki's Settings opened.
     pub fn snapshot(&self, epoch: u64) -> FeedbackSnapshot {
         let entries = self
             .entries
@@ -1279,14 +1337,13 @@ impl FeedbackTable {
                 } else {
                     FeedbackState::Polymorphic
                 },
-                observations: entry.observations.clone().into_boxed_slice(),
+                observations: entry.shared(),
             })
-            .collect::<Vec<_>>()
-            .into_boxed_slice();
+            .collect::<Box<[_]>>();
         let calls = self
             .calls
             .iter()
-            .map(|(function, call)| {
+            .map(|(function, call)| call.frozen.get_or_init(|| {
                 let slots = &call.slots;
                 let state = if call.arity_megamorphic || slots.iter().any(|slot| slot.megamorphic) {
                     FeedbackState::Megamorphic
@@ -1301,17 +1358,12 @@ impl FeedbackTable {
                     slots
                         .iter()
                         .map(|slot| slot.observations[0])
-                        .collect::<Vec<_>>()
-                        .into_boxed_slice()
+                        .collect::<Arc<[_]>>()
                 });
                 CallFeedbackSnapshot {
                     function: *function,
                     state,
-                    arguments: slots
-                        .iter()
-                        .map(|slot| slot.observations.clone().into_boxed_slice())
-                        .collect::<Vec<_>>()
-                        .into_boxed_slice(),
+                    arguments: slots.iter().map(Entry::shared).collect::<Arc<[_]>>(),
                     stable_types,
                     stable_arity: if call.arities.len() == 1 {
                         Some(call.arities[0])
@@ -1319,9 +1371,8 @@ impl FeedbackTable {
                         None
                     },
                 }
-            })
-            .collect::<Vec<_>>()
-            .into_boxed_slice();
+            }).clone())
+            .collect::<Box<[_]>>();
         let binaries = self
             .binaries
             .iter()
@@ -1329,13 +1380,12 @@ impl FeedbackTable {
                 function: *function,
                 pc: *pc,
                 state: combined_state(&[&entry.lhs, &entry.rhs, &entry.result], false),
-                lhs: entry.lhs.observations.clone().into_boxed_slice(),
-                rhs: entry.rhs.observations.clone().into_boxed_slice(),
-                result: entry.result.observations.clone().into_boxed_slice(),
+                lhs: entry.lhs.shared(),
+                rhs: entry.rhs.shared(),
+                result: entry.result.shared(),
                 flags: entry.flags,
             })
-            .collect::<Vec<_>>()
-            .into_boxed_slice();
+            .collect::<Box<[_]>>();
         let conversions = self
             .conversions
             .iter()
@@ -1343,11 +1393,10 @@ impl FeedbackTable {
                 function: *function,
                 pc: *pc,
                 state: combined_state(&[&entry.operand, &entry.result], false),
-                operand: entry.operand.observations.clone().into_boxed_slice(),
-                result: entry.result.observations.clone().into_boxed_slice(),
+                operand: entry.operand.shared(),
+                result: entry.result.shared(),
             })
-            .collect::<Vec<_>>()
-            .into_boxed_slice();
+            .collect::<Box<[_]>>();
         let branches = self
             .branches
             .iter()
@@ -1355,41 +1404,30 @@ impl FeedbackTable {
                 function: *function,
                 pc: *pc,
                 state: combined_state(&[&entry.condition_types], entry.outcomes == 3),
-                condition_types: entry
-                    .condition_types
-                    .observations
-                    .clone()
-                    .into_boxed_slice(),
+                condition_types: entry.condition_types.shared(),
                 outcomes: entry.outcomes,
             })
-            .collect::<Vec<_>>()
-            .into_boxed_slice();
+            .collect::<Box<[_]>>();
         let call_signatures = self
             .call_signatures
             .iter()
-            .map(|((caller, pc), entry)| CallSignatureFeedbackSnapshot {
+            .map(|((caller, pc), entry)| entry.frozen.get_or_init(|| CallSignatureFeedbackSnapshot {
                 caller: *caller,
                 pc: *pc,
                 state: call_signature_state(entry),
                 target_state: call_target_state(entry),
-                targets: entry.targets.clone().into_boxed_slice(),
+                targets: entry.targets.as_slice().into(),
                 stable_arity: if entry.arities.len() == 1 {
                     Some(entry.arities[0])
                 } else {
                     None
                 },
-                arguments: entry
-                    .arguments
-                    .iter()
-                    .map(|slot| slot.observations.clone().into_boxed_slice())
-                    .collect::<Vec<_>>()
-                    .into_boxed_slice(),
-                results: entry.results.observations.clone().into_boxed_slice(),
+                arguments: entry.arguments.iter().map(Entry::shared).collect::<Arc<[_]>>(),
+                results: entry.results.shared(),
                 callee_identity: entry.callee_identity,
                 callee_bytecode_identity: entry.callee_bytecode_identity,
-            })
-            .collect::<Vec<_>>()
-            .into_boxed_slice();
+            }).clone())
+            .collect::<Box<[_]>>();
         FeedbackSnapshot {
             epoch,
             entries,
@@ -1400,6 +1438,70 @@ impl FeedbackTable {
             call_signatures,
             properties: Box::new([]),
             arrays: self.arrays.snapshot(),
+        }
+    }
+}
+
+// HERDR: a snapshot made from kept copies is what one built from scratch is.
+#[cfg(test)]
+mod snapshot_cache_tests {
+    use super::*;
+
+    /// What the lattice holds, built with no kept copies.
+    fn fresh(table: &mut FeedbackTable, epoch: u64) -> FeedbackSnapshot {
+        table.thaw();
+        table.snapshot(epoch)
+    }
+
+    #[test]
+    fn kept_copies_follow_every_change() {
+        let f = FunctionKey::new(7, 1);
+        let g = FunctionKey::new(8, 1);
+        let mut table = FeedbackTable::new(64, 4);
+        table.observe_type(f, 1, FeedbackKind::Value, ObservedType::Int32);
+        let first = table.snapshot(3);
+        assert_eq!(first, fresh(&mut table, 3));
+        // Unchanged table: the same data, at the asked epoch.
+        table.snapshot(5);
+        let again = table.snapshot(9);
+        assert_eq!(again.epoch(), 9);
+        assert_eq!(again, fresh(&mut table, 9));
+        // Something of g's stays throughout, kept between changes to f's.
+        table.observe_call(g, &[ObservedType::Int32]);
+        table.observe_binary(g, 1, ObservedType::Int32, ObservedType::Int32, ObservedType::Int32, BinaryFeedbackFlags::NONE);
+        type Change = fn(&mut FeedbackTable, FunctionKey, FunctionKey);
+        let changes: [Change; 17] = [
+            |t, f, _| { t.observe_type(f, 1, FeedbackKind::Value, ObservedType::Float64); },
+            |t, f, _| t.observe_return(f, 2, ObservedType::Bool),
+            |t, f, _| t.observe_call(f, &[ObservedType::Int32, ObservedType::String]),
+            // The same entries again, widened: a kept copy of them must go.
+            |t, f, _| t.observe_call(f, &[ObservedType::Float64, ObservedType::String]),
+            |t, f, _| t.observe_call(f, &[ObservedType::Int32]),
+            |t, f, _| { t.observe_binary(f, 3, ObservedType::Int32, ObservedType::Int32, ObservedType::Float64, BinaryFeedbackFlags::NONE); },
+            |t, f, _| { t.observe_binary(f, 3, ObservedType::Float64, ObservedType::Int32, ObservedType::Float64, BinaryFeedbackFlags::NONE); },
+            |t, f, _| { t.observe_conversion(f, 4, ObservedType::String, ObservedType::Int32); },
+            |t, f, _| { t.observe_conversion(f, 4, ObservedType::Bool, ObservedType::Int32); },
+            |t, f, _| { t.observe_branch(f, 5, ObservedType::Bool, true); },
+            |t, f, _| { t.observe_branch(f, 5, ObservedType::Bool, false); },
+            |t, f, g| { t.observe_call_signature(f, 6, g, &[ObservedType::Object], ObservedType::Null); },
+            |t, f, g| { t.observe_call_signature(f, 6, g, &[ObservedType::String], ObservedType::Null); },
+            |t, f, _| { t.observe_call_signature(f, 6, f, &[ObservedType::String], ObservedType::Int32); },
+            |t, f, g| { t.observe_call_signature_with_identity(f, 7, g, 1, 2, &[ObservedType::Int32], ObservedType::Int32); },
+            // Past the diversity limit: megamorphic, its observations cleared.
+            |t, f, _| {
+                for ty in [ObservedType::Null, ObservedType::Undefined, ObservedType::String, ObservedType::Object] {
+                    t.observe_type(f, 1, FeedbackKind::Value, ty);
+                }
+            },
+            // Forgetting keeps the version; the snapshot must still change.
+            |t, f, _| t.forget_function(f),
+        ];
+        for (i, change) in changes.iter().enumerate() {
+            let before = table.snapshot(1);
+            change(&mut table, f, g);
+            let after = table.snapshot(1);
+            assert_ne!(after, before, "change {i} changed nothing");
+            assert_eq!(after, fresh(&mut table, 1), "change {i}");
         }
     }
 }

@@ -1,0 +1,7339 @@
+{
+ "check": "15 fresh starts",
+ "power": false,
+ "bins": {
+  "fix14": "C:\\Users\\ZakiBarakzai\\AppData\\Local\\Temp\\claude\\C--Users-ZakiBarakzai-Desktop-Experements-zaki\\2cafb48c-7198-40ee-a65b-0e8187ee78d0\\scratchpad\\bins\\zaki-fix14.exe"
+ },
+ "reps": 64,
+ "summary": {
+  "fix14": {
+   "cold.fresh.first_paint_ms": {
+    "median": 1440.7,
+    "iqr": 121.4,
+    "p95": 1773.1,
+    "min": 1282.6,
+    "max": 4756.9,
+    "n": 64
+   },
+   "cold.fresh.control_ready_ms": {
+    "median": 2048.9,
+    "iqr": 524.4,
+    "p95": 2490.9,
+    "min": 1481.6,
+    "max": 4920.7,
+    "n": 64
+   },
+   "cold.fresh.paint_to_ready_ms": {
+    "median": 522.3,
+    "iqr": 533.5,
+    "p95": 883.8,
+    "min": 122.0,
+    "max": 1013.3,
+    "n": 64
+   },
+   "cold.fresh.other_load": {
+    "median": 1310.1,
+    "iqr": 149.3,
+    "p95": 1665.7,
+    "min": 1069.8,
+    "max": 1724.8,
+    "n": 64
+   },
+   "starts": 64,
+   "abnormal_exits": 0
+  }
+ },
+ "data": {
+  "fix14": {
+   "starts": [
+    {
+     "polls": [
+      [
+       4795.172,
+       4920.661,
+       0
+      ]
+     ],
+     "power_sent": 0,
+     "main": 2342.913,
+     "start:core_find": 206.006,
+     "start:platform": 2575.444,
+     "start:core_connect": 130.518,
+     "start:write_workspace": 681.362,
+     "start:install_themes_icons": 885.236,
+     "start:app_running": 3552.373,
+     "start:installs_wait": 0.026,
+     "start:fonts": 89.648,
+     "start:mods_init": 0.674,
+     "start:core_wait": 0.039,
+     "start:js_runtime": 29.577,
+     "start:install_layouts": 39.027,
+     "ui:mod_load": 344.656,
+     "first_render": 4462.828,
+     "first_paint": 4756.889,
+     "start:open_window": 1098.816,
+     "gap": [
+      {
+       "kind": "span",
+       "name": "start:open_window",
+       "start": 3671.2,
+       "took": 1098.8
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 4775.9,
+       "took": 5.6
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 4775.3,
+       "took": 6.1
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 4774.8,
+       "took": 6.7
+      },
+      {
+       "kind": "frame",
+       "end": 4817.0,
+       "took": 34.7,
+       "msg": 15
+      },
+      {
+       "kind": "task",
+       "end": 4817.4,
+       "took": 47.3,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:mod_load",
+       "start": 4825.0,
+       "took": 82.9
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 4824.9,
+       "took": 83.5
+      },
+      {
+       "kind": "task",
+       "end": 4908.8,
+       "took": 84.6,
+       "msg": 1027
+      }
+     ],
+     "control_ready": 4920.661,
+     "other_load": 1290.8831930176734,
+     "round": 0
+    },
+    {
+     "polls": [
+      [
+       1522.072,
+       1686.487,
+       0
+      ]
+     ],
+     "power_sent": 0,
+     "main": 66.023,
+     "start:core_find": 109.678,
+     "start:platform": 180.182,
+     "start:core_connect": 87.08,
+     "start:write_workspace": 566.939,
+     "start:app_running": 690.659,
+     "start:install_themes_icons": 782.534,
+     "start:installs_wait": 159.015,
+     "start:fonts": 83.041,
+     "start:mods_init": 0.451,
+     "start:core_wait": 0.028,
+     "start:js_runtime": 18.853,
+     "start:install_layouts": 34.901,
+     "ui:mod_load": 278.86,
+     "first_render": 1393.473,
+     "first_paint": 1453.902,
+     "start:open_window": 517.027,
+     "gap": [
+      {
+       "kind": "span",
+       "name": "start:open_window",
+       "start": 938.3,
+       "took": 517.0
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1456.0,
+       "took": 4.0
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1455.8,
+       "took": 4.3
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1455.8,
+       "took": 4.3
+      },
+      {
+       "kind": "frame",
+       "end": 1481.8,
+       "took": 21.2,
+       "msg": 15
+      },
+      {
+       "kind": "span",
+       "name": "ui:mod_load",
+       "start": 1482.3,
+       "took": 110.9
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1482.2,
+       "took": 111.5
+      },
+      {
+       "kind": "frame",
+       "end": 1671.4,
+       "took": 77.6,
+       "msg": 15
+      },
+      {
+       "kind": "task",
+       "end": 1671.5,
+       "took": 189.7,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1672.7,
+       "took": 12.7
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1672.5,
+       "took": 13.0
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1672.4,
+       "took": 13.0
+      },
+      {
+       "kind": "frame",
+       "end": 1705.2,
+       "took": 19.5,
+       "msg": 15
+      },
+      {
+       "kind": "task",
+       "end": 1705.3,
+       "took": 33.8,
+       "msg": 1027
+      }
+     ],
+     "control_ready": 1686.487,
+     "other_load": 1357.8651428697108,
+     "round": 1
+    },
+    {
+     "polls": [
+      [
+       1517.809,
+       2108.702,
+       0
+      ]
+     ],
+     "power_sent": 0,
+     "main": 58.446,
+     "start:core_find": 146.535,
+     "start:platform": 210.242,
+     "start:core_connect": 86.632,
+     "start:write_workspace": 574.837,
+     "start:app_running": 690.989,
+     "start:install_themes_icons": 718.68,
+     "start:installs_wait": 87.405,
+     "start:fonts": 75.77,
+     "start:mods_init": 0.441,
+     "start:core_wait": 0.026,
+     "start:js_runtime": 23.472,
+     "start:install_layouts": 23.956,
+     "ui:mod_load": 264.906,
+     "first_render": 1295.151,
+     "first_paint": 1363.107,
+     "start:open_window": 505.205,
+     "gap": [
+      {
+       "kind": "span",
+       "name": "start:open_window",
+       "start": 859.5,
+       "took": 505.2
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1366.1,
+       "took": 5.6
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1365.9,
+       "took": 5.9
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1365.8,
+       "took": 5.9
+      },
+      {
+       "kind": "task",
+       "end": 1372.3,
+       "took": 7.1,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:mod_load",
+       "start": 1377.7,
+       "took": 104.7
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1377.7,
+       "took": 105.3
+      },
+      {
+       "kind": "task",
+       "end": 1485.0,
+       "took": 107.6,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1576.8,
+       "took": 89.8,
+       "msg": 15
+      },
+      {
+       "kind": "task",
+       "end": 2093.6,
+       "took": 516.8,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 2094.1,
+       "took": 5.3
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 2093.8,
+       "took": 5.6
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 2093.8,
+       "took": 5.7
+      },
+      {
+       "kind": "task",
+       "end": 2100.4,
+       "took": 6.7,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 2125.8,
+       "took": 24.1,
+       "msg": 15
+      }
+     ],
+     "control_ready": 2108.702,
+     "other_load": 1152.48107165474,
+     "round": 2
+    },
+    {
+     "polls": [
+      [
+       1520.689,
+       1717.382,
+       0
+      ]
+     ],
+     "power_sent": 0,
+     "main": 55.933,
+     "start:core_find": 112.544,
+     "start:platform": 173.482,
+     "start:core_connect": 89.766,
+     "start:write_workspace": 537.581,
+     "start:app_running": 641.47,
+     "start:install_themes_icons": 671.592,
+     "start:installs_wait": 87.16,
+     "start:fonts": 82.025,
+     "start:mods_init": 0.506,
+     "start:core_wait": 0.039,
+     "start:js_runtime": 31.236,
+     "start:install_layouts": 36.954,
+     "ui:mod_load": 336.243,
+     "first_render": 1365.928,
+     "first_paint": 1434.911,
+     "start:open_window": 620.803,
+     "gap": [
+      {
+       "kind": "span",
+       "name": "start:open_window",
+       "start": 817.1,
+       "took": 620.8
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1439.9,
+       "took": 8.3
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1439.6,
+       "took": 8.6
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1439.6,
+       "took": 8.6
+      },
+      {
+       "kind": "task",
+       "end": 1448.5,
+       "took": 10.1,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:mod_load",
+       "start": 1450.7,
+       "took": 142.6
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1450.6,
+       "took": 143.3
+      },
+      {
+       "kind": "task",
+       "end": 1596.8,
+       "took": 146.9,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1702.3,
+       "took": 100.5,
+       "msg": 15
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1703.5,
+       "took": 15.2
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1703.1,
+       "took": 15.6
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1703.1,
+       "took": 15.7
+      },
+      {
+       "kind": "task",
+       "end": 1719.1,
+       "took": 16.7,
+       "msg": 1027
+      }
+     ],
+     "control_ready": 1717.382,
+     "other_load": 1382.0274807786072,
+     "round": 3
+    },
+    {
+     "polls": [
+      [
+       1507.675,
+       2187.245,
+       0
+      ]
+     ],
+     "power_sent": 0,
+     "main": 51.584,
+     "start:core_find": 109.805,
+     "start:platform": 166.033,
+     "start:core_connect": 400.933,
+     "start:write_workspace": 575.221,
+     "start:app_running": 680.607,
+     "start:install_themes_icons": 737.624,
+     "start:installs_wait": 109.793,
+     "start:fonts": 72.432,
+     "start:mods_init": 0.455,
+     "start:core_wait": 0.025,
+     "start:js_runtime": 26.735,
+     "start:install_layouts": 30.552,
+     "ui:mod_load": 253.37600000000003,
+     "first_render": 1327.59,
+     "first_paint": 1382.144,
+     "start:open_window": 515.954,
+     "gap": [
+      {
+       "kind": "span",
+       "name": "start:open_window",
+       "start": 867.8,
+       "took": 516.0
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1384.7,
+       "took": 5.8
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1384.4,
+       "took": 6.1
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1384.4,
+       "took": 6.1
+      },
+      {
+       "kind": "task",
+       "end": 1390.7,
+       "took": 6.8,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:mod_load",
+       "start": 1392.0,
+       "took": 101.0
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1391.9,
+       "took": 101.5
+      },
+      {
+       "kind": "task",
+       "end": 1493.9,
+       "took": 102.2,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1605.9,
+       "took": 111.5,
+       "msg": 15
+      },
+      {
+       "kind": "task",
+       "end": 2175.8,
+       "took": 569.8,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 2176.8,
+       "took": 7.2
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 2176.5,
+       "took": 7.5
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 2176.5,
+       "took": 7.5
+      },
+      {
+       "kind": "task",
+       "end": 2185.3,
+       "took": 9.4,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 2209.0,
+       "took": 22.3,
+       "msg": 15
+      }
+     ],
+     "control_ready": 2187.245,
+     "other_load": 1283.5546808908196,
+     "round": 4
+    },
+    {
+     "polls": [
+      [
+       1414.632,
+       2157.732,
+       0
+      ]
+     ],
+     "power_sent": 0,
+     "main": 59.475,
+     "start:core_find": 116.193,
+     "start:platform": 180.585,
+     "start:core_connect": 100.186,
+     "start:write_workspace": 567.916,
+     "start:app_running": 661.179,
+     "start:install_themes_icons": 693.304,
+     "start:installs_wait": 92.938,
+     "start:fonts": 86.238,
+     "start:mods_init": 0.776,
+     "start:core_wait": 0.035,
+     "start:js_runtime": 19.853,
+     "start:install_layouts": 35.507,
+     "ui:mod_load": 274.096,
+     "first_render": 1267.988,
+     "first_paint": 1327.559,
+     "start:open_window": 483.076,
+     "gap": [
+      {
+       "kind": "span",
+       "name": "start:open_window",
+       "start": 846.0,
+       "took": 483.1
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1330.1,
+       "took": 5.7
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1329.9,
+       "took": 5.9
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1329.8,
+       "took": 6.0
+      },
+      {
+       "kind": "task",
+       "end": 1336.3,
+       "took": 7.1,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:mod_load",
+       "start": 1338.0,
+       "took": 122.3
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1338.0,
+       "took": 122.9
+      },
+      {
+       "kind": "task",
+       "end": 1461.3,
+       "took": 123.6,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1571.5,
+       "took": 109.8,
+       "msg": 15
+      },
+      {
+       "kind": "task",
+       "end": 2144.8,
+       "took": 573.2,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 2145.9,
+       "took": 6.0
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 2145.5,
+       "took": 6.4
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 2145.5,
+       "took": 6.4
+      },
+      {
+       "kind": "task",
+       "end": 2152.7,
+       "took": 7.7,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 2174.8,
+       "took": 20.2,
+       "msg": 15
+      }
+     ],
+     "control_ready": 2157.732,
+     "other_load": 1389.699295746515,
+     "round": 5
+    },
+    {
+     "polls": [
+      [
+       1730.043,
+       1893.031,
+       0
+      ]
+     ],
+     "power_sent": 0,
+     "main": 81.589,
+     "start:core_find": 144.668,
+     "start:platform": 231.512,
+     "start:core_connect": 167.928,
+     "start:write_workspace": 711.602,
+     "start:app_running": 836.595,
+     "start:install_themes_icons": 925.638,
+     "start:installs_wait": 172.263,
+     "start:fonts": 81.656,
+     "start:mods_init": 0.467,
+     "start:core_wait": 0.03,
+     "start:js_runtime": 25.496,
+     "start:install_layouts": 28.02,
+     "ui:mod_load": 307.312,
+     "first_render": 1582.834,
+     "first_paint": 1650.676,
+     "start:open_window": 557.299,
+     "gap": [
+      {
+       "kind": "span",
+       "name": "start:open_window",
+       "start": 1095.3,
+       "took": 557.3
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1653.7,
+       "took": 6.7
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1653.3,
+       "took": 7.0
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1653.2,
+       "took": 7.1
+      },
+      {
+       "kind": "task",
+       "end": 1660.9,
+       "took": 8.2,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1691.3,
+       "took": 29.9,
+       "msg": 15
+      },
+      {
+       "kind": "span",
+       "name": "ui:mod_load",
+       "start": 1691.9,
+       "took": 111.6
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1691.9,
+       "took": 112.2
+      },
+      {
+       "kind": "frame",
+       "end": 1877.6,
+       "took": 73.2,
+       "msg": 15
+      },
+      {
+       "kind": "task",
+       "end": 1877.6,
+       "took": 186.1,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1879.0,
+       "took": 10.2
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1878.7,
+       "took": 10.4
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1878.7,
+       "took": 10.5
+      },
+      {
+       "kind": "task",
+       "end": 1891.6,
+       "took": 13.9,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1905.2,
+       "took": 12.6,
+       "msg": 15
+      }
+     ],
+     "control_ready": 1893.031,
+     "other_load": 1509.0797854435002,
+     "round": 6
+    },
+    {
+     "polls": [
+      [
+       1514.725,
+       2103.29,
+       0
+      ]
+     ],
+     "power_sent": 0,
+     "main": 62.322,
+     "start:core_find": 121.893,
+     "start:platform": 189.269,
+     "start:core_connect": 90.268,
+     "start:write_workspace": 598.032,
+     "start:app_running": 703.178,
+     "start:install_themes_icons": 768.388,
+     "start:installs_wait": 128.954,
+     "start:fonts": 89.636,
+     "start:mods_init": 0.858,
+     "start:core_wait": 0.12,
+     "start:js_runtime": 19.192,
+     "start:install_layouts": 25.976,
+     "ui:mod_load": 255.9,
+     "first_render": 1316.932,
+     "first_paint": 1393.109,
+     "start:open_window": 466.777,
+     "gap": [
+      {
+       "kind": "span",
+       "name": "start:open_window",
+       "start": 928.6,
+       "took": 466.8
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1396.6,
+       "took": 7.8
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1396.3,
+       "took": 8.1
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1396.3,
+       "took": 8.2
+      },
+      {
+       "kind": "task",
+       "end": 1405.1,
+       "took": 9.5,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:mod_load",
+       "start": 1407.5,
+       "took": 109.3
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1407.4,
+       "took": 109.8
+      },
+      {
+       "kind": "task",
+       "end": 1518.9,
+       "took": 111.8,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1614.9,
+       "took": 94.0,
+       "msg": 15
+      },
+      {
+       "kind": "task",
+       "end": 2089.2,
+       "took": 474.3,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 2091.5,
+       "took": 6.3
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 2091.0,
+       "took": 6.7
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 2091.0,
+       "took": 6.8
+      },
+      {
+       "kind": "task",
+       "end": 2098.5,
+       "took": 8.2,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 2124.6,
+       "took": 21.3,
+       "msg": 15
+      }
+     ],
+     "control_ready": 2103.29,
+     "other_load": 1316.4431179991723,
+     "round": 7
+    },
+    {
+     "polls": [
+      [
+       1700.737,
+       2434.191,
+       0
+      ]
+     ],
+     "power_sent": 0,
+     "main": 64.368,
+     "start:core_find": 122.081,
+     "start:platform": 192.138,
+     "start:core_connect": 488.453,
+     "start:write_workspace": 619.876,
+     "start:app_running": 742.383,
+     "start:install_themes_icons": 816.662,
+     "start:installs_wait": 140.364,
+     "start:fonts": 92.471,
+     "start:mods_init": 1.023,
+     "start:core_wait": 0.046,
+     "start:js_runtime": 32.46,
+     "start:install_layouts": 37.178,
+     "ui:mod_load": 315.93,
+     "first_render": 1571.471,
+     "first_paint": 1631.979,
+     "start:open_window": 650.952,
+     "gap": [
+      {
+       "kind": "span",
+       "name": "start:open_window",
+       "start": 982.7,
+       "took": 651.0
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1634.6,
+       "took": 5.2
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1634.4,
+       "took": 5.4
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1634.4,
+       "took": 5.4
+      },
+      {
+       "kind": "task",
+       "end": 1640.0,
+       "took": 6.3,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:mod_load",
+       "start": 1641.3,
+       "took": 98.5
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1641.3,
+       "took": 99.2
+      },
+      {
+       "kind": "task",
+       "end": 1743.8,
+       "took": 102.8,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1830.3,
+       "took": 85.6,
+       "msg": 15
+      },
+      {
+       "kind": "task",
+       "end": 2413.2,
+       "took": 582.8,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 2413.8,
+       "took": 8.1
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 2413.5,
+       "took": 8.5
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 2413.4,
+       "took": 8.5
+      },
+      {
+       "kind": "task",
+       "end": 2422.7,
+       "took": 9.4,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 2448.2,
+       "took": 24.6,
+       "msg": 15
+      }
+     ],
+     "control_ready": 2434.191,
+     "other_load": 1570.5870819954112,
+     "round": 8
+    },
+    {
+     "polls": [
+      [
+       1512.099,
+       2113.477,
+       0
+      ]
+     ],
+     "power_sent": 0,
+     "main": 59.364,
+     "start:core_find": 108.835,
+     "start:platform": 173.754,
+     "start:core_connect": 104.636,
+     "start:write_workspace": 591.15,
+     "start:app_running": 725.52,
+     "start:install_themes_icons": 767.246,
+     "start:installs_wait": 102.629,
+     "start:fonts": 77.179,
+     "start:mods_init": 0.451,
+     "start:core_wait": 0.031,
+     "start:js_runtime": 25.443,
+     "start:install_layouts": 40.979,
+     "ui:mod_load": 253.78300000000002,
+     "first_render": 1376.904,
+     "first_paint": 1429.186,
+     "start:open_window": 520.564,
+     "gap": [
+      {
+       "kind": "span",
+       "name": "start:open_window",
+       "start": 910.1,
+       "took": 520.6
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1431.6,
+       "took": 5.0
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1431.4,
+       "took": 5.2
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1431.4,
+       "took": 5.3
+      },
+      {
+       "kind": "task",
+       "end": 1437.1,
+       "took": 6.3,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:mod_load",
+       "start": 1439.6,
+       "took": 90.8
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1439.6,
+       "took": 91.6
+      },
+      {
+       "kind": "task",
+       "end": 1531.7,
+       "took": 92.3,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1622.6,
+       "took": 90.0,
+       "msg": 15
+      },
+      {
+       "kind": "task",
+       "end": 2101.0,
+       "took": 478.3,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 2101.9,
+       "took": 6.5
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 2101.6,
+       "took": 6.8
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 2101.6,
+       "took": 6.8
+      },
+      {
+       "kind": "task",
+       "end": 2108.8,
+       "took": 7.8,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 2150.4,
+       "took": 38.1,
+       "msg": 15
+      }
+     ],
+     "control_ready": 2113.477,
+     "other_load": 1440.833958324935,
+     "round": 9
+    },
+    {
+     "polls": [
+      [
+       1488.855,
+       1573.933,
+       0
+      ]
+     ],
+     "power_sent": 0,
+     "main": 49.472,
+     "start:core_find": 107.199,
+     "start:platform": 161.525,
+     "start:core_connect": 99.488,
+     "start:write_workspace": 578.169,
+     "start:app_running": 665.939,
+     "start:install_themes_icons": 724.44,
+     "start:installs_wait": 109.165,
+     "start:fonts": 76.394,
+     "start:mods_init": 0.577,
+     "start:core_wait": 0.034,
+     "start:js_runtime": 24.311,
+     "start:install_layouts": 30.139,
+     "ui:mod_load": 259.797,
+     "first_render": 1300.241,
+     "first_paint": 1361.798,
+     "start:open_window": 507.369,
+     "gap": [
+      {
+       "kind": "span",
+       "name": "start:open_window",
+       "start": 856.4,
+       "took": 507.4
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1364.9,
+       "took": 6.4
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1364.6,
+       "took": 6.6
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1364.6,
+       "took": 6.7
+      },
+      {
+       "kind": "task",
+       "end": 1371.8,
+       "took": 7.9,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1400.9,
+       "took": 28.5,
+       "msg": 15
+      },
+      {
+       "kind": "span",
+       "name": "ui:mod_load",
+       "start": 1401.5,
+       "took": 84.7
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1401.5,
+       "took": 85.2
+      },
+      {
+       "kind": "frame",
+       "end": 1559.7,
+       "took": 72.9,
+       "msg": 15
+      },
+      {
+       "kind": "task",
+       "end": 1559.7,
+       "took": 158.6,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1562.1,
+       "took": 6.5
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1561.9,
+       "took": 6.8
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1561.9,
+       "took": 6.8
+      },
+      {
+       "kind": "task",
+       "end": 1568.9,
+       "took": 8.3,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1586.1,
+       "took": 15.2,
+       "msg": 15
+      }
+     ],
+     "control_ready": 1573.933,
+     "other_load": 1247.9066799493949,
+     "round": 10
+    },
+    {
+     "polls": [
+      [
+       1610.555,
+       2257.846,
+       0
+      ]
+     ],
+     "power_sent": 0,
+     "main": 50.487,
+     "start:core_find": 108.522,
+     "start:platform": 164.006,
+     "start:core_connect": 94.328,
+     "start:app_running": 708.848,
+     "start:write_workspace": 667.887,
+     "start:install_themes_icons": 846.442,
+     "start:installs_wait": 189.537,
+     "start:fonts": 79.923,
+     "start:mods_init": 0.503,
+     "start:core_wait": 0.029,
+     "start:js_runtime": 24.73,
+     "start:install_layouts": 31.354,
+     "ui:mod_load": 244.43099999999998,
+     "first_render": 1459.61,
+     "first_paint": 1521.044,
+     "start:open_window": 537.629,
+     "gap": [
+      {
+       "kind": "span",
+       "name": "start:open_window",
+       "start": 985.3,
+       "took": 537.6
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1525.6,
+       "took": 6.9
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1525.3,
+       "took": 7.2
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1525.3,
+       "took": 7.2
+      },
+      {
+       "kind": "task",
+       "end": 1532.8,
+       "took": 8.4,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:mod_load",
+       "start": 1537.1,
+       "took": 93.4
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1537.0,
+       "took": 93.8
+      },
+      {
+       "kind": "task",
+       "end": 1632.4,
+       "took": 95.7,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1719.4,
+       "took": 86.2,
+       "msg": 15
+      },
+      {
+       "kind": "task",
+       "end": 2247.5,
+       "took": 528.1,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 2249.0,
+       "took": 4.8
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 2248.8,
+       "took": 5.0
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 2248.8,
+       "took": 5.1
+      },
+      {
+       "kind": "task",
+       "end": 2254.1,
+       "took": 5.9,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 2269.6,
+       "took": 14.8,
+       "msg": 15
+      }
+     ],
+     "control_ready": 2257.846,
+     "other_load": 1343.2642704552468,
+     "round": 11
+    },
+    {
+     "polls": [
+      [
+       1420.741,
+       2000.622,
+       0
+      ]
+     ],
+     "power_sent": 0,
+     "main": 54.068,
+     "start:core_find": 123.695,
+     "start:platform": 182.113,
+     "start:core_connect": 83.305,
+     "start:write_workspace": 539.247,
+     "start:app_running": 633.167,
+     "start:install_themes_icons": 685.242,
+     "start:installs_wait": 107.418,
+     "start:fonts": 77.743,
+     "start:mods_init": 0.481,
+     "start:core_wait": 0.03,
+     "start:js_runtime": 18.658,
+     "start:install_layouts": 28.079,
+     "ui:mod_load": 278.04,
+     "first_render": 1253.21,
+     "first_paint": 1309.105,
+     "start:open_window": 487.099,
+     "gap": [
+      {
+       "kind": "span",
+       "name": "start:open_window",
+       "start": 823.7,
+       "took": 487.1
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1311.9,
+       "took": 4.9
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1311.6,
+       "took": 5.2
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1311.6,
+       "took": 5.2
+      },
+      {
+       "kind": "task",
+       "end": 1317.0,
+       "took": 6.0,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:mod_load",
+       "start": 1317.8,
+       "took": 106.6
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1317.8,
+       "took": 107.3
+      },
+      {
+       "kind": "task",
+       "end": 1426.9,
+       "took": 109.5,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1515.8,
+       "took": 88.2,
+       "msg": 15
+      },
+      {
+       "kind": "task",
+       "end": 1989.3,
+       "took": 473.4,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1990.0,
+       "took": 7.4
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1989.8,
+       "took": 7.6
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1989.7,
+       "took": 7.6
+      },
+      {
+       "kind": "task",
+       "end": 1997.8,
+       "took": 8.4,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 2014.8,
+       "took": 14.7,
+       "msg": 15
+      }
+     ],
+     "control_ready": 2000.622,
+     "other_load": 1264.344090846516,
+     "round": 12
+    },
+    {
+     "polls": [
+      [
+       1391.351,
+       1545.605,
+       0
+      ]
+     ],
+     "power_sent": 0,
+     "main": 53.977,
+     "start:core_find": 115.061,
+     "start:platform": 174.313,
+     "start:core_connect": 93.485,
+     "start:write_workspace": 555.289,
+     "start:app_running": 637.859,
+     "start:install_themes_icons": 687.527,
+     "start:installs_wait": 104.818,
+     "start:fonts": 80.278,
+     "start:mods_init": 0.472,
+     "start:core_wait": 0.027,
+     "start:js_runtime": 27.895,
+     "start:install_layouts": 26.508,
+     "ui:mod_load": 241.676,
+     "first_render": 1259.365,
+     "first_paint": 1329.945,
+     "start:open_window": 503.663,
+     "gap": [
+      {
+       "kind": "span",
+       "name": "start:open_window",
+       "start": 828.3,
+       "took": 503.7
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1333.8,
+       "took": 5.1
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1333.6,
+       "took": 5.4
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1333.6,
+       "took": 5.4
+      },
+      {
+       "kind": "task",
+       "end": 1339.2,
+       "took": 6.7,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1364.5,
+       "took": 25.2,
+       "msg": 15
+      },
+      {
+       "kind": "span",
+       "name": "ui:mod_load",
+       "start": 1365.3,
+       "took": 90.9
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1365.3,
+       "took": 91.6
+      },
+      {
+       "kind": "frame",
+       "end": 1534.0,
+       "took": 77.0,
+       "msg": 15
+      },
+      {
+       "kind": "task",
+       "end": 1534.1,
+       "took": 169.5,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1534.9,
+       "took": 6.5
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1534.7,
+       "took": 6.8
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1534.7,
+       "took": 6.8
+      },
+      {
+       "kind": "task",
+       "end": 1541.9,
+       "took": 7.8,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1553.8,
+       "took": 11.7,
+       "msg": 15
+      }
+     ],
+     "control_ready": 1545.605,
+     "other_load": 1294.6843646056689,
+     "round": 13
+    },
+    {
+     "polls": [
+      [
+       1498.453,
+       1623.29,
+       0
+      ]
+     ],
+     "power_sent": 0,
+     "main": 57.47,
+     "start:core_find": 119.486,
+     "start:platform": 183.243,
+     "start:core_connect": 98.121,
+     "start:write_workspace": 579.108,
+     "start:app_running": 669.89,
+     "start:install_themes_icons": 743.121,
+     "start:installs_wait": 131.991,
+     "start:fonts": 76.93,
+     "start:mods_init": 0.455,
+     "start:core_wait": 0.025,
+     "start:js_runtime": 19.513,
+     "start:install_layouts": 31.816,
+     "ui:mod_load": 264.201,
+     "first_render": 1338.732,
+     "first_paint": 1426.589,
+     "start:open_window": 544.246,
+     "gap": [
+      {
+       "kind": "span",
+       "name": "start:open_window",
+       "start": 884.1,
+       "took": 544.2
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1429.5,
+       "took": 4.8
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1429.2,
+       "took": 5.0
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1429.2,
+       "took": 5.0
+      },
+      {
+       "kind": "task",
+       "end": 1434.4,
+       "took": 5.7,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1455.5,
+       "took": 20.8,
+       "msg": 15
+      },
+      {
+       "kind": "span",
+       "name": "ui:mod_load",
+       "start": 1456.1,
+       "took": 80.4
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1456.1,
+       "took": 81.0
+      },
+      {
+       "kind": "frame",
+       "end": 1607.4,
+       "took": 69.5,
+       "msg": 15
+      },
+      {
+       "kind": "task",
+       "end": 1608.0,
+       "took": 152.5,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1610.0,
+       "took": 11.5
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1609.7,
+       "took": 11.8
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1609.6,
+       "took": 11.8
+      },
+      {
+       "kind": "frame",
+       "end": 1640.0,
+       "took": 18.4,
+       "msg": 15
+      },
+      {
+       "kind": "task",
+       "end": 1640.8,
+       "took": 32.6,
+       "msg": 1027
+      }
+     ],
+     "control_ready": 1623.29,
+     "other_load": 1282.7952348084061,
+     "round": 14
+    },
+    {
+     "polls": [
+      [
+       1511.22,
+       1684.655,
+       0
+      ]
+     ],
+     "power_sent": 0,
+     "main": 52.247,
+     "start:core_find": 124.391,
+     "start:platform": 181.02,
+     "start:core_connect": 96.782,
+     "start:write_workspace": 635.049,
+     "start:app_running": 713.035,
+     "start:install_themes_icons": 804.155,
+     "start:installs_wait": 144.654,
+     "start:fonts": 82.419,
+     "start:mods_init": 0.482,
+     "start:core_wait": 0.029,
+     "start:js_runtime": 22.627,
+     "start:install_layouts": 32.389,
+     "ui:mod_load": 284.674,
+     "first_render": 1372.283,
+     "first_paint": 1448.49,
+     "start:open_window": 505.441,
+     "gap": [
+      {
+       "kind": "span",
+       "name": "start:open_window",
+       "start": 945.3,
+       "took": 505.4
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1452.8,
+       "took": 6.6
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1452.5,
+       "took": 6.9
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1452.5,
+       "took": 7.0
+      },
+      {
+       "kind": "task",
+       "end": 1459.7,
+       "took": 8.0,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:mod_load",
+       "start": 1462.3,
+       "took": 113.1
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1462.2,
+       "took": 113.7
+      },
+      {
+       "kind": "frame",
+       "end": 1672.8,
+       "took": 96.8,
+       "msg": 15
+      },
+      {
+       "kind": "task",
+       "end": 1672.9,
+       "took": 211.2,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1674.1,
+       "took": 6.4
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1673.8,
+       "took": 6.7
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1673.7,
+       "took": 6.8
+      },
+      {
+       "kind": "task",
+       "end": 1680.9,
+       "took": 8.0,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1695.2,
+       "took": 14.2,
+       "msg": 15
+      }
+     ],
+     "control_ready": 1684.655,
+     "other_load": 1291.3625971835463,
+     "round": 15
+    },
+    {
+     "polls": [
+      [
+       1485.552,
+       1618.674,
+       0
+      ]
+     ],
+     "power_sent": 0,
+     "main": 47.289,
+     "start:core_find": 111.777,
+     "start:platform": 163.95,
+     "start:core_connect": 129.143,
+     "start:write_workspace": 583.509,
+     "start:app_running": 651.789,
+     "start:install_themes_icons": 722.194,
+     "start:installs_wait": 119.006,
+     "start:fonts": 75.918,
+     "start:mods_init": 0.45,
+     "start:core_wait": 0.027,
+     "start:js_runtime": 20.291,
+     "start:install_layouts": 39.706,
+     "ui:mod_load": 314.71900000000005,
+     "first_render": 1326.851,
+     "first_paint": 1389.904,
+     "start:open_window": 540.911,
+     "gap": [
+      {
+       "kind": "span",
+       "name": "start:open_window",
+       "start": 851.4,
+       "took": 540.9
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1394.0,
+       "took": 6.8
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1393.7,
+       "took": 7.1
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1393.6,
+       "took": 7.1
+      },
+      {
+       "kind": "task",
+       "end": 1401.5,
+       "took": 8.9,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1426.7,
+       "took": 24.6,
+       "msg": 15
+      },
+      {
+       "kind": "span",
+       "name": "ui:mod_load",
+       "start": 1427.1,
+       "took": 99.1
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1427.0,
+       "took": 99.6
+      },
+      {
+       "kind": "frame",
+       "end": 1607.6,
+       "took": 80.4,
+       "msg": 15
+      },
+      {
+       "kind": "task",
+       "end": 1607.8,
+       "took": 181.1,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1609.2,
+       "took": 5.9
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1609.0,
+       "took": 6.2
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1609.0,
+       "took": 6.2
+      },
+      {
+       "kind": "task",
+       "end": 1615.4,
+       "took": 7.5,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1627.0,
+       "took": 11.6,
+       "msg": 15
+      }
+     ],
+     "control_ready": 1618.674,
+     "other_load": 1235.7714254657387,
+     "round": 16
+    },
+    {
+     "polls": [
+      [
+       1496.84,
+       1576.39,
+       0
+      ]
+     ],
+     "power_sent": 0,
+     "main": 52.947,
+     "start:core_find": 112.733,
+     "start:platform": 171.278,
+     "start:core_connect": 101.473,
+     "start:write_workspace": 598.299,
+     "start:app_running": 673.926,
+     "start:install_themes_icons": 769.091,
+     "start:installs_wait": 149.656,
+     "start:fonts": 75.821,
+     "start:mods_init": 1.027,
+     "start:core_wait": 0.034,
+     "start:js_runtime": 19.884,
+     "start:install_layouts": 25.848,
+     "ui:mod_load": 285.723,
+     "first_render": 1363.917,
+     "first_paint": 1430.451,
+     "start:open_window": 526.095,
+     "gap": [
+      {
+       "kind": "span",
+       "name": "start:open_window",
+       "start": 906.0,
+       "took": 526.1
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1433.1,
+       "took": 6.0
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1432.9,
+       "took": 6.2
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1432.9,
+       "took": 6.3
+      },
+      {
+       "kind": "task",
+       "end": 1439.7,
+       "took": 7.4,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1465.4,
+       "took": 24.3,
+       "msg": 15
+      },
+      {
+       "kind": "span",
+       "name": "ui:mod_load",
+       "start": 1465.9,
+       "took": 94.4
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1465.9,
+       "took": 94.9
+      },
+      {
+       "kind": "task",
+       "end": 1562.7,
+       "took": 97.2,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1639.9,
+       "took": 72.8,
+       "msg": 15
+      }
+     ],
+     "control_ready": 1576.39,
+     "other_load": 1414.555544146709,
+     "round": 17
+    },
+    {
+     "polls": [
+      [
+       1607.657,
+       1832.708,
+       0
+      ]
+     ],
+     "power_sent": 0,
+     "main": 60.089,
+     "start:core_find": 127.299,
+     "start:platform": 192.449,
+     "start:core_connect": 132.599,
+     "start:write_workspace": 644.635,
+     "start:app_running": 751.877,
+     "start:install_themes_icons": 824.638,
+     "start:installs_wait": 134.379,
+     "start:fonts": 76.07,
+     "start:mods_init": 0.61,
+     "start:core_wait": 0.031,
+     "start:js_runtime": 37.053,
+     "start:install_layouts": 34.77,
+     "ui:mod_load": 323.52500000000003,
+     "first_render": 1486.864,
+     "first_paint": 1559.966,
+     "start:open_window": 594.331,
+     "gap": [
+      {
+       "kind": "span",
+       "name": "start:open_window",
+       "start": 967.6,
+       "took": 594.3
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1562.8,
+       "took": 6.3
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1562.5,
+       "took": 6.6
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1562.5,
+       "took": 6.6
+      },
+      {
+       "kind": "task",
+       "end": 1569.8,
+       "took": 7.8,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1604.4,
+       "took": 32.6,
+       "msg": 15
+      },
+      {
+       "kind": "span",
+       "name": "ui:mod_load",
+       "start": 1605.0,
+       "took": 126.7
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1604.9,
+       "took": 127.2
+      },
+      {
+       "kind": "frame",
+       "end": 1815.4,
+       "took": 83.1,
+       "msg": 15
+      },
+      {
+       "kind": "task",
+       "end": 1816.2,
+       "took": 211.7,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1817.9,
+       "took": 11.0
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1817.5,
+       "took": 11.4
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1817.5,
+       "took": 11.5
+      },
+      {
+       "kind": "frame",
+       "end": 1846.8,
+       "took": 17.6,
+       "msg": 15
+      },
+      {
+       "kind": "task",
+       "end": 1846.8,
+       "took": 30.4,
+       "msg": 1027
+      }
+     ],
+     "control_ready": 1832.708,
+     "other_load": 1513.1075273295385,
+     "round": 18
+    },
+    {
+     "polls": [
+      [
+       2013.137,
+       2263.429,
+       0
+      ]
+     ],
+     "power_sent": 0,
+     "main": 54.076,
+     "start:core_find": 150.057,
+     "start:platform": 208.569,
+     "start:core_connect": 126.661,
+     "start:write_workspace": 643.812,
+     "start:app_running": 775.177,
+     "start:install_themes_icons": 880.704,
+     "start:installs_wait": 160.822,
+     "start:fonts": 88.595,
+     "start:mods_init": 0.503,
+     "start:core_wait": 0.028,
+     "start:js_runtime": 30.368,
+     "start:install_layouts": 49.354,
+     "ui:mod_load": 631.376,
+     "first_render": 1759.473,
+     "first_paint": 1892.207,
+     "start:open_window": 864.355,
+     "gap": [
+      {
+       "kind": "span",
+       "name": "start:open_window",
+       "start": 1030.5,
+       "took": 864.4
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1897.4,
+       "took": 13.1
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1896.3,
+       "took": 14.2
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1896.3,
+       "took": 14.2
+      },
+      {
+       "kind": "task",
+       "end": 1932.8,
+       "took": 37.2,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:mod_load",
+       "start": 1935.0,
+       "took": 303.6
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1934.9,
+       "took": 304.3
+      },
+      {
+       "kind": "task",
+       "end": 2248.3,
+       "took": 315.5,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 2389.0,
+       "took": 129.9,
+       "msg": 15
+      }
+     ],
+     "control_ready": 2263.429,
+     "other_load": 1665.6792053908578,
+     "round": 19
+    },
+    {
+     "polls": [
+      [
+       1601.862,
+       2309.734,
+       0
+      ]
+     ],
+     "power_sent": 0,
+     "main": 53.012,
+     "start:core_find": 123.116,
+     "start:platform": 182.112,
+     "start:core_connect": 247.562,
+     "start:write_workspace": 613.782,
+     "start:app_running": 755.929,
+     "start:install_themes_icons": 806.698,
+     "start:installs_wait": 105.319,
+     "start:fonts": 76.339,
+     "start:mods_init": 1.065,
+     "start:core_wait": 0.029,
+     "start:js_runtime": 23.102,
+     "start:install_layouts": 27.127,
+     "ui:mod_load": 269.417,
+     "first_render": 1418.334,
+     "first_paint": 1488.539,
+     "start:open_window": 546.969,
+     "gap": [
+      {
+       "kind": "span",
+       "name": "start:open_window",
+       "start": 943.3,
+       "took": 547.0
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1491.4,
+       "took": 4.9
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1491.2,
+       "took": 5.2
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1491.1,
+       "took": 5.2
+      },
+      {
+       "kind": "task",
+       "end": 1496.6,
+       "took": 6.0,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:mod_load",
+       "start": 1498.1,
+       "took": 99.0
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1498.1,
+       "took": 99.5
+      },
+      {
+       "kind": "task",
+       "end": 1599.9,
+       "took": 102.3,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1701.3,
+       "took": 100.2,
+       "msg": 15
+      },
+      {
+       "kind": "task",
+       "end": 2298.9,
+       "took": 597.6,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 2300.0,
+       "took": 5.4
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 2299.8,
+       "took": 5.6
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 2299.7,
+       "took": 5.7
+      },
+      {
+       "kind": "task",
+       "end": 2305.7,
+       "took": 6.7,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 2326.2,
+       "took": 17.8,
+       "msg": 15
+      }
+     ],
+     "control_ready": 2309.734,
+     "other_load": 1399.7059525145862,
+     "round": 20
+    },
+    {
+     "polls": [
+      [
+       1740.635,
+       1861.572,
+       0
+      ]
+     ],
+     "power_sent": 0,
+     "main": 81.282,
+     "start:core_find": 142.804,
+     "start:platform": 228.904,
+     "start:core_connect": 120.612,
+     "start:write_workspace": 582.852,
+     "start:app_running": 795.082,
+     "start:install_themes_icons": 806.869,
+     "start:installs_wait": 94.439,
+     "start:fonts": 86.29,
+     "start:mods_init": 0.684,
+     "start:core_wait": 0.033,
+     "start:js_runtime": 27.386,
+     "start:install_layouts": 43.015,
+     "ui:mod_load": 329.908,
+     "first_render": 1560.587,
+     "first_paint": 1620.426,
+     "start:open_window": 639.856,
+     "gap": [
+      {
+       "kind": "span",
+       "name": "start:open_window",
+       "start": 982.2,
+       "took": 639.9
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1624.4,
+       "took": 5.3
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1624.1,
+       "took": 5.6
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1624.1,
+       "took": 5.6
+      },
+      {
+       "kind": "task",
+       "end": 1630.2,
+       "took": 6.8,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1654.7,
+       "took": 24.3,
+       "msg": 15
+      },
+      {
+       "kind": "span",
+       "name": "ui:mod_load",
+       "start": 1655.2,
+       "took": 99.2
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1655.1,
+       "took": 99.9
+      },
+      {
+       "kind": "frame",
+       "end": 1847.9,
+       "took": 92.8,
+       "msg": 15
+      },
+      {
+       "kind": "task",
+       "end": 1848.0,
+       "took": 193.3,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1849.5,
+       "took": 6.7
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1849.2,
+       "took": 7.0
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1849.2,
+       "took": 7.0
+      },
+      {
+       "kind": "task",
+       "end": 1856.4,
+       "took": 8.5,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1874.0,
+       "took": 17.5,
+       "msg": 15
+      }
+     ],
+     "control_ready": 1861.572,
+     "other_load": 1358.4530738365283,
+     "round": 21
+    },
+    {
+     "polls": [
+      [
+       1605.088,
+       2275.216,
+       0
+      ]
+     ],
+     "power_sent": 0,
+     "main": 59.701,
+     "start:core_find": 143.0,
+     "start:platform": 208.095,
+     "start:core_connect": 139.733,
+     "start:write_workspace": 665.501,
+     "start:app_running": 802.557,
+     "start:install_themes_icons": 876.348,
+     "start:installs_wait": 135.048,
+     "start:fonts": 84.336,
+     "start:mods_init": 0.478,
+     "start:core_wait": 0.027,
+     "start:js_runtime": 19.82,
+     "start:install_layouts": 31.378,
+     "ui:mod_load": 251.051,
+     "first_render": 1445.648,
+     "first_paint": 1504.849,
+     "start:open_window": 479.62,
+     "gap": [
+      {
+       "kind": "span",
+       "name": "start:open_window",
+       "start": 1027.0,
+       "took": 479.6
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1507.8,
+       "took": 6.2
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1507.5,
+       "took": 6.5
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1507.5,
+       "took": 6.6
+      },
+      {
+       "kind": "task",
+       "end": 1514.6,
+       "took": 7.8,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:mod_load",
+       "start": 1515.7,
+       "took": 93.7
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1515.7,
+       "took": 94.3
+      },
+      {
+       "kind": "task",
+       "end": 1612.8,
+       "took": 97.4,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1712.0,
+       "took": 98.4,
+       "msg": 15
+      },
+      {
+       "kind": "task",
+       "end": 2264.3,
+       "took": 552.2,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 2265.2,
+       "took": 4.5
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 2265.0,
+       "took": 4.7
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 2264.9,
+       "took": 4.7
+      },
+      {
+       "kind": "task",
+       "end": 2270.0,
+       "took": 5.6,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 2290.8,
+       "took": 19.1,
+       "msg": 15
+      }
+     ],
+     "control_ready": 2275.216,
+     "other_load": 1436.6941553458303,
+     "round": 22
+    },
+    {
+     "polls": [
+      [
+       1506.046,
+       2157.102,
+       0
+      ]
+     ],
+     "power_sent": 0,
+     "main": 59.567,
+     "start:core_find": 109.443,
+     "start:platform": 175.15,
+     "start:core_connect": 97.76,
+     "start:write_workspace": 573.384,
+     "start:app_running": 671.283,
+     "start:install_themes_icons": 734.02,
+     "start:installs_wait": 124.394,
+     "start:fonts": 82.471,
+     "start:mods_init": 0.703,
+     "start:core_wait": 0.032,
+     "start:js_runtime": 21.588,
+     "start:install_layouts": 30.176,
+     "ui:mod_load": 262.29900000000004,
+     "first_render": 1340.716,
+     "first_paint": 1403.698,
+     "start:open_window": 519.804,
+     "gap": [
+      {
+       "kind": "span",
+       "name": "start:open_window",
+       "start": 885.7,
+       "took": 519.8
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1406.6,
+       "took": 6.7
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1406.3,
+       "took": 7.0
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1406.3,
+       "took": 7.0
+      },
+      {
+       "kind": "task",
+       "end": 1413.9,
+       "took": 8.2,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:mod_load",
+       "start": 1415.7,
+       "took": 90.3
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1415.7,
+       "took": 90.8
+      },
+      {
+       "kind": "task",
+       "end": 1508.9,
+       "took": 93.5,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1593.9,
+       "took": 84.1,
+       "msg": 15
+      },
+      {
+       "kind": "task",
+       "end": 2136.8,
+       "took": 542.9,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 2137.3,
+       "took": 8.3
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 2137.0,
+       "took": 8.6
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 2137.0,
+       "took": 8.6
+      },
+      {
+       "kind": "task",
+       "end": 2146.5,
+       "took": 9.5,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 2171.7,
+       "took": 22.8,
+       "msg": 15
+      }
+     ],
+     "control_ready": 2157.102,
+     "other_load": 1248.3607167919683,
+     "round": 23
+    },
+    {
+     "polls": [
+      [
+       1596.572,
+       2209.048,
+       0
+      ]
+     ],
+     "power_sent": 0,
+     "main": 47.643,
+     "start:core_find": 106.488,
+     "start:platform": 158.397,
+     "start:core_connect": 92.159,
+     "start:write_workspace": 568.31,
+     "start:app_running": 646.662,
+     "start:install_themes_icons": 781.202,
+     "start:installs_wait": 183.503,
+     "start:fonts": 100.613,
+     "start:mods_init": 0.483,
+     "start:core_wait": 0.031,
+     "start:js_runtime": 21.609,
+     "start:install_layouts": 35.377,
+     "ui:mod_load": 315.664,
+     "first_render": 1431.764,
+     "first_paint": 1488.178,
+     "start:open_window": 553.734,
+     "gap": [
+      {
+       "kind": "span",
+       "name": "start:open_window",
+       "start": 936.0,
+       "took": 553.7
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1490.6,
+       "took": 5.5
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1490.4,
+       "took": 5.7
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1490.4,
+       "took": 5.7
+      },
+      {
+       "kind": "task",
+       "end": 1496.3,
+       "took": 6.5,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:mod_load",
+       "start": 1498.8,
+       "took": 103.4
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1498.7,
+       "took": 104.0
+      },
+      {
+       "kind": "task",
+       "end": 1603.3,
+       "took": 104.8,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1696.1,
+       "took": 92.1,
+       "msg": 15
+      },
+      {
+       "kind": "task",
+       "end": 2197.7,
+       "took": 501.6,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 2198.6,
+       "took": 5.2
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 2198.3,
+       "took": 5.5
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 2198.3,
+       "took": 5.5
+      },
+      {
+       "kind": "task",
+       "end": 2204.7,
+       "took": 6.9,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 2237.0,
+       "took": 28.2,
+       "msg": 15
+      }
+     ],
+     "control_ready": 2209.048,
+     "other_load": 1307.2708891622349,
+     "round": 24
+    },
+    {
+     "polls": [
+      [
+       1510.227,
+       1649.135,
+       0
+      ]
+     ],
+     "power_sent": 0,
+     "main": 57.465,
+     "start:core_find": 161.956,
+     "start:platform": 224.326,
+     "start:core_connect": 99.847,
+     "start:write_workspace": 583.24,
+     "start:app_running": 753.911,
+     "start:install_themes_icons": 802.486,
+     "start:installs_wait": 107.58,
+     "start:fonts": 86.009,
+     "start:mods_init": 0.633,
+     "start:core_wait": 0.03,
+     "start:js_runtime": 17.892,
+     "start:install_layouts": 35.869,
+     "ui:mod_load": 252.991,
+     "first_render": 1396.631,
+     "first_paint": 1456.148,
+     "start:open_window": 504.693,
+     "gap": [
+      {
+       "kind": "span",
+       "name": "start:open_window",
+       "start": 953.2,
+       "took": 504.7
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1458.8,
+       "took": 5.9
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1458.6,
+       "took": 6.1
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1458.5,
+       "took": 6.2
+      },
+      {
+       "kind": "task",
+       "end": 1464.9,
+       "took": 6.9,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:mod_load",
+       "start": 1467.8,
+       "took": 88.2
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1467.7,
+       "took": 88.8
+      },
+      {
+       "kind": "task",
+       "end": 1557.3,
+       "took": 89.9,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1639.0,
+       "took": 80.8,
+       "msg": 15
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1640.0,
+       "took": 4.5
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1639.8,
+       "took": 4.7
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1639.8,
+       "took": 4.7
+      },
+      {
+       "kind": "task",
+       "end": 2162.7,
+       "took": 523.7,
+       "msg": 1027
+      }
+     ],
+     "control_ready": 1649.135,
+     "other_load": 1351.6893531000878,
+     "round": 25
+    },
+    {
+     "polls": [
+      [
+       1807.137,
+       2630.575,
+       0
+      ]
+     ],
+     "power_sent": 0,
+     "main": 65.159,
+     "start:core_find": 136.765,
+     "start:platform": 206.935,
+     "start:core_connect": 109.238,
+     "start:write_workspace": 670.163,
+     "start:app_running": 763.198,
+     "start:install_themes_icons": 934.962,
+     "start:installs_wait": 238.179,
+     "start:fonts": 92.166,
+     "start:mods_init": 0.602,
+     "start:core_wait": 0.039,
+     "start:js_runtime": 26.757,
+     "start:install_layouts": 31.992,
+     "ui:mod_load": 331.128,
+     "first_render": 1618.065,
+     "first_paint": 1694.292,
+     "start:open_window": 597.725,
+     "gap": [
+      {
+       "kind": "span",
+       "name": "start:open_window",
+       "start": 1098.9,
+       "took": 597.7
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1697.8,
+       "took": 7.7
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1697.4,
+       "took": 8.1
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1697.4,
+       "took": 8.2
+      },
+      {
+       "kind": "task",
+       "end": 1705.8,
+       "took": 9.0,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:mod_load",
+       "start": 1708.2,
+       "took": 125.1
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1708.2,
+       "took": 125.9
+      },
+      {
+       "kind": "task",
+       "end": 1836.7,
+       "took": 129.3,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1945.8,
+       "took": 107.2,
+       "msg": 15
+      },
+      {
+       "kind": "task",
+       "end": 2618.8,
+       "took": 672.9,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 2619.8,
+       "took": 6.6
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 2619.6,
+       "took": 6.8
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 2619.5,
+       "took": 6.9
+      },
+      {
+       "kind": "task",
+       "end": 2628.0,
+       "took": 9.2,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 2645.6,
+       "took": 16.2,
+       "msg": 15
+      }
+     ],
+     "control_ready": 2630.575,
+     "other_load": 1681.4283290772091,
+     "round": 26
+    },
+    {
+     "polls": [
+      [
+       1506.336,
+       1661.641,
+       0
+      ]
+     ],
+     "power_sent": 0,
+     "main": 52.406,
+     "start:core_find": 118.819,
+     "start:platform": 176.34,
+     "start:core_connect": 109.794,
+     "start:write_workspace": 634.103,
+     "start:app_running": 723.275,
+     "start:install_themes_icons": 788.885,
+     "start:installs_wait": 119.384,
+     "start:fonts": 87.774,
+     "start:mods_init": 0.517,
+     "start:core_wait": 0.032,
+     "start:js_runtime": 20.773,
+     "start:install_layouts": 25.217,
+     "ui:mod_load": 276.195,
+     "first_render": 1364.798,
+     "first_paint": 1424.205,
+     "start:open_window": 490.035,
+     "gap": [
+      {
+       "kind": "span",
+       "name": "start:open_window",
+       "start": 936.0,
+       "took": 490.0
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1427.7,
+       "took": 6.7
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1427.5,
+       "took": 7.0
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1427.4,
+       "took": 7.0
+      },
+      {
+       "kind": "task",
+       "end": 1434.9,
+       "took": 8.7,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:mod_load",
+       "start": 1437.5,
+       "took": 113.9
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1437.4,
+       "took": 114.4
+      },
+      {
+       "kind": "task",
+       "end": 1553.7,
+       "took": 116.5,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1650.2,
+       "took": 95.5,
+       "msg": 15
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1651.4,
+       "took": 6.3
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1651.2,
+       "took": 6.5
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1651.2,
+       "took": 6.5
+      },
+      {
+       "kind": "task",
+       "end": 2174.5,
+       "took": 524.3,
+       "msg": 1027
+      }
+     ],
+     "control_ready": 1661.641,
+     "other_load": 1363.965212227437,
+     "round": 27
+    },
+    {
+     "polls": [
+      [
+       1506.998,
+       1576.582,
+       0
+      ]
+     ],
+     "power_sent": 0,
+     "main": 50.345,
+     "start:core_find": 119.375,
+     "start:platform": 174.176,
+     "start:core_connect": 90.766,
+     "start:write_workspace": 574.754,
+     "start:app_running": 650.615,
+     "start:install_themes_icons": 749.043,
+     "start:installs_wait": 149.985,
+     "start:fonts": 81.97,
+     "start:mods_init": 0.661,
+     "start:core_wait": 0.03,
+     "start:js_runtime": 19.577,
+     "start:install_layouts": 29.566,
+     "ui:mod_load": 298.175,
+     "first_render": 1365.781,
+     "first_paint": 1437.107,
+     "start:open_window": 550.609,
+     "gap": [
+      {
+       "kind": "span",
+       "name": "start:open_window",
+       "start": 888.0,
+       "took": 550.6
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1440.0,
+       "took": 6.2
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1439.7,
+       "took": 6.5
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1439.6,
+       "took": 6.6
+      },
+      {
+       "kind": "task",
+       "end": 1446.8,
+       "took": 7.9,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:mod_load",
+       "start": 1449.2,
+       "took": 112.6
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1449.1,
+       "took": 113.1
+      },
+      {
+       "kind": "task",
+       "end": 1565.5,
+       "took": 116.7,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1660.5,
+       "took": 93.5,
+       "msg": 15
+      }
+     ],
+     "control_ready": 1576.582,
+     "other_load": 1471.5767546782988,
+     "round": 28
+    },
+    {
+     "polls": [
+      [
+       1596.119,
+       2230.102,
+       0
+      ]
+     ],
+     "power_sent": 0,
+     "main": 47.42,
+     "start:core_find": 132.584,
+     "start:platform": 184.913,
+     "start:core_connect": 107.404,
+     "start:write_workspace": 626.107,
+     "start:app_running": 684.461,
+     "start:install_themes_icons": 790.316,
+     "start:installs_wait": 154.571,
+     "start:fonts": 107.825,
+     "start:mods_init": 0.735,
+     "start:core_wait": 0.04,
+     "start:js_runtime": 20.765,
+     "start:install_layouts": 26.509,
+     "ui:mod_load": 264.19599999999997,
+     "first_render": 1392.963,
+     "first_paint": 1462.17,
+     "start:open_window": 510.705,
+     "gap": [
+      {
+       "kind": "span",
+       "name": "start:open_window",
+       "start": 953.7,
+       "took": 510.7
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1466.2,
+       "took": 7.4
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1465.9,
+       "took": 7.8
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1465.8,
+       "took": 7.9
+      },
+      {
+       "kind": "task",
+       "end": 1474.0,
+       "took": 9.2,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:mod_load",
+       "start": 1475.1,
+       "took": 104.7
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1475.0,
+       "took": 105.3
+      },
+      {
+       "kind": "task",
+       "end": 1582.6,
+       "took": 108.1,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1670.0,
+       "took": 86.5,
+       "msg": 15
+      },
+      {
+       "kind": "task",
+       "end": 2219.2,
+       "took": 549.1,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 2220.0,
+       "took": 7.0
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 2219.8,
+       "took": 7.3
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 2219.7,
+       "took": 7.3
+      },
+      {
+       "kind": "task",
+       "end": 2227.9,
+       "took": 8.6,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 2245.7,
+       "took": 15.9,
+       "msg": 15
+      }
+     ],
+     "control_ready": 2230.102,
+     "other_load": 1295.2350291313119,
+     "round": 29
+    },
+    {
+     "polls": [
+      [
+       1528.257,
+       2117.042,
+       0
+      ]
+     ],
+     "power_sent": 0,
+     "main": 55.639,
+     "start:core_find": 119.727,
+     "start:platform": 180.529,
+     "start:core_connect": 129.591,
+     "start:write_workspace": 584.369,
+     "start:app_running": 684.601,
+     "start:install_themes_icons": 763.598,
+     "start:installs_wait": 136.153,
+     "start:fonts": 72.958,
+     "start:mods_init": 0.652,
+     "start:core_wait": 0.036,
+     "start:js_runtime": 22.397,
+     "start:install_layouts": 27.371,
+     "ui:mod_load": 250.106,
+     "first_render": 1336.111,
+     "first_paint": 1393.296,
+     "start:open_window": 495.15,
+     "gap": [
+      {
+       "kind": "span",
+       "name": "start:open_window",
+       "start": 900.3,
+       "took": 495.1
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1396.6,
+       "took": 6.8
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1396.3,
+       "took": 7.1
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1396.3,
+       "took": 7.1
+      },
+      {
+       "kind": "task",
+       "end": 1403.6,
+       "took": 8.0,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:mod_load",
+       "start": 1407.2,
+       "took": 91.1
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1407.2,
+       "took": 91.7
+      },
+      {
+       "kind": "task",
+       "end": 1500.9,
+       "took": 94.1,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1599.0,
+       "took": 97.2,
+       "msg": 15
+      },
+      {
+       "kind": "task",
+       "end": 2105.8,
+       "took": 506.8,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 2106.9,
+       "took": 6.0
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 2106.7,
+       "took": 6.2
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 2106.7,
+       "took": 6.2
+      },
+      {
+       "kind": "task",
+       "end": 2114.0,
+       "took": 7.9,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 2134.8,
+       "took": 19.5,
+       "msg": 15
+      }
+     ],
+     "control_ready": 2117.042,
+     "other_load": 1329.2313072371905,
+     "round": 30
+    },
+    {
+     "polls": [
+      [
+       1446.481,
+       2192.344,
+       0
+      ]
+     ],
+     "power_sent": 0,
+     "main": 57.978,
+     "start:core_find": 161.326,
+     "start:platform": 224.649,
+     "start:core_connect": 105.936,
+     "start:write_workspace": 606.004,
+     "start:app_running": 697.16,
+     "start:install_themes_icons": 729.333,
+     "start:installs_wait": 91.648,
+     "start:fonts": 78.105,
+     "start:mods_init": 0.471,
+     "start:core_wait": 0.026,
+     "start:js_runtime": 19.609,
+     "start:install_layouts": 27.745,
+     "ui:mod_load": 247.59,
+     "first_render": 1287.789,
+     "first_paint": 1357.382,
+     "start:open_window": 484.637,
+     "gap": [
+      {
+       "kind": "span",
+       "name": "start:open_window",
+       "start": 874.4,
+       "took": 484.6
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1360.0,
+       "took": 5.1
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1359.8,
+       "took": 5.3
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1359.7,
+       "took": 5.4
+      },
+      {
+       "kind": "task",
+       "end": 1365.3,
+       "took": 6.1,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:mod_load",
+       "start": 1367.2,
+       "took": 82.7
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1367.2,
+       "took": 83.2
+      },
+      {
+       "kind": "task",
+       "end": 1450.8,
+       "took": 84.1,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1543.1,
+       "took": 91.7,
+       "msg": 15
+      },
+      {
+       "kind": "task",
+       "end": 2179.8,
+       "took": 636.7,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 2181.4,
+       "took": 8.9
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 2181.1,
+       "took": 9.2
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 2181.1,
+       "took": 9.3
+      },
+      {
+       "kind": "task",
+       "end": 2191.7,
+       "took": 11.4,
+       "msg": 1027
+      }
+     ],
+     "control_ready": 2192.344,
+     "other_load": 1312.8676534830613,
+     "round": 31
+    },
+    {
+     "polls": [
+      [
+       1597.701,
+       1683.124,
+       0
+      ]
+     ],
+     "power_sent": 0,
+     "main": 55.597,
+     "start:core_find": 134.351,
+     "start:platform": 194.846,
+     "start:core_connect": 97.347,
+     "start:write_workspace": 699.427,
+     "start:app_running": 790.801,
+     "start:install_themes_icons": 921.877,
+     "start:installs_wait": 187.955,
+     "start:fonts": 77.801,
+     "start:mods_init": 0.478,
+     "start:core_wait": 0.027,
+     "start:js_runtime": 21.496,
+     "start:install_layouts": 32.189,
+     "ui:mod_load": 257.09000000000003,
+     "first_render": 1492.649,
+     "first_paint": 1556.649,
+     "start:open_window": 496.111,
+     "gap": [
+      {
+       "kind": "span",
+       "name": "start:open_window",
+       "start": 1061.9,
+       "took": 496.1
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1559.0,
+       "took": 6.0
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1558.8,
+       "took": 6.2
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1558.8,
+       "took": 6.2
+      },
+      {
+       "kind": "task",
+       "end": 1565.5,
+       "took": 7.3,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:mod_load",
+       "start": 1566.5,
+       "took": 101.5
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1566.4,
+       "took": 102.0
+      },
+      {
+       "kind": "task",
+       "end": 1671.4,
+       "took": 105.1,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1779.8,
+       "took": 106.8,
+       "msg": 15
+      }
+     ],
+     "control_ready": 1683.124,
+     "other_load": 1483.8032897807593,
+     "round": 32
+    },
+    {
+     "polls": [
+      [
+       1597.475,
+       1782.923,
+       0
+      ]
+     ],
+     "power_sent": 0,
+     "main": 58.533,
+     "start:core_find": 130.562,
+     "start:platform": 194.037,
+     "start:core_connect": 99.745,
+     "start:write_workspace": 618.119,
+     "start:app_running": 704.879,
+     "start:install_themes_icons": 751.472,
+     "start:installs_wait": 106.374,
+     "start:fonts": 71.985,
+     "start:mods_init": 0.595,
+     "start:core_wait": 0.029,
+     "start:js_runtime": 30.995,
+     "start:install_layouts": 32.079,
+     "ui:mod_load": 333.286,
+     "first_render": 1424.527,
+     "first_paint": 1511.591,
+     "start:open_window": 624.972,
+     "gap": [
+      {
+       "kind": "span",
+       "name": "start:open_window",
+       "start": 888.6,
+       "took": 625.0
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1515.0,
+       "took": 8.6
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1514.8,
+       "took": 8.9
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1514.7,
+       "took": 9.0
+      },
+      {
+       "kind": "task",
+       "end": 1524.0,
+       "took": 9.8,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1553.3,
+       "took": 27.9,
+       "msg": 15
+      },
+      {
+       "kind": "span",
+       "name": "ui:mod_load",
+       "start": 1554.3,
+       "took": 131.7
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1554.3,
+       "took": 132.4
+      },
+      {
+       "kind": "frame",
+       "end": 1769.7,
+       "took": 82.9,
+       "msg": 15
+      },
+      {
+       "kind": "task",
+       "end": 1769.8,
+       "took": 216.2,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1772.4,
+       "took": 7.7
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1772.1,
+       "took": 8.0
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1772.1,
+       "took": 8.0
+      },
+      {
+       "kind": "task",
+       "end": 1780.5,
+       "took": 10.6,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1800.5,
+       "took": 19.1,
+       "msg": 15
+      }
+     ],
+     "control_ready": 1782.923,
+     "other_load": 1390.3179076356164,
+     "round": 33
+    },
+    {
+     "polls": [
+      [
+       1387.852,
+       2022.626,
+       0
+      ]
+     ],
+     "power_sent": 0,
+     "main": 54.003,
+     "start:core_find": 106.881,
+     "start:platform": 165.99,
+     "start:core_connect": 90.194,
+     "start:write_workspace": 531.219,
+     "start:app_running": 616.051,
+     "start:install_themes_icons": 698.137,
+     "start:installs_wait": 137.733,
+     "start:fonts": 71.197,
+     "start:mods_init": 0.449,
+     "start:core_wait": 0.028,
+     "start:js_runtime": 18.813,
+     "start:install_layouts": 26.55,
+     "ui:mod_load": 248.98,
+     "first_render": 1229.57,
+     "first_paint": 1282.643,
+     "start:open_window": 454.667,
+     "gap": [
+      {
+       "kind": "span",
+       "name": "start:open_window",
+       "start": 829.6,
+       "took": 454.7
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1285.2,
+       "took": 5.7
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1285.0,
+       "took": 6.0
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1284.9,
+       "took": 6.0
+      },
+      {
+       "kind": "task",
+       "end": 1291.2,
+       "took": 6.8,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:mod_load",
+       "start": 1293.6,
+       "took": 88.4
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1293.5,
+       "took": 88.9
+      },
+      {
+       "kind": "task",
+       "end": 1384.8,
+       "took": 91.6,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1470.6,
+       "took": 84.8,
+       "msg": 15
+      },
+      {
+       "kind": "task",
+       "end": 2009.5,
+       "took": 538.5,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 2011.2,
+       "took": 6.3
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 2010.9,
+       "took": 6.6
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 2010.9,
+       "took": 6.6
+      },
+      {
+       "kind": "task",
+       "end": 2019.0,
+       "took": 8.9,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 2043.7,
+       "took": 23.2,
+       "msg": 15
+      }
+     ],
+     "control_ready": 2022.626,
+     "other_load": 1118.9290841138081,
+     "round": 34
+    },
+    {
+     "polls": [
+      [
+       1915.914,
+       2075.139,
+       0
+      ]
+     ],
+     "power_sent": 0,
+     "main": 60.167,
+     "start:core_find": 123.776,
+     "start:platform": 190.649,
+     "start:core_connect": 144.473,
+     "start:app_running": 740.948,
+     "start:write_workspace": 748.805,
+     "start:install_themes_icons": 923.306,
+     "start:installs_wait": 244.257,
+     "start:fonts": 86.717,
+     "start:mods_init": 0.517,
+     "start:core_wait": 0.037,
+     "start:js_runtime": 29.581,
+     "start:install_layouts": 39.732,
+     "ui:mod_load": 361.75399999999996,
+     "first_render": 1692.599,
+     "first_paint": 1773.132,
+     "start:open_window": 695.497,
+     "gap": [
+      {
+       "kind": "span",
+       "name": "start:open_window",
+       "start": 1079.6,
+       "took": 695.5
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1776.8,
+       "took": 10.2
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1776.5,
+       "took": 10.6
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1776.4,
+       "took": 10.7
+      },
+      {
+       "kind": "frame",
+       "end": 1822.8,
+       "took": 34.5,
+       "msg": 15
+      },
+      {
+       "kind": "task",
+       "end": 1825.1,
+       "took": 49.6,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1835.2,
+       "took": 7.2,
+       "msg": 15
+      },
+      {
+       "kind": "span",
+       "name": "ui:mod_load",
+       "start": 1835.9,
+       "took": 140.8
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1835.9,
+       "took": 141.5
+      },
+      {
+       "kind": "frame",
+       "end": 2060.6,
+       "took": 83.2,
+       "msg": 15
+      },
+      {
+       "kind": "task",
+       "end": 2060.6,
+       "took": 225.4,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 2062.8,
+       "took": 7.7
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 2062.5,
+       "took": 8.0
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 2062.5,
+       "took": 8.0
+      },
+      {
+       "kind": "task",
+       "end": 2070.8,
+       "took": 9.4,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 2092.8,
+       "took": 20.3,
+       "msg": 15
+      }
+     ],
+     "control_ready": 2075.139,
+     "other_load": 1666.7668192873027,
+     "round": 35
+    },
+    {
+     "polls": [
+      [
+       1490.327,
+       1635.378,
+       0
+      ]
+     ],
+     "power_sent": 0,
+     "main": 52.213,
+     "start:core_find": 104.841,
+     "start:platform": 162.25,
+     "start:core_connect": 92.752,
+     "start:write_workspace": 585.142,
+     "start:app_running": 670.558,
+     "start:install_themes_icons": 773.635,
+     "start:installs_wait": 157.07,
+     "start:fonts": 80.812,
+     "start:mods_init": 0.474,
+     "start:core_wait": 0.029,
+     "start:js_runtime": 23.076,
+     "start:install_layouts": 34.353,
+     "ui:mod_load": 270.28499999999997,
+     "first_render": 1377.199,
+     "first_paint": 1437.653,
+     "start:open_window": 524.421,
+     "gap": [
+      {
+       "kind": "span",
+       "name": "start:open_window",
+       "start": 915.0,
+       "took": 524.4
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1440.7,
+       "took": 4.9
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1440.4,
+       "took": 5.1
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1440.4,
+       "took": 5.2
+      },
+      {
+       "kind": "task",
+       "end": 1446.1,
+       "took": 6.4,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1468.4,
+       "took": 21.7,
+       "msg": 15
+      },
+      {
+       "kind": "span",
+       "name": "ui:mod_load",
+       "start": 1468.9,
+       "took": 89.1
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1468.8,
+       "took": 89.6
+      },
+      {
+       "kind": "frame",
+       "end": 1623.8,
+       "took": 65.2,
+       "msg": 15
+      },
+      {
+       "kind": "task",
+       "end": 1623.8,
+       "took": 155.3,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1625.7,
+       "took": 6.4
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1625.5,
+       "took": 6.6
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1625.5,
+       "took": 6.7
+      },
+      {
+       "kind": "task",
+       "end": 1632.4,
+       "took": 7.7,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1646.2,
+       "took": 13.3,
+       "msg": 15
+      }
+     ],
+     "control_ready": 1635.378,
+     "other_load": 1376.4012023696391,
+     "round": 36
+    },
+    {
+     "polls": [
+      [
+       1517.626,
+       1614.279,
+       0
+      ]
+     ],
+     "power_sent": 0,
+     "main": 51.616,
+     "start:core_find": 106.411,
+     "start:platform": 162.869,
+     "start:core_connect": 103.131,
+     "start:write_workspace": 596.731,
+     "start:app_running": 664.665,
+     "start:install_themes_icons": 753.37,
+     "start:installs_wait": 141.62,
+     "start:fonts": 79.257,
+     "start:mods_init": 0.453,
+     "start:core_wait": 0.026,
+     "start:js_runtime": 20.797,
+     "start:install_layouts": 30.336,
+     "ui:mod_load": 300.264,
+     "first_render": 1334.385,
+     "first_paint": 1406.287,
+     "start:open_window": 517.176,
+     "gap": [
+      {
+       "kind": "span",
+       "name": "start:open_window",
+       "start": 891.0,
+       "took": 517.2
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1410.1,
+       "took": 10.3
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1409.6,
+       "took": 10.8
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1409.6,
+       "took": 10.8
+      },
+      {
+       "kind": "task",
+       "end": 1425.2,
+       "took": 16.9,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1463.8,
+       "took": 37.3,
+       "msg": 15
+      },
+      {
+       "kind": "span",
+       "name": "ui:mod_load",
+       "start": 1464.4,
+       "took": 134.1
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1464.3,
+       "took": 134.8
+      },
+      {
+       "kind": "task",
+       "end": 1602.0,
+       "took": 138.1,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1685.3,
+       "took": 80.1,
+       "msg": 15
+      }
+     ],
+     "control_ready": 1614.279,
+     "other_load": 1283.5424721712382,
+     "round": 37
+    },
+    {
+     "polls": [
+      [
+       1678.082,
+       1742.759,
+       0
+      ]
+     ],
+     "power_sent": 0,
+     "main": 45.143,
+     "start:core_find": 139.566,
+     "start:platform": 188.88,
+     "start:core_connect": 89.994,
+     "start:app_running": 662.883,
+     "start:write_workspace": 703.263,
+     "start:install_themes_icons": 829.762,
+     "start:installs_wait": 213.185,
+     "start:fonts": 78.109,
+     "start:mods_init": 0.562,
+     "start:core_wait": 0.032,
+     "start:js_runtime": 23.087,
+     "start:install_layouts": 32.192,
+     "ui:mod_load": 259.522,
+     "first_render": 1560.951,
+     "first_paint": 1620.751,
+     "start:open_window": 662.107,
+     "gap": [
+      {
+       "kind": "span",
+       "name": "start:open_window",
+       "start": 960.3,
+       "took": 662.1
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1624.3,
+       "took": 4.8
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1624.0,
+       "took": 5.0
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1624.0,
+       "took": 5.0
+      },
+      {
+       "kind": "task",
+       "end": 1629.2,
+       "took": 5.8,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:mod_load",
+       "start": 1632.4,
+       "took": 91.8
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1632.3,
+       "took": 92.4
+      },
+      {
+       "kind": "task",
+       "end": 1729.8,
+       "took": 98.0,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1830.3,
+       "took": 98.0,
+       "msg": 15
+      }
+     ],
+     "control_ready": 1742.759,
+     "other_load": 1171.213089770564,
+     "round": 38
+    },
+    {
+     "polls": [
+      [
+       1401.103,
+       2008.19,
+       0
+      ]
+     ],
+     "power_sent": 0,
+     "main": 46.568,
+     "start:core_find": 101.281,
+     "start:platform": 152.566,
+     "start:core_connect": 84.927,
+     "start:write_workspace": 527.27,
+     "start:app_running": 601.177,
+     "start:install_themes_icons": 696.294,
+     "start:installs_wait": 142.917,
+     "start:fonts": 80.779,
+     "start:mods_init": 0.518,
+     "start:core_wait": 0.037,
+     "start:js_runtime": 23.244,
+     "start:install_layouts": 28.332,
+     "ui:mod_load": 249.776,
+     "first_render": 1261.253,
+     "first_paint": 1318.568,
+     "start:open_window": 489.541,
+     "gap": [
+      {
+       "kind": "span",
+       "name": "start:open_window",
+       "start": 830.5,
+       "took": 489.5
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1321.3,
+       "took": 6.4
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1321.0,
+       "took": 6.7
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1321.0,
+       "took": 6.7
+      },
+      {
+       "kind": "task",
+       "end": 1328.0,
+       "took": 7.8,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:mod_load",
+       "start": 1331.7,
+       "took": 82.6
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1331.7,
+       "took": 83.1
+      },
+      {
+       "kind": "task",
+       "end": 1416.6,
+       "took": 85.2,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1499.8,
+       "took": 82.3,
+       "msg": 15
+      },
+      {
+       "kind": "task",
+       "end": 1994.6,
+       "took": 494.7,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1995.2,
+       "took": 5.1
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1995.0,
+       "took": 5.3
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1995.0,
+       "took": 5.3
+      },
+      {
+       "kind": "task",
+       "end": 2001.3,
+       "took": 6.7,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 2020.1,
+       "took": 17.5,
+       "msg": 15
+      }
+     ],
+     "control_ready": 2008.19,
+     "other_load": 1069.7567857126921,
+     "round": 39
+    },
+    {
+     "polls": [
+      [
+       1495.079,
+       2266.331,
+       0
+      ]
+     ],
+     "power_sent": 0,
+     "main": 48.928,
+     "start:core_find": 114.568,
+     "start:platform": 168.155,
+     "start:core_connect": 87.0,
+     "start:write_workspace": 576.163,
+     "start:app_running": 639.428,
+     "start:install_themes_icons": 774.852,
+     "start:installs_wait": 185.634,
+     "start:fonts": 77.231,
+     "start:mods_init": 0.487,
+     "start:core_wait": 0.027,
+     "start:js_runtime": 18.404,
+     "start:install_layouts": 27.682,
+     "ui:mod_load": 248.358,
+     "first_render": 1322.875,
+     "first_paint": 1384.261,
+     "start:open_window": 478.703,
+     "gap": [
+      {
+       "kind": "span",
+       "name": "start:open_window",
+       "start": 907.2,
+       "took": 478.7
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1387.1,
+       "took": 8.6
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1386.8,
+       "took": 8.9
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1386.8,
+       "took": 8.9
+      },
+      {
+       "kind": "task",
+       "end": 1395.9,
+       "took": 9.9,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:mod_load",
+       "start": 1398.9,
+       "took": 95.0
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1398.9,
+       "took": 95.5
+      },
+      {
+       "kind": "task",
+       "end": 1495.4,
+       "took": 96.8,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1596.4,
+       "took": 100.2,
+       "msg": 15
+      },
+      {
+       "kind": "task",
+       "end": 2254.2,
+       "took": 657.7,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 2255.9,
+       "took": 7.2
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 2255.6,
+       "took": 7.5
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 2255.5,
+       "took": 7.6
+      },
+      {
+       "kind": "task",
+       "end": 2264.1,
+       "took": 9.7,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 2289.0,
+       "took": 24.0,
+       "msg": 15
+      }
+     ],
+     "control_ready": 2266.331,
+     "other_load": 1261.6061280044435,
+     "round": 40
+    },
+    {
+     "polls": [
+      [
+       1705.975,
+       1784.057,
+       0
+      ]
+     ],
+     "power_sent": 0,
+     "main": 57.359,
+     "start:core_find": 122.496,
+     "start:platform": 184.361,
+     "start:core_connect": 123.036,
+     "start:write_workspace": 571.423,
+     "start:app_running": 663.758,
+     "start:install_themes_icons": 757.771,
+     "start:installs_wait": 152.631,
+     "start:fonts": 75.983,
+     "start:mods_init": 0.619,
+     "start:core_wait": 0.034,
+     "start:js_runtime": 23.517,
+     "start:install_layouts": 28.692,
+     "ui:mod_load": 268.166,
+     "first_render": 1584.653,
+     "first_paint": 1646.23,
+     "start:open_window": 749.557,
+     "gap": [
+      {
+       "kind": "span",
+       "name": "start:open_window",
+       "start": 898.4,
+       "took": 749.6
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1649.0,
+       "took": 7.9
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1648.6,
+       "took": 8.3
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1648.6,
+       "took": 8.3
+      },
+      {
+       "kind": "task",
+       "end": 1657.5,
+       "took": 9.4,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:mod_load",
+       "start": 1658.6,
+       "took": 111.4
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1658.6,
+       "took": 112.0
+      },
+      {
+       "kind": "task",
+       "end": 1772.2,
+       "took": 113.9,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1868.2,
+       "took": 94.6,
+       "msg": 15
+      }
+     ],
+     "control_ready": 1784.057,
+     "other_load": 1215.024227626686,
+     "round": 41
+    },
+    {
+     "polls": [
+      [
+       1387.41,
+       1541.461,
+       0
+      ]
+     ],
+     "power_sent": 0,
+     "main": 55.121,
+     "start:core_find": 104.744,
+     "start:platform": 164.457,
+     "start:core_connect": 87.139,
+     "start:write_workspace": 537.229,
+     "start:app_running": 607.949,
+     "start:install_themes_icons": 689.415,
+     "start:installs_wait": 137.822,
+     "start:fonts": 77.355,
+     "start:mods_init": 0.461,
+     "start:core_wait": 0.03,
+     "start:js_runtime": 23.08,
+     "start:install_layouts": 30.145,
+     "ui:mod_load": 252.798,
+     "first_render": 1251.119,
+     "first_paint": 1317.981,
+     "start:open_window": 491.435,
+     "gap": [
+      {
+       "kind": "span",
+       "name": "start:open_window",
+       "start": 828.3,
+       "took": 491.4
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1320.9,
+       "took": 6.9
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1320.6,
+       "took": 7.1
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1320.6,
+       "took": 7.2
+      },
+      {
+       "kind": "task",
+       "end": 1328.0,
+       "took": 8.1,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1358.3,
+       "took": 28.3,
+       "msg": 15
+      },
+      {
+       "kind": "span",
+       "name": "ui:mod_load",
+       "start": 1358.7,
+       "took": 98.4
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1358.7,
+       "took": 98.9
+      },
+      {
+       "kind": "frame",
+       "end": 1529.4,
+       "took": 71.7,
+       "msg": 15
+      },
+      {
+       "kind": "task",
+       "end": 1529.8,
+       "took": 171.4,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1531.0,
+       "took": 5.1
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1530.8,
+       "took": 5.4
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1530.7,
+       "took": 5.4
+      },
+      {
+       "kind": "task",
+       "end": 1536.5,
+       "took": 6.6,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1550.9,
+       "took": 13.5,
+       "msg": 15
+      }
+     ],
+     "control_ready": 1541.461,
+     "other_load": 1247.9620544595602,
+     "round": 42
+    },
+    {
+     "polls": [
+      [
+       1582.272,
+       1697.836,
+       0
+      ]
+     ],
+     "power_sent": 0,
+     "main": 51.567,
+     "start:core_find": 126.347,
+     "start:platform": 182.79,
+     "start:core_connect": 86.315,
+     "start:write_workspace": 653.165,
+     "start:install_themes_icons": 660.279,
+     "start:app_running": 849.045,
+     "start:installs_wait": 0.028,
+     "start:fonts": 94.138,
+     "start:mods_init": 0.555,
+     "start:core_wait": 0.028,
+     "start:js_runtime": 22.532,
+     "start:install_layouts": 37.348,
+     "ui:mod_load": 246.738,
+     "first_render": 1436.469,
+     "first_paint": 1497.327,
+     "start:open_window": 550.114,
+     "gap": [
+      {
+       "kind": "span",
+       "name": "start:open_window",
+       "start": 948.6,
+       "took": 550.1
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1499.7,
+       "took": 4.8
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1499.5,
+       "took": 5.0
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1499.4,
+       "took": 5.1
+      },
+      {
+       "kind": "task",
+       "end": 1505.0,
+       "took": 6.1,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1532.8,
+       "took": 27.2,
+       "msg": 15
+      },
+      {
+       "kind": "span",
+       "name": "ui:mod_load",
+       "start": 1533.2,
+       "took": 89.8
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1533.1,
+       "took": 90.3
+      },
+      {
+       "kind": "task",
+       "end": 1624.3,
+       "took": 91.4,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1687.4,
+       "took": 60.9,
+       "msg": 15
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1688.2,
+       "took": 5.2
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1688.0,
+       "took": 5.3
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1688.0,
+       "took": 5.4
+      },
+      {
+       "kind": "task",
+       "end": 2188.5,
+       "took": 501.1,
+       "msg": 1027
+      }
+     ],
+     "control_ready": 1697.836,
+     "other_load": 1220.8754799657293,
+     "round": 43
+    },
+    {
+     "polls": [
+      [
+       1398.073,
+       1541.422,
+       0
+      ]
+     ],
+     "power_sent": 0,
+     "main": 54.178,
+     "start:core_find": 109.499,
+     "start:platform": 169.114,
+     "start:core_connect": 94.161,
+     "start:write_workspace": 569.73,
+     "start:app_running": 636.38,
+     "start:install_themes_icons": 706.971,
+     "start:installs_wait": 126.172,
+     "start:fonts": 80.4,
+     "start:mods_init": 0.546,
+     "start:core_wait": 0.033,
+     "start:js_runtime": 18.277,
+     "start:install_layouts": 29.443,
+     "ui:mod_load": 294.02700000000004,
+     "first_render": 1291.842,
+     "first_paint": 1354.68,
+     "start:open_window": 507.878,
+     "gap": [
+      {
+       "kind": "span",
+       "name": "start:open_window",
+       "start": 848.7,
+       "took": 507.9
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1358.1,
+       "took": 8.9
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1357.6,
+       "took": 9.4
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1357.5,
+       "took": 9.5
+      },
+      {
+       "kind": "task",
+       "end": 1373.7,
+       "took": 16.8,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1406.8,
+       "took": 32.4,
+       "msg": 15
+      },
+      {
+       "kind": "span",
+       "name": "ui:mod_load",
+       "start": 1407.3,
+       "took": 115.7
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1407.2,
+       "took": 116.4
+      },
+      {
+       "kind": "task",
+       "end": 1527.1,
+       "took": 120.2,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1618.1,
+       "took": 87.0,
+       "msg": 15
+      }
+     ],
+     "control_ready": 1541.422,
+     "other_load": 1325.2175498611805,
+     "round": 44
+    },
+    {
+     "polls": [
+      [
+       1629.804,
+       2212.506,
+       0
+      ]
+     ],
+     "power_sent": 0,
+     "main": 64.227,
+     "start:core_find": 148.591,
+     "start:platform": 218.151,
+     "start:core_connect": 109.828,
+     "start:write_workspace": 639.028,
+     "start:app_running": 780.507,
+     "start:install_themes_icons": 858.936,
+     "start:installs_wait": 144.381,
+     "start:fonts": 76.426,
+     "start:mods_init": 0.522,
+     "start:core_wait": 0.029,
+     "start:js_runtime": 20.72,
+     "start:install_layouts": 31.177,
+     "ui:mod_load": 257.69800000000004,
+     "first_render": 1441.542,
+     "first_paint": 1501.154,
+     "start:open_window": 496.583,
+     "gap": [
+      {
+       "kind": "span",
+       "name": "start:open_window",
+       "start": 1006.5,
+       "took": 496.6
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1504.6,
+       "took": 8.2
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1504.3,
+       "took": 8.4
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1504.3,
+       "took": 8.4
+      },
+      {
+       "kind": "task",
+       "end": 1513.2,
+       "took": 9.6,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:mod_load",
+       "start": 1515.4,
+       "took": 104.2
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1515.3,
+       "took": 104.7
+      },
+      {
+       "kind": "task",
+       "end": 1623.2,
+       "took": 108.2,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1715.2,
+       "took": 91.2,
+       "msg": 15
+      },
+      {
+       "kind": "task",
+       "end": 2200.9,
+       "took": 485.7,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 2201.8,
+       "took": 6.8
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 2201.6,
+       "took": 7.1
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 2201.6,
+       "took": 7.1
+      },
+      {
+       "kind": "task",
+       "end": 2209.0,
+       "took": 8.1,
+       "msg": 1027
+      }
+     ],
+     "control_ready": 2212.506,
+     "other_load": 1250.444774424827,
+     "round": 45
+    },
+    {
+     "polls": [
+      [
+       1495.958,
+       2134.51,
+       0
+      ]
+     ],
+     "power_sent": 0,
+     "main": 45.952,
+     "start:core_find": 127.984,
+     "start:platform": 180.681,
+     "start:core_connect": 97.709,
+     "start:write_workspace": 581.497,
+     "start:app_running": 659.412,
+     "start:install_themes_icons": 720.027,
+     "start:installs_wait": 108.419,
+     "start:fonts": 83.941,
+     "start:mods_init": 0.464,
+     "start:core_wait": 0.029,
+     "start:js_runtime": 18.61,
+     "start:install_layouts": 24.93,
+     "ui:mod_load": 282.151,
+     "first_render": 1309.172,
+     "first_paint": 1382.208,
+     "start:open_window": 527.409,
+     "gap": [
+      {
+       "kind": "span",
+       "name": "start:open_window",
+       "start": 856.6,
+       "took": 527.4
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1387.1,
+       "took": 5.5
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1386.8,
+       "took": 5.7
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1386.8,
+       "took": 5.8
+      },
+      {
+       "kind": "task",
+       "end": 1392.9,
+       "took": 6.8,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:mod_load",
+       "start": 1397.9,
+       "took": 97.3
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1397.9,
+       "took": 97.9
+      },
+      {
+       "kind": "task",
+       "end": 1496.3,
+       "took": 98.6,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1584.2,
+       "took": 86.9,
+       "msg": 15
+      },
+      {
+       "kind": "task",
+       "end": 2122.7,
+       "took": 538.4,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 2123.4,
+       "took": 5.3
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 2123.2,
+       "took": 5.5
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 2123.2,
+       "took": 5.5
+      },
+      {
+       "kind": "task",
+       "end": 2129.2,
+       "took": 6.5,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 2148.4,
+       "took": 17.8,
+       "msg": 15
+      }
+     ],
+     "control_ready": 2134.51,
+     "other_load": 1277.9834999162463,
+     "round": 46
+    },
+    {
+     "polls": [
+      [
+       1515.13,
+       2126.722,
+       0
+      ]
+     ],
+     "power_sent": 0,
+     "main": 56.334,
+     "start:core_find": 109.975,
+     "start:platform": 171.504,
+     "start:core_connect": 107.263,
+     "start:write_workspace": 591.314,
+     "start:app_running": 683.717,
+     "start:install_themes_icons": 732.884,
+     "start:installs_wait": 107.108,
+     "start:fonts": 78.931,
+     "start:mods_init": 0.522,
+     "start:core_wait": 0.033,
+     "start:js_runtime": 18.615,
+     "start:install_layouts": 38.304,
+     "ui:mod_load": 269.157,
+     "first_render": 1325.452,
+     "first_paint": 1397.734,
+     "start:open_window": 524.156,
+     "gap": [
+      {
+       "kind": "span",
+       "name": "start:open_window",
+       "start": 875.5,
+       "took": 524.2
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1400.7,
+       "took": 7.0
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1400.4,
+       "took": 7.3
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1400.4,
+       "took": 7.4
+      },
+      {
+       "kind": "task",
+       "end": 1408.0,
+       "took": 8.2,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:mod_load",
+       "start": 1409.0,
+       "took": 97.6
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1409.0,
+       "took": 98.2
+      },
+      {
+       "kind": "task",
+       "end": 1509.0,
+       "took": 100.6,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1596.7,
+       "took": 86.8,
+       "msg": 15
+      },
+      {
+       "kind": "task",
+       "end": 2115.8,
+       "took": 519.0,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 2116.8,
+       "took": 5.5
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 2116.5,
+       "took": 5.7
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 2116.5,
+       "took": 5.8
+      },
+      {
+       "kind": "task",
+       "end": 2122.7,
+       "took": 6.8,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 2142.0,
+       "took": 17.6,
+       "msg": 15
+      }
+     ],
+     "control_ready": 2126.722,
+     "other_load": 1275.709800061354,
+     "round": 47
+    },
+    {
+     "polls": [
+      [
+       1632.639,
+       2374.107,
+       0
+      ]
+     ],
+     "power_sent": 0,
+     "main": 79.741,
+     "start:core_find": 111.194,
+     "start:platform": 196.052,
+     "start:core_connect": 100.973,
+     "start:write_workspace": 603.254,
+     "start:app_running": 723.665,
+     "start:install_themes_icons": 799.705,
+     "start:installs_wait": 157.492,
+     "start:fonts": 84.868,
+     "start:mods_init": 0.611,
+     "start:core_wait": 0.034,
+     "start:js_runtime": 20.372,
+     "start:install_layouts": 27.977,
+     "ui:mod_load": 290.88,
+     "first_render": 1431.623,
+     "first_paint": 1490.307,
+     "start:open_window": 520.492,
+     "gap": [
+      {
+       "kind": "span",
+       "name": "start:open_window",
+       "start": 971.5,
+       "took": 520.5
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1494.3,
+       "took": 6.4
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1494.0,
+       "took": 6.6
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1494.0,
+       "took": 6.7
+      },
+      {
+       "kind": "task",
+       "end": 1500.9,
+       "took": 7.5,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:mod_load",
+       "start": 1505.5,
+       "took": 122.8
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1505.4,
+       "took": 123.5
+      },
+      {
+       "kind": "task",
+       "end": 1629.7,
+       "took": 124.7,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1735.6,
+       "took": 105.0,
+       "msg": 15
+      },
+      {
+       "kind": "task",
+       "end": 2361.0,
+       "took": 625.4,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 2363.1,
+       "took": 7.4
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 2362.8,
+       "took": 7.8
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 2362.8,
+       "took": 7.8
+      },
+      {
+       "kind": "task",
+       "end": 2371.7,
+       "took": 10.0,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 2400.5,
+       "took": 27.9,
+       "msg": 15
+      }
+     ],
+     "control_ready": 2374.107,
+     "other_load": 1413.3479608914697,
+     "round": 48
+    },
+    {
+     "polls": [
+      [
+       1508.006,
+       2119.534,
+       0
+      ]
+     ],
+     "power_sent": 0,
+     "main": 60.416,
+     "start:core_find": 112.072,
+     "start:platform": 178.049,
+     "start:core_connect": 97.725,
+     "start:write_workspace": 589.632,
+     "start:app_running": 675.595,
+     "start:install_themes_icons": 749.647,
+     "start:installs_wait": 136.185,
+     "start:fonts": 76.265,
+     "start:mods_init": 0.497,
+     "start:core_wait": 0.036,
+     "start:js_runtime": 22.177,
+     "start:install_layouts": 29.419,
+     "ui:mod_load": 246.712,
+     "first_render": 1342.727,
+     "first_paint": 1402.539,
+     "start:open_window": 511.025,
+     "gap": [
+      {
+       "kind": "span",
+       "name": "start:open_window",
+       "start": 893.0,
+       "took": 511.0
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1405.1,
+       "took": 6.4
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1404.8,
+       "took": 6.7
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1404.8,
+       "took": 6.8
+      },
+      {
+       "kind": "task",
+       "end": 1412.1,
+       "took": 7.9,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:mod_load",
+       "start": 1414.8,
+       "took": 86.0
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1414.7,
+       "took": 86.5
+      },
+      {
+       "kind": "task",
+       "end": 1502.0,
+       "took": 87.5,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1589.5,
+       "took": 85.8,
+       "msg": 15
+      },
+      {
+       "kind": "task",
+       "end": 2107.9,
+       "took": 518.3,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 2108.8,
+       "took": 8.1
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 2108.6,
+       "took": 8.4
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 2108.5,
+       "took": 8.4
+      },
+      {
+       "kind": "task",
+       "end": 2120.7,
+       "took": 12.7,
+       "msg": 1027
+      }
+     ],
+     "control_ready": 2119.534,
+     "other_load": 1279.1936346152745,
+     "round": 49
+    },
+    {
+     "polls": [
+      [
+       1501.064,
+       2212.299,
+       0
+      ]
+     ],
+     "power_sent": 0,
+     "main": 51.076,
+     "start:core_find": 104.84,
+     "start:platform": 160.6,
+     "start:core_connect": 97.786,
+     "start:write_workspace": 563.502,
+     "start:app_running": 650.062,
+     "start:install_themes_icons": 715.261,
+     "start:installs_wait": 117.82,
+     "start:fonts": 82.401,
+     "start:mods_init": 0.644,
+     "start:core_wait": 0.041,
+     "start:js_runtime": 19.279,
+     "start:install_layouts": 33.89,
+     "ui:mod_load": 261.56,
+     "first_render": 1292.245,
+     "first_paint": 1362.239,
+     "start:open_window": 507.432,
+     "gap": [
+      {
+       "kind": "span",
+       "name": "start:open_window",
+       "start": 856.4,
+       "took": 507.4
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1364.9,
+       "took": 9.4
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1364.7,
+       "took": 9.6
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1364.6,
+       "took": 9.7
+      },
+      {
+       "kind": "task",
+       "end": 1375.4,
+       "took": 11.4,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1404.8,
+       "took": 28.4,
+       "msg": 15
+      },
+      {
+       "kind": "span",
+       "name": "ui:mod_load",
+       "start": 1405.5,
+       "took": 108.0
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1405.4,
+       "took": 108.7
+      },
+      {
+       "kind": "task",
+       "end": 1515.5,
+       "took": 110.6,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1597.8,
+       "took": 79.8,
+       "msg": 15
+      },
+      {
+       "kind": "task",
+       "end": 2200.3,
+       "took": 602.4,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 2201.9,
+       "took": 8.8
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 2201.6,
+       "took": 9.1
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 2201.6,
+       "took": 9.2
+      },
+      {
+       "kind": "task",
+       "end": 2212.4,
+       "took": 12.0,
+       "msg": 1027
+      }
+     ],
+     "control_ready": 2212.299,
+     "other_load": 1268.4543563980465,
+     "round": 50
+    },
+    {
+     "polls": [
+      [
+       1607.572,
+       1736.523,
+       0
+      ]
+     ],
+     "power_sent": 0,
+     "main": 70.517,
+     "start:core_find": 107.717,
+     "start:platform": 183.34,
+     "start:core_connect": 104.197,
+     "start:write_workspace": 653.144,
+     "start:app_running": 751.381,
+     "start:install_themes_icons": 801.299,
+     "start:installs_wait": 121.947,
+     "start:fonts": 78.149,
+     "start:mods_init": 1.084,
+     "start:core_wait": 0.036,
+     "start:js_runtime": 30.029,
+     "start:install_layouts": 32.703,
+     "ui:mod_load": 282.419,
+     "first_render": 1434.183,
+     "first_paint": 1500.116,
+     "start:open_window": 543.656,
+     "gap": [
+      {
+       "kind": "span",
+       "name": "start:open_window",
+       "start": 958.5,
+       "took": 543.7
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1503.5,
+       "took": 8.9
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1503.2,
+       "took": 9.3
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1503.1,
+       "took": 9.3
+      },
+      {
+       "kind": "task",
+       "end": 1514.7,
+       "took": 12.4,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1545.0,
+       "took": 27.2,
+       "msg": 15
+      },
+      {
+       "kind": "span",
+       "name": "ui:mod_load",
+       "start": 1545.5,
+       "took": 109.3
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1545.5,
+       "took": 110.1
+      },
+      {
+       "kind": "task",
+       "end": 1655.9,
+       "took": 110.8,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1726.4,
+       "took": 67.4,
+       "msg": 15
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1727.3,
+       "took": 5.0
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1727.2,
+       "took": 5.2
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1727.1,
+       "took": 5.2
+      },
+      {
+       "kind": "task",
+       "end": 2336.3,
+       "took": 609.9,
+       "msg": 1027
+      }
+     ],
+     "control_ready": 1736.523,
+     "other_load": 1408.6033194364793,
+     "round": 51
+    },
+    {
+     "polls": [
+      [
+       1648.311,
+       2250.944,
+       0
+      ]
+     ],
+     "power_sent": 0,
+     "main": 84.236,
+     "start:core_find": 123.995,
+     "start:platform": 212.641,
+     "start:core_connect": 95.282,
+     "start:write_workspace": 679.362,
+     "start:app_running": 817.13,
+     "start:install_themes_icons": 829.863,
+     "start:installs_wait": 98.245,
+     "start:fonts": 75.533,
+     "start:mods_init": 0.748,
+     "start:core_wait": 0.042,
+     "start:js_runtime": 24.783,
+     "start:install_layouts": 34.809,
+     "ui:mod_load": 265.225,
+     "first_render": 1448.206,
+     "first_paint": 1514.486,
+     "start:open_window": 518.898,
+     "gap": [
+      {
+       "kind": "span",
+       "name": "start:open_window",
+       "start": 997.4,
+       "took": 518.9
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1517.4,
+       "took": 8.7
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1517.1,
+       "took": 9.0
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1517.1,
+       "took": 9.1
+      },
+      {
+       "kind": "task",
+       "end": 1526.4,
+       "took": 10.0,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:mod_load",
+       "start": 1532.3,
+       "took": 93.8
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1532.2,
+       "took": 94.4
+      },
+      {
+       "kind": "task",
+       "end": 1626.9,
+       "took": 95.0,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1718.5,
+       "took": 90.6,
+       "msg": 15
+      },
+      {
+       "kind": "task",
+       "end": 2238.9,
+       "took": 520.1,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 2240.0,
+       "took": 6.3
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 2239.7,
+       "took": 6.5
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 2239.7,
+       "took": 6.6
+      },
+      {
+       "kind": "task",
+       "end": 2247.7,
+       "took": 8.7,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 2273.6,
+       "took": 23.5,
+       "msg": 15
+      }
+     ],
+     "control_ready": 2250.944,
+     "other_load": 1205.5645209101017,
+     "round": 52
+    },
+    {
+     "polls": [
+      [
+       2026.109,
+       2900.649,
+       0
+      ]
+     ],
+     "power_sent": 0,
+     "main": 56.774,
+     "start:core_find": 380.323,
+     "start:platform": 441.327,
+     "start:core_connect": 223.031,
+     "start:write_workspace": 758.047,
+     "start:install_themes_icons": 955.853,
+     "start:app_running": 1094.548,
+     "start:installs_wait": 0.028,
+     "start:fonts": 102.272,
+     "start:mods_init": 1.467,
+     "start:core_wait": 0.034,
+     "start:js_runtime": 30.138,
+     "start:install_layouts": 40.64,
+     "ui:mod_load": 348.39,
+     "first_render": 1809.849,
+     "first_paint": 1887.34,
+     "start:open_window": 685.37,
+     "gap": [
+      {
+       "kind": "span",
+       "name": "start:open_window",
+       "start": 1204.0,
+       "took": 685.4
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1890.4,
+       "took": 7.5
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1890.1,
+       "took": 7.9
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1890.0,
+       "took": 8.0
+      },
+      {
+       "kind": "task",
+       "end": 1898.5,
+       "took": 9.1,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:mod_load",
+       "start": 1900.5,
+       "took": 134.8
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1900.4,
+       "took": 135.4
+      },
+      {
+       "kind": "task",
+       "end": 2040.5,
+       "took": 140.3,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 2160.0,
+       "took": 118.6,
+       "msg": 15
+      },
+      {
+       "kind": "task",
+       "end": 2886.2,
+       "took": 726.2,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 2887.2,
+       "took": 8.9
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 2887.0,
+       "took": 9.2
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 2886.9,
+       "took": 9.2
+      },
+      {
+       "kind": "task",
+       "end": 2899.8,
+       "took": 13.6,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 2925.2,
+       "took": 24.7,
+       "msg": 15
+      }
+     ],
+     "control_ready": 2900.649,
+     "other_load": 1724.8366606462619,
+     "round": 53
+    },
+    {
+     "polls": [
+      [
+       1487.521,
+       2105.907,
+       0
+      ]
+     ],
+     "power_sent": 0,
+     "main": 48.121,
+     "start:core_find": 133.866,
+     "start:platform": 187.157,
+     "start:core_connect": 98.063,
+     "start:write_workspace": 572.848,
+     "start:app_running": 658.027,
+     "start:install_themes_icons": 720.231,
+     "start:installs_wait": 111.98,
+     "start:fonts": 74.368,
+     "start:mods_init": 0.517,
+     "start:core_wait": 0.048,
+     "start:js_runtime": 19.881,
+     "start:install_layouts": 30.135,
+     "ui:mod_load": 273.595,
+     "first_render": 1323.952,
+     "first_paint": 1393.718,
+     "start:open_window": 543.892,
+     "gap": [
+      {
+       "kind": "span",
+       "name": "start:open_window",
+       "start": 851.4,
+       "took": 543.9
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1396.3,
+       "took": 6.1
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1396.0,
+       "took": 6.4
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1396.0,
+       "took": 6.4
+      },
+      {
+       "kind": "task",
+       "end": 1402.9,
+       "took": 7.5,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:mod_load",
+       "start": 1405.5,
+       "took": 101.5
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1405.5,
+       "took": 102.2
+      },
+      {
+       "kind": "task",
+       "end": 1509.0,
+       "took": 103.9,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1591.4,
+       "took": 81.3,
+       "msg": 15
+      },
+      {
+       "kind": "task",
+       "end": 2093.7,
+       "took": 502.2,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 2095.7,
+       "took": 6.1
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 2095.4,
+       "took": 6.4
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 2095.3,
+       "took": 6.5
+      },
+      {
+       "kind": "task",
+       "end": 2102.2,
+       "took": 7.8,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 2122.0,
+       "took": 19.0,
+       "msg": 15
+      }
+     ],
+     "control_ready": 2105.907,
+     "other_load": 1229.3590330286868,
+     "round": 54
+    },
+    {
+     "polls": [
+      [
+       1697.247,
+       1770.381,
+       0
+      ]
+     ],
+     "power_sent": 0,
+     "main": 48.836,
+     "start:write_workspace": 505.318,
+     "start:install_themes_icons": 606.862,
+     "start:core_find": 615.371,
+     "start:platform": 668.94,
+     "start:core_connect": 79.848,
+     "start:app_running": 1060.906,
+     "start:installs_wait": 0.025,
+     "start:fonts": 68.951,
+     "start:mods_init": 0.679,
+     "start:core_wait": 0.029,
+     "start:js_runtime": 24.942,
+     "start:install_layouts": 9.796,
+     "ui:mod_load": 288.964,
+     "first_render": 1564.199,
+     "first_paint": 1624.575,
+     "start:open_window": 490.804,
+     "gap": [
+      {
+       "kind": "span",
+       "name": "start:open_window",
+       "start": 1135.7,
+       "took": 490.8
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1628.8,
+       "took": 6.0
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1628.4,
+       "took": 6.3
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1628.4,
+       "took": 6.4
+      },
+      {
+       "kind": "task",
+       "end": 1635.0,
+       "took": 7.1,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:mod_load",
+       "start": 1636.2,
+       "took": 119.4
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1636.2,
+       "took": 120.0
+      },
+      {
+       "kind": "task",
+       "end": 1758.0,
+       "took": 122.1,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1851.4,
+       "took": 91.6,
+       "msg": 15
+      }
+     ],
+     "control_ready": 1770.381,
+     "other_load": 1089.7844962980753,
+     "round": 55
+    },
+    {
+     "polls": [
+      [
+       1714.582,
+       1873.589,
+       0
+      ]
+     ],
+     "power_sent": 0,
+     "main": 53.508,
+     "start:core_find": 121.308,
+     "start:platform": 180.056,
+     "start:core_connect": 172.17,
+     "start:write_workspace": 693.015,
+     "start:app_running": 849.169,
+     "start:install_themes_icons": 959.002,
+     "start:installs_wait": 166.047,
+     "start:fonts": 71.835,
+     "start:mods_init": 0.572,
+     "start:core_wait": 0.028,
+     "start:js_runtime": 22.072,
+     "start:install_layouts": 29.674,
+     "ui:mod_load": 306.121,
+     "first_render": 1562.123,
+     "first_paint": 1627.621,
+     "start:open_window": 536.977,
+     "gap": [
+      {
+       "kind": "span",
+       "name": "start:open_window",
+       "start": 1092.4,
+       "took": 537.0
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1630.5,
+       "took": 8.0
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1630.2,
+       "took": 8.3
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1630.2,
+       "took": 8.3
+      },
+      {
+       "kind": "task",
+       "end": 1638.8,
+       "took": 9.2,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:mod_load",
+       "start": 1642.2,
+       "took": 121.3
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1642.1,
+       "took": 121.9
+      },
+      {
+       "kind": "task",
+       "end": 1764.5,
+       "took": 122.6,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1861.6,
+       "took": 96.1,
+       "msg": 15
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1862.7,
+       "took": 5.8
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1862.4,
+       "took": 6.1
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1862.4,
+       "took": 6.1
+      },
+      {
+       "kind": "task",
+       "end": 2410.8,
+       "took": 549.1,
+       "msg": 1027
+      }
+     ],
+     "control_ready": 1873.589,
+     "other_load": 1368.6640498123713,
+     "round": 56
+    },
+    {
+     "polls": [
+      [
+       1482.791,
+       2108.386,
+       0
+      ]
+     ],
+     "power_sent": 0,
+     "main": 48.094,
+     "start:core_find": 152.514,
+     "start:platform": 204.822,
+     "start:core_connect": 92.187,
+     "start:write_workspace": 613.57,
+     "start:app_running": 718.892,
+     "start:install_themes_icons": 800.87,
+     "start:installs_wait": 131.26,
+     "start:fonts": 74.831,
+     "start:mods_init": 0.525,
+     "start:core_wait": 0.031,
+     "start:js_runtime": 23.941,
+     "start:install_layouts": 25.981,
+     "ui:mod_load": 256.209,
+     "first_render": 1380.318,
+     "first_paint": 1435.071,
+     "start:open_window": 506.376,
+     "gap": [
+      {
+       "kind": "span",
+       "name": "start:open_window",
+       "start": 930.1,
+       "took": 506.4
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1437.4,
+       "took": 4.3
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1437.2,
+       "took": 4.5
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1437.1,
+       "took": 4.5
+      },
+      {
+       "kind": "task",
+       "end": 1442.1,
+       "took": 5.5,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:mod_load",
+       "start": 1444.4,
+       "took": 84.4
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1444.4,
+       "took": 85.0
+      },
+      {
+       "kind": "task",
+       "end": 1530.8,
+       "took": 86.6,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1621.4,
+       "took": 89.4,
+       "msg": 15
+      },
+      {
+       "kind": "task",
+       "end": 2096.7,
+       "took": 475.3,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 2097.8,
+       "took": 6.3
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 2097.4,
+       "took": 6.7
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 2097.4,
+       "took": 6.7
+      },
+      {
+       "kind": "task",
+       "end": 2104.5,
+       "took": 7.6,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 2121.0,
+       "took": 15.8,
+       "msg": 15
+      }
+     ],
+     "control_ready": 2108.386,
+     "other_load": 1184.4379201243198,
+     "round": 57
+    },
+    {
+     "polls": [
+      [
+       1504.34,
+       1584.117,
+       0
+      ]
+     ],
+     "power_sent": 0,
+     "main": 51.029,
+     "start:core_find": 284.577,
+     "start:platform": 340.483,
+     "start:core_connect": 86.916,
+     "start:write_workspace": 588.039,
+     "start:install_themes_icons": 753.41,
+     "start:app_running": 828.603,
+     "start:installs_wait": 0.028,
+     "start:fonts": 75.578,
+     "start:mods_init": 0.467,
+     "start:core_wait": 0.031,
+     "start:js_runtime": 26.921,
+     "start:install_layouts": 31.21,
+     "ui:mod_load": 275.115,
+     "first_render": 1386.57,
+     "first_paint": 1443.778,
+     "start:open_window": 535.821,
+     "gap": [
+      {
+       "kind": "span",
+       "name": "start:open_window",
+       "start": 909.8,
+       "took": 535.8
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1446.9,
+       "took": 6.7
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1446.6,
+       "took": 7.0
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1446.6,
+       "took": 7.0
+      },
+      {
+       "kind": "task",
+       "end": 1454.0,
+       "took": 8.1,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:mod_load",
+       "start": 1455.8,
+       "took": 113.4
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1455.7,
+       "took": 114.0
+      },
+      {
+       "kind": "task",
+       "end": 1570.7,
+       "took": 115.1,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1674.8,
+       "took": 101.3,
+       "msg": 15
+      }
+     ],
+     "control_ready": 1584.117,
+     "other_load": 1279.5457275915735,
+     "round": 58
+    },
+    {
+     "polls": [
+      [
+       1594.938,
+       2170.42,
+       0
+      ]
+     ],
+     "power_sent": 0,
+     "main": 48.678,
+     "start:core_find": 120.41,
+     "start:platform": 174.28,
+     "start:core_connect": 89.339,
+     "start:write_workspace": 596.537,
+     "start:app_running": 683.775,
+     "start:install_themes_icons": 778.932,
+     "start:installs_wait": 145.448,
+     "start:fonts": 78.957,
+     "start:mods_init": 0.561,
+     "start:core_wait": 0.034,
+     "start:js_runtime": 20.129,
+     "start:install_layouts": 31.503,
+     "ui:mod_load": 251.223,
+     "first_render": 1406.712,
+     "first_paint": 1475.504,
+     "start:open_window": 563.39,
+     "gap": [
+      {
+       "kind": "span",
+       "name": "start:open_window",
+       "start": 913.5,
+       "took": 563.4
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1477.9,
+       "took": 4.6
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1477.7,
+       "took": 4.8
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1477.7,
+       "took": 4.8
+      },
+      {
+       "kind": "task",
+       "end": 1483.0,
+       "took": 5.9,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:mod_load",
+       "start": 1483.8,
+       "took": 84.8
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1483.8,
+       "took": 85.3
+      },
+      {
+       "kind": "task",
+       "end": 1571.5,
+       "took": 87.9,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1658.7,
+       "took": 86.5,
+       "msg": 15
+      },
+      {
+       "kind": "task",
+       "end": 2159.6,
+       "took": 500.8,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 2160.6,
+       "took": 6.3
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 2160.3,
+       "took": 6.6
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 2160.3,
+       "took": 6.6
+      },
+      {
+       "kind": "task",
+       "end": 2168.2,
+       "took": 8.5,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 2186.2,
+       "took": 16.7,
+       "msg": 15
+      }
+     ],
+     "control_ready": 2170.42,
+     "other_load": 1193.1516008990263,
+     "round": 59
+    },
+    {
+     "polls": [
+      [
+       1407.213,
+       1481.592,
+       0
+      ]
+     ],
+     "power_sent": 0,
+     "main": 51.944,
+     "start:core_find": 129.32,
+     "start:platform": 185.694,
+     "start:core_connect": 108.6,
+     "start:write_workspace": 568.281,
+     "start:app_running": 654.391,
+     "start:install_themes_icons": 702.958,
+     "start:installs_wait": 101.628,
+     "start:fonts": 74.73,
+     "start:mods_init": 0.536,
+     "start:core_wait": 0.036,
+     "start:js_runtime": 20.521,
+     "start:install_layouts": 35.212,
+     "ui:mod_load": 282.39799999999997,
+     "first_render": 1294.145,
+     "first_paint": 1350.181,
+     "start:open_window": 515.064,
+     "gap": [
+      {
+       "kind": "span",
+       "name": "start:open_window",
+       "start": 836.6,
+       "took": 515.1
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1352.7,
+       "took": 5.1
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1352.4,
+       "took": 5.4
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1352.4,
+       "took": 5.5
+      },
+      {
+       "kind": "task",
+       "end": 1358.0,
+       "took": 6.2,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:mod_load",
+       "start": 1362.7,
+       "took": 107.1
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1362.7,
+       "took": 107.6
+      },
+      {
+       "kind": "task",
+       "end": 1470.5,
+       "took": 108.3,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1560.8,
+       "took": 88.7,
+       "msg": 15
+      }
+     ],
+     "control_ready": 1481.592,
+     "other_load": 1240.6063772605703,
+     "round": 60
+    },
+    {
+     "polls": [
+      [
+       1598.349,
+       2451.113,
+       0
+      ]
+     ],
+     "power_sent": 0,
+     "main": 58.274,
+     "start:core_find": 314.342,
+     "start:platform": 378.104,
+     "start:core_connect": 101.599,
+     "start:write_workspace": 593.091,
+     "start:install_themes_icons": 827.926,
+     "start:app_running": 906.106,
+     "start:installs_wait": 0.021,
+     "start:fonts": 72.248,
+     "start:mods_init": 0.545,
+     "start:core_wait": 0.035,
+     "start:js_runtime": 24.564,
+     "start:install_layouts": 36.54,
+     "ui:mod_load": 276.72700000000003,
+     "first_render": 1441.232,
+     "first_paint": 1504.257,
+     "start:open_window": 522.77,
+     "gap": [
+      {
+       "kind": "span",
+       "name": "start:open_window",
+       "start": 983.5,
+       "took": 522.8
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1507.7,
+       "took": 6.1
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1507.4,
+       "took": 6.5
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1507.4,
+       "took": 6.5
+      },
+      {
+       "kind": "task",
+       "end": 1514.2,
+       "took": 7.7,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:mod_load",
+       "start": 1516.8,
+       "took": 102.1
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1516.7,
+       "took": 102.7
+      },
+      {
+       "kind": "task",
+       "end": 1622.7,
+       "took": 106.1,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1742.9,
+       "took": 117.2,
+       "msg": 15
+      },
+      {
+       "kind": "frame",
+       "end": 2435.9,
+       "took": 23.7,
+       "msg": 15
+      },
+      {
+       "kind": "task",
+       "end": 2438.9,
+       "took": 696.0,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 2440.0,
+       "took": 6.6
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 2439.7,
+       "took": 6.9
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 2439.7,
+       "took": 6.9
+      },
+      {
+       "kind": "task",
+       "end": 2447.5,
+       "took": 8.5,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 2492.1,
+       "took": 43.6,
+       "msg": 15
+      }
+     ],
+     "control_ready": 2451.113,
+     "other_load": 1323.427877636048,
+     "round": 61
+    },
+    {
+     "polls": [
+      [
+       1830.805,
+       2490.858,
+       0
+      ]
+     ],
+     "power_sent": 0,
+     "main": 62.579,
+     "start:core_find": 128.297,
+     "start:platform": 196.261,
+     "start:core_connect": 108.148,
+     "start:write_workspace": 716.723,
+     "start:app_running": 810.695,
+     "start:install_themes_icons": 921.956,
+     "start:installs_wait": 175.51,
+     "start:fonts": 89.258,
+     "start:mods_init": 0.617,
+     "start:core_wait": 0.033,
+     "start:js_runtime": 30.012,
+     "start:install_layouts": 35.778,
+     "ui:mod_load": 301.44599999999997,
+     "first_render": 1643.73,
+     "first_paint": 1718.151,
+     "start:open_window": 638.373,
+     "gap": [
+      {
+       "kind": "span",
+       "name": "start:open_window",
+       "start": 1081.6,
+       "took": 638.4
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1723.2,
+       "took": 5.5
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1722.9,
+       "took": 5.9
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1722.8,
+       "took": 5.9
+      },
+      {
+       "kind": "task",
+       "end": 1729.1,
+       "took": 8.2,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:mod_load",
+       "start": 1730.7,
+       "took": 102.4
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1730.7,
+       "took": 103.1
+      },
+      {
+       "kind": "task",
+       "end": 1835.9,
+       "took": 105.4,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1947.6,
+       "took": 109.8,
+       "msg": 15
+      },
+      {
+       "kind": "task",
+       "end": 2480.5,
+       "took": 532.8,
+       "msg": 1027
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 2481.4,
+       "took": 5.2
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 2481.2,
+       "took": 5.5
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 2481.2,
+       "took": 5.5
+      },
+      {
+       "kind": "task",
+       "end": 2487.9,
+       "took": 7.4,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 2507.1,
+       "took": 17.4,
+       "msg": 15
+      }
+     ],
+     "control_ready": 2490.858,
+     "other_load": 1545.7411542947907,
+     "round": 62
+    },
+    {
+     "polls": [
+      [
+       1498.704,
+       1593.849,
+       0
+      ]
+     ],
+     "power_sent": 0,
+     "main": 52.003,
+     "start:core_find": 180.627,
+     "start:platform": 237.679,
+     "start:write_workspace": 582.731,
+     "start:core_connect": 400.315,
+     "start:app_running": 757.089,
+     "start:install_themes_icons": 774.683,
+     "start:installs_wait": 71.178,
+     "start:fonts": 74.111,
+     "start:mods_init": 0.498,
+     "start:core_wait": 0.026,
+     "start:js_runtime": 22.319,
+     "start:install_layouts": 30.082,
+     "ui:mod_load": 271.10299999999995,
+     "first_render": 1362.426,
+     "first_paint": 1428.595,
+     "start:open_window": 523.408,
+     "gap": [
+      {
+       "kind": "span",
+       "name": "start:open_window",
+       "start": 907.0,
+       "took": 523.4
+      },
+      {
+       "kind": "span",
+       "name": "ui:save",
+       "start": 1431.6,
+       "took": 9.2
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1431.4,
+       "took": 9.4
+      },
+      {
+       "kind": "span",
+       "name": "cmd:layout.resize",
+       "start": 1431.3,
+       "took": 9.5
+      },
+      {
+       "kind": "task",
+       "end": 1444.5,
+       "took": 13.9,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1475.5,
+       "took": 30.1,
+       "msg": 15
+      },
+      {
+       "kind": "span",
+       "name": "ui:mod_load",
+       "start": 1475.9,
+       "took": 105.5
+      },
+      {
+       "kind": "span",
+       "name": "ui:sync",
+       "start": 1475.9,
+       "took": 106.1
+      },
+      {
+       "kind": "task",
+       "end": 1582.3,
+       "took": 106.6,
+       "msg": 1027
+      },
+      {
+       "kind": "frame",
+       "end": 1655.1,
+       "took": 68.5,
+       "msg": 15
+      }
+     ],
+     "control_ready": 1593.849,
+     "other_load": 1404.459399864898,
+     "round": 63
+    }
+   ],
+   "exits": []
+  }
+ }
+}

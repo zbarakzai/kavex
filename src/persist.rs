@@ -40,6 +40,103 @@ pub fn write_atomic(path: &Path, body: impl AsRef<[u8]>) -> std::io::Result<()> 
     result
 }
 
+/// One app-owned file written on a thread of its own, so the window never
+/// waits on the disk (on Windows each create and rename is slow). The newest
+/// text wins, an older one never lands last, and `finish` waits for the last.
+pub struct Later {
+    path: PathBuf,
+    writer: Option<(std::sync::mpsc::Sender<String>, std::thread::JoinHandle<()>)>,
+    failed: std::sync::Arc<std::sync::atomic::AtomicBool>,
+}
+
+impl Later {
+    pub fn new(path: PathBuf) -> Self {
+        Self { path, writer: None, failed: Default::default() }
+    }
+
+    /// Writes `text` soon (now, if no thread can start).
+    pub fn write(&mut self, text: String) {
+        if self.writer.is_none() {
+            let (tx, rx) = std::sync::mpsc::channel::<String>();
+            let (path, failed) = (self.path.clone(), self.failed.clone());
+            let worker = std::thread::Builder::new().name("write-later".into()).spawn(move || {
+                while let Ok(mut text) = rx.recv() {
+                    for newer in rx.try_iter() {
+                        text = newer;
+                    }
+                    Self::put(&path, &failed, &text);
+                }
+            });
+            match worker {
+                Ok(worker) => self.writer = Some((tx, worker)),
+                Err(_) => return Self::put(&self.path, &self.failed, &text),
+            }
+        }
+        if let Some((tx, _)) = &self.writer
+            && let Err(e) = tx.send(text)
+        {
+            Self::put(&self.path, &self.failed, &e.0);
+        }
+    }
+
+    fn put(path: &Path, failed: &std::sync::atomic::AtomicBool, text: &str) {
+        let result = write_atomic(path, text);
+        if let Err(error) = &result {
+            tracing::warn!("cannot write {}: {error}", path.display());
+        }
+        failed.store(result.is_err(), Ordering::SeqCst);
+    }
+
+    /// The last write didn't reach the disk: write it again next time.
+    pub fn failed(&self) -> bool {
+        self.failed.load(Ordering::SeqCst)
+    }
+
+    /// Waits until everything written so far is on disk.
+    pub fn finish(&mut self) {
+        if let Some((tx, worker)) = self.writer.take() {
+            drop(tx);
+            if worker.join().is_err() {
+                tracing::warn!("{} writer stopped before saving finished", self.path.display());
+            }
+        }
+    }
+}
+
+impl Drop for Later {
+    fn drop(&mut self) {
+        self.finish();
+    }
+}
+
+#[cfg(test)]
+mod later_tests {
+    use super::*;
+
+    #[test]
+    fn the_newest_text_is_on_disk_after_finish_and_a_failure_is_known() {
+        let dir = std::env::temp_dir().join(format!("herdr-later-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let mut file = Later::new(dir.join("view.json"));
+        for i in 0..50 {
+            file.write(format!("v{i}"));
+        }
+        file.finish();
+        assert_eq!(std::fs::read_to_string(dir.join("view.json")).unwrap(), "v49");
+        assert!(!file.failed());
+        // Written again after finish: a new writer, same file.
+        file.write("again".into());
+        file.finish();
+        assert_eq!(std::fs::read_to_string(dir.join("view.json")).unwrap(), "again");
+
+        let mut nowhere = Later::new(dir.join("missing-folder").join("view.json"));
+        nowhere.write("x".into());
+        nowhere.finish();
+        assert!(nowhere.failed());
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+}
+
 #[cfg(all(test, unix))]
 mod tests {
     use super::*;

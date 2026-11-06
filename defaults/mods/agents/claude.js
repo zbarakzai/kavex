@@ -21,16 +21,19 @@ export const claude = {
   async locate({ term, machine }) {
     const pid = term.foreground?.pid;
     if (!pid) return null;
+    const configs = await machine.configs();
     for (const { pid: candidate, started } of await machine.processes(pid)) {
-      const record = await machine.read(`${machine.home}/.claude/sessions/${candidate}.json`);
-      if (!record) continue;
-      const { sessionId, cwd, startedAt } = JSON.parse(record);
-      // A crash leaves its record, and Windows hands pids on fast: a process can't be newer than
-      // its own record, so one that is, or that can't be shown not to be, is someone else's.
-      if (started !== undefined && !(started <= startedAt)) continue;
-      if (!sessionId || !cwd) return null;
-      const folder = `${machine.home}/.claude/projects/${folderName(cwd)}`;
-      return { id: sessionId, folder, file: `${folder}/${sessionId}.jsonl` };
+      for (const config of configs) {
+        const record = await machine.read(`${config}/sessions/${candidate}.json`);
+        if (!record) continue;
+        const { sessionId, cwd, startedAt } = JSON.parse(record);
+        // A crash leaves its record, and Windows hands pids on fast: a process can't be newer than
+        // its own record, so one that is, or that can't be shown not to be, is someone else's.
+        if (started !== undefined && !(started <= startedAt)) continue;
+        if (!sessionId || !cwd) return null;
+        const folder = `${config}/projects/${folderName(cwd)}`;
+        return { id: sessionId, folder, file: `${folder}/${sessionId}.jsonl` };
+      }
     }
     return null;
   },

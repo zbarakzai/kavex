@@ -1,0 +1,279 @@
+﻿diff --git a/vendor/gpui-kit/crates/shell/src/materialize.rs b/vendor/gpui-kit/crates/shell/src/materialize.rs
+index f95efce..660f111 100644
+--- a/vendor/gpui-kit/crates/shell/src/materialize.rs
++++ b/vendor/gpui-kit/crates/shell/src/materialize.rs
+@@ -817,6 +817,16 @@ fn materialize_node(
+     };
+ 
+     let (mut refinement, behavior, states, motions, slot_specs) = resolve_ops(arena, node);
++    // HERDR: for hosted dots (see `Dot`).
++    if !motions.is_empty() {
++        MOVING.with(|m| m.set(true));
++    }
++    if DOTS_HOSTED.with(|h| h.get())
++        && !checking()
++        && is_dot(&component, node, &refinement, &behavior, &states, &motions, &slot_specs)
++    {
++        return dot_slot(window.current_view(), &refinement, behavior.loops[0].clone());
++    }
+     let motion_identity = motion_element_id(id, behavior.key.clone(), &component);
+     apply_motion(motion_identity, &motions, &mut refinement, window, cx);
+     let frame_text = apply_loops(&behavior, &mut refinement, window, cx);
+@@ -2146,20 +2156,9 @@ fn warn_unhonoured_a11y(behavior: &Behavior, component: &str, honoured: &[&str])
+ // Nine arguments, because a scroll area now also has to reach window element
+ // state for the position it shares with an explicit `Scrollbar`. Bundling them
+ // into a struct would move the same nine values one line up and no further.
+-#[allow(clippy::too_many_arguments)]
+-fn flex_element(
+-    runtime: &Rc<ShellRuntime>,
+-    element: gpui::Div,
+-    id: SpecId,
+-    refinement: StyleRefinement,
+-    behavior: Behavior,
+-    states: StateStyles,
+-    children: Children,
+-    window: &mut Window,
+-    cx: &mut App,
+-) -> AnyElement {
+-    let element = with_hover(element, &states);
+-    if behavior.key.is_none()
++/// A `div` with no identity, listener, focus or scrolling: GPUI's plain element.
++fn plain_div(behavior: &Behavior, states: &StateStyles) -> bool {
++    behavior.key.is_none()
+         && !states.needs_identity()
+         && !behavior.needs_identity()
+         && behavior.on_click.is_none()
+@@ -2177,7 +2176,22 @@ fn flex_element(
+         && behavior.key_context.is_none()
+         && !behavior.scroll_x
+         && !behavior.scroll_y
+-    {
++}
++
++#[allow(clippy::too_many_arguments)]
++fn flex_element(
++    runtime: &Rc<ShellRuntime>,
++    element: gpui::Div,
++    id: SpecId,
++    refinement: StyleRefinement,
++    behavior: Behavior,
++    states: StateStyles,
++    children: Children,
++    window: &mut Window,
++    cx: &mut App,
++) -> AnyElement {
++    let element = with_hover(element, &states);
++    if plain_div(&behavior, &states) {
+         return finish(element, refinement, children);
+     }
+ 
+@@ -2780,6 +2794,7 @@ pub(in crate::materialize) fn resolve_ops(
+ // loop asks to be drawn again when its next value is due (the next frame of
+ // `frames`, ~30 fps for `loop`), so a spinner costs one native redraw of its
+ // view per step and nothing while the view isn't drawn.
++#[derive(Clone)]
+ struct Loop {
+     property: MotionProperty,
+     from: f32,
+@@ -2799,6 +2814,23 @@ fn loop_value(values: &[f32], phase: f64) -> f32 {
+     values[stop] + (next - values[stop]) * (at - stop as f32)
+ }
+ 
++/// A loop's value `now` (ms on [`loop_clock_ms`]).
++fn loop_now(l: &Loop, now: f64) -> f32 {
++    let phase = (now % l.period) / l.period;
++    if l.values.is_empty() {
++        let x = if phase < 0.5 { phase * 2.0 } else { 2.0 - phase * 2.0 } as f32;
++        let eased = match l.easing.as_str() {
++            "linear" => x,
++            "ease-in" => ease_in_cubic(x),
++            "ease-out" => ease_out_cubic(x),
++            _ => ease_in_out_cubic(x),
++        };
++        l.from + (l.to - l.from) * eased
++    } else {
++        loop_value(&l.values, phase)
++    }
++}
++
+ /// One clock for every view, so spinners in different mods turn together.
+ fn loop_clock_ms() -> f64 {
+     static EPOCH: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
+@@ -2843,6 +2875,32 @@ thread_local! {
+     static KEEP_INLINE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+     /// The opacity the node being built is painted with (its ancestors' and its own).
+     static FADE: std::cell::Cell<f32> = const { std::cell::Cell::new(1.0) };
++    static DOTS: RefCell<std::collections::HashMap<gpui::EntityId, Vec<Dot>>> =
++        RefCell::new(std::collections::HashMap::new());
++    /// Views whose last build had something that may cover a dot: what keeps
++    /// spinners inline, or anything moving (a transition or spring), such as a
++    /// tab carried over the others.
++    static DOTS_INLINE: RefCell<std::collections::HashSet<gpui::EntityId>> =
++        RefCell::new(std::collections::HashSet::new());
++    static DOTS_HOSTED: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
++    static DOT_BUILT: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
++    static MOVING: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
++}
++
++// HERDR: a dot whose only change is a looping opacity (a loader's dots) in a
++// view a ShellRoot shows is drawn by that ShellRoot too, as spinners are: the
++// view lays out an empty slot and ShellRoot paints the dot's background there,
++// at the loop's opacity now, waking only itself. An agent working kept three
++// whole mod views (tab bar, spaces, agents) rebuilding 20-30 times a second
++// for ten dots each. Same pixels: the background times the opacity GPUI would
++// apply, with the same corners, mask and clock.
++#[derive(Clone)]
++struct Dot {
++    bounds: Bounds<Pixels>,
++    mask: gpui::ContentMask<Pixels>,
++    style: Rc<gpui::Style>,
++    fade: f32,
++    lap: Rc<Loop>,
+ }
+ 
+ /// A ShellRoot shows `view` as its content (and draws its spinners).
+@@ -2854,6 +2912,8 @@ pub(crate) fn forget_spins(view: gpui::EntityId) {
+     SPINS.with(|s| s.borrow_mut().remove(&view));
+     SHOWN.with(|s| s.borrow_mut().remove(&view));
+     INLINE.with(|s| s.borrow_mut().remove(&view));
++    DOTS.with(|s| s.borrow_mut().remove(&view));
++    DOTS_INLINE.with(|s| s.borrow_mut().remove(&view));
+ }
+ 
+ /// Materializes `view`; `may_host`: its spinners may be left to its ShellRoot's
+@@ -2863,14 +2923,23 @@ pub(crate) fn build_view<T>(view: gpui::EntityId, may_host: bool, build: impl Fn
+     let hosted = may_host
+         && SHOWN.with(|s| s.borrow().contains(&view))
+         && !INLINE.with(|s| s.borrow().contains(&view));
++    let dots_hosted = hosted && !DOTS_INLINE.with(|s| s.borrow().contains(&view));
+     SPINS.with(|s| s.borrow_mut().remove(&view));
++    DOTS.with(|s| s.borrow_mut().remove(&view));
+     HOSTED.with(|h| h.set(hosted));
++    DOTS_HOSTED.with(|h| h.set(dots_hosted));
+     KEEP_INLINE.with(|o| o.set(false));
++    DOT_BUILT.with(|o| o.set(false));
++    MOVING.with(|o| o.set(false));
+     let built = build();
+     HOSTED.with(|h| h.set(false));
++    DOTS_HOSTED.with(|h| h.set(false));
+     let inline = KEEP_INLINE.with(|o| o.get());
++    let dots_inline = inline || MOVING.with(|o| o.get());
+     INLINE.with(|s| if inline { s.borrow_mut().insert(view) } else { s.borrow_mut().remove(&view) });
+-    (built, hosted && inline)
++    DOTS_INLINE.with(|s| if dots_inline { s.borrow_mut().insert(view) } else { s.borrow_mut().remove(&view) });
++    let dots_missed = dots_hosted && dots_inline && DOT_BUILT.with(|o| o.get());
++    (built, (hosted && inline) || dots_missed)
+ }
+ 
+ /// Builds the view being rendered again on the next frame.
+@@ -2918,12 +2987,89 @@ fn spin_slot(
+     slot.into_any_element()
+ }
+ 
++/// A leaf `div` whose only motion is one opacity `loop`, with nothing but a
++/// solid background, corners and a size to paint: what a hosted [`Dot`] can
++/// draw exactly. Anything more (children, a border, a shadow, a listener, a
++/// state style, a transition) stays inline.
++#[allow(clippy::too_many_arguments)]
++fn is_dot(
++    component: &Component,
++    node: &SpecNode,
++    refinement: &StyleRefinement,
++    behavior: &Behavior,
++    states: &StateStyles,
++    motions: &[Motion],
++    slot_specs: &SlotSpecs,
++) -> bool {
++    matches!(component, Component::Div)
++        && node.children().is_empty()
++        && slot_specs.is_empty()
++        && motions.is_empty()
++        && states.hover.is_none()
++        && behavior.frames.is_none()
++        && behavior.spin.is_none()
++        && matches!(behavior.loops.as_slice(), [l] if l.property == MotionProperty::Opacity)
++        && plain_div(behavior, states)
++        && refinement.border_color.is_none()
++        && refinement.box_shadow.as_ref().is_none_or(|s| s.is_empty())
++        && refinement.visibility != Some(gpui::Visibility::Hidden)
++        && refinement
++            .background
++            .as_ref()
++            .and_then(|fill| fill.color())
++            .is_some_and(|background| background.as_solid().is_some())
++}
++
++fn dot_slot(view: gpui::EntityId, refinement: &StyleRefinement, lap: Loop) -> AnyElement {
++    DOT_BUILT.with(|o| o.set(true));
++    let fade = FADE.with(|f| f.get());
++    let mut style = gpui::Style::default();
++    style.refine(refinement);
++    let style = Rc::new(style);
++    let lap = Rc::new(lap);
++    let mut slot = gpui::canvas(
++        move |bounds, window, _| {
++            let dot = Dot { bounds, mask: window.content_mask(), style, fade, lap };
++            DOTS.with(|s| s.borrow_mut().entry(view).or_default().push(dot));
++        },
++        |_, _, _, _| {},
++    );
++    // Only its place: a canvas paints its own style's background, which is the
++    // layer's to paint here.
++    let mut place = refinement.clone();
++    place.background = None;
++    slot.style().refine(&place);
++    slot.into_any_element()
++}
++
++/// `view`'s dots at their loops' opacity now, painted as their `div` would be;
++/// while there are any, the view this is drawn in (a ShellRoot) is woken at
++/// the rate an inline loop wakes its view.
++fn paint_dots(view: gpui::EntityId, window: &mut Window, cx: &mut App) {
++    if DOTS_INLINE.with(|s| s.borrow().contains(&view)) || INLINE.with(|s| s.borrow().contains(&view)) {
++        return;
++    }
++    let dots = DOTS.with(|s| s.borrow().get(&view).cloned()).unwrap_or_default();
++    if dots.is_empty() {
++        return;
++    }
++    let now = loop_clock_ms();
++    for d in dots {
++        let opacity = d.fade * loop_now(&d.lap, now).clamp(0.0, 1.0);
++        let mut style = (*d.style).clone();
++        style.background = style.background.and_then(|fill| fill.color()).map(|b| gpui::Fill::Color(b.opacity(opacity)));
++        window.with_content_mask(Some(d.mask), |window| style.paint(d.bounds, window, cx, |_, _| {}));
++    }
++    wake_view_after(Duration::from_secs_f64(1.0 / 30.0), window, cx);
++}
++
+ /// `view`'s spinners, turned to now; while there are any, the view this is
+ /// drawn in (a ShellRoot) is woken for the next step.
+ pub(crate) fn spin_layer(view: gpui::EntityId) -> AnyElement {
+     gpui::canvas(
+         |_, _, _| {},
+         move |_, _, window, cx| {
++            paint_dots(view, window, cx);
+             let spins = SPINS.with(|s| s.borrow().get(&view).cloned()).unwrap_or_default();
+             if spins.is_empty() || INLINE.with(|s| s.borrow().contains(&view)) {
+                 return;
+@@ -2997,19 +3143,7 @@ fn apply_loops<'a>(behavior: &'a Behavior, refinement: &mut StyleRefinement, win
+         ((step as usize) % list.len(), list.as_slice())
+     });
+     for l in &behavior.loops {
+-        let phase = (now % l.period) / l.period;
+-        let value = if l.values.is_empty() {
+-            let x = if phase < 0.5 { phase * 2.0 } else { 2.0 - phase * 2.0 } as f32;
+-            let eased = match l.easing.as_str() {
+-                "linear" => x,
+-                "ease-in" => ease_in_cubic(x),
+-                "ease-out" => ease_out_cubic(x),
+-                _ => ease_in_out_cubic(x),
+-            };
+-            l.from + (l.to - l.from) * eased
+-        } else {
+-            loop_value(&l.values, phase)
+-        };
++        let value = loop_now(l, now);
+         match l.property {
+             MotionProperty::Opacity => refinement.opacity = Some(value.clamp(0.0, 1.0)),
+             MotionProperty::Width => refinement.size.width = Some(gpui::px(value).into()),

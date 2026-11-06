@@ -29,6 +29,9 @@ pub(crate) const WM_GPUI_KEYBOARD_LAYOUT_CHANGED: u32 = WM_USER + 6;
 pub(crate) const WM_GPUI_GPU_DEVICE_LOST: u32 = WM_USER + 7;
 pub(crate) const WM_GPUI_KEYDOWN: u32 = WM_USER + 8;
 pub(crate) const WM_GPUI_END_SESSION: u32 = WM_USER + 9;
+// HERDR: a suspend or resume, posted back to the platform window: see
+// `handle_power_broadcast`. lparam is the PBT_ code.
+pub(crate) const WM_GPUI_POWER_EVENT: u32 = WM_USER + 10;
 
 const SIZE_MOVE_LOOP_TIMER_ID: usize = 1;
 
@@ -261,6 +264,8 @@ impl WindowsWindowInner {
                 .callbacks
                 .request_frame
                 .set(Some(restore_from_minimized));
+            // HERDR: frames on demand. Demand that came while minimized found no callback.
+            self.state.frame_demand.wake(FrameDemand::FRAMES);
         } else {
             should_resize_renderer = true;
         }
@@ -1324,6 +1329,7 @@ impl WindowsWindowInner {
 
     fn handle_dm_pointer_hit_test(&self, wparam: WPARAM) -> Option<isize> {
         self.state.direct_manipulation.on_pointer_hit_test(wparam);
+        self.state.frame_demand.wake(FrameDemand::GESTURE_FRAMES); // HERDR: frames on demand.
         None
     }
 
@@ -1340,6 +1346,7 @@ impl WindowsWindowInner {
             // re-invalidates every window on each vsync (see
             // `begin_vsync_thread`), so the deferred frame still gets drawn,
             // at most one vsync late.
+            self.state.frame_demand.wake(FrameDemand::FRAMES); // HERDR: frames on demand.
             unsafe { ValidateRect(Some(handle), None).ok().log_err() };
             return Some(0);
         };
@@ -1349,6 +1356,7 @@ impl WindowsWindowInner {
 
         let events = self.state.direct_manipulation.drain_events();
         if !events.is_empty() {
+            self.state.frame_demand.wake(FrameDemand::GESTURE_FRAMES); // HERDR: frames on demand.
             if let Some(mut func) = self.state.callbacks.input.take() {
                 for event in events {
                     func(event);

@@ -1,0 +1,2186 @@
+{
+ "report": {
+  "head app.settings first": {
+   "drawn_ms": {
+    "median": 205.36,
+    "p95": 213.63,
+    "max": 213.63,
+    "iqr": 13.25,
+    "n": 5
+   },
+   "first_frame_ms": {
+    "median": 85.27,
+    "p95": 96.73,
+    "max": 96.73,
+    "iqr": 22.02,
+    "n": 5
+   },
+   "worst_frame_ms": {
+    "median": 62.95,
+    "p95": 67.16,
+    "max": 67.16,
+    "iqr": 18.27,
+    "n": 5
+   },
+   "main_busy_ms": {
+    "median": 261.02,
+    "p95": 274.05,
+    "max": 274.05,
+    "iqr": 54.02,
+    "n": 5
+   },
+   "app_cpu_ms": {
+    "median": 281.25,
+    "p95": 359.38,
+    "max": 359.38,
+    "iqr": 125.0,
+    "n": 5
+   },
+   "js_ms": {
+    "median": 62.42,
+    "p95": 102.58,
+    "max": 102.58,
+    "iqr": 37.03,
+    "n": 5
+   },
+   "script_renders": {
+    "median": 2,
+    "p95": 3,
+    "max": 3,
+    "iqr": 1.0,
+    "n": 5
+   },
+   "frames": {
+    "median": 7,
+    "p95": 8,
+    "max": 8,
+    "iqr": 3.5,
+    "n": 5
+   },
+   "frame_p95_ms": 62.953,
+   "spans_median": {
+    "ui:mod_load": 28.86,
+    "ui:flush_documents": 0.05,
+    "cmd:app.settings": 29.0,
+    "ui:paint_grid": 0.29,
+    "ui:tend_terminals": 0.07,
+    "ui:update_status": 1.04,
+    "ui:poll": 1.08
+   }
+  },
+  "head app.settings later": {
+   "drawn_ms": {
+    "median": 196.9,
+    "p95": 226.13,
+    "max": 229.07,
+    "iqr": 13.21,
+    "n": 30
+   },
+   "first_frame_ms": {
+    "median": 59.55,
+    "p95": 79.44,
+    "max": 85.89,
+    "iqr": 11.33,
+    "n": 30
+   },
+   "worst_frame_ms": {
+    "median": 42.97,
+    "p95": 58.12,
+    "max": 70.7,
+    "iqr": 14.68,
+    "n": 30
+   },
+   "main_busy_ms": {
+    "median": 216.79,
+    "p95": 273.11,
+    "max": 276.42,
+    "iqr": 28.99,
+    "n": 30
+   },
+   "app_cpu_ms": {
+    "median": 265.62,
+    "p95": 390.62,
+    "max": 406.25,
+    "iqr": 82.03,
+    "n": 30
+   },
+   "js_ms": {
+    "median": 69.66,
+    "p95": 99.05,
+    "max": 107.36,
+    "iqr": 29.71,
+    "n": 30
+   },
+   "script_renders": {
+    "median": 3.0,
+    "p95": 3,
+    "max": 3,
+    "iqr": 1.0,
+    "n": 30
+   },
+   "frames": {
+    "median": 8.0,
+    "p95": 10,
+    "max": 10,
+    "iqr": 1.25,
+    "n": 30
+   },
+   "frame_p95_ms": 51.791,
+   "spans_median": {
+    "ui:mod_load": 20.03,
+    "ui:flush_documents": 0.05,
+    "cmd:app.settings": 20.14,
+    "ui:paint_grid": 0.28,
+    "ui:update_status": 1.03,
+    "ui:poll": 1.07,
+    "ui:tend_terminals": 0.06
+   }
+  },
+  "fix app.settings first": {
+   "drawn_ms": {
+    "median": 206.27,
+    "p95": 244.19,
+    "max": 244.19,
+    "iqr": 30.74,
+    "n": 5
+   },
+   "first_frame_ms": {
+    "median": 101.08,
+    "p95": 107.05,
+    "max": 107.05,
+    "iqr": 27.08,
+    "n": 5
+   },
+   "worst_frame_ms": {
+    "median": 68.71,
+    "p95": 80.04,
+    "max": 80.04,
+    "iqr": 24.22,
+    "n": 5
+   },
+   "main_busy_ms": {
+    "median": 265.26,
+    "p95": 318.25,
+    "max": 318.25,
+    "iqr": 75.9,
+    "n": 5
+   },
+   "app_cpu_ms": {
+    "median": 265.62,
+    "p95": 296.88,
+    "max": 296.88,
+    "iqr": 39.06,
+    "n": 5
+   },
+   "js_ms": {
+    "median": 73.98,
+    "p95": 114.56,
+    "max": 114.56,
+    "iqr": 30.28,
+    "n": 5
+   },
+   "script_renders": {
+    "median": 3,
+    "p95": 3,
+    "max": 3,
+    "iqr": 0.5,
+    "n": 5
+   },
+   "frames": {
+    "median": 6,
+    "p95": 9,
+    "max": 9,
+    "iqr": 2.0,
+    "n": 5
+   },
+   "frame_p95_ms": 68.714,
+   "spans_median": {
+    "ui:mod_load": 29.1,
+    "ui:flush_documents": 0.03,
+    "cmd:app.settings": 29.25,
+    "ui:paint_grid": 0.32,
+    "ui:update_status": 0.18,
+    "ui:poll": 0.22
+   }
+  },
+  "fix app.settings later": {
+   "drawn_ms": {
+    "median": 195.52,
+    "p95": 212.31,
+    "max": 214.56,
+    "iqr": 8.79,
+    "n": 30
+   },
+   "first_frame_ms": {
+    "median": 60.34,
+    "p95": 78.97,
+    "max": 82.55,
+    "iqr": 12.49,
+    "n": 30
+   },
+   "worst_frame_ms": {
+    "median": 40.87,
+    "p95": 49.12,
+    "max": 54.49,
+    "iqr": 12.31,
+    "n": 30
+   },
+   "main_busy_ms": {
+    "median": 213.56,
+    "p95": 246.39,
+    "max": 248.34,
+    "iqr": 24.58,
+    "n": 30
+   },
+   "app_cpu_ms": {
+    "median": 257.81,
+    "p95": 359.38,
+    "max": 375.0,
+    "iqr": 66.41,
+    "n": 30
+   },
+   "js_ms": {
+    "median": 73.87,
+    "p95": 95.52,
+    "max": 100.18,
+    "iqr": 32.35,
+    "n": 30
+   },
+   "script_renders": {
+    "median": 3.0,
+    "p95": 3,
+    "max": 3,
+    "iqr": 1.0,
+    "n": 30
+   },
+   "frames": {
+    "median": 8.0,
+    "p95": 10,
+    "max": 10,
+    "iqr": 2.0,
+    "n": 30
+   },
+   "frame_p95_ms": 45.488,
+   "spans_median": {
+    "ui:mod_load": 20.48,
+    "ui:flush_documents": 0.05,
+    "cmd:app.settings": 20.6,
+    "ui:paint_grid": 0.31,
+    "ui:tend_terminals": 0.07,
+    "ui:update_status": 0.18,
+    "ui:poll": 0.22
+   }
+  }
+ },
+ "raw": {
+  "head": {
+   "app.settings": {
+    "first": [
+     {
+      "first_frame_ms": 93.625,
+      "drawn_ms": 213.626,
+      "worst_frame_ms": 63.151,
+      "frames": 7,
+      "frame_ms": [
+       63.151,
+       36.815,
+       33.039,
+       7.504,
+       7.207,
+       7.646,
+       8.359
+      ],
+      "main_busy_ms": 261.023,
+      "app_cpu_ms": 328.125,
+      "js_ms": 54.327,
+      "script_renders": 2,
+      "spans": {
+       "ui:mod_load": 29.996,
+       "ui:flush_documents": 0.093,
+       "cmd:app.settings": 30.153,
+       "ui:paint_grid": 0.317,
+       "ui:tend_terminals": 0.086,
+       "ui:update_status": 1.191,
+       "ui:poll": 1.232
+      }
+     },
+     {
+      "first_frame_ms": 96.726,
+      "drawn_ms": 205.356,
+      "worst_frame_ms": 67.156,
+      "frames": 5,
+      "frame_ms": [
+       67.156,
+       49.213,
+       6.976,
+       37.721,
+       6.746
+      ],
+      "main_busy_ms": 268.291,
+      "app_cpu_ms": 359.375,
+      "js_ms": 70.833,
+      "script_renders": 2,
+      "spans": {
+       "ui:mod_load": 29.054,
+       "ui:flush_documents": 0.096,
+       "cmd:app.settings": 29.229,
+       "ui:paint_grid": 0.295,
+       "ui:tend_terminals": 0.068,
+       "ui:update_status": 1.02,
+       "ui:poll": 1.051
+      }
+     },
+     {
+      "first_frame_ms": 85.269,
+      "drawn_ms": 211.887,
+      "worst_frame_ms": 62.953,
+      "frames": 4,
+      "frame_ms": [
+       62.953,
+       59.002,
+       50.2,
+       11.257
+      ],
+      "main_busy_ms": 274.054,
+      "app_cpu_ms": 281.25,
+      "js_ms": 102.576,
+      "script_renders": 3,
+      "spans": {
+       "ui:mod_load": 21.738,
+       "ui:flush_documents": 0.024,
+       "cmd:app.settings": 21.883,
+       "ui:paint_grid": 0.428
+      }
+     },
+     {
+      "first_frame_ms": 75.125,
+      "drawn_ms": 197.304,
+      "worst_frame_ms": 45.863,
+      "frames": 8,
+      "frame_ms": [
+       45.863,
+       30.882,
+       6.357,
+       27.211,
+       6.902,
+       5.788,
+       5.791,
+       7.227
+      ],
+      "main_busy_ms": 213.056,
+      "app_cpu_ms": 203.125,
+      "js_ms": 62.418,
+      "script_renders": 3,
+      "spans": {
+       "ui:mod_load": 28.86,
+       "ui:flush_documents": 0.045,
+       "cmd:app.settings": 28.999,
+       "ui:paint_grid": 0.278,
+       "ui:tend_terminals": 0.056
+      }
+     },
+     {
+      "first_frame_ms": 71.19,
+      "drawn_ms": 201.719,
+      "worst_frame_ms": 47.908,
+      "frames": 8,
+      "frame_ms": [
+       47.908,
+       32.931,
+       6.775,
+       28.869,
+       7.58,
+       7.318,
+       6.739,
+       7.288
+      ],
+      "main_busy_ms": 221.253,
+      "app_cpu_ms": 234.375,
+      "js_ms": 45.012,
+      "script_renders": 2,
+      "spans": {
+       "ui:mod_load": 22.735,
+       "ui:flush_documents": 0.052,
+       "cmd:app.settings": 22.906,
+       "ui:paint_grid": 0.295,
+       "ui:update_status": 1.042,
+       "ui:poll": 1.082
+      }
+     }
+    ],
+    "later": [
+     {
+      "first_frame_ms": 63.805,
+      "drawn_ms": 191.767,
+      "worst_frame_ms": 39.821,
+      "frames": 8,
+      "frame_ms": [
+       39.821,
+       33.724,
+       6.881,
+       29.355,
+       7.681,
+       7.571,
+       7.158,
+       7.71
+      ],
+      "main_busy_ms": 205.632,
+      "app_cpu_ms": 187.5,
+      "js_ms": 73.18,
+      "script_renders": 3,
+      "spans": {
+       "ui:mod_load": 23.557,
+       "ui:flush_documents": 0.021,
+       "cmd:app.settings": 23.68,
+       "ui:paint_grid": 0.282
+      }
+     },
+     {
+      "first_frame_ms": 58.576,
+      "drawn_ms": 191.392,
+      "worst_frame_ms": 39.771,
+      "frames": 8,
+      "frame_ms": [
+       39.771,
+       34.085,
+       33.969,
+       7.921,
+       6.472,
+       7.451,
+       7.21,
+       10.23
+      ],
+      "main_busy_ms": 208.733,
+      "app_cpu_ms": 312.5,
+      "js_ms": 52.493,
+      "script_renders": 2,
+      "spans": {
+       "ui:mod_load": 18.415,
+       "ui:flush_documents": 0.044,
+       "cmd:app.settings": 18.531,
+       "ui:paint_grid": 0.29,
+       "ui:update_status": 1.023,
+       "ui:poll": 1.057
+      }
+     },
+     {
+      "first_frame_ms": 57.394,
+      "drawn_ms": 199.268,
+      "worst_frame_ms": 52.332,
+      "frames": 7,
+      "frame_ms": [
+       38.503,
+       52.332,
+       8.094,
+       39.655,
+       7.793,
+       7.909,
+       10.411
+      ],
+      "main_busy_ms": 226.038,
+      "app_cpu_ms": 187.5,
+      "js_ms": 92.232,
+      "script_renders": 3,
+      "spans": {
+       "ui:mod_load": 18.504,
+       "ui:flush_documents": 0.02,
+       "cmd:app.settings": 18.616,
+       "ui:paint_grid": 0.367
+      }
+     },
+     {
+      "first_frame_ms": 55.912,
+      "drawn_ms": 195.103,
+      "worst_frame_ms": 36.421,
+      "frames": 8,
+      "frame_ms": [
+       36.421,
+       34.858,
+       6.5,
+       33.435,
+       6.859,
+       7.02,
+       7.333,
+       7.14
+      ],
+      "main_busy_ms": 200.672,
+      "app_cpu_ms": 250.0,
+      "js_ms": 72.71,
+      "script_renders": 3,
+      "spans": {
+       "ui:mod_load": 19.069,
+       "ui:flush_documents": 0.076,
+       "cmd:app.settings": 19.202,
+       "ui:paint_grid": 0.274,
+       "ui:tend_terminals": 0.121,
+       "ui:update_status": 0.892,
+       "ui:poll": 0.926
+      }
+     },
+     {
+      "first_frame_ms": 55.469,
+      "drawn_ms": 194.091,
+      "worst_frame_ms": 36.329,
+      "frames": 9,
+      "frame_ms": [
+       36.329,
+       35.289,
+       6.216,
+       27.911,
+       6.635,
+       7.097,
+       6.811,
+       7.366,
+       10.491
+      ],
+      "main_busy_ms": 202.577,
+      "app_cpu_ms": 187.5,
+      "js_ms": 46.755,
+      "script_renders": 2,
+      "spans": {
+       "ui:mod_load": 18.799,
+       "ui:flush_documents": 0.046,
+       "cmd:app.settings": 18.912,
+       "ui:paint_grid": 0.286,
+       "ui:update_status": 0.892,
+       "ui:poll": 0.923
+      }
+     },
+     {
+      "first_frame_ms": 57.075,
+      "drawn_ms": 203.037,
+      "worst_frame_ms": 53.965,
+      "frames": 8,
+      "frame_ms": [
+       37.114,
+       9.918,
+       53.965,
+       13.811,
+       12.467,
+       12.626,
+       14.362,
+       12.917
+      ],
+      "main_busy_ms": 227.818,
+      "app_cpu_ms": 218.75,
+      "js_ms": 64.469,
+      "script_renders": 2,
+      "spans": {
+       "ui:mod_load": 19.514,
+       "ui:flush_documents": 0.023,
+       "cmd:app.settings": 19.641,
+       "ui:paint_grid": 0.283
+      }
+     },
+     {
+      "first_frame_ms": 61.062,
+      "drawn_ms": 187.993,
+      "worst_frame_ms": 41.448,
+      "frames": 8,
+      "frame_ms": [
+       41.448,
+       36.733,
+       9.26,
+       30.767,
+       6.398,
+       6.237,
+       8.302,
+       8.052
+      ],
+      "main_busy_ms": 210.292,
+      "app_cpu_ms": 296.875,
+      "js_ms": 79.255,
+      "script_renders": 3,
+      "spans": {
+       "ui:mod_load": 19.265,
+       "ui:flush_documents": 0.026,
+       "cmd:app.settings": 19.379,
+       "ui:paint_grid": 0.3
+      }
+     },
+     {
+      "first_frame_ms": 73.377,
+      "drawn_ms": 206.471,
+      "worst_frame_ms": 51.373,
+      "frames": 6,
+      "frame_ms": [
+       45.654,
+       51.373,
+       45.789,
+       9.536,
+       9.548,
+       8.691
+      ],
+      "main_busy_ms": 248.975,
+      "app_cpu_ms": 250.0,
+      "js_ms": 63.422,
+      "script_renders": 2,
+      "spans": {
+       "ui:mod_load": 27.263,
+       "ui:flush_documents": 0.054,
+       "cmd:app.settings": 27.405,
+       "ui:paint_grid": 0.384,
+       "ui:update_status": 1.335,
+       "ui:poll": 1.373
+      }
+     },
+     {
+      "first_frame_ms": 55.174,
+      "drawn_ms": 186.871,
+      "worst_frame_ms": 44.825,
+      "frames": 8,
+      "frame_ms": [
+       35.759,
+       9.369,
+       32.853,
+       7.102,
+       44.825,
+       8.454,
+       7.579,
+       7.104
+      ],
+      "main_busy_ms": 210.0,
+      "app_cpu_ms": 281.25,
+      "js_ms": 85.357,
+      "script_renders": 3,
+      "spans": {
+       "ui:mod_load": 18.997,
+       "ui:flush_documents": 0.048,
+       "cmd:app.settings": 19.135,
+       "ui:paint_grid": 0.279,
+       "ui:tend_terminals": 0.074
+      }
+     },
+     {
+      "first_frame_ms": 52.236,
+      "drawn_ms": 189.735,
+      "worst_frame_ms": 33.255,
+      "frames": 9,
+      "frame_ms": [
+       32.983,
+       33.255,
+       5.924,
+       31.206,
+       8.029,
+       7.437,
+       9.126,
+       6.713,
+       6.317
+      ],
+      "main_busy_ms": 196.315,
+      "app_cpu_ms": 265.625,
+      "js_ms": 69.28,
+      "script_renders": 3,
+      "spans": {
+       "ui:mod_load": 18.622,
+       "ui:flush_documents": 0.04,
+       "cmd:app.settings": 18.749,
+       "ui:paint_grid": 0.266,
+       "ui:tend_terminals": 0.061
+      }
+     },
+     {
+      "first_frame_ms": 74.02,
+      "drawn_ms": 229.072,
+      "worst_frame_ms": 70.699,
+      "frames": 5,
+      "frame_ms": [
+       54.198,
+       70.699,
+       9.676,
+       56.285,
+       7.339
+      ],
+      "main_busy_ms": 276.415,
+      "app_cpu_ms": 234.375,
+      "js_ms": 95.233,
+      "script_renders": 2,
+      "spans": {
+       "ui:mod_load": 18.941,
+       "ui:flush_documents": 0.048,
+       "cmd:app.settings": 19.056,
+       "ui:paint_grid": 0.368,
+       "ui:update_status": 1.346,
+       "ui:poll": 1.383
+      }
+     },
+     {
+      "first_frame_ms": 57.678,
+      "drawn_ms": 194.888,
+      "worst_frame_ms": 35.872,
+      "frames": 10,
+      "frame_ms": [
+       35.872,
+       8.129,
+       31.043,
+       8.68,
+       6.549,
+       6.326,
+       7.124,
+       6.311,
+       6.273,
+       8.008
+      ],
+      "main_busy_ms": 183.933,
+      "app_cpu_ms": 218.75,
+      "js_ms": 46.138,
+      "script_renders": 2,
+      "spans": {
+       "ui:mod_load": 21.429,
+       "ui:flush_documents": 0.035,
+       "cmd:app.settings": 21.569,
+       "ui:paint_grid": 0.373
+      }
+     },
+     {
+      "first_frame_ms": 55.477,
+      "drawn_ms": 196.757,
+      "worst_frame_ms": 38.461,
+      "frames": 8,
+      "frame_ms": [
+       34.797,
+       38.461,
+       7.11,
+       33.437,
+       10.873,
+       7.158,
+       6.752,
+       6.777
+      ],
+      "main_busy_ms": 203.02,
+      "app_cpu_ms": 218.75,
+      "js_ms": 72.893,
+      "script_renders": 3,
+      "spans": {
+       "ui:mod_load": 20.291,
+       "ui:flush_documents": 0.052,
+       "cmd:app.settings": 20.401,
+       "ui:paint_grid": 0.273,
+       "ui:tend_terminals": 0.146
+      }
+     },
+     {
+      "first_frame_ms": 61.59,
+      "drawn_ms": 205.744,
+      "worst_frame_ms": 46.009,
+      "frames": 8,
+      "frame_ms": [
+       40.218,
+       46.009,
+       10.368,
+       38.502,
+       7.311,
+       7.63,
+       8.283,
+       7.722
+      ],
+      "main_busy_ms": 230.753,
+      "app_cpu_ms": 343.75,
+      "js_ms": 86.057,
+      "script_renders": 3,
+      "spans": {
+       "ui:mod_load": 20.987,
+       "ui:flush_documents": 0.025,
+       "cmd:app.settings": 21.099,
+       "ui:paint_grid": 0.274
+      }
+     },
+     {
+      "first_frame_ms": 79.442,
+      "drawn_ms": 198.418,
+      "worst_frame_ms": 51.791,
+      "frames": 7,
+      "frame_ms": [
+       51.791,
+       44.502,
+       7.373,
+       30.02,
+       6.423,
+       5.763,
+       6.512
+      ],
+      "main_busy_ms": 237.077,
+      "app_cpu_ms": 234.375,
+      "js_ms": 56.93,
+      "script_renders": 2,
+      "spans": {
+       "ui:mod_load": 27.24,
+       "ui:flush_documents": 0.055,
+       "cmd:app.settings": 27.351,
+       "ui:paint_grid": 0.275,
+       "ui:update_status": 1.023,
+       "ui:poll": 1.071
+      }
+     },
+     {
+      "first_frame_ms": 59.125,
+      "drawn_ms": 204.592,
+      "worst_frame_ms": 38.883,
+      "frames": 9,
+      "frame_ms": [
+       38.883,
+       33.066,
+       7.79,
+       27.969,
+       6.523,
+       8.219,
+       10.55,
+       7.908,
+       7.569
+      ],
+      "main_busy_ms": 209.501,
+      "app_cpu_ms": 281.25,
+      "js_ms": 69.955,
+      "script_renders": 3,
+      "spans": {
+       "ui:mod_load": 19.762,
+       "ui:flush_documents": 0.028,
+       "cmd:app.settings": 19.887,
+       "ui:paint_grid": 0.28
+      }
+     },
+     {
+      "first_frame_ms": 57.322,
+      "drawn_ms": 199.865,
+      "worst_frame_ms": 38.077,
+      "frames": 8,
+      "frame_ms": [
+       37.516,
+       38.077,
+       35.651,
+       6.919,
+       9.205,
+       7.308,
+       9.332,
+       7.463
+      ],
+      "main_busy_ms": 211.999,
+      "app_cpu_ms": 281.25,
+      "js_ms": 51.701,
+      "script_renders": 2,
+      "spans": {
+       "ui:mod_load": 19.419,
+       "ui:flush_documents": 0.072,
+       "cmd:app.settings": 19.534,
+       "ui:paint_grid": 0.272,
+       "ui:update_status": 1.084,
+       "ui:poll": 1.12,
+       "ui:tend_terminals": 0.077
+      }
+     },
+     {
+      "first_frame_ms": 66.284,
+      "drawn_ms": 195.316,
+      "worst_frame_ms": 56.964,
+      "frames": 6,
+      "frame_ms": [
+       42.756,
+       56.964,
+       40.525,
+       8.125,
+       6.476,
+       6.767
+      ],
+      "main_busy_ms": 231.322,
+      "app_cpu_ms": 281.25,
+      "js_ms": 99.046,
+      "script_renders": 3,
+      "spans": {
+       "ui:mod_load": 23.122,
+       "ui:flush_documents": 0.045,
+       "cmd:app.settings": 23.251,
+       "ui:paint_grid": 0.393,
+       "ui:tend_terminals": 0.083
+      }
+     },
+     {
+      "first_frame_ms": 54.547,
+      "drawn_ms": 186.829,
+      "worst_frame_ms": 35.165,
+      "frames": 8,
+      "frame_ms": [
+       35.165,
+       31.875,
+       28.389,
+       5.948,
+       6.393,
+       7.941,
+       6.525,
+       6.584
+      ],
+      "main_busy_ms": 186.572,
+      "app_cpu_ms": 203.125,
+      "js_ms": 42.186,
+      "script_renders": 2,
+      "spans": {
+       "ui:mod_load": 18.562,
+       "ui:flush_documents": 0.057,
+       "cmd:app.settings": 18.685,
+       "ui:paint_grid": 0.273,
+       "ui:update_status": 0.822,
+       "ui:poll": 0.856
+      }
+     },
+     {
+      "first_frame_ms": 70.374,
+      "drawn_ms": 202.231,
+      "worst_frame_ms": 44.5,
+      "frames": 8,
+      "frame_ms": [
+       44.5,
+       44.441,
+       7.422,
+       30.234,
+       6.024,
+       6.015,
+       7.788,
+       9.314
+      ],
+      "main_busy_ms": 227.916,
+      "app_cpu_ms": 312.5,
+      "js_ms": 83.613,
+      "script_renders": 3,
+      "spans": {
+       "ui:mod_load": 25.433,
+       "ui:flush_documents": 0.026,
+       "cmd:app.settings": 25.549,
+       "ui:paint_grid": 0.299
+      }
+     },
+     {
+      "first_frame_ms": 63.146,
+      "drawn_ms": 206.717,
+      "worst_frame_ms": 40.099,
+      "frames": 8,
+      "frame_ms": [
+       40.099,
+       31.378,
+       7.799,
+       34.948,
+       7.951,
+       9.762,
+       11.483,
+       10.12
+      ],
+      "main_busy_ms": 220.17,
+      "app_cpu_ms": 265.625,
+      "js_ms": 47.059,
+      "script_renders": 2,
+      "spans": {
+       "ui:mod_load": 22.536,
+       "ui:flush_documents": 0.11,
+       "cmd:app.settings": 22.701,
+       "ui:paint_grid": 0.278,
+       "ui:update_status": 1.394,
+       "ui:poll": 1.459
+      }
+     },
+     {
+      "first_frame_ms": 59.996,
+      "drawn_ms": 189.226,
+      "worst_frame_ms": 41.36,
+      "frames": 8,
+      "frame_ms": [
+       41.36,
+       35.301,
+       7.094,
+       38.419,
+       7.796,
+       6.23,
+       7.27,
+       7.157
+      ],
+      "main_busy_ms": 213.401,
+      "app_cpu_ms": 203.125,
+      "js_ms": 81.938,
+      "script_renders": 3,
+      "spans": {
+       "ui:mod_load": 18.273,
+       "ui:flush_documents": 0.046,
+       "cmd:app.settings": 18.385,
+       "ui:paint_grid": 0.305,
+       "ui:tend_terminals": 0.059
+      }
+     },
+     {
+      "first_frame_ms": 59.857,
+      "drawn_ms": 206.158,
+      "worst_frame_ms": 47.253,
+      "frames": 7,
+      "frame_ms": [
+       38.624,
+       47.253,
+       11.017,
+       45.641,
+       7.617,
+       7.186,
+       11.018
+      ],
+      "main_busy_ms": 230.2,
+      "app_cpu_ms": 250.0,
+      "js_ms": 90.494,
+      "script_renders": 3,
+      "spans": {
+       "ui:mod_load": 20.862,
+       "ui:flush_documents": 0.045,
+       "cmd:app.settings": 20.981,
+       "ui:paint_grid": 0.308,
+       "ui:tend_terminals": 0.062
+      }
+     },
+     {
+      "first_frame_ms": 59.235,
+      "drawn_ms": 190.82,
+      "worst_frame_ms": 49.961,
+      "frames": 6,
+      "frame_ms": [
+       39.238,
+       40.779,
+       11.667,
+       49.961,
+       7.177,
+       10.271
+      ],
+      "main_busy_ms": 221.364,
+      "app_cpu_ms": 281.25,
+      "js_ms": 65.161,
+      "script_renders": 2,
+      "spans": {
+       "ui:mod_load": 19.636,
+       "ui:flush_documents": 0.057,
+       "cmd:app.settings": 19.76,
+       "ui:paint_grid": 0.266,
+       "ui:update_status": 1.029,
+       "ui:poll": 1.068
+      }
+     },
+     {
+      "first_frame_ms": 79.11,
+      "drawn_ms": 194.434,
+      "worst_frame_ms": 58.116,
+      "frames": 6,
+      "frame_ms": [
+       58.116,
+       45.455,
+       31.456,
+       7.998,
+       8.016,
+       7.386
+      ],
+      "main_busy_ms": 242.013,
+      "app_cpu_ms": 312.5,
+      "js_ms": 92.937,
+      "script_renders": 3,
+      "spans": {
+       "ui:mod_load": 20.58,
+       "ui:flush_documents": 0.029,
+       "cmd:app.settings": 20.723,
+       "ui:paint_grid": 0.266
+      }
+     },
+     {
+      "first_frame_ms": 85.895,
+      "drawn_ms": 212.202,
+      "worst_frame_ms": 56.403,
+      "frames": 6,
+      "frame_ms": [
+       56.403,
+       42.597,
+       9.039,
+       45.724,
+       9.131,
+       9.559
+      ],
+      "main_busy_ms": 263.496,
+      "app_cpu_ms": 343.75,
+      "js_ms": 69.36,
+      "script_renders": 2,
+      "spans": {
+       "ui:mod_load": 28.931,
+       "ui:flush_documents": 0.084,
+       "cmd:app.settings": 29.071,
+       "ui:paint_grid": 0.324,
+       "ui:update_status": 1.561,
+       "ui:poll": 1.608,
+       "ui:tend_terminals": 0.06
+      }
+     },
+     {
+      "first_frame_ms": 74.8,
+      "drawn_ms": 193.255,
+      "worst_frame_ms": 53.075,
+      "frames": 5,
+      "frame_ms": [
+       52.665,
+       53.075,
+       9.262,
+       45.652,
+       7.603
+      ],
+      "main_busy_ms": 245.574,
+      "app_cpu_ms": 281.25,
+      "js_ms": 107.364,
+      "script_renders": 3,
+      "spans": {
+       "ui:mod_load": 21.657,
+       "ui:flush_documents": 0.031,
+       "cmd:app.settings": 21.782,
+       "ui:paint_grid": 0.34
+      }
+     },
+     {
+      "first_frame_ms": 56.032,
+      "drawn_ms": 199.973,
+      "worst_frame_ms": 33.605,
+      "frames": 10,
+      "frame_ms": [
+       33.605,
+       9.038,
+       31.768,
+       6.136,
+       29.468,
+       6.375,
+       5.978,
+       6.946,
+       7.089,
+       6.565
+      ],
+      "main_busy_ms": 201.273,
+      "app_cpu_ms": 406.25,
+      "js_ms": 46.796,
+      "script_renders": 2,
+      "spans": {
+       "ui:mod_load": 21.926,
+       "ui:flush_documents": 0.059,
+       "cmd:app.settings": 22.046,
+       "ui:paint_grid": 0.261,
+       "ui:update_status": 0.871,
+       "ui:poll": 0.916
+      }
+     },
+     {
+      "first_frame_ms": 54.76,
+      "drawn_ms": 197.036,
+      "worst_frame_ms": 35.9,
+      "frames": 9,
+      "frame_ms": [
+       35.9,
+       35.359,
+       6.883,
+       31.817,
+       7.38,
+       7.391,
+       6.617,
+       7.682,
+       7.697
+      ],
+      "main_busy_ms": 204.023,
+      "app_cpu_ms": 203.125,
+      "js_ms": 67.783,
+      "script_renders": 3,
+      "spans": {
+       "ui:mod_load": 18.448,
+       "ui:flush_documents": 0.042,
+       "cmd:app.settings": 18.565,
+       "ui:paint_grid": 0.319,
+       "ui:tend_terminals": 0.063
+      }
+     },
+     {
+      "first_frame_ms": 66.322,
+      "drawn_ms": 226.134,
+      "worst_frame_ms": 52.385,
+      "frames": 7,
+      "frame_ms": [
+       39.937,
+       8.846,
+       52.385,
+       10.29,
+       9.794,
+       43.793,
+       12.87
+      ],
+      "main_busy_ms": 273.105,
+      "app_cpu_ms": 390.625,
+      "js_ms": 60.965,
+      "script_renders": 2,
+      "spans": {
+       "ui:mod_load": 25.584,
+       "ui:flush_documents": 0.1,
+       "cmd:app.settings": 25.734,
+       "ui:paint_grid": 0.256,
+       "ui:tend_terminals": 0.056,
+       "ui:update_status": 1.243,
+       "ui:poll": 16.012
+      }
+     }
+    ]
+   }
+  },
+  "fix": {
+   "app.settings": {
+    "first": [
+     {
+      "first_frame_ms": 107.05,
+      "drawn_ms": 244.191,
+      "worst_frame_ms": 75.46,
+      "frames": 6,
+      "frame_ms": [
+       75.46,
+       16.289,
+       57.234,
+       8.992,
+       42.578,
+       7.847
+      ],
+      "main_busy_ms": 318.25,
+      "app_cpu_ms": 296.875,
+      "js_ms": 114.555,
+      "script_renders": 3,
+      "spans": {
+       "ui:mod_load": 31.007,
+       "ui:flush_documents": 0.032,
+       "cmd:app.settings": 31.199,
+       "ui:paint_grid": 0.438
+      }
+     },
+     {
+      "first_frame_ms": 68.054,
+      "drawn_ms": 202.784,
+      "worst_frame_ms": 46.781,
+      "frames": 9,
+      "frame_ms": [
+       46.781,
+       34.094,
+       5.941,
+       27.215,
+       7.258,
+       6.645,
+       6.845,
+       7.856,
+       7.373
+      ],
+      "main_busy_ms": 220.395,
+      "app_cpu_ms": 281.25,
+      "js_ms": 64.378,
+      "script_renders": 3,
+      "spans": {
+       "ui:mod_load": 20.889,
+       "ui:flush_documents": 0.029,
+       "cmd:app.settings": 21.023,
+       "ui:paint_grid": 0.32
+      }
+     },
+     {
+      "first_frame_ms": 89.821,
+      "drawn_ms": 202.921,
+      "worst_frame_ms": 60.282,
+      "frames": 7,
+      "frame_ms": [
+       60.282,
+       33.126,
+       7.154,
+       32.253,
+       6.856,
+       7.091,
+       9.559
+      ],
+      "main_busy_ms": 247.817,
+      "app_cpu_ms": 265.625,
+      "js_ms": 73.979,
+      "script_renders": 3,
+      "spans": {
+       "ui:mod_load": 29.104,
+       "ui:flush_documents": 0.027,
+       "cmd:app.settings": 29.255,
+       "ui:paint_grid": 0.309
+      }
+     },
+     {
+      "first_frame_ms": 101.08,
+      "drawn_ms": 206.274,
+      "worst_frame_ms": 68.714,
+      "frames": 6,
+      "frame_ms": [
+       68.714,
+       42.66,
+       7.602,
+       29.732,
+       7.319,
+       6.442
+      ],
+      "main_busy_ms": 265.263,
+      "app_cpu_ms": 234.375,
+      "js_ms": 82.5,
+      "script_renders": 3,
+      "spans": {
+       "ui:mod_load": 31.888,
+       "ui:flush_documents": 0.026,
+       "cmd:app.settings": 32.049,
+       "ui:paint_grid": 0.377
+      }
+     },
+     {
+      "first_frame_ms": 104.988,
+      "drawn_ms": 222.984,
+      "worst_frame_ms": 80.039,
+      "frames": 6,
+      "frame_ms": [
+       80.039,
+       12.034,
+       49.098,
+       9.982,
+       34.951,
+       8.284
+      ],
+      "main_busy_ms": 301.765,
+      "app_cpu_ms": 265.625,
+      "js_ms": 72.121,
+      "script_renders": 2,
+      "spans": {
+       "ui:mod_load": 24.398,
+       "ui:flush_documents": 0.053,
+       "cmd:app.settings": 24.541,
+       "ui:paint_grid": 0.293,
+       "ui:update_status": 0.182,
+       "ui:poll": 0.22
+      }
+     }
+    ],
+    "later": [
+     {
+      "first_frame_ms": 72.437,
+      "drawn_ms": 204.216,
+      "worst_frame_ms": 47.365,
+      "frames": 7,
+      "frame_ms": [
+       47.365,
+       44.603,
+       7.527,
+       40.601,
+       7.844,
+       7.31,
+       7.173
+      ],
+      "main_busy_ms": 238.459,
+      "app_cpu_ms": 234.375,
+      "js_ms": 93.231,
+      "script_renders": 3,
+      "spans": {
+       "ui:mod_load": 24.601,
+       "ui:flush_documents": 0.053,
+       "cmd:app.settings": 24.727,
+       "ui:paint_grid": 0.322,
+       "ui:tend_terminals": 0.103
+      }
+     },
+     {
+      "first_frame_ms": 57.397,
+      "drawn_ms": 193.999,
+      "worst_frame_ms": 33.556,
+      "frames": 10,
+      "frame_ms": [
+       33.556,
+       8.712,
+       28.69,
+       6.395,
+       5.813,
+       6.689,
+       7.321,
+       9.008,
+       7.148,
+       7.778
+      ],
+      "main_busy_ms": 180.46,
+      "app_cpu_ms": 203.125,
+      "js_ms": 41.022,
+      "script_renders": 2,
+      "spans": {
+       "ui:mod_load": 23.48,
+       "ui:flush_documents": 0.049,
+       "cmd:app.settings": 23.6,
+       "ui:paint_grid": 0.318,
+       "ui:update_status": 0.18,
+       "ui:poll": 0.216
+      }
+     },
+     {
+      "first_frame_ms": 61.454,
+      "drawn_ms": 190.684,
+      "worst_frame_ms": 48.627,
+      "frames": 6,
+      "frame_ms": [
+       40.718,
+       45.785,
+       6.961,
+       48.627,
+       6.837,
+       6.261
+      ],
+      "main_busy_ms": 221.465,
+      "app_cpu_ms": 296.875,
+      "js_ms": 74.957,
+      "script_renders": 2,
+      "spans": {
+       "ui:mod_load": 20.32,
+       "ui:flush_documents": 0.063,
+       "cmd:app.settings": 20.44,
+       "ui:paint_grid": 0.287,
+       "ui:update_status": 0.228,
+       "ui:poll": 0.279
+      }
+     },
+     {
+      "first_frame_ms": 50.426,
+      "drawn_ms": 200.206,
+      "worst_frame_ms": 31.406,
+      "frames": 9,
+      "frame_ms": [
+       31.406,
+       29.971,
+       27.167,
+       6.367,
+       6.329,
+       7.019,
+       6.671,
+       6.666,
+       7.244
+      ],
+      "main_busy_ms": 181.524,
+      "app_cpu_ms": 359.375,
+      "js_ms": 58.664,
+      "script_renders": 3,
+      "spans": {
+       "ui:mod_load": 18.638,
+       "ui:flush_documents": 0.021,
+       "cmd:app.settings": 18.746,
+       "ui:paint_grid": 0.275
+      }
+     },
+     {
+      "first_frame_ms": 59.034,
+      "drawn_ms": 191.837,
+      "worst_frame_ms": 39.17,
+      "frames": 7,
+      "frame_ms": [
+       35.204,
+       39.17,
+       38.352,
+       6.654,
+       7.128,
+       6.707,
+       7.071
+      ],
+      "main_busy_ms": 201.908,
+      "app_cpu_ms": 171.875,
+      "js_ms": 50.065,
+      "script_renders": 2,
+      "spans": {
+       "ui:mod_load": 23.218,
+       "ui:flush_documents": 0.072,
+       "cmd:app.settings": 23.36,
+       "ui:paint_grid": 0.319,
+       "ui:update_status": 0.22,
+       "ui:poll": 0.253,
+       "ui:tend_terminals": 0.068
+      }
+     },
+     {
+      "first_frame_ms": 82.553,
+      "drawn_ms": 199.277,
+      "worst_frame_ms": 54.495,
+      "frames": 6,
+      "frame_ms": [
+       54.495,
+       51.551,
+       6.972,
+       32.083,
+       7.868,
+       8.163
+      ],
+      "main_busy_ms": 246.394,
+      "app_cpu_ms": 281.25,
+      "js_ms": 100.178,
+      "script_renders": 3,
+      "spans": {
+       "ui:mod_load": 27.56,
+       "ui:flush_documents": 0.056,
+       "cmd:app.settings": 27.702,
+       "ui:paint_grid": 0.354,
+       "ui:tend_terminals": 0.082
+      }
+     },
+     {
+      "first_frame_ms": 65.992,
+      "drawn_ms": 200.576,
+      "worst_frame_ms": 43.072,
+      "frames": 8,
+      "frame_ms": [
+       43.072,
+       34.287,
+       26.418,
+       6.649,
+       8.124,
+       7.104,
+       7.701,
+       7.39
+      ],
+      "main_busy_ms": 209.109,
+      "app_cpu_ms": 218.75,
+      "js_ms": 44.005,
+      "script_renders": 2,
+      "spans": {
+       "ui:mod_load": 22.492,
+       "ui:flush_documents": 0.064,
+       "cmd:app.settings": 22.606,
+       "ui:paint_grid": 0.325,
+       "ui:update_status": 0.201,
+       "ui:poll": 0.233,
+       "ui:tend_terminals": 0.067
+      }
+     },
+     {
+      "first_frame_ms": 67.096,
+      "drawn_ms": 194.462,
+      "worst_frame_ms": 46.102,
+      "frames": 8,
+      "frame_ms": [
+       46.102,
+       41.416,
+       6.862,
+       30.046,
+       7.22,
+       6.164,
+       6.12,
+       5.952
+      ],
+      "main_busy_ms": 218.884,
+      "app_cpu_ms": 296.875,
+      "js_ms": 81.754,
+      "script_renders": 3,
+      "spans": {
+       "ui:mod_load": 20.604,
+       "ui:flush_documents": 0.044,
+       "cmd:app.settings": 20.723,
+       "ui:paint_grid": 0.275,
+       "ui:tend_terminals": 0.075
+      }
+     },
+     {
+      "first_frame_ms": 49.654,
+      "drawn_ms": 186.807,
+      "worst_frame_ms": 32.111,
+      "frames": 9,
+      "frame_ms": [
+       31.055,
+       31.09,
+       6.021,
+       32.111,
+       6.493,
+       6.36,
+       6.129,
+       7.54,
+       7.492
+      ],
+      "main_busy_ms": 186.232,
+      "app_cpu_ms": 281.25,
+      "js_ms": 43.336,
+      "script_renders": 2,
+      "spans": {
+       "ui:mod_load": 18.221,
+       "ui:flush_documents": 0.046,
+       "cmd:app.settings": 18.328,
+       "ui:paint_grid": 0.268,
+       "ui:update_status": 0.116,
+       "ui:poll": 0.144
+      }
+     },
+     {
+      "first_frame_ms": 63.615,
+      "drawn_ms": 189.151,
+      "worst_frame_ms": 43.85,
+      "frames": 8,
+      "frame_ms": [
+       43.85,
+       36.266,
+       8.89,
+       30.046,
+       7.218,
+       6.596,
+       7.842,
+       7.334
+      ],
+      "main_busy_ms": 214.229,
+      "app_cpu_ms": 328.125,
+      "js_ms": 77.014,
+      "script_renders": 3,
+      "spans": {
+       "ui:mod_load": 19.339,
+       "ui:flush_documents": 0.022,
+       "cmd:app.settings": 19.471,
+       "ui:paint_grid": 0.298
+      }
+     },
+     {
+      "first_frame_ms": 68.246,
+      "drawn_ms": 196.577,
+      "worst_frame_ms": 46.256,
+      "frames": 7,
+      "frame_ms": [
+       41.551,
+       46.256,
+       9.198,
+       32.775,
+       7.638,
+       7.671,
+       6.797
+      ],
+      "main_busy_ms": 223.107,
+      "app_cpu_ms": 312.5,
+      "js_ms": 85.336,
+      "script_renders": 3,
+      "spans": {
+       "ui:mod_load": 26.132,
+       "ui:flush_documents": 0.045,
+       "cmd:app.settings": 26.257,
+       "ui:paint_grid": 0.325,
+       "ui:update_status": 0.163,
+       "ui:poll": 0.196
+      }
+     },
+     {
+      "first_frame_ms": 78.969,
+      "drawn_ms": 214.558,
+      "worst_frame_ms": 45.52,
+      "frames": 7,
+      "frame_ms": [
+       45.52,
+       39.141,
+       35.876,
+       9.348,
+       10.204,
+       9.3,
+       10.356
+      ],
+      "main_busy_ms": 241.669,
+      "app_cpu_ms": 281.25,
+      "js_ms": 81.317,
+      "script_renders": 3,
+      "spans": {
+       "ui:mod_load": 32.621,
+       "ui:flush_documents": 0.045,
+       "cmd:app.settings": 32.748,
+       "ui:paint_grid": 0.349,
+       "ui:tend_terminals": 0.067
+      }
+     },
+     {
+      "first_frame_ms": 51.844,
+      "drawn_ms": 194.354,
+      "worst_frame_ms": 33.917,
+      "frames": 9,
+      "frame_ms": [
+       33.794,
+       33.917,
+       6.067,
+       26.226,
+       6.2,
+       6.371,
+       6.247,
+       6.216,
+       6.536
+      ],
+      "main_busy_ms": 185.684,
+      "app_cpu_ms": 250.0,
+      "js_ms": 44.063,
+      "script_renders": 2,
+      "spans": {
+       "ui:mod_load": 17.687,
+       "ui:flush_documents": 0.066,
+       "cmd:app.settings": 17.787,
+       "ui:paint_grid": 0.306,
+       "ui:update_status": 0.268,
+       "ui:poll": 0.302,
+       "ui:tend_terminals": 0.072
+      }
+     },
+     {
+      "first_frame_ms": 54.883,
+      "drawn_ms": 203.983,
+      "worst_frame_ms": 38.938,
+      "frames": 8,
+      "frame_ms": [
+       35.993,
+       36.198,
+       12.001,
+       38.938,
+       10.051,
+       8.517,
+       10.21,
+       10.315
+      ],
+      "main_busy_ms": 219.694,
+      "app_cpu_ms": 250.0,
+      "js_ms": 75.896,
+      "script_renders": 3,
+      "spans": {
+       "ui:mod_load": 18.146,
+       "ui:flush_documents": 0.04,
+       "cmd:app.settings": 18.267,
+       "ui:paint_grid": 0.346,
+       "ui:tend_terminals": 0.071
+      }
+     },
+     {
+      "first_frame_ms": 55.106,
+      "drawn_ms": 198.347,
+      "worst_frame_ms": 38.153,
+      "frames": 9,
+      "frame_ms": [
+       35.846,
+       38.153,
+       6.496,
+       28.986,
+       8.008,
+       6.538,
+       9.219,
+       7.036,
+       7.159
+      ],
+      "main_busy_ms": 204.31,
+      "app_cpu_ms": 359.375,
+      "js_ms": 70.976,
+      "script_renders": 3,
+      "spans": {
+       "ui:mod_load": 18.912,
+       "ui:flush_documents": 0.046,
+       "cmd:app.settings": 19.02,
+       "ui:paint_grid": 0.366,
+       "ui:update_status": 0.205,
+       "ui:poll": 0.239
+      }
+     },
+     {
+      "first_frame_ms": 65.512,
+      "drawn_ms": 199.655,
+      "worst_frame_ms": 40.636,
+      "frames": 9,
+      "frame_ms": [
+       40.636,
+       33.81,
+       6.601,
+       30.8,
+       7.343,
+       6.668,
+       8.608,
+       7.761,
+       7.748
+      ],
+      "main_busy_ms": 218.09,
+      "app_cpu_ms": 203.125,
+      "js_ms": 72.779,
+      "script_renders": 3,
+      "spans": {
+       "ui:mod_load": 24.425,
+       "ui:flush_documents": 0.027,
+       "cmd:app.settings": 24.554,
+       "ui:paint_grid": 0.271
+      }
+     },
+     {
+      "first_frame_ms": 51.673,
+      "drawn_ms": 193.086,
+      "worst_frame_ms": 33.215,
+      "frames": 9,
+      "frame_ms": [
+       33.215,
+       29.35,
+       6.193,
+       27.774,
+       9.601,
+       7.789,
+       6.783,
+       6.272,
+       13.322
+      ],
+      "main_busy_ms": 194.451,
+      "app_cpu_ms": 218.75,
+      "js_ms": 59.951,
+      "script_renders": 3,
+      "spans": {
+       "ui:mod_load": 18.096,
+       "ui:flush_documents": 0.054,
+       "cmd:app.settings": 18.209,
+       "ui:paint_grid": 0.262,
+       "ui:update_status": 0.188,
+       "ui:poll": 0.235
+      }
+     },
+     {
+      "first_frame_ms": 75.632,
+      "drawn_ms": 212.315,
+      "worst_frame_ms": 49.119,
+      "frames": 7,
+      "frame_ms": [
+       49.119,
+       47.616,
+       9.818,
+       37.752,
+       8.798,
+       9.574,
+       9.254
+      ],
+      "main_busy_ms": 248.345,
+      "app_cpu_ms": 265.625,
+      "js_ms": 95.515,
+      "script_renders": 3,
+      "spans": {
+       "ui:mod_load": 25.325,
+       "ui:flush_documents": 0.042,
+       "cmd:app.settings": 25.444,
+       "ui:paint_grid": 0.402,
+       "ui:tend_terminals": 0.063
+      }
+     },
+     {
+      "first_frame_ms": 64.318,
+      "drawn_ms": 203.139,
+      "worst_frame_ms": 41.11,
+      "frames": 9,
+      "frame_ms": [
+       41.11,
+       39.896,
+       6.998,
+       29.005,
+       7.994,
+       7.656,
+       11.813,
+       9.432,
+       7.242
+      ],
+      "main_busy_ms": 229.169,
+      "app_cpu_ms": 265.625,
+      "js_ms": 51.695,
+      "script_renders": 2,
+      "spans": {
+       "ui:mod_load": 22.787,
+       "ui:flush_documents": 0.11,
+       "cmd:app.settings": 22.911,
+       "ui:paint_grid": 0.316,
+       "ui:update_status": 0.28,
+       "ui:poll": 0.348,
+       "ui:tend_terminals": 0.075
+      }
+     },
+     {
+      "first_frame_ms": 62.808,
+      "drawn_ms": 193.29,
+      "worst_frame_ms": 43.969,
+      "frames": 7,
+      "frame_ms": [
+       42.073,
+       43.969,
+       10.55,
+       34.154,
+       7.912,
+       7.932,
+       7.666
+      ],
+      "main_busy_ms": 220.07,
+      "app_cpu_ms": 281.25,
+      "js_ms": 84.039,
+      "script_renders": 3,
+      "spans": {
+       "ui:mod_load": 20.289,
+       "ui:flush_documents": 0.08,
+       "cmd:app.settings": 20.436,
+       "ui:paint_grid": 0.332,
+       "ui:tend_terminals": 0.08
+      }
+     },
+     {
+      "first_frame_ms": 53.273,
+      "drawn_ms": 199.667,
+      "worst_frame_ms": 43.398,
+      "frames": 8,
+      "frame_ms": [
+       32.673,
+       11.571,
+       43.398,
+       10.005,
+       35.134,
+       6.412,
+       6.966,
+       8.068
+      ],
+      "main_busy_ms": 209.514,
+      "app_cpu_ms": 187.5,
+      "js_ms": 53.65,
+      "script_renders": 2,
+      "spans": {
+       "ui:mod_load": 20.232,
+       "ui:flush_documents": 0.045,
+       "cmd:app.settings": 20.334,
+       "ui:paint_grid": 0.262,
+       "ui:update_status": 0.161,
+       "ui:poll": 0.194
+      }
+     },
+     {
+      "first_frame_ms": 49.612,
+      "drawn_ms": 185.776,
+      "worst_frame_ms": 31.023,
+      "frames": 9,
+      "frame_ms": [
+       31.023,
+       29.379,
+       5.988,
+       26.844,
+       6.078,
+       5.88,
+       6.272,
+       8.187,
+       7.048
+      ],
+      "main_busy_ms": 178.034,
+      "app_cpu_ms": 218.75,
+      "js_ms": 40.197,
+      "script_renders": 2,
+      "spans": {
+       "ui:mod_load": 18.253,
+       "ui:flush_documents": 0.043,
+       "cmd:app.settings": 18.359,
+       "ui:paint_grid": 0.262,
+       "ui:update_status": 0.136,
+       "ui:poll": 0.165
+      }
+     },
+     {
+      "first_frame_ms": 58.997,
+      "drawn_ms": 206.77,
+      "worst_frame_ms": 33.135,
+      "frames": 10,
+      "frame_ms": [
+       33.135,
+       8.888,
+       27.366,
+       6.573,
+       29.473,
+       6.193,
+       7.583,
+       9.761,
+       7.83,
+       7.792
+      ],
+      "main_busy_ms": 205.251,
+      "app_cpu_ms": 171.875,
+      "js_ms": 62.217,
+      "script_renders": 3,
+      "spans": {
+       "ui:mod_load": 25.408,
+       "ui:flush_documents": 0.026,
+       "cmd:app.settings": 25.54,
+       "ui:paint_grid": 0.298
+      }
+     },
+     {
+      "first_frame_ms": 59.225,
+      "drawn_ms": 192.416,
+      "worst_frame_ms": 37.926,
+      "frames": 8,
+      "frame_ms": [
+       36.917,
+       37.926,
+       7.129,
+       32.464,
+       6.613,
+       6.635,
+       7.54,
+       7.246
+      ],
+      "main_busy_ms": 203.63,
+      "app_cpu_ms": 250.0,
+      "js_ms": 75.867,
+      "script_renders": 3,
+      "spans": {
+       "ui:mod_load": 21.773,
+       "ui:flush_documents": 0.075,
+       "cmd:app.settings": 21.91,
+       "ui:paint_grid": 0.277,
+       "ui:update_status": 0.192,
+       "ui:poll": 0.223,
+       "ui:tend_terminals": 0.07
+      }
+     },
+     {
+      "first_frame_ms": 66.928,
+      "drawn_ms": 190.235,
+      "worst_frame_ms": 45.488,
+      "frames": 8,
+      "frame_ms": [
+       45.488,
+       35.524,
+       7.008,
+       29.083,
+       6.89,
+       6.282,
+       6.531,
+       8.133
+      ],
+      "main_busy_ms": 215.055,
+      "app_cpu_ms": 234.375,
+      "js_ms": 75.126,
+      "script_renders": 3,
+      "spans": {
+       "ui:mod_load": 21.036,
+       "ui:flush_documents": 0.041,
+       "cmd:app.settings": 21.143,
+       "ui:paint_grid": 0.353,
+       "ui:tend_terminals": 0.065
+      }
+     },
+     {
+      "first_frame_ms": 51.791,
+      "drawn_ms": 186.511,
+      "worst_frame_ms": 33.044,
+      "frames": 10,
+      "frame_ms": [
+       33.044,
+       8.322,
+       28.989,
+       6.128,
+       6.162,
+       6.928,
+       6.983,
+       7.507,
+       8.53,
+       6.916
+      ],
+      "main_busy_ms": 172.443,
+      "app_cpu_ms": 250.0,
+      "js_ms": 42.817,
+      "script_renders": 2,
+      "spans": {
+       "ui:mod_load": 18.412,
+       "ui:flush_documents": 0.047,
+       "cmd:app.settings": 18.518,
+       "ui:paint_grid": 0.267,
+       "ui:update_status": 0.131,
+       "ui:poll": 0.161
+      }
+     },
+     {
+      "first_frame_ms": 63.095,
+      "drawn_ms": 196.985,
+      "worst_frame_ms": 48.648,
+      "frames": 7,
+      "frame_ms": [
+       42.165,
+       48.648,
+       7.397,
+       41.122,
+       9.813,
+       7.477,
+       10.029
+      ],
+      "main_busy_ms": 231.249,
+      "app_cpu_ms": 265.625,
+      "js_ms": 90.284,
+      "script_renders": 3,
+      "spans": {
+       "ui:mod_load": 20.363,
+       "ui:flush_documents": 0.02,
+       "cmd:app.settings": 20.481,
+       "ui:paint_grid": 0.311
+      }
+     },
+     {
+      "first_frame_ms": 57.321,
+      "drawn_ms": 194.185,
+      "worst_frame_ms": 36.609,
+      "frames": 8,
+      "frame_ms": [
+       36.609,
+       35.408,
+       8.692,
+       35.804,
+       10.484,
+       8.755,
+       8.743,
+       8.407
+      ],
+      "main_busy_ms": 212.892,
+      "app_cpu_ms": 375.0,
+      "js_ms": 76.185,
+      "script_renders": 3,
+      "spans": {
+       "ui:mod_load": 20.332,
+       "ui:flush_documents": 0.051,
+       "cmd:app.settings": 20.464,
+       "ui:paint_grid": 0.266,
+       "ui:update_status": 0.142,
+       "ui:poll": 0.173
+      }
+     },
+     {
+      "first_frame_ms": 55.016,
+      "drawn_ms": 202.51,
+      "worst_frame_ms": 35.595,
+      "frames": 10,
+      "frame_ms": [
+       35.001,
+       9.816,
+       35.595,
+       6.54,
+       29.078,
+       8.173,
+       6.532,
+       9.11,
+       7.739,
+       6.794
+      ],
+      "main_busy_ms": 211.663,
+      "app_cpu_ms": 265.625,
+      "js_ms": 49.719,
+      "script_renders": 2,
+      "spans": {
+       "ui:mod_load": 19.647,
+       "ui:flush_documents": 0.075,
+       "cmd:app.settings": 19.761,
+       "ui:paint_grid": 0.272,
+       "ui:update_status": 0.16,
+       "ui:poll": 0.195,
+       "ui:tend_terminals": 0.059
+      }
+     },
+     {
+      "first_frame_ms": 73.316,
+      "drawn_ms": 193.393,
+      "worst_frame_ms": 48.712,
+      "frames": 7,
+      "frame_ms": [
+       48.712,
+       12.067,
+       36.371,
+       41.58,
+       7.818,
+       6.62,
+       7.449
+      ],
+      "main_busy_ms": 236.943,
+      "app_cpu_ms": 250.0,
+      "js_ms": 87.614,
+      "script_renders": 3,
+      "spans": {
+       "ui:mod_load": 23.669,
+       "ui:flush_documents": 0.046,
+       "cmd:app.settings": 23.795,
+       "ui:paint_grid": 0.337,
+       "ui:tend_terminals": 0.068
+      }
+     }
+    ]
+   }
+  }
+ }
+}

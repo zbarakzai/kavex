@@ -1,0 +1,1168 @@
+{
+ "what": "Final before/after. Before: the two recorded baseline runs of 2026-11-03 (46935c8 / a84987d, same app code). After: one full run on 2026-11-04 of bins/zaki-fix12.exe (all app code of fixes 2-12d; HEAD differs only in a test and records). Not alternated: the machine's other load differed between the two days, see machine_load. Wakeups/s: the harness now counts per thread (998da10's change came after the baseline), so baseline wakeups are slightly off.",
+ "machine_load": {
+  "20261103-090211-baseline.json": {
+   "herdr_exe_percent_of_a_core": 64.7,
+   "herdr_exe_processes": 9,
+   "machine_busy_percent_of_a_core": 396.2
+  },
+  "20261103-093948-baseline-2.json": {
+   "herdr_exe_percent_of_a_core": 63.8,
+   "herdr_exe_processes": 9,
+   "machine_busy_percent_of_a_core": 296.2
+  },
+  "20261104-162754-final-head-1.json": {
+   "herdr_exe_percent_of_a_core": 104.4,
+   "herdr_exe_processes": 9,
+   "machine_busy_percent_of_a_core": 741.6
+  }
+ },
+ "method": "Build .scratch/perf/final-comparison.json from the final-baseline-N / final-head-N runs.\n\nPer metric: each run gives one value (the run's median, or for a few rows its\nmax or sample count). before/after_median = median of those run values.\nbefore/after_spread = the largest within-run IQR for sampled metrics, or the\nrange of the run values for single readings (CPU % over a stretch), whichever\nis larger. A change is \"real\" if it beats both spreads and 5%.",
+ "before_files": [
+  "20261103-090211-baseline.json",
+  "20261103-093948-baseline-2.json"
+ ],
+ "after_files": [
+  "20261104-162754-final-head-1.json"
+ ],
+ "rows": [
+  {
+   "scenario": "cold",
+   "metric": "cold.warm.first_paint_ms",
+   "unit": "ms",
+   "better": "lower",
+   "before_median": 1119.406,
+   "before_spread": 130.085,
+   "after_median": 947.256,
+   "after_spread": 179.37,
+   "change_pct": -15.4,
+   "fix_ids": [
+    "3",
+    "12a"
+   ],
+   "note": "start with a running core and a used home: first frame",
+   "verdict": "within noise",
+   "before_runs": [
+    1102.603,
+    1136.209
+   ],
+   "after_runs": [
+    947.256
+   ]
+  },
+  {
+   "scenario": "cold",
+   "metric": "cold.warm.first_ink_ms",
+   "unit": "ms",
+   "better": "lower",
+   "before_median": 1183.842,
+   "before_spread": 137.092,
+   "after_median": 1017.26,
+   "after_spread": 181.922,
+   "change_pct": -14.1,
+   "fix_ids": [
+    "3",
+    "12a"
+   ],
+   "note": "same start: the reattached prompt is visible",
+   "verdict": "within noise",
+   "before_runs": [
+    1166.619,
+    1201.065
+   ],
+   "after_runs": [
+    1017.26
+   ]
+  },
+  {
+   "scenario": "cold",
+   "metric": "cold.warm.control_ready_ms",
+   "unit": "ms",
+   "better": "lower",
+   "before_median": 1358.776,
+   "before_spread": 176.032,
+   "after_median": 1227.447,
+   "after_spread": 260.569,
+   "change_pct": -9.7,
+   "fix_ids": [
+    "3",
+    "12a"
+   ],
+   "note": "same start: accepting commands",
+   "verdict": "within noise",
+   "before_runs": [
+    1352.284,
+    1365.267
+   ],
+   "after_runs": [
+    1227.447
+   ]
+  },
+  {
+   "scenario": "cold",
+   "metric": "cold.core_down.first_paint_ms",
+   "unit": "ms",
+   "better": "lower",
+   "before_median": 1319.745,
+   "before_spread": 99.863,
+   "after_median": 1073.786,
+   "after_spread": 131.333,
+   "change_pct": -18.6,
+   "fix_ids": [
+    "3",
+    "12a"
+   ],
+   "note": "start with no core running: first frame",
+   "verdict": "better",
+   "before_runs": [
+    1291.731,
+    1347.76
+   ],
+   "after_runs": [
+    1073.786
+   ]
+  },
+  {
+   "scenario": "cold",
+   "metric": "cold.core_down.first_ink_ms",
+   "unit": "ms",
+   "better": "lower",
+   "before_median": 2309.393,
+   "before_spread": 144.559,
+   "after_median": 2369.408,
+   "after_spread": 198.344,
+   "change_pct": 2.6,
+   "fix_ids": [
+    "3",
+    "12a"
+   ],
+   "note": "start with no core running: prompt visible (includes the shell start)",
+   "verdict": "within noise",
+   "before_runs": [
+    2272.39,
+    2346.396
+   ],
+   "after_runs": [
+    2369.408
+   ]
+  },
+  {
+   "scenario": "cold",
+   "metric": "cold.fresh.first_paint_ms",
+   "unit": "ms",
+   "better": "lower",
+   "before_median": 2256.583,
+   "before_spread": 228.502,
+   "after_median": 1397.486,
+   "after_spread": 68.858,
+   "change_pct": -38.1,
+   "fix_ids": [
+    "3",
+    "12a"
+   ],
+   "note": "very first start, empty home: first frame",
+   "verdict": "better",
+   "before_runs": [
+    2167.457,
+    2345.71
+   ],
+   "after_runs": [
+    1397.486
+   ]
+  },
+  {
+   "scenario": "cold",
+   "metric": "cold.fresh.control_ready_ms",
+   "unit": "ms",
+   "better": "lower",
+   "before_median": 2721.945,
+   "before_spread": 346.184,
+   "after_median": 1671.068,
+   "after_spread": 607.805,
+   "change_pct": -38.6,
+   "fix_ids": [
+    "3",
+    "12a"
+   ],
+   "note": "very first start: accepting commands",
+   "verdict": "better",
+   "before_runs": [
+    2655.443,
+    2788.446
+   ],
+   "after_runs": [
+    1671.068
+   ]
+  },
+  {
+   "scenario": "open",
+   "metric": "open.tab.default.total_visible_ms",
+   "unit": "ms",
+   "better": "lower",
+   "before_median": 1811.913,
+   "before_spread": 210.668,
+   "after_median": 2041.751,
+   "after_spread": 124.26,
+   "change_pct": 12.7,
+   "fix_ids": [
+    "2",
+    "12b"
+   ],
+   "note": "new tab, default shell: command to prompt visible (mostly PowerShell + profile start)",
+   "verdict": "worse",
+   "before_runs": [
+    1871.999,
+    1751.827
+   ],
+   "after_runs": [
+    2041.751
+   ]
+  },
+  {
+   "scenario": "open",
+   "metric": "open.split.default.total_visible_ms",
+   "unit": "ms",
+   "better": "lower",
+   "before_median": 1761.691,
+   "before_spread": 105.014,
+   "after_median": 1992.734,
+   "after_spread": 186.802,
+   "change_pct": 13.1,
+   "fix_ids": [
+    "2",
+    "12b"
+   ],
+   "note": "new split, default shell",
+   "verdict": "worse",
+   "before_runs": [
+    1790.067,
+    1733.314
+   ],
+   "after_runs": [
+    1992.734
+   ]
+  },
+  {
+   "scenario": "open",
+   "metric": "open.space.default.total_visible_ms",
+   "unit": "ms",
+   "better": "lower",
+   "before_median": 1810.618,
+   "before_spread": 177.955,
+   "after_median": 2334.123,
+   "after_spread": 465.685,
+   "change_pct": 28.9,
+   "fix_ids": [
+    "2",
+    "12b"
+   ],
+   "note": "new space, default shell",
+   "verdict": "worse",
+   "before_runs": [
+    1814.745,
+    1806.491
+   ],
+   "after_runs": [
+    2334.123
+   ]
+  },
+  {
+   "scenario": "open",
+   "metric": "open.tab.cmd.total_visible_ms",
+   "unit": "ms",
+   "better": "lower",
+   "before_median": 1250.956,
+   "before_spread": 128.415,
+   "after_median": 1837.784,
+   "after_spread": 228.8,
+   "change_pct": 46.9,
+   "fix_ids": [
+    "1",
+    "2"
+   ],
+   "note": "new tab running cmd.exe (wrapped in the interactive PowerShell, fix 1)",
+   "verdict": "worse",
+   "before_runs": [
+    1237.839,
+    1264.073
+   ],
+   "after_runs": [
+    1837.784
+   ]
+  },
+  {
+   "scenario": "open",
+   "metric": "open.tab.noprofile.total_visible_ms",
+   "unit": "ms",
+   "better": "lower",
+   "before_median": 1781.853,
+   "before_spread": 117.601,
+   "after_median": 2117.044,
+   "after_spread": 312.591,
+   "change_pct": 18.8,
+   "fix_ids": [
+    "2"
+   ],
+   "note": "new tab, PowerShell -NoProfile",
+   "verdict": "worse",
+   "before_runs": [
+    1800.756,
+    1762.95
+   ],
+   "after_runs": [
+    2117.044
+   ]
+  },
+  {
+   "scenario": "open",
+   "metric": "open.tab.default.command_on_main_thread_ms",
+   "unit": "ms",
+   "better": "lower",
+   "before_median": 66.012,
+   "before_spread": 31.226,
+   "after_median": 0.093,
+   "after_spread": 0.027,
+   "change_pct": -99.9,
+   "fix_ids": [
+    "2",
+    "12b"
+   ],
+   "note": "window frozen per new tab (main thread inside the command)",
+   "verdict": "better",
+   "before_runs": [
+    70.076,
+    61.948
+   ],
+   "after_runs": [
+    0.093
+   ]
+  },
+  {
+   "scenario": "open",
+   "metric": "open.split.default.command_on_main_thread_ms",
+   "unit": "ms",
+   "better": "lower",
+   "before_median": 75.368,
+   "before_spread": 12.698,
+   "after_median": 0.082,
+   "after_spread": 0.014,
+   "change_pct": -99.9,
+   "fix_ids": [
+    "2",
+    "12b"
+   ],
+   "note": "window frozen per new split",
+   "verdict": "better",
+   "before_runs": [
+    77.26,
+    73.475
+   ],
+   "after_runs": [
+    0.082
+   ]
+  },
+  {
+   "scenario": "open",
+   "metric": "open.core_alone.default.first_text_ms",
+   "unit": "ms",
+   "better": "lower",
+   "before_median": 1719.385,
+   "before_spread": 126.934,
+   "after_median": 2053.296,
+   "after_spread": 168.993,
+   "change_pct": 19.4,
+   "fix_ids": [],
+   "note": "reference, no app: the same shell started on the core alone",
+   "verdict": "worse",
+   "before_runs": [
+    1719.385
+   ],
+   "after_runs": [
+    2053.296
+   ]
+  },
+  {
+   "scenario": "input",
+   "metric": "input.default.total_ms",
+   "unit": "ms",
+   "better": "lower",
+   "before_median": 13.244,
+   "before_spread": 8.458,
+   "after_median": 5.315,
+   "after_spread": 1.111,
+   "change_pct": -59.9,
+   "fix_ids": [
+    "9"
+   ],
+   "note": "keystroke to echo painted, PowerShell; the echo now draws at once instead of on the next vsync (fix 9)",
+   "verdict": "within noise",
+   "before_runs": [
+    13.217,
+    13.271
+   ],
+   "after_runs": [
+    5.315
+   ]
+  },
+  {
+   "scenario": "input",
+   "metric": "input.cmd.total_ms",
+   "unit": "ms",
+   "better": "lower",
+   "before_median": 13.494,
+   "before_spread": 8.537,
+   "after_median": 4.89,
+   "after_spread": 0.955,
+   "change_pct": -63.8,
+   "fix_ids": [
+    "9"
+   ],
+   "note": "keystroke to echo painted, cmd; wait_for_frame 9.6 -> 0.17 ms (fix 9)",
+   "verdict": "better",
+   "before_runs": [
+    13.131,
+    13.856
+   ],
+   "after_runs": [
+    4.89
+   ]
+  },
+  {
+   "scenario": "frames",
+   "metric": "frames.hover_sidebar.frames_per_second",
+   "unit": "fps",
+   "better": "lower",
+   "before_median": 58.649,
+   "before_spread": 0.108,
+   "after_median": 11.331,
+   "after_spread": 0.0,
+   "change_pct": -80.7,
+   "fix_ids": [
+    "5"
+   ],
+   "note": "MEASUREMENT CORRECTED (fix 5 changed the bench's posted pointer; the baseline exe still flips hover on every posted move), not a speedup",
+   "verdict": "measurement corrected",
+   "before_runs": [
+    58.703,
+    58.595
+   ],
+   "after_runs": [
+    11.331
+   ]
+  },
+  {
+   "scenario": "frames",
+   "metric": "frames.hover_sidebar.app.cpu_percent",
+   "unit": "% of a core",
+   "better": "lower",
+   "before_median": 40.124,
+   "before_spread": 3.846,
+   "after_median": 12.27,
+   "after_spread": 0.0,
+   "change_pct": -69.4,
+   "fix_ids": [
+    "5",
+    "5b"
+   ],
+   "note": "MEASUREMENT CORRECTED for the most part (fix 5); fix 5b's script savings are inside it",
+   "verdict": "measurement corrected",
+   "before_runs": [
+    38.201,
+    42.047
+   ],
+   "after_runs": [
+    12.27
+   ]
+  },
+  {
+   "scenario": "frames",
+   "metric": "frames.hover_tabs.frames_per_second",
+   "unit": "fps",
+   "better": "lower",
+   "before_median": 58.593,
+   "before_spread": 0.096,
+   "after_median": 17.753,
+   "after_spread": 0.0,
+   "change_pct": -69.7,
+   "fix_ids": [
+    "5"
+   ],
+   "note": "MEASUREMENT CORRECTED (fix 5), not a speedup",
+   "verdict": "measurement corrected",
+   "before_runs": [
+    58.545,
+    58.641
+   ],
+   "after_runs": [
+    17.753
+   ]
+  },
+  {
+   "scenario": "frames",
+   "metric": "frames.hover_tabs.app.cpu_percent",
+   "unit": "% of a core",
+   "better": "lower",
+   "before_median": 39.31,
+   "before_spread": 4.682,
+   "after_median": 14.774,
+   "after_spread": 0.0,
+   "change_pct": -62.4,
+   "fix_ids": [
+    "5",
+    "5b",
+    "12c"
+   ],
+   "note": "MEASUREMENT CORRECTED for the most part (fix 5); fixes 5b/12c inside it",
+   "verdict": "measurement corrected",
+   "before_runs": [
+    41.651,
+    36.969
+   ],
+   "after_runs": [
+    14.774
+   ]
+  },
+  {
+   "scenario": "frames",
+   "metric": "frames.tab_switch.frame_main_thread_ms",
+   "unit": "ms",
+   "better": "lower",
+   "before_median": 14.829,
+   "before_spread": 3.781,
+   "after_median": 18.555,
+   "after_spread": 3.123,
+   "change_pct": 25.1,
+   "fix_ids": [
+    "10",
+    "12d"
+   ],
+   "note": "tab switch: main thread per drawn frame",
+   "verdict": "within noise",
+   "before_runs": [
+    13.971,
+    15.688
+   ],
+   "after_runs": [
+    18.555
+   ]
+  },
+  {
+   "scenario": "frames",
+   "metric": "frames.tab_switch.over_budget_frames",
+   "unit": "frames",
+   "better": "lower",
+   "before_median": 12.0,
+   "before_spread": 6.0,
+   "after_median": 30.0,
+   "after_spread": 0.0,
+   "change_pct": 150.0,
+   "fix_ids": [
+    "10",
+    "12d"
+   ],
+   "note": "tab switch: frames over 16.7 ms in the 8 s stretch (single reading per run)",
+   "verdict": "worse",
+   "before_runs": [
+    9.0,
+    15.0
+   ],
+   "after_runs": [
+    30.0
+   ]
+  },
+  {
+   "scenario": "frames",
+   "metric": "frames.tab_switch.command_to_frame_ms",
+   "unit": "ms",
+   "better": "lower",
+   "before_median": 28.205,
+   "before_spread": 7.164,
+   "after_median": 20.64,
+   "after_spread": 3.085,
+   "change_pct": -26.8,
+   "fix_ids": [
+    "10",
+    "12d"
+   ],
+   "note": "tab switch: command to the frame that shows it",
+   "verdict": "better",
+   "before_runs": [
+    27.129,
+    29.28
+   ],
+   "after_runs": [
+    20.64
+   ]
+  },
+  {
+   "scenario": "frames",
+   "metric": "frames.tab_switch.app.cpu_percent",
+   "unit": "% of a core",
+   "better": "lower",
+   "before_median": 13.527,
+   "before_spread": 0.814,
+   "after_median": 14.122,
+   "after_spread": 0.0,
+   "change_pct": 4.4,
+   "fix_ids": [
+    "10",
+    "12d"
+   ],
+   "note": "tab switching at about 6/s: app CPU",
+   "verdict": "within noise",
+   "before_runs": [
+    13.12,
+    13.934
+   ],
+   "after_runs": [
+    14.122
+   ]
+  },
+  {
+   "scenario": "frames",
+   "metric": "frames.settings.frame_main_thread_ms (max)",
+   "unit": "ms",
+   "better": "lower",
+   "before_median": 726.79,
+   "before_spread": 54.108,
+   "after_median": 374.511,
+   "after_spread": 0.0,
+   "change_pct": -48.5,
+   "fix_ids": [
+    "4"
+   ],
+   "note": "Settings open/close loop: worst frame in the 8 s stretch",
+   "verdict": "better",
+   "before_runs": [
+    699.736,
+    753.844
+   ],
+   "after_runs": [
+    374.511
+   ]
+  },
+  {
+   "scenario": "frames",
+   "metric": "frames.settings.frame_main_thread_ms (p95)",
+   "unit": "ms",
+   "better": "lower",
+   "before_median": 455.875,
+   "before_spread": 1.205,
+   "after_median": 250.337,
+   "after_spread": 0.0,
+   "change_pct": -45.1,
+   "fix_ids": [
+    "4"
+   ],
+   "note": "Settings loop: p95 frame",
+   "verdict": "better",
+   "before_runs": [
+    455.273,
+    456.478
+   ],
+   "after_runs": [
+    250.337
+   ]
+  },
+  {
+   "scenario": "frames",
+   "metric": "frames.settings.main.cmd:app.settings (n)",
+   "unit": "opens",
+   "better": "higher",
+   "before_median": 10.0,
+   "before_spread": 0.0,
+   "after_median": 12.0,
+   "after_spread": 0.0,
+   "change_pct": 20.0,
+   "fix_ids": [
+    "4"
+   ],
+   "note": "Settings opens completed in the 8 s stretch (a stalled window completes fewer)",
+   "verdict": "better",
+   "before_runs": [
+    10.0,
+    10.0
+   ],
+   "after_runs": [
+    12.0
+   ]
+  },
+  {
+   "scenario": "frames",
+   "metric": "frames.settings.main.cmd:app.settings",
+   "unit": "ms",
+   "better": "lower",
+   "before_median": 19.661,
+   "before_spread": 9.098,
+   "after_median": 23.121,
+   "after_spread": 5.027,
+   "change_pct": 17.6,
+   "fix_ids": [
+    "4",
+    "10"
+   ],
+   "note": "Settings open command on the main thread (mod load)",
+   "verdict": "within noise",
+   "before_runs": [
+    19.391,
+    19.931
+   ],
+   "after_runs": [
+    23.121
+   ]
+  },
+  {
+   "scenario": "frames",
+   "metric": "frames.settings.mods_ms_per_frame",
+   "unit": "ms",
+   "better": "lower",
+   "before_median": 46.983,
+   "before_spread": 22.998,
+   "after_median": 32.435,
+   "after_spread": 0.0,
+   "change_pct": -31.0,
+   "fix_ids": [
+    "4"
+   ],
+   "note": "Settings loop: mod script ms per drawn frame (single reading)",
+   "verdict": "within noise",
+   "before_runs": [
+    35.484,
+    58.482
+   ],
+   "after_runs": [
+    32.435
+   ]
+  },
+  {
+   "scenario": "frames",
+   "metric": "frames.palette.open_settled_ms",
+   "unit": "ms",
+   "better": "lower",
+   "before_median": 189.404,
+   "before_spread": 10.024,
+   "after_median": 201.23,
+   "after_spread": 7.532,
+   "change_pct": 6.2,
+   "fix_ids": [],
+   "note": "palette: command to settled",
+   "verdict": "worse",
+   "before_runs": [
+    189.636,
+    189.173
+   ],
+   "after_runs": [
+    201.23
+   ]
+  },
+  {
+   "scenario": "frames",
+   "metric": "frames.help.frame_main_thread_ms (max)",
+   "unit": "ms",
+   "better": "lower",
+   "before_median": 26.219,
+   "before_spread": 1.212,
+   "after_median": 36.913,
+   "after_spread": 0.0,
+   "change_pct": 40.8,
+   "fix_ids": [
+    "4"
+   ],
+   "note": "help overlay loop: worst frame",
+   "verdict": "worse",
+   "before_runs": [
+    26.825,
+    25.613
+   ],
+   "after_runs": [
+    36.913
+   ]
+  },
+  {
+   "scenario": "frames",
+   "metric": "frames.scrollback.frame_main_thread_ms",
+   "unit": "ms",
+   "better": "lower",
+   "before_median": 5.233,
+   "before_spread": 1.123,
+   "after_median": 7.325,
+   "after_spread": 1.393,
+   "change_pct": 40.0,
+   "fix_ids": [],
+   "note": "scrolling: main thread per frame",
+   "verdict": "worse",
+   "before_runs": [
+    5.375,
+    5.091
+   ],
+   "after_runs": [
+    7.325
+   ]
+  },
+  {
+   "scenario": "frames",
+   "metric": "frames.scrollback.app.cpu_percent",
+   "unit": "% of a core",
+   "better": "lower",
+   "before_median": 38.681,
+   "before_spread": 1.588,
+   "after_median": 30.089,
+   "after_spread": 0.0,
+   "change_pct": -22.2,
+   "fix_ids": [
+    "9"
+   ],
+   "note": "scrolling: app CPU",
+   "verdict": "better",
+   "before_runs": [
+    39.475,
+    37.887
+   ],
+   "after_runs": [
+    30.089
+   ]
+  },
+  {
+   "scenario": "idle",
+   "metric": "idle.start_screen.app.cpu_percent",
+   "unit": "% of a core",
+   "better": "lower",
+   "before_median": 13.262,
+   "before_spread": 1.25,
+   "after_median": 15.59,
+   "after_spread": 0.0,
+   "change_pct": 17.6,
+   "fix_ids": [
+    "9"
+   ],
+   "note": "empty start screen (animates): app CPU; fix 8 not kept",
+   "verdict": "worse",
+   "before_runs": [
+    12.637,
+    13.887
+   ],
+   "after_runs": [
+    15.59
+   ]
+  },
+  {
+   "scenario": "idle",
+   "metric": "idle.start_screen.frames_per_second",
+   "unit": "fps",
+   "better": "lower",
+   "before_median": 18.569,
+   "before_spread": 0.103,
+   "after_median": 21.198,
+   "after_spread": 0.0,
+   "change_pct": 14.2,
+   "fix_ids": [],
+   "note": "empty start screen: frames per second",
+   "verdict": "worse",
+   "before_runs": [
+    18.518,
+    18.621
+   ],
+   "after_runs": [
+    21.198
+   ]
+  },
+  {
+   "scenario": "idle",
+   "metric": "idle.fresh.app.cpu_percent",
+   "unit": "% of a core",
+   "better": "lower",
+   "before_median": 4.173,
+   "before_spread": 0.389,
+   "after_median": 1.794,
+   "after_spread": 0.003,
+   "change_pct": -57.0,
+   "fix_ids": [
+    "9",
+    "10"
+   ],
+   "note": "idle, one terminal: app CPU (median of 3x20 s)",
+   "verdict": "better",
+   "before_runs": [
+    4.367,
+    3.978
+   ],
+   "after_runs": [
+    1.794
+   ]
+  },
+  {
+   "scenario": "idle",
+   "metric": "idle.fresh.app.wakeups_per_second",
+   "unit": "/s",
+   "better": "lower",
+   "before_median": 534.903,
+   "before_spread": 57.975,
+   "after_median": 265.052,
+   "after_spread": 0.361,
+   "change_pct": -50.4,
+   "fix_ids": [
+    "9",
+    "10"
+   ],
+   "note": "idle, one terminal: app wakeups",
+   "verdict": "better",
+   "before_runs": [
+    516.235,
+    553.57
+   ],
+   "after_runs": [
+    265.052
+   ]
+  },
+  {
+   "scenario": "idle",
+   "metric": "idle.fresh.idle_paints_per_second",
+   "unit": "/s",
+   "better": "lower",
+   "before_median": 59.918,
+   "before_spread": 0.022,
+   "after_median": 0.21,
+   "after_spread": 0.105,
+   "change_pct": -99.6,
+   "fix_ids": [
+    "9"
+   ],
+   "note": "idle, one terminal: WM_PAINTs that draw nothing",
+   "verdict": "better",
+   "before_runs": [
+    59.918,
+    59.918
+   ],
+   "after_runs": [
+    0.21
+   ]
+  },
+  {
+   "scenario": "idle",
+   "metric": "idle.fresh.app.private_mb",
+   "unit": "MB",
+   "better": "lower",
+   "before_median": 138.711,
+   "before_spread": 0.68,
+   "after_median": 139.438,
+   "after_spread": 0.015,
+   "change_pct": 0.5,
+   "fix_ids": [],
+   "note": "idle, one terminal: private memory",
+   "verdict": "within noise",
+   "before_runs": [
+    138.371,
+    139.051
+   ],
+   "after_runs": [
+    139.438
+   ]
+  },
+  {
+   "scenario": "idle",
+   "metric": "idle.agent_working.app.cpu_percent",
+   "unit": "% of a core",
+   "better": "lower",
+   "before_median": 11.465,
+   "before_spread": 0.155,
+   "after_median": 10.921,
+   "after_spread": 0.0,
+   "change_pct": -4.7,
+   "fix_ids": [
+    "7",
+    "9"
+   ],
+   "note": "an agent working (loading dots): app CPU",
+   "verdict": "within noise",
+   "before_runs": [
+    11.388,
+    11.543
+   ],
+   "after_runs": [
+    10.921
+   ]
+  },
+  {
+   "scenario": "idle",
+   "metric": "idle.agent_working.main_thread_frame_ms_per_second",
+   "unit": "ms/s",
+   "better": "lower",
+   "before_median": 79.751,
+   "before_spread": 2.329,
+   "after_median": 61.825,
+   "after_spread": 0.0,
+   "change_pct": -22.5,
+   "fix_ids": [
+    "7",
+    "9"
+   ],
+   "note": "an agent working: main-thread frame time per second",
+   "verdict": "better",
+   "before_runs": [
+    80.916,
+    78.587
+   ],
+   "after_runs": [
+    61.825
+   ]
+  },
+  {
+   "scenario": "idle",
+   "metric": "idle.agent_title.app.cpu_percent",
+   "unit": "% of a core",
+   "better": "lower",
+   "before_median": 18.212,
+   "before_spread": 3.979,
+   "after_median": 13.879,
+   "after_spread": 0.0,
+   "change_pct": -23.8,
+   "fix_ids": [
+    "6",
+    "9"
+   ],
+   "note": "an agent title changing twice a second: app CPU",
+   "verdict": "better",
+   "before_runs": [
+    16.222,
+    20.201
+   ],
+   "after_runs": [
+    13.879
+   ]
+  },
+  {
+   "scenario": "idle",
+   "metric": "idle.agent_title.mods_ms_per_second",
+   "unit": "ms/s",
+   "better": "lower",
+   "before_median": 30.175,
+   "before_spread": 1.965,
+   "after_median": 21.114,
+   "after_spread": 0.0,
+   "change_pct": -30.0,
+   "fix_ids": [
+    "6"
+   ],
+   "note": "an agent title changing: mod script ms per second",
+   "verdict": "better",
+   "before_runs": [
+    31.157,
+    29.192
+   ],
+   "after_runs": [
+    21.114
+   ]
+  },
+  {
+   "scenario": "idle",
+   "metric": "idle.many.app.cpu_percent",
+   "unit": "% of a core",
+   "better": "lower",
+   "before_median": 4.172,
+   "before_spread": 1.249,
+   "after_median": 2.962,
+   "after_spread": 0.078,
+   "change_pct": -29.0,
+   "fix_ids": [
+    "9",
+    "10"
+   ],
+   "note": "idle, about 22 terminals: app CPU",
+   "verdict": "within noise",
+   "before_runs": [
+    4.212,
+    4.133
+   ],
+   "after_runs": [
+    2.962
+   ]
+  },
+  {
+   "scenario": "idle",
+   "metric": "idle.many.app.wakeups_per_second",
+   "unit": "/s",
+   "better": "lower",
+   "before_median": 586.387,
+   "before_spread": 228.655,
+   "after_median": 348.534,
+   "after_spread": 6.149,
+   "change_pct": -40.6,
+   "fix_ids": [
+    "9",
+    "10"
+   ],
+   "note": "idle, about 22 terminals: wakeups",
+   "verdict": "better",
+   "before_runs": [
+    472.059,
+    700.714
+   ],
+   "after_runs": [
+    348.534
+   ]
+  },
+  {
+   "scenario": "idle",
+   "metric": "idle.many.app.private_mb",
+   "unit": "MB",
+   "better": "lower",
+   "before_median": 263.39,
+   "before_spread": 5.657,
+   "after_median": 298.273,
+   "after_spread": 0.008,
+   "change_pct": 13.2,
+   "fix_ids": [],
+   "note": "idle, about 22 terminals: private memory",
+   "verdict": "worse",
+   "before_runs": [
+    266.219,
+    260.562
+   ],
+   "after_runs": [
+    298.273
+   ]
+  },
+  {
+   "scenario": "throughput",
+   "metric": "throughput.visible.mb_per_second",
+   "unit": "MB/s",
+   "better": "higher",
+   "before_median": 301.438,
+   "before_spread": 125.044,
+   "after_median": 323.469,
+   "after_spread": 177.582,
+   "change_pct": 7.3,
+   "fix_ids": [],
+   "note": "output into a visible tab",
+   "verdict": "within noise",
+   "before_runs": [
+    304.985,
+    297.892
+   ],
+   "after_runs": [
+    323.469
+   ]
+  },
+  {
+   "scenario": "throughput",
+   "metric": "throughput.hidden.mb_per_second",
+   "unit": "MB/s",
+   "better": "higher",
+   "before_median": 295.957,
+   "before_spread": 86.419,
+   "after_median": 337.089,
+   "after_spread": 50.373,
+   "change_pct": 13.9,
+   "fix_ids": [],
+   "note": "output into a hidden tab",
+   "verdict": "within noise",
+   "before_runs": [
+    289.805,
+    302.108
+   ],
+   "after_runs": [
+    337.089
+   ]
+  }
+ ]
+}
