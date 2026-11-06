@@ -454,7 +454,7 @@ No arguments.
 
 ## `app.settings`
 
-Open the settings (section: look, alerts, updates).
+Open the settings (section: look, machines, alerts, updates, privacy).
 
 | Argument | Required |
 |---|---|

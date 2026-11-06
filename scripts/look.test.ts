@@ -29,11 +29,15 @@ test("mods that share a file keep the same copy", () => {
   }
 });
 
+test("Customize and the footer keep the same skills.js", () => {
+  expect(readFileSync(join(root, "mods/customize/skills.js"), "utf8")).toBe(readFileSync(join(root, "mods/workspace-chrome/skills.js"), "utf8"));
+});
+
 test("every copy of the loader is the same file, and nothing still spins", () => {
   const mods = readdirSync(join(root, "mods")).map((mod) => join(root, "mods", mod));
   const screens = [...mods, join(root, "frame/settings")];
   const copies = screens.map((dir) => join(dir, "loader.js")).filter(existsSync);
-  expect(copies.length).toBe(11);
+  expect(copies.length).toBe(12);
   expect(new Set(copies.map((path) => readFileSync(path, "utf8"))).size).toBe(1);
   for (const dir of screens) {
     for (const file of readdirSync(dir).filter((name) => name.endsWith(".js"))) expect(readFileSync(join(dir, file), "utf8"), `${dir}/${file}`).not.toContain(".spin(");

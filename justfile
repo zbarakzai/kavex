@@ -49,6 +49,8 @@ test:
     bun test scripts/start.test.ts
     bun test scripts/sessions.test.ts
     bun test scripts/usage.test.ts
+    bun test scripts/skills.test.ts
+    bun test scripts/skills-page.test.ts
     cargo test --locked
 
 docs-generate: build

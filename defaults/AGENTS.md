@@ -82,6 +82,7 @@ first frame or during GPU recovery it reports an error instead of a PNG.
 | `programs.json` | how programs show (name, icon, tile), on top of the built-in table | live |
 | `icons/` | the shipped program and file type logos | written by Zaki (put your own elsewhere) |
 | `frame/` | the app's own screens (welcome, ...) | rewritten by Zaki on every start: don't edit, it won't stick |
+| `skills/`, `skills.json` | skills installed from Customize → Skills: one copy each, and where each came from | written by Zaki (see Skills) |
 | `view.json` | this screen's selected space/tab/pane, zoom, settled tabs, recent spaces and seen attention | written by Zaki |
 | `shared.json`, `data/`, `seen.json`, `installed.json`, `window.json`, `windows.json` | mod state, bookkeeping, where the window was (size, maximized), mods' windows (spots, kept ones) | written by Zaki |
 
@@ -339,6 +340,36 @@ before it resets also says when, from 5% of the way through its window: a straig
   off and on asks again. Keys come only from OpenCode's `auth.json` and its database's `credential`
   table and go only to `opencode.ai`, as a Bearer header; one written as a variable or a command is
   never sent. A 401 or 403 means no Go plan: no row and no error.
+
+**Customize** (the footer's button beside Settings, the `customize` mod: `mod.open {name: "customize"}`)
+covers the window with its own sidebar: Skills, and Code review (empty for now). Back or Esc closes it.
+**Skills** there install agent skills (folders with a `SKILL.md`) for every agent at once, from a list,
+a GitHub link or a folder:
+
+- **One copy, every agent:** a skill from the list or a link is downloaded at a pinned commit to
+  `~/.config/zaki/skills/<name>` and linked (a junction on Windows) into `~/.claude/skills` (Claude Code)
+  and `~/.agents/skills` (Codex, Pi, Gemini CLI, OpenCode, Cursor, Amp). A folder of the person's
+  own is linked where it is, never copied. Off removes the links and keeps the copy; Remove deletes
+  Zaki's copy (never a folder of the person's). This computer only, not added machines.
+- **The list:** `catalog.json` in github.com/zbarakzai/zaki-skills, rebuilt there every 6 hours from
+  the repos in its `sources.json`, with each repo's files in `files/<owner>/<repo>.json`. Zaki keeps
+  the last one it read in `skills-catalog.json`.
+- **Updates:** 20 seconds after the footer starts, then every 6 hours, Zaki reads the list (one
+  request, plus one per repo of skills added by link) and compares each installed skill's folder hash
+  (git tree SHA). A new version shows a toast once (click: Customize), a dot on the footer's Customize
+  button and an Update button;
+  updating replaces the one copy, so every agent has it at once. A skill changed since it was
+  installed is never replaced by itself: Replace or Keep mine (that version isn't offered again).
+  `shared("skills.auto")` `true` updates unchanged skills by themselves; `shared("skills.checks")`
+  `false` stops the checks. `workspace-chrome.check-skills` looks now. Checks run only in a layout
+  with that footer; Customize also looks when its Skills page opens.
+- **Never overwritten:** a name already in `~/.claude/skills` or `~/.agents/skills` that isn't Zaki's
+  link is left alone; Use this one moves it to `skills-backup/<name>-<time>/` first. A skill that
+  `npx skills` manages should be removed with it before Zaki takes it over.
+- **Agents:** don't edit `~/.config/zaki/skills` by hand to change a skill for good: an edited copy
+  stops updating until the person picks Replace or Keep mine. Make a skill of your own in a folder
+  and add it from a folder instead. `skills.json` lists what Zaki installed: name, source repo and
+  path, commit, tree, folder, enabled.
 
 **Zaki's own layouts and mods are read-only.** They are replaced whole
 on every start. Use settings.json for look (fonts, sizes, theme, colors,
@@ -925,7 +956,7 @@ has 120 programs (agents, editors, runtimes, tools, databases, infra);
   Icon paths from before that folder still work for this release only, and so does the
   `workspace-status` mod, for layouts cloned before the status bar went.
 - The defaults are mods too, read them as examples: `spaces`, `agents`,
-  `tabs` (the tab bar), `tab-menu`, `file-menu`, `tab-drag`, `menu`, `prompt`, `confirm`, `help`, `toast`, `usage`,
+  `tabs` (the tab bar), `tab-menu`, `file-menu`, `tab-drag`, `menu`, `prompt`, `confirm`, `help`, `toast`, `usage`, `customize`,
   `start` (the main layout's screen with no space open: the ram draws itself once, then a light runs its outlines, with a wake of code behind the pointer),
   Terminals' `picker`, `peek`, and `pane` (an
   example pane header, not used by the default layouts), and `worktree`

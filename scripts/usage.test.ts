@@ -251,7 +251,8 @@ beforeEach(() => {
     fetched: [],
     files: {},
     reads: [],
-    shared: {},
+    // The footer also looks for skill updates (scripts/skills.test.ts); these tests are about Usage alone.
+    shared: { "skills.checks": false },
     props: null,
     sidebar: 230,
     agentsShown: 2,
@@ -286,7 +287,7 @@ test("the collapsed rail stays Settings only", () => {
 test("a press on the gauge opens the popover beside the footer's buttons, where it can't cover them", () => {
   const f = footer();
   press(f, "usage");
-  expect(state.overlays).toEqual([{ mod: "usage", kind: "popup", width: 400, height: 540, at: { x: BUTTON.x + 72, y: BUTTON.y }, props: { from: "usage" } }]);
+  expect(state.overlays).toEqual([{ mod: "usage", kind: "popup", width: 400, height: 540, at: { x: BUTTON.x + 94, y: BUTTON.y }, props: { from: "usage" } }]);
 });
 
 test("a second press on the gauge only closes the popover", () => {
@@ -677,8 +678,8 @@ test("a limit over 100% still fills its bar and no more", async () => {
 test("the line beside the buttons gives up the gauge's width", () => {
   state.agentsShown = 12;
   const letters = words(footer().draw()).find((word) => word.includes("AGENTS"));
-  // 25 letters fitted beside two buttons: 22 px more at 5.9 px a letter takes four.
-  expect(letters).toBe("THIS COM… · 12 AGENTS");
+  // 21 letters fit beside three buttons: the gauge's 22 px more at 5.9 px a letter takes four.
+  expect(letters).toBe("THIS… · 12 AGENTS");
 });
 
 const CODEX = { ...CLAUDE, key: "codex", name: "Codex", icon: "icons/codex.svg", run: ["codex"] };
@@ -1738,7 +1739,7 @@ test("turned off, the gauge goes and the line takes back its room", () => {
   expect(byId(root, "machine")).toBeDefined();
   expect(byId(root, "settings")).toBeDefined();
   const letters = words(root).find((word) => word.includes("AGENTS"));
-  expect(letters).toBe("THIS COMPUTER · 12 AGENTS");
+  expect(letters).toBe("THIS COM… · 12 AGENTS");
 });
 
 test("turned off, nothing runs: not at launch, not on the timer, not when asked", async () => {
