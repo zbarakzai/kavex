@@ -247,7 +247,7 @@ printf 'dev PATH added' >> "$3"''')
     def test_packages_keep_full_notices_on_every_platform(self):
         checkout = self.bin / "checkout"
         for path in [
-            "Cargo.toml", "LICENSE", "THIRD-PARTY-NOTICES", "scripts/package",
+            "Cargo.toml", "LICENSE", "NOTICE", "THIRD-PARTY-NOTICES", "scripts/package",
             "assets/icons/kavex-ui-icon-clean.svg", "assets/icons/Kavex.icns",
         ]:
             destination = checkout / path
@@ -270,13 +270,13 @@ printf 'dev PATH added' >> "$3"''')
                 result = self.run_script(checkout / "scripts/package", os_name, arch)
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
                 with tarfile.open(checkout / f"dist/kavex-{target}.tar.gz") as archive:
-                    for name in ("LICENSE", "THIRD-PARTY-NOTICES"):
+                    for name in ("LICENSE", "NOTICE", "THIRD-PARTY-NOTICES"):
                         self.assertEqual(
                             archive.extractfile(f"{prefix}/{name}").read(),
                             (ROOT / name).read_bytes(),
                         )
         self.stub("cargo", 'echo "unexpected build" >&2; exit 97')
-        for name in ("LICENSE", "THIRD-PARTY-NOTICES"):
+        for name in ("LICENSE", "NOTICE", "THIRD-PARTY-NOTICES"):
             notice = checkout / name
             original = notice.read_bytes()
             for state in ("empty", "missing"):
