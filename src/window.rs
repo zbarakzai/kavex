@@ -1467,7 +1467,11 @@ impl AppWindow {
                 }
             });
             let focus = view.read(cx).focus_handle().clone();
-            self.terms.insert(id, Term { view, address, focus, _sub: sub });
+            // The pane shows another terminal now: the old one's viewer goes, or
+            // the core keeps sending to it and sizing that terminal by it.
+            if let Some(old) = self.terms.insert(id, Term { view, address, focus, _sub: sub }) {
+                old.view.read(cx).detach();
+            }
         }
         let gone: Vec<String> = self.terms.keys().filter(|id| !want_terms.contains(*id)).cloned().collect();
         for id in gone {

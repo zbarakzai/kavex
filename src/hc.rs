@@ -143,13 +143,73 @@ impl EventLines {
     }
 }
 
+/// A call waiting for its reply. One that opens a stream (attach, subscribe)
+/// brings the stream's sender, put in place as the reply is read.
+struct Waiting {
+    reply: mpsc::Sender<Result<Value, Value>>,
+    stream: Option<async_channel::Sender<Stream>>,
+}
+
 #[derive(Default)]
 struct Routes {
     closed: bool,
-    replies: HashMap<u64, mpsc::Sender<Result<Value, Value>>>,
+    replies: HashMap<u64, Waiting>,
     streams: HashMap<u32, async_channel::Sender<Stream>>,
-    /// Frames for a channel whose attach reply hasn't been handled yet.
+    /// Frames for a channel no stream has, kept only while a call that opens
+    /// one waits: an event stream can start before its reply. Otherwise
+    /// they're a detached stream's last frames, and dropped.
     early: HashMap<u32, Vec<Stream>>,
+}
+
+impl Routes {
+    /// One frame from the core. Returns a channel whose reader is gone without
+    /// detaching (a pane replaced while it attached): the core must close it.
+    fn route(&mut self, channel: u32, kind: u8, payload: Vec<u8>) -> Option<u32> {
+        if channel == 0 {
+            let msg = serde_json::from_slice::<Value>(&payload).ok()?;
+            let waiting = self.replies.remove(&msg.get("id").and_then(Value::as_u64)?)?;
+            let reply = match msg.get("error") {
+                Some(e) => Err(e.clone()),
+                None => Ok(msg.get("result").cloned().unwrap_or(Value::Null)),
+            };
+            if let (Some(tx), Ok(result)) = (waiting.stream, &reply)
+                && let Some(opened) = result.get("channel").and_then(Value::as_u64)
+            {
+                let opened = opened as u32;
+                for item in self.early.remove(&opened).unwrap_or_default() {
+                    let _ = tx.try_send(item);
+                }
+                self.streams.insert(opened, tx);
+            }
+            if !self.opening() {
+                self.early.clear();
+            }
+            let _ = waiting.reply.send(reply);
+            return None;
+        }
+        let item = match kind {
+            DATA => Stream::Data(payload),
+            CLOSE => Stream::Closed(serde_json::from_slice(&payload).unwrap_or(Value::Null)),
+            _ => return None,
+        };
+        let closing = matches!(item, Stream::Closed(_));
+        let Some(tx) = self.streams.get(&channel) else {
+            if self.opening() {
+                self.early.entry(channel).or_default().push(item);
+            }
+            return None;
+        };
+        let unread = tx.try_send(item).is_err();
+        if closing || unread {
+            self.streams.remove(&channel);
+        }
+        (unread && !closing).then_some(channel)
+    }
+
+    /// A call that opens a stream is waiting for its reply.
+    fn opening(&self) -> bool {
+        self.replies.values().any(|w| w.stream.is_some())
+    }
 }
 
 /// The supported core API generation; a generation change requires a matching app update.
@@ -280,6 +340,7 @@ impl Core {
 
         let routes = Arc::new(Mutex::new(Routes::default()));
         let (lost_tx, lost) = async_channel::bounded::<()>(1);
+        let to_core = writer.clone();
         let core = Arc::new(Core {
             hello: hello.get("result").cloned().unwrap_or(Value::Null),
             writer,
@@ -291,32 +352,9 @@ impl Core {
         std::thread::Builder::new().name("hc-reader".into()).spawn(move || {
             let _lost_tx = lost_tx;
             while let Some((channel, kind, payload)) = read_frame(&mut reader) {
-                let mut r = routes.lock().unwrap();
-                if channel == 0 {
-                    let Ok(msg) = serde_json::from_slice::<Value>(&payload) else { continue };
-                    let Some(id) = msg.get("id").and_then(Value::as_u64) else { continue };
-                    if let Some(tx) = r.replies.remove(&id) {
-                        let _ = tx.send(match msg.get("error") {
-                            Some(e) => Err(e.clone()),
-                            None => Ok(msg.get("result").cloned().unwrap_or(Value::Null)),
-                        });
-                    }
-                    continue;
-                }
-                let item = match kind {
-                    DATA => Stream::Data(payload),
-                    CLOSE => Stream::Closed(serde_json::from_slice(&payload).unwrap_or(Value::Null)),
-                    _ => continue,
-                };
-                let closing = matches!(item, Stream::Closed(_));
-                match r.streams.get(&channel) {
-                    Some(tx) => {
-                        let _ = tx.try_send(item);
-                    }
-                    None => r.early.entry(channel).or_default().push(item),
-                }
-                if closing {
-                    r.streams.remove(&channel);
+                let unread = routes.lock().unwrap().route(channel, kind, payload);
+                if let Some(channel) = unread {
+                    let _ = to_core.send(encode(channel, CLOSE, &[]));
                 }
             }
             // The core went away: tell every pane, and fail calls still waiting.
@@ -325,8 +363,8 @@ impl Core {
             for (_, tx) in r.streams.drain() {
                 let _ = tx.try_send(Stream::Lost);
             }
-            for (_, tx) in r.replies.drain() {
-                let _ = tx.send(Err(json!({"message": "lost the core"})));
+            for (_, waiting) in r.replies.drain() {
+                let _ = waiting.reply.send(Err(json!({"message": "lost the core"})));
             }
         })?;
         Ok(core)
@@ -346,13 +384,25 @@ impl Core {
     }
 
     pub fn call_timeout(&self, method: &str, params: Value, timeout: Duration) -> Result<Value> {
+        self.request(method, params, timeout, None)
+    }
+
+    /// A call that opens a stream: its frames go to `stream` from the reply on.
+    fn open(&self, method: &str, params: Value) -> Result<(u32, async_channel::Receiver<Stream>, Value)> {
+        let (tx, rx) = async_channel::unbounded();
+        let result = self.request(method, params, Duration::from_secs(10), Some(tx))?;
+        let channel = result["channel"].as_u64().ok_or_else(|| anyhow!("{method} returned no channel"))? as u32;
+        Ok((channel, rx, result))
+    }
+
+    fn request(&self, method: &str, params: Value, timeout: Duration, stream: Option<async_channel::Sender<Stream>>) -> Result<Value> {
         let _span = crate::bench::rpc(method);
         let id = self.next_id.fetch_add(1, Ordering::Relaxed);
         let (tx, rx) = mpsc::channel();
         {
             let mut routes = self.routes.lock().unwrap();
             if routes.closed { bail!("{method}: lost the core"); }
-            routes.replies.insert(id, tx);
+            routes.replies.insert(id, Waiting { reply: tx, stream });
         }
         let req = json!({"jsonrpc": "2.0", "id": id, "method": method, "params": params});
         self.send(0, DATA, req.to_string().as_bytes());
@@ -360,7 +410,11 @@ impl Core {
             Ok(Ok(v)) => Ok(v),
             Ok(Err(e)) => Err(anyhow::Error::new(RpcError(e)).context(method.to_owned())),
             Err(_) => {
-                self.routes.lock().unwrap().replies.remove(&id);
+                let mut routes = self.routes.lock().unwrap();
+                routes.replies.remove(&id);
+                if !routes.opening() {
+                    routes.early.clear();
+                }
                 Err(anyhow!("{method}: no reply from core"))
             },
         }
@@ -380,30 +434,17 @@ impl Core {
     /// One subscription includes local and forwarded remote events.
     /// The event stream, and its snapshot (`seq`, `terminals`) to apply it to.
     pub fn subscribe(&self) -> Result<(u32, async_channel::Receiver<Stream>, Value)> {
-        let result = self.call("events.subscribe", json!({}))?;
-        let channel = result["channel"].as_u64().ok_or_else(|| anyhow!("subscription returned no channel"))? as u32;
-        let (tx, rx) = async_channel::unbounded();
-        let mut r = self.routes.lock().unwrap();
-        for item in r.early.remove(&channel).unwrap_or_default() { let _ = tx.try_send(item); }
-        r.streams.insert(channel, tx);
-        drop(r);
+        let (channel, rx, result) = self.open("events.subscribe", json!({}))?;
         self.credit(channel, 1024 * 1024);
         Ok((channel, rx, result))
     }
 
     pub fn attach(&self, terminal: &str, cols: u16, rows: u16, display: Value) -> Result<Attached> {
-        let result = self.call(
+        let (channel, stream, result) = self.open(
             "terminal.attach",
             json!({"terminal": terminal, "cols": cols, "rows": rows, "history": 2000, "display": display}),
         )?;
-        let channel = result["channel"].as_u64().ok_or_else(|| anyhow!("attach returned no channel"))? as u32;
-        let (tx, rx) = async_channel::unbounded();
-        let mut r = self.routes.lock().unwrap();
-        for item in r.early.remove(&channel).unwrap_or_default() {
-            let _ = tx.try_send(item);
-        }
-        r.streams.insert(channel, tx);
-        Ok(Attached { channel, stream: rx, terminal: result["terminal"].clone() })
+        Ok(Attached { channel, stream, terminal: result["terminal"].clone() })
     }
 
     pub fn input(&self, channel: u32, bytes: &[u8]) {
@@ -518,6 +559,68 @@ mod tests {
         assert!(core.call("doc.get", json!({"name":"kavex"})).unwrap_err().to_string().contains("lost the core"));
         assert!(start.elapsed() < Duration::from_secs(1));
         assert!(core.routes.lock().unwrap().replies.is_empty());
+    }
+
+    fn reply(id: u64, result: Value) -> Vec<u8> {
+        json!({"jsonrpc": "2.0", "id": id, "result": result}).to_string().into_bytes()
+    }
+
+    fn opening(r: &mut Routes, id: u64) -> (mpsc::Receiver<Result<Value, Value>>, async_channel::Receiver<Stream>) {
+        let (reply, replied) = mpsc::channel();
+        let (tx, rx) = async_channel::unbounded();
+        r.replies.insert(id, Waiting { reply, stream: Some(tx) });
+        (replied, rx)
+    }
+
+    fn data(rx: &async_channel::Receiver<Stream>) -> Vec<Vec<u8>> {
+        std::iter::from_fn(|| rx.try_recv().ok()).filter_map(|s| if let Stream::Data(d) = s { Some(d) } else { None }).collect()
+    }
+
+    #[test]
+    fn a_stream_gets_frames_sent_before_its_reply_and_nothing_is_kept_after() {
+        let mut r = Routes::default();
+        let (replied, rx) = opening(&mut r, 1);
+        assert_eq!(r.route(7, DATA, b"before".to_vec()), None);
+        assert_eq!(r.route(9, DATA, b"a detached stream".to_vec()), None);
+        assert_eq!(r.route(0, DATA, reply(1, json!({"channel": 7}))), None);
+        assert_eq!(replied.recv().unwrap().unwrap()["channel"], 7);
+        r.route(7, DATA, b"after".to_vec());
+        assert_eq!(data(&rx), [b"before".to_vec(), b"after".to_vec()]);
+        assert!(r.early.is_empty(), "no call opens a stream: nothing waits for one");
+    }
+
+    #[test]
+    fn a_detached_streams_last_frames_are_dropped() {
+        let mut r = Routes::default();
+        let (_replied, rx) = opening(&mut r, 1);
+        r.route(0, DATA, reply(1, json!({"channel": 3})));
+        r.streams.remove(&3);
+        for _ in 0..100 {
+            assert_eq!(r.route(3, DATA, vec![b'x'; 1024]), None);
+        }
+        assert_eq!(r.route(3, CLOSE, vec![]), None);
+        assert!(r.early.is_empty() && data(&rx).is_empty());
+    }
+
+    #[test]
+    fn a_stream_nobody_reads_is_closed_once() {
+        let mut r = Routes::default();
+        let (_replied, rx) = opening(&mut r, 1);
+        r.route(0, DATA, reply(1, json!({"channel": 4})));
+        drop(rx);
+        assert_eq!(r.route(4, DATA, b"to nobody".to_vec()), Some(4), "the core is told to close it");
+        assert!(!r.streams.contains_key(&4));
+        assert_eq!(r.route(4, DATA, b"still on its way".to_vec()), None);
+        assert_eq!(r.route(4, CLOSE, vec![]), None);
+    }
+
+    #[test]
+    fn a_failed_attach_opens_no_stream() {
+        let mut r = Routes::default();
+        let (replied, _rx) = opening(&mut r, 1);
+        r.route(0, DATA, json!({"jsonrpc": "2.0", "id": 1, "error": {"message": "finished"}}).to_string().into_bytes());
+        assert!(replied.recv().unwrap().is_err());
+        assert!(r.streams.is_empty() && r.replies.is_empty());
     }
 
     fn hello(generation: u64, version: &str, methods: &[&str]) -> Value {
