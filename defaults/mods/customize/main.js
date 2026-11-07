@@ -45,7 +45,7 @@ export default class Customize extends View {
       .child(h_flex().id("cz-back").h(30).flex_none().px(10).gap(6).items_center().rounded(9).cursor_pointer().text_color(t.label)
         .hover((s) => s.bg(t.hover).text_color(t.foreground))
         .on_click(() => this.close())
-        .child(svg(I("chevron-left")).size(16).flex_none()).child(div().text_size(13).child("Back to Zaki")))
+        .child(svg(I("chevron-left")).size(16).flex_none()).child(div().text_size(13).child("Back to Kavex")))
       .child(h_flex().h(44).flex_none().px(10).items_center().text_size(16).font_medium().text_color(t.foreground).child("Customize"))
       .children(PAGES.map((p) => this.navRow(t, `cz-p-${p.id}`, p.icon, p.title, p.id === this.page, (_e, cx) => {
         this.page = p.id;

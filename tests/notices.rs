@@ -46,10 +46,10 @@ fn manifest_inputs(manifest: &str) -> String {
 
 #[test]
 fn lock_fingerprint_tracks_third_party_packages_only() {
-    let workspace = BTreeSet::from(["zaki"]);
+    let workspace = BTreeSet::from(["kavex"]);
     let lock = r#"
 [[package]]
-name = "zaki"
+name = "kavex"
 version = "0.1.7"
 [[package]]
 name = "registry-dep"

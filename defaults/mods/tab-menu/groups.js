@@ -185,7 +185,7 @@ export function clicked(tabs, c, { shift, picking }, picks) {
   return null;
 }
 
-// A tab whose terminal was started with `zaki.group=<name>` joins that group, made if it's new,
+// A tab whose terminal was started with `kavex.group=<name>` joins that group, made if it's new,
 // in the color least used. The same answer however often it's asked.
 export function labeled(groups, tab, name, colors, id) {
   if (groupOf(groups, tab) && groups[groupOf(groups, tab)].name === name) return groups;

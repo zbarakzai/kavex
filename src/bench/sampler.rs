@@ -142,7 +142,7 @@ struct Thread {
 
 pub fn start(path: PathBuf) {
     let main = unsafe { GetCurrentThreadId() };
-    let _ = std::thread::Builder::new().name("zaki-sampler".into()).spawn(move || run(path, main));
+    let _ = std::thread::Builder::new().name("kavex-sampler".into()).spawn(move || run(path, main));
 }
 
 fn run(path: PathBuf, main: u32) {

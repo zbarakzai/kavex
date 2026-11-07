@@ -73,7 +73,7 @@ const linkOf = (dir: string, name: string) => join(homeOf(dir, "skills"), name);
 const linked = (dir: string, name: string) => existsSync(linkOf(dir, name)) && lstatSync(linkOf(dir, name)).isSymbolicLink() && readlinkSync(linkOf(dir, name)) === app("skills", name);
 
 beforeEach(() => {
-  root = realpathSync(mkdtempSync(join(tmpdir(), "zaki-skills-")));
+  root = realpathSync(mkdtempSync(join(tmpdir(), "kavex-skills-")));
   remote = join(root, "remote");
   mkdirSync(homeOf(), { recursive: true });
   mkdirSync(app(), { recursive: true });
@@ -231,7 +231,7 @@ test("a check run within the window doesn't run again", async () => {
   expect(state.shared["skills.check"]).toEqual({ at, error: null });
 });
 
-test("removing deletes Zaki's copy and its links, and nothing else", async () => {
+test("removing deletes Kavex's copy and its links, and nothing else", async () => {
   await skills.install(publish("tdd", { "SKILL.md": skillMd("tdd") }));
   mkdirSync(homeOf(".agents/skills/other"), { recursive: true });
   await skills.remove("tdd");
@@ -278,7 +278,7 @@ test("names and paths that could escape the folders are refused before anything 
   expect(() => skills.check(ok)).not.toThrow();
 });
 
-test("the page sees Zaki's skills, the person's own and the agents' own", async () => {
+test("the page sees Kavex's skills, the person's own and the agents' own", async () => {
   await skills.install(publish("tdd", { "SKILL.md": skillMd("tdd") }));
   for (const [dir, name] of [[".agents/skills", "theirs"], [".codex/skills/.system", "imagegen"], ["plugins/x/skills", "from-plugin"]]) {
     mkdirSync(homeOf(dir, name), { recursive: true });

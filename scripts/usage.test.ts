@@ -65,7 +65,7 @@ let state: {
 };
 
 // `solid` and its text are made for every theme by src/settings.rs, not written in the file.
-const colors = { ...JSON.parse(readFileSync(new URL("../defaults/themes/zaki.json", import.meta.url), "utf8")).colors, solid: "#abcdef", solid_foreground: "#123456" };
+const colors = { ...JSON.parse(readFileSync(new URL("../defaults/themes/kavex.json", import.meta.url), "utf8")).colors, solid: "#abcdef", solid_foreground: "#123456" };
 
 async function exec(command: string, args: string[] = [], options: { on?: string | null } = {}) {
   const line = [command, ...args].join(" "), on = options.on ?? null;
@@ -103,10 +103,10 @@ mock.module("herdr", () => ({
   setShared: (k: string, v: any) => { state.shared[k] = v === undefined ? v : JSON.parse(JSON.stringify(v)); },
   props: () => state.props,
   theme: () => colors,
-  settings: () => ({ zoom: 1, font_family: "Geist Mono", font_size: 13, ui_font_family: "Geist", theme_dark: "zaki", theme_light: "paper" }),
+  settings: () => ({ zoom: 1, font_family: "Geist Mono", font_size: 13, ui_font_family: "Geist", theme_dark: "kavex", theme_light: "paper" }),
   window: () => ({ platform: state.platform }),
   home: () => "/home/person",
-  appHome: () => "/home/person/.config/zaki",
+  appHome: () => "/home/person/.config/kavex",
   readTextFile: async (path: string) => { state.reads.push(path); return state.files[path] ?? null; },
   writeTextFile: async () => {},
   hc: async () => ({ code: 0, stdout: '{"machines":[]}', stderr: "" }),
@@ -484,7 +484,7 @@ for (const [why, answer] of [
 test("Claude not installed gives no row and runs nothing of Claude's", async () => {
   claude(WEEK);
   state.agents[""] = [{ ...CLAUDE, installed: false }];
-  state.says["command -v"] = "zaki-asked\n";
+  state.says["command -v"] = "kavex-asked\n";
   const { popover } = await opened();
   expect(state.runs.some((run) => /claude (auth|-p)/.test(run.line))).toBe(false);
   expect(words(popover.draw())).toContain(NONE);
@@ -633,7 +633,7 @@ test("Claude's commands run in the PATH of the person's own shell, as a Dock sta
   for (const run of asked) expect(run.line).toContain("/made/up/bin:/usr/bin");
 });
 
-test("no shell PATH to be had still checks, with the PATH Zaki has", async () => {
+test("no shell PATH to be had still checks, with the PATH Kavex has", async () => {
   claude(WEEK);
   state.says["printenv PATH"] = new Error("no shell");
   const { popover } = await opened();
@@ -948,7 +948,7 @@ test("a custom path with a space in it stays one word", async () => {
 test("a program of another name in programs.json isn't started: the plain agent is, once its shell finds it", async () => {
   claude(WEEK);
   state.agents[""] = [{ ...CLAUDE, run: ["my-claude", "--profile", "work"] }];
-  state.says["command -v"] = "zaki-has:claude\nzaki-asked\n";
+  state.says["command -v"] = "kavex-has:claude\nkavex-asked\n";
   const { popover } = await opened();
   expect(limits(popover.draw()).length).toBe(1);
   expect(state.runs.filter((run) => run.line.includes("my-claude"))).toEqual([]);
@@ -957,7 +957,7 @@ test("a program of another name in programs.json isn't started: the plain agent 
 test("a program of another name with no plain agent to run gives no row, as it's the plain one that's missing", async () => {
   claude(WEEK);
   state.agents[""] = [{ ...CLAUDE, run: ["my-claude"] }];
-  state.says["command -v"] = "zaki-asked\n";
+  state.says["command -v"] = "kavex-asked\n";
   const { popover } = await opened();
   expect(checks()).toBe(0);
   expect(words(popover.draw())).toContain(NONE);
@@ -1225,7 +1225,7 @@ test("a shared row loses a removed machine's name, and its label with it", async
   expect(rows(popover.draw()).length).toBe(1);
 });
 
-const SURE_NOT = "zaki-asked\n";
+const SURE_NOT = "kavex-asked\n";
 
 for (const [why, shell, probe] of [
   ["its shell can't be read", new Error("no shell"), SURE_NOT],
@@ -1271,7 +1271,7 @@ test("an agent really gone takes its row with it, once its shell says so", async
 test("an agent only the machine's own shell can find is still checked", async () => {
   claudeOn("vps", ACCOUNT, WEEK);
   state.agents.vps = [{ ...CLAUDE, installed: false, run: ["/opt/made-up/claude"] }];
-  state.on.vps["command -v"] = "zaki-has:/opt/made-up/claude\nzaki-asked\n";
+  state.on.vps["command -v"] = "kavex-has:/opt/made-up/claude\nkavex-asked\n";
   const { popover } = await opened();
   expect(limits(popover.draw()).length).toBe(1);
   const asked = state.runs.find((run) => run.line.includes("command -v"))!;
@@ -1292,7 +1292,7 @@ test("on Windows PowerShell says what's installed", async () => {
   state.platform = "windows";
   state.agents[""] = [{ ...CODEX, installed: false }];
   state.says["app-server"] = codexSays(PRO);
-  state.says["Get-Command"] = "zaki-has:codex\r\nzaki-asked\r\n";
+  state.says["Get-Command"] = "kavex-has:codex\r\nkavex-asked\r\n";
   const { popover } = await opened();
   expect(limits(popover.draw()).length).toBe(4);
 });
@@ -1964,7 +1964,7 @@ const OPENCODE = { ...CLAUDE, key: "opencode", name: "OpenCode", icon: "icons/op
 const KEY = "made-up-go-key-0123456789";
 const AUTH = "/home/person/.local/share/opencode/auth.json";
 const GO = "https://opencode.ai/zen/go/v1/usage";
-const ASKS = "Zaki reads your OpenCode key and sends it only to opencode.ai, to ask for your Go plan's limits.";
+const ASKS = "Kavex reads your OpenCode key and sends it only to opencode.ai, to ask for your Go plan's limits.";
 
 // OpenCode installed on this computer, with this auth file and no database to read.
 function opencode(auth: unknown = { opencode: { type: "api", key: KEY } }) {
@@ -2219,7 +2219,7 @@ test("any agent's failed check keeps numbers saved since it began, marked with t
   expect(words(root)).toContain("LAST CHECKED JUST NOW");
 });
 
-const { run: zakiDo } = await import("herdr");
+const { run: kavexDo } = await import("herdr");
 
 test("Allow's press is the answer: saved at once, with the card gone and no false \"none\" while the check starts", async () => {
   opencode();
@@ -2238,7 +2238,7 @@ test("the footer's command alone is no consent: no answer saved, no key read, no
   opencode();
   state.answers[GO] = go();
   const { popover } = await opened();
-  zakiDo("workspace-chrome.allow-opencode");
+  kavexDo("workspace-chrome.allow-opencode");
   await settle();
   expect(state.shared["usage.opencode"] ?? null).toBeNull();
   expect(keysRead()).toBe(0);
@@ -2251,7 +2251,7 @@ test("nor does the command undo Not now", async () => {
   state.answers[GO] = go();
   const { popover } = await opened();
   reply(popover, NOT_NOW);
-  zakiDo("workspace-chrome.allow-opencode");
+  kavexDo("workspace-chrome.allow-opencode");
   await settle();
   expect(state.shared["usage.opencode"]).toBe(false);
   expect(keysRead()).toBe(0);
@@ -2264,7 +2264,7 @@ test("the command after Allow's check starts nothing more", async () => {
   const { popover } = await opened();
   reply(popover, ALLOW);
   await settle();
-  zakiDo("workspace-chrome.allow-opencode");
+  kavexDo("workspace-chrome.allow-opencode");
   await settle();
   expect(state.fetched.length).toBe(1);
 });
@@ -2363,7 +2363,7 @@ test("the key goes to opencode.ai over https and nowhere else, as a Bearer heade
     const headers = init?.headers as Record<string, string>;
     expect(headers.Authorization).toBe(`Bearer ${KEY}`);
     expect(Object.entries(headers).filter(([, value]) => value.includes(KEY)).length).toBe(1);
-    expect(headers["User-Agent"]).toBe("zaki-usage/1.0");
+    expect(headers["User-Agent"]).toBe("kavex-usage/1.0");
   }
   expect(JSON.stringify(state.runs)).not.toContain(KEY);
 });

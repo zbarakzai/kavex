@@ -27,7 +27,7 @@ const byId = (root: El, id: string) => all(root).find((e) => arg(e, "id") === id
 const handler = (e: El, name: string, button?: string) => e.calls.find(([k, a]) => k === name && (!button || a[0] === button))?.[1].at(-1);
 const listening = (root: El) => all(root).filter((e) => handler(e, "on_mouse_move")).map((e) => arg(e, "id"));
 
-const colors = JSON.parse(readFileSync(new URL("../defaults/themes/zaki.json", import.meta.url), "utf8")).colors;
+const colors = JSON.parse(readFileSync(new URL("../defaults/themes/kavex.json", import.meta.url), "utf8")).colors;
 let state: { spaces: any[]; shared: Record<string, any>; ran: [string, any][]; overlays: any[] };
 mock.module("gpui-kit", () => ({ View: class {}, div: make, image: make, svg: make }));
 mock.module("gpui-base", () => ({ h_flex: make, v_flex: make }));

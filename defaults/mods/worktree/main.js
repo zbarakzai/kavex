@@ -13,7 +13,7 @@ function place(s) {
 }
 
 // Checkouts go to <ROOT>/<repo>/<branch, slashes as dashes>.
-const ROOT = (home) => `${home}/.zaki/worktrees`;
+const ROOT = (home) => `${home}/.kavex/worktrees`;
 // Home as ~ (git says C:/Users/x where Windows says C:\Users\x).
 const tilde = (path, userHome) => {
   const [p, h] = [path, userHome].map((s) => s.replace(/\\/g, "/"));

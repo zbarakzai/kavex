@@ -1,11 +1,11 @@
-# Zaki app
+# Kavex app
 
-<!-- Written by the Zaki app on every start. Edits here are overwritten. -->
+<!-- Written by the Kavex app on every start. Edits here are overwritten. -->
 
-This folder is **the Zaki app's whole interface, as files**. The Zaki app
+This folder is **the Kavex app's whole interface, as files**. The Kavex app
 is a desktop app for terminals and coding agents, and it redraws itself from
 these files while it runs: change a layout, a key or a panel here and the
-window follows within a second. Shipped layouts and mods are Zaki's:
+window follows within a second. Shipped layouts and mods are Kavex's:
 change settings for look, or clone before editing structure/code (see Layouts).
 When someone asks for something ("a sidebar
 of my PRs", "give ctrl+1 back to the shell", "make it warmer", "move the
@@ -16,13 +16,13 @@ from the same parts you have.
 
 ## Two programs
 
-- **`zaki`**, the window: spaces, tabs, layouts, panels.
+- **`kavex`**, the window: spaces, tabs, layouts, panels.
 - **herdr-core (`hc`)**, which runs every terminal and agent. They keep
   running when the window closes or updates. You can use `hc` yourself:
   start a terminal, read its screen, send it text, wait for an agent
-  (`hc --help`). The Zaki app is one client of it.
+  (`hc --help`). The Kavex app is one client of it.
 
-`zaki` controls this app; `hc` controls herdr-core.
+`kavex` controls this app; `hc` controls herdr-core.
 
 ## What you can and can't do
 
@@ -41,7 +41,7 @@ draws text; read or change other mods' code at run time.
 Mods use **gpui-kit** (its gpui-shell): JavaScript that describes **GPUI**
 elements, a native GPU UI (`div()`, flex, children,
 `.on_click`). There's no DOM: the script describes, Rust draws. Background:
-https://gpui-kit.com. The Zaki app carries its own copy with additions
+https://gpui-kit.com. The Kavex app carries its own copy with additions
 (`frames`, `loop`), so **the type files here are the truth**:
 `gpui-kit.d.ts` for elements and `herdr.d.ts` for the app's data and
 commands. They're rewritten on every start to match this version.
@@ -51,7 +51,7 @@ commands. They're rewritten on every start to match this version.
 - Edits apply at once. If a file is invalid, the app keeps the last good
   version and writes why to `<name>.error` (`layout.error`, `keys.error`,
   `settings.error`, `programs.error`). Check after every edit.
-- `zaki check <mod folder>` loads a mod once and checks its initial
+- `kavex check <mod folder>` loads a mod once and checks its initial
   description and eager native elements, including virtual lists and motion.
   It does not lay out the mod or run deferred rows, nested renders, or later
   async states. Never call a mod done without a passing check; also try it
@@ -62,12 +62,12 @@ commands. They're rewritten on every start to match this version.
 
 ## Seeing the window
 
-`zaki shot [file.png]` saves the last rendered window frame as a PNG
-and prints its absolute path (default: `zaki-shot.png` in your current
+`kavex shot [file.png]` saves the last rendered window frame as a PNG
+and prints its absolute path (default: `kavex-shot.png` in your current
 folder). Use it when debugging mod UIs: inspect spacing, colors, terminal
 images, overlays, popups and floats. It captures the app, not the desktop,
 at the window’s physical pixel size, even when covered or minimized. No
-screen-recording permission is needed. Zaki must be running; before its
+screen-recording permission is needed. Kavex must be running; before its
 first frame or during GPU recovery it reports an error instead of a PNG.
 `HERDR_APP_HOME` selects which running window to ask, as with `status`.
 
@@ -80,21 +80,21 @@ first frame or during GPU recovery it reports an error instead of a PNG.
 | `settings.json` | the person: zoom, sounds, fonts for every layout | live |
 | `mods/<name>/` | panels: small JavaScript programs | live (hot reload) |
 | `programs.json` | how programs show (name, icon, tile), on top of the built-in table | live |
-| `icons/` | the shipped program and file type logos | written by Zaki (put your own elsewhere) |
-| `frame/` | the app's own screens (welcome, ...) | rewritten by Zaki on every start: don't edit, it won't stick |
-| `skills/`, `skills.json` | skills installed from Customize → Skills: one copy each, and where each came from | written by Zaki (see Skills) |
-| `view.json` | this screen's selected space/tab/pane, zoom, settled tabs, recent spaces and seen attention | written by Zaki |
-| `shared.json`, `data/`, `seen.json`, `installed.json`, `installed-stamps.json`, `core-checked.json`, `window.json`, `windows.json` | mod state, bookkeeping (which herdr-core binaries answered, so an unchanged one isn't run again at start), where the window was (size, maximized), mods' windows (spots, kept ones) | written by Zaki |
+| `icons/` | the shipped program and file type logos | written by Kavex (put your own elsewhere) |
+| `frame/` | the app's own screens (welcome, ...) | rewritten by Kavex on every start: don't edit, it won't stick |
+| `skills/`, `skills.json` | skills installed from Customize → Skills: one copy each, and where each came from | written by Kavex (see Skills) |
+| `view.json` | this screen's selected space/tab/pane, zoom, settled tabs, recent spaces and seen attention | written by Kavex |
+| `shared.json`, `data/`, `seen.json`, `installed.json`, `installed-stamps.json`, `core-checked.json`, `window.json`, `windows.json` | mod state, bookkeeping (which herdr-core binaries answered, so an unchanged one isn't run again at start), where the window was (size, maximized), mods' windows (spots, kept ones) | written by Kavex |
 
 Shared state is saved atomically in the background, with the latest change winning.
-If `shared.json` is invalid, Zaki logs a warning and keeps it as
+If `shared.json` is invalid, Kavex logs a warning and keeps it as
 `shared.json.corrupt-<time>` before starting empty.
 
 ## The model: spaces, tabs, terminals
 
 Every layout shows the same world; a layout may show less, never a
 different one. Each machine keeps its spaces, tabs and splits in its core's
-`zaki` document. Connected screens share that layout and live terminals,
+`kavex` document. Connected screens share that layout and live terminals,
 not their focus, zoom or attention. Use commands to change structure; there
 is no `spaces.json`. On simultaneous edits the newest accepted document wins
 (no merging); structural commands fail while that machine's layout is unavailable.
@@ -104,9 +104,9 @@ In the expanded Spaces sidebar, drag a space to reorder it within its machine;
 the highlighted line shows where it will land.
 
 - A **space** is a place to work, on one machine: this one, or another
-  from `hc machine ls` (`spaces()[i].machine`). Zaki leaves out machines
+  from `hc machine ls` (`spaces()[i].machine`). Kavex leaves out machines
   added with `--temp` (an agent's short-lived sandbox): no spaces, not in
-  `machines()`, and mods listing machines skip `temporary`. Names work as in Zaki:
+  `machines()`, and mods listing machines skip `temporary`. Names work as in Kavex:
   a space nobody named is called after where its first terminal is now
   (its repo, else its folder, `~` at home) and follows it; once named
   (`space.rename`), the name stays; renaming to "" goes back.
@@ -116,11 +116,11 @@ the highlighted line shows where it will land.
   space's repo from its first terminal.
 - A **tab** is a piece of work in a space: its terminals and how they're
   split right and down. One nobody named is called by its place (1, 2,
-  ...), as in Zaki; `tab.rename` names it ("fix login"). A space
+  ...), as in Kavex; `tab.rename` names it ("fix login"). A space
   has one or more; closing the last one closes the space (it stays in
   `recent`).
 - A tab can be **settled** (`tab.settle`): put away on this screen, still running;
-  `settled` on each tab. Zaki's tab bar settles the tabs of a folded group; the
+  `settled` on each tab. Kavex's tab bar settles the tabs of a folded group; the
   other shipped layouts list every tab, and a mod can hide or fold settled tabs.
   Showing one, or an agent in it needing the user, brings it back.
 - Tabs can be **grouped** on this screen, in the `tabs` bar (the main layout's) or
@@ -157,7 +157,7 @@ the highlighted line shows where it will land.
   (`tab-drag`, a clear layer over the window, carries the pointer meanwhile; its prop
   `to` names the mod that gets the positions). A mouse wheel over them steps through
   tabs and stops at the ends; a trackpad scrolls. A terminal started with the label
-  `zaki.group=<name>` lands in that group, made if it's new, once; after that its tab
+  `kavex.group=<name>` lands in that group, made if it's new, once; after that its tab
   is the person's to move. For keys:
   `tabs.group` (the picked tabs, or the shown one; asks for a name and a color), `tabs.fold`,
   `tabs.ungroup`, `tabs.color` (the next color, then none). They act on the shown tab and need the bar.
@@ -166,26 +166,27 @@ the highlighted line shows where it will land.
   mod pane splits, zooms, closes and gets a header like any pane, keeps
   the keyboard when clicked, and is saved with its tab; its `props` tell
   it what to show (a file, a folder). Closing a terminal pane ends its
-  terminal, and a program exiting closes its pane, even if Zaki was closed.
+  terminal, and a program exiting closes its pane, even if Kavex was closed.
   Terminal panes are kept by their machine's core (`keep: true`). A lost
   terminal (core crash, reboot, logout) gets a shell in its last folder,
   with the same address; its original command is never run again. Splits
   and mod panes stay. An exited or killed terminal is closed, not restarted.
   Focus, zoom, recent spaces, settled tabs and seen attention stay on this screen.
-- Every terminal is a core terminal. Zaki labels the ones it starts with
-  `zaki.space=<id>` and `zaki.tab=<id>`. **A terminal with those
+- Every terminal is a core terminal. Kavex labels the ones it starts with
+  `kavex.space=<id>` and `kavex.tab=<id>`. **A terminal with those
   labels shows up there**, even one you start yourself:
-  `hc run --keep --label zaki.space=<id> --label zaki.tab=<id> -- claude`, plus
-  `--label zaki.group=<name>` to land in a tab group.
+  `hc run --keep --label kavex.space=<id> --label kavex.tab=<id> -- claude`, plus
+  `--label kavex.group=<name>` to land in a tab group. Labels from when
+  Kavex was Zaki (`zaki.space`, ...) still work: Kavex renames them.
   Labels use ids local to that machine; remote ids shown by the app have a
   `<machine>/` prefix (strip it when writing labels on that machine). Adoption
   also enables core keep; `terminal.park` removes the pane and disables keep.
   When a core change is needed, `terminal.keep` / `terminal.park` acknowledge
   with `pending: true`, then apply after the machine replies; failures show a toast.
   Normal quit waits for pending terminal changes and layout writes; remote waits are bounded.
-  An id Zaki doesn't know becomes a new space or tab (unnamed: Zaki's names).
-  Terminals without the labels (another app's) stay out of Zaki's
-  screens, and so do other machines' terminals, unless Zaki started them
+  An id Kavex doesn't know becomes a new space or tab (unnamed: Kavex's names).
+  Terminals without the labels (another app's) stay out of Kavex's
+  screens, and so do other machines' terminals, unless Kavex started them
   for a space on that machine.
 - **Agents** are terminals whose program reports a status (OSC 7501):
   `working`, `blocked`, `idle`, or `done` = finished while the user wasn't
@@ -215,34 +216,34 @@ the highlighted line shows where it will land.
     in context. `/clear` starts over, `/compact` lowers context and keeps the cost, and resuming keeps both.
   - **API cost:** what the tokens would cost at API prices in US dollars, not what anyone paid, and
     the dropdown says so. Claude Code's and Codex's come from `mods/agents/prices.js`, never fetched, so
-    a new model waits for a release; Pi stores its own. A model with no exact price, a helper Zaki can't
+    a new model waits for a release; Pi stores its own. A model with no exact price, a helper Kavex can't
     count, or a usage line it can't read shows "no price", and the token counts stay. It counts tokens
     only, and can read a little under Claude's own `/cost`.
   - **Claude Code's config folders:** an agent's session is looked for in every `~/.claude*` folder with
-    a `sessions` folder in it, and in `CLAUDE_CONFIG_DIR` if it's set for Zaki, so a second account's
+    a `sessions` folder in it, and in `CLAUDE_CONFIG_DIR` if it's set for Kavex, so a second account's
     agents show too. One set only for that agent, somewhere else, can't be seen and shows no percent.
   - **Claude Code's total:** `claude -p "/context"`, which spends no tokens, once per model per machine,
     kept for a day in `shared("agents.totals")`. Until then the dropdown shows tokens alone and the row
     shows nothing.
-  - **Codex:** **Zaki adds a hook by itself** the first time it sees a Codex on a machine: a new group at
-    the end of `SessionStart` in `~/.codex/hooks.json`, running `~/.zaki/codex-session.sh` (`.ps1` on
+  - **Codex:** **Kavex adds a hook by itself** the first time it sees a Codex on a machine: a new group at
+    the end of `SessionStart` in `~/.codex/hooks.json`, running `~/.kavex/codex-session.sh` (`.ps1` on
     Windows). Other hooks keep their place and approval, a hook file that can't be read or understood
-    is left alone, and a hook the person removes stays removed until Zaki's setup changes. **Zaki never
+    is left alone, and a hook the person removes stays removed until Kavex's setup changes. **Kavex never
     approves it**: the person trusts it in `/hooks`, once per machine, and restarts that Codex. It runs
-    on a session's first message and labels the terminal `zaki.session=<session file>`, removed once
+    on a session's first message and labels the terminal `kavex.session=<session file>`, removed once
     it's back at its shell. After `/clear`, `/new` or `/fork` the old numbers stay until that first message.
-  - **Pi:** **Zaki adds an extension by itself** the first time it sees a Pi on a machine:
-    `~/.pi/agent/extensions/zaki-session.ts`, a file of its own, which stays removed if the person
-    removes it, until Zaki's setup changes. Pi loads it with nothing to approve; a Pi already running
+  - **Pi:** **Kavex adds an extension by itself** the first time it sees a Pi on a machine:
+    `~/.pi/agent/extensions/kavex-session.ts`, a file of its own, which stays removed if the person
+    removes it, until Kavex's setup changes. Pi loads it with nothing to approve; a Pi already running
     needs `/reload` or a restart. When a session starts or another model is picked, it labels the
-    terminal `zaki.session=<session file>` and `zaki.total=<the model's context total>`, removed once
+    terminal `kavex.session=<session file>` and `kavex.total=<the model's context total>`, removed once
     it's back at its shell. After compacting the row shows nothing and the dropdown `?`, until Pi's next answer.
     `--no-session` and `PI_CODING_AGENT_DIR` leave it at `–`.
   - **Added machines:** all of this happens on that machine, under its home. The hook and the extension
     go in through `hc file write --on`, so its Codex is approved there; `<machine>/<model>` and
     `<machine>/codex` are the keys in `shared("agents.totals")` and `shared("agents.setup")`. Rows refresh
     every 30 seconds while listed, and an offline machine keeps its last numbers. With no `hc` where the
-    hook and the extension look (PATH, then Zaki's usual folders), its row stays at `–`.
+    hook and the extension look (PATH, then Kavex's usual folders), its row stays at `–`.
   - **Windows:** Claude's record is found among the processes under the terminal's shell, and one older
     than its process is ignored. `claude -p "/context"` runs through `cmd`. Anything that fails there
     shows no percent and no error.
@@ -254,7 +255,7 @@ the highlighted line shows where it will land.
 
 Each file is one whole window. `layout.switch` (`ctrl-shift-l`) cycles
 through them, `layout.switch {name}` picks one; `shared("layout")` is the
-shown one's name. Zaki ships `main` ("Zaki": three regions on `canvas`, a
+shown one's name. Kavex ships `main` ("Kavex": three regions on `canvas`, a
 sidebar of spaces by machine, the agents list and `workspace-chrome`; the
 terminals with their tabs on one rounded surface, with a + menu
 that starts a terminal or any installed agent, `new-menu`; a pane gets a frame
@@ -264,7 +265,7 @@ and remembered per space (which ones:
 shared `"workspace.panels"`, set by the welcome and the switches in Settings > Look; one left out
 has no button or tab and can't stay open)), and as examples `terminals` ("Terminals": tabs in
 the title bar, panes as cards, a space picker) and `win98`
-("Zaki 98": a whole desktop in one mod, `win98`). Add a layout by
+("Kavex 98": a whole desktop in one mod, `win98`). Add a layout by
 writing a new file. The Files panel shows the same tree as Changes, without its counts:
 each file has its language logo in the theme's color, or a short type tag where there is none,
 and supports Windows folder paths with spaces, parentheses and apostrophes. Right-click a file,
@@ -290,7 +291,7 @@ web. Mermaid diagrams and math show as their source.
 In a terminal, a Markdown file named in its text, with or without a slash (`README.md`,
 `@docs/plan.md`) or as a `file://` link, gets a soft underline while it exists, also when a long path wraps. On another
 machine that can't be checked, so there's no underline, but the click still works. Cmd-click
-(Ctrl-click) opens it in the reader, and `zaki do file.preview --file plan.md` does the same for an
+(Ctrl-click) opens it in the reader, and `kavex do file.preview --file plan.md` does the same for an
 agent. In a layout without the panel it opens in a pane beside the focused one, and the next file
 replaces what that pane shows.
 
@@ -336,7 +337,7 @@ before it resets also says when, from 5% of the way through its window: a straig
   the login in an agent's default config counts: a second account through `CLAUDE_CONFIG_DIR` has no row.
 - **Checks:** on opening (a result under a minute old is reused), on the refresh button, and 5 seconds
   after the footer starts and every 15 minutes, so only in a layout with that footer: not Terminals
-  or Zaki 98. `workspace-chrome.check-usage` and `workspace-chrome.refresh-usage` run one.
+  or Kavex 98. `workspace-chrome.check-usage` and `workspace-chrome.refresh-usage` run one.
 - **Failure:** a failed check or an unreachable machine keeps the last numbers with their age, or
   reads "Could not check" with none.
 - **Saved:** `shared("usage")` holds the numbers and an account fingerprint, never an email, login,
@@ -359,14 +360,14 @@ covers the window with its own sidebar: Skills, and Code review (empty for now).
 a GitHub link or a folder:
 
 - **One copy, every agent:** a skill from the list or a link is downloaded at a pinned commit to
-  `~/.config/zaki/skills/<name>` and linked (a junction on Windows) into `~/.claude/skills` (Claude Code)
+  `~/.config/kavex/skills/<name>` and linked (a junction on Windows) into `~/.claude/skills` (Claude Code)
   and `~/.agents/skills` (Codex, Pi, Gemini CLI, OpenCode, Cursor, Amp). A folder of the person's
   own is linked where it is, never copied. Off removes the links and keeps the copy; Remove deletes
-  Zaki's copy (never a folder of the person's). This computer only, not added machines.
+  Kavex's copy (never a folder of the person's). This computer only, not added machines.
 - **The list:** `catalog.json` in github.com/zbarakzai/zaki-skills, rebuilt there every 6 hours from
-  the repos in its `sources.json`, with each repo's files in `files/<owner>/<repo>.json`. Zaki keeps
+  the repos in its `sources.json`, with each repo's files in `files/<owner>/<repo>.json`. Kavex keeps
   the last one it read in `skills-catalog.json`.
-- **Updates:** 20 seconds after the footer starts, then every 6 hours, Zaki reads the list (one
+- **Updates:** 20 seconds after the footer starts, then every 6 hours, Kavex reads the list (one
   request, plus one per repo of skills added by link) and compares each installed skill's folder hash
   (git tree SHA). A new version shows a toast once (click: Customize), a dot on the footer's Customize
   button and an Update button;
@@ -375,24 +376,24 @@ a GitHub link or a folder:
   `shared("skills.auto")` `true` updates unchanged skills by themselves; `shared("skills.checks")`
   `false` stops the checks. `workspace-chrome.check-skills` looks now. Checks run only in a layout
   with that footer; Customize also looks when its Skills page opens.
-- **Never overwritten:** a name already in `~/.claude/skills` or `~/.agents/skills` that isn't Zaki's
+- **Never overwritten:** a name already in `~/.claude/skills` or `~/.agents/skills` that isn't Kavex's
   link is left alone; Use this one moves it to `skills-backup/<name>-<time>/` first. A skill that
-  `npx skills` manages should be removed with it before Zaki takes it over.
-- **Agents:** don't edit `~/.config/zaki/skills` by hand to change a skill for good: an edited copy
+  `npx skills` manages should be removed with it before Kavex takes it over.
+- **Agents:** don't edit `~/.config/kavex/skills` by hand to change a skill for good: an edited copy
   stops updating until the person picks Replace or Keep mine. Make a skill of your own in a folder
-  and add it from a folder instead. `skills.json` lists what Zaki installed: name, source repo and
+  and add it from a folder instead. `skills.json` lists what Kavex installed: name, source repo and
   path, commit, tree, folder, enabled.
 
-**Zaki's own layouts and mods are read-only.** They are replaced whole
+**Kavex's own layouts and mods are read-only.** They are replaced whole
 on every start. Use settings.json for look (fonts, sizes, theme, colors,
-sounds), where the layout leaves them unset. Zaki (main) has no look of
-its own, so your settings decide it; Zaki 98 and Terminals bring their own
+sounds), where the layout leaves them unset. Kavex (main) has no look of
+its own, so your settings decide it; Kavex 98 and Terminals bring their own
 look. The theme picker overrides any layout. To change a shipped layout's
 look beyond that, or its structure/code, clone it and edit the clone:
 
 ```sh
-zaki do layout.clone '{"name":"main","as":"my-layout"}'
-zaki do mod.clone '{"name":"files","as":"my-files"}'
+kavex do layout.clone '{"name":"main","as":"my-layout"}'
+kavex do mod.clone '{"name":"files","as":"my-files"}'
 ```
 
 The default clone name is `<name>-copy`; an existing name is refused.
@@ -406,7 +407,7 @@ overlay names to the new name.
 
 If you edit a shipped file anyway, the next start moves it to
 `<name>-edited` (a mod folder or layout JSON; a number is added if taken),
-copies its layout clicks, restores Zaki's version and shows a toast.
+copies its layout clicks, restores Kavex's version and shows a toast.
 No-longer-shipped things go if
 untouched, otherwise they stay.
 
@@ -508,12 +509,12 @@ layout's look and a block can differ:
   "terminal_padding": [10, 6], "terminal_opacity": 1, ... }
 ```
 
-- `theme`: `zaki` (a shipped file, the default dark theme), `graphite`, `ink`, `moss`
+- `theme`: `kavex` (a shipped file, the default dark theme), `graphite`, `ink`, `moss`
   (dark), `paper` (light), or the name of a file in `themes/`; or one for each appearance:
   `"theme": { "light": "paper", "dark": "graphite" }` follows the system's
   light or dark mode (or the person's `appearance`). `app.theme {name}`
   sets the half of the name's lightness. A layout without a theme shows
-  settings.json's theme, else zaki or paper. `colors` overrides any theme color by name (see
+  settings.json's theme, else kavex or paper. `colors` overrides any theme color by name (see
   `theme()` below), for terminals and panels alike: overrides apply in
   both appearances, so name theme colors (`chrome`, `canvas`) rather than
   writing hex when a layout should work light and dark.
@@ -521,20 +522,20 @@ layout's look and a block can differ:
   "cursor"?, "ansi": [16 colors], "colors"?: {...} }`, all `#rrggbb`; panel
   colors are derived from these, `colors` overrides them and can add names of its own
   (a layout's colors should stick to the names every theme has: one missing paints
-  magenta). Zaki ships `zaki` and `atom-one-dark`. The original unedited Atom One Dark and Win98 theme files
+  magenta). Kavex ships `kavex` and `atom-one-dark`. The original unedited Atom One Dark and Win98 theme files
   are upgraded to readable terminal colors; edited theme files are kept.
   A theme named like a layout (`themes/win98.json`) is
   that layout's own: Settings offers it only there.
 - `font` / `font_size`: the terminals' (px at zoom 1); `ui_font`: the mods'
   (their text sizes are their own, in px, and follow zoom). Optional: without
-  them a layout uses settings.json's, else Zaki's (Geist Mono 13, Geist).
-  Zaki (main) leaves these unset; Terminals sets text size 15, and Zaki 98
+  them a layout uses settings.json's, else Kavex's (Geist Mono 13, Geist).
+  Kavex (main) leaves these unset; Terminals sets text size 15, and Kavex 98
   brings its own fonts.
-  JetBrains Mono, Geist Mono and Geist ship with Zaki; any installed font
+  JetBrains Mono, Geist Mono and Geist ship with Kavex; any installed font
   works (a terminal font the machine lacks falls back to Geist Mono).
   A layout brings its own fonts: `.ttf`/`.otf` files in a mod's `fonts/`
   folder (or the home's `fonts/`) load at start and on the next look change,
-  so a layout and its mod folder travel together (Zaki 98's do: its pixel
+  so a layout and its mod folder travel together (Kavex 98's do: its pixel
   fonts are in `mods/win98/fonts/`).
 - `terminal_opacity` (0..1): below 1, the background behind a terminal
   (a pane frame's, the layout's gradient) shows through its text.
@@ -576,7 +577,7 @@ The tab block says how each pane of the shown tab is wrapped:
 A floating block sits over its node, `edge` (`top`, `right`, `bottom`,
 `left`) and `align` along it (`start`, `center`, `end`), 12 px in. It sizes
 to its content (render nothing to hide it). People drag it anywhere; on
-release it springs to the nearest edge and third, and Zaki saves the new
+release it springs to the nearest edge and third, and Kavex saves the new
 spot. Clicks and hovers on it never reach what's underneath.
 
 `peek` (side edges only) makes it a drawer: only that many px next to the
@@ -585,7 +586,7 @@ moment after the pointer leaves. The mod draws one full layout and never
 changes it on hover (that's what keeps it smooth): put what should peek
 (status, icons) on the edge side of each row.
 
-Zaki draws the frame around a floating mod (theme background, border,
+Kavex draws the frame around a floating mod (theme background, border,
 rounded corners, shadow; accent border while dragged), like a dialog's,
 with 5 px above and below. The mod draws only its content, no panel: on a
 side, rows can run edge to edge. It reads `placement()`:
@@ -644,7 +645,7 @@ folder on GitHub):
    `hc`) or reads files outside its own folder.
 2. Copy the layout file to `layouts/` and each mod folder to `mods/`. Leave
    the recipe and preview out. Never overwrite: if a name is taken (yours
-   or Zaki's), rename the new one: its file or folder, the `mod` names in
+   or Kavex's), rename the new one: its file or folder, the `mod` names in
    the layout, and the mod's own `mods/<name>/` paths.
 3. Fit it to this setup only where its assumptions don't hold (a missing
    program, a name clash) or the person asks. If the files don't work on
@@ -652,7 +653,7 @@ folder on GitHub):
    recipe instead.
 4. A mod's `keys.json`: merge it into the person's. Add its sections and
    keys, and ask before replacing a key they already use.
-5. `zaki check` each mod; for a layout, then `layout.switch {name}`.
+5. `kavex check` each mod; for a layout, then `layout.switch {name}`.
    The person's own layout stays as it was; `ctrl-shift-l` switches back,
    and deleting the files removes it.
 
@@ -718,17 +719,17 @@ the build doesn't do.
 ## Commands
 
 The one way to change anything; keys, mods (`run(name, args)`), menus and
-you use the same list. `zaki commands` prints every one with its arguments
+you use the same list. `kavex commands` prints every one with its arguments
 (which are required) and what it does. Unknown argument names are errors and list
 valid names; they never fall back to the current target. For example, closing a
-space uses `zaki do space.close --id <id> --confirmed true`, not `--space`.
+space uses `kavex do space.close --id <id> --confirmed true`, not `--space`.
 The main ones:
 
 - Spaces: `space.new {name?, folder?, tab?, argv?, task?, machine?, background?}`
   (machine: another machine from `hc machine ls`; the space lives there, its
   terminals start in that machine's home unless folder, and its tabs and
   splits stay there; `spaces()` gives each space's `machine`, null here),
-  `space.close {id?, confirmed?}`, `space.rename {id?, name}` ("": Zaki's name again),
+  `space.close {id?, confirmed?}`, `space.rename {id?, name}` ("": Kavex's name again),
   `space.move {id, index}`, `space.select {index | id}`, `space.next`, `space.prev`.
   With no `argv`, the target core chooses that machine's default shell (PowerShell 7 when available on Windows).
 - Tabs: `tab.new {name?, space?, folder?, argv?, task?, background?}` (argv: an
@@ -767,8 +768,8 @@ The main ones:
   reads the clipboard itself). TIFF and BMP clipboard
   images are converted to PNG before sending,
   `terminal.right_click {to: "program" | "menu", terminal?}` (where right-clicks go
-  when the program takes the mouse; kept as its label `zaki.right-click=program`;
-  Shift+right-click is always Zaki's menu). Copy, paste, paste-image and implicit
+  when the program takes the mouse; kept as its label `kavex.right-click=program`;
+  Shift+right-click is always Kavex's menu). Copy, paste, paste-image and implicit
   right-click targeting follow keyboard focus, including peek and floating terminals;
   with no terminal holding keyboard focus, they use the focused pane or block.
   Dragging a text selection past the terminal's top or bottom scrolls while held;
@@ -779,7 +780,7 @@ The main ones:
   programs such as yazi; partial images and scrolling follow the placeholder cells.
 - Agents: `agent.next`, `agent.prev`, `agent.focus {terminal}`.
 - Files: `file.preview {file, on?}` (shows a file in the Files panel, Markdown rendered; the path
-  is absolute or from the focused terminal's folder, `on` is the machine it's on; `zaki do` from
+  is absolute or from the focused terminal's folder, `on` is the machine it's on; `kavex do` from
   a shell means that shell's folder on this computer unless `on` says otherwise; a layout
   without the panel uses the tab's Files pane, or opens one beside).
 - Layout: `layout.switch {name?}`, `layout.toggle {id}`, `layout.show {id}`, `layout.hide {id}`
@@ -800,21 +801,21 @@ The main ones:
 - Window: `window.minimize`, `window.maximize` (or back), `window.close`.
 - macOS: `app.quit`, `app.hide`, `app.hide_others`, `app.show_all`.
 
-When the user runs a command without a required name (a key, a click), Zaki
+When the user runs a command without a required name (a key, a click), Kavex
 asks them. **You never get a dialog**: pass every required argument, or the
 command says what's missing.
 
 From a shell:
 
 ```sh
-zaki do tab.new --name "fix login" --argv '["claude"]' --task "look at the login bug"
-zaki do pane.split:right
-zaki ls          # spaces, their tabs and terminals (sub-agents under their parent)
-zaki status      # what's on screen: layout, focus, overlays, zoom, errors from files and mods
-zaki commands    # every command and its arguments
+kavex do tab.new --name "fix login" --argv '["claude"]' --task "look at the login bug"
+kavex do pane.split:right
+kavex ls          # spaces, their tabs and terminals (sub-agents under their parent)
+kavex status      # what's on screen: layout, focus, overlays, zoom, errors from files and mods
+kavex commands    # every command and its arguments
 ```
 
-`zaki do` prints what the command made (`{ "space", "tab",
+`kavex do` prints what the command made (`{ "space", "tab",
 "terminal" }`, `{ "pane", "terminal" }`) or `{ "error": "..." }` and exits 1.
 
 ## The person: `settings.json`
@@ -829,15 +830,15 @@ What's about the user, never a look:
   (0.5 to 3; the zoom keys change it). Write sizes as designed at zoom 1.
 - `sounds`: `{ "enabled": true, "done": "<file>", "blocked": "<file>" }`.
   When an agent needs the person, or finishes while they aren't looking at
-  it, Zaki plays a sound and (unless they're looking) posts a toast that
+  it, Kavex plays a sound and (unless they're looking) posts a toast that
   goes there when clicked. `done` / `blocked` replace the bundled MP3s
-  (path absolute or relative to `~/.config/zaki`). Changes apply live,
+  (path absolute or relative to `~/.config/kavex`). Changes apply live,
   including the Play buttons in Settings > Alerts.
-- `core`: the herdr-core binary to use, when it isn't where Zaki looks
+- `core`: the herdr-core binary to use, when it isn't where Kavex looks
   (PATH, the login shell's PATH, `~/.local/bin`, Homebrew, mise, Nix,
   cargo). Read at start.
 - `font`, `font_size`, `ui_font`: used where the layout doesn't set its
-  own. Zaki (main) leaves these unset. Bigger panels: `zoom`.
+  own. Kavex (main) leaves these unset. Bigger panels: `zoom`.
 - `theme`: a theme name or `{light, dark}`; used where the layout sets none.
   The theme picker overrides any layout and stays on that layout.
 - `colors`: theme color overrides (`{"accent":"#ff8800"}`), with the same
@@ -874,7 +875,7 @@ What's about the user, never a look:
   macOS releases require Apple Silicon; Intel Macs must build from source.
   Keep signed macOS bundles unchanged: don't edit their Info.plist or
   re-sign them. On launch, an installed macOS bundle creates or repairs its
-  own `~/.local/bin/zaki` symlink, leaving personal files and other
+  own `~/.local/bin/kavex` symlink, leaving personal files and other
   apps' links alone. Disk-image and translocated launches don't create it.
   Finder launches load the login shell's PATH, with the usual install
   folders as a fallback.
@@ -904,7 +905,7 @@ What's about the user, never a look:
   terminals, which layouts, shipped mods and commands were used. Never
   terminal content, names of files, folders, spaces or the person's own
   mods; nothing from herdr-core. `DO_NOT_TRACK=1` or `HERDR_TELEMETRY=0`
-  turns it off for one run. Zaki has no telemetry server yet, so no build sends.
+  turns it off for one run. Kavex has no telemetry server yet, so no build sends.
 
 ## Programs: `programs.json`
 
@@ -945,19 +946,19 @@ has 120 programs (agents, editors, runtimes, tools, databases, infra);
 ## Mods: `mods/<name>/`
 
 ```
-~/.config/zaki/mods/<name>/
+~/.config/kavex/mods/<name>/
   main.js       the mod (required)
   mod.json    where it first appears: { "place": "right" | "left" | "top" | "bottom" | "none", "size": 320 }
   *.js, *.svg   more modules ("./ui.js"), its own icons
 ```
 
-- The first time Zaki sees a folder, it docks one copy per `mod.json` into
+- The first time Kavex sees a folder, it docks one copy per `mod.json` into
   the shown layout (`"none"`: only where a layout or another mod puts it).
   After that, the layouts decide. Saving any file reloads every copy in place
   (not files the app writes: `jsconfig.json`, `.d.ts`, hidden ones,
   `node_modules`). The old build's tasks and timers stop: a loop ends at its
   next `cx` use. A broken save keeps the old version running and shows in
-  `zaki status`; its top-level code has already run, so keep side effects
+  `kavex status`; its top-level code has already run, so keep side effects
   on `globalThis` out of the module's top level.
 - A copy starts the first time it shows, then stays alive while its block is in
   the layout, shown or not (a hidden column, the other child of a stack, a pane
@@ -968,9 +969,9 @@ has 120 programs (agents, editors, runtimes, tools, databases, infra);
 - A mod's top-level code runs once per app run until one of its files changes:
   a new copy (an overlay opened again) can find module-level variables as the
   last copy left them, so keep per-copy state on the View (`this`).
-- Images and SVGs are referenced from `~/.config/zaki`:
+- Images and SVGs are referenced from `~/.config/kavex`:
   `image("mods/<name>/logo.svg")` (full color), `svg("mods/<name>/icon.svg")`
-  (tinted with the text color). Zaki's interface icons are for every mod:
+  (tinted with the text color). Kavex's interface icons are for every mod:
   `svg("mods/workspace-chrome/icons/plus.svg")`, in any layout, shown or not. They come in
   three sizes, each a fixed step: 16 everywhere, 12 for the small arrows on pills and folders,
   and 20 only inside a big tile, like the welcome screen's. Their art leaves a margin, so a logo
@@ -988,16 +989,16 @@ has 120 programs (agents, editors, runtimes, tools, databases, infra);
   action: "new" | "open" | "remove"}` (the repo: folder, else where the
   space's first terminal is), or with `{branch, tab?, argv?}` to make one at once with
   that first tab; checkouts go to
-  `~/.zaki/worktrees/<repo>/<branch>` on the space's machine, a constant
+  `~/.kavex/worktrees/<repo>/<branch>` on the space's machine, a constant
   at its top; the
   `spaces` sidebar nests worktree spaces under their repo's and shows each
   space's repo, branch, ahead/behind and uncommitted changes). Shipped mods
-  are Zaki's; duplicate with `mod.clone` before editing.
+  are Kavex's; duplicate with `mod.clone` before editing.
 
 ### Check before you finish
 
 ```sh
-zaki check ~/.config/zaki/mods/<name>
+kavex check ~/.config/kavex/mods/<name>
 ```
 
 Loads the mod, renders it once, exits nonzero with the exact error. Run it
@@ -1043,7 +1044,7 @@ export default class Branches extends View {
 Rules:
 - `main.js` default-exports a class extending `View`. `init(props, cx)` runs
   once; `render(cx)` describes the UI and runs again after `cx.notify()` and
-  whenever Zaki's live data changes (spaces, agents, terminals, focus,
+  whenever Kavex's live data changes (spaces, agents, terminals, focus,
   theme, shared state). Don't poll those.
 - **Never keep a `cx` and use it later.** Every callback gets its own:
   `on_click((event, cx) => …)`, `cx.spawn(async (cx) => …)`,
@@ -1076,7 +1077,7 @@ Rules:
   [0.1, 1, 0.4], period: 2400 }` runs through stops instead, in straight
   lines back to the first), and `.transition(...)` for changes: they run
   without your script and stop when not shown. Timers are for data (a clock,
-  a fetch), and only as often as what they show changes. Zaki's own loading
+  a fetch), and only as often as what they show changes. Kavex's own loading
   look is `loader(color)` in `mods/agents/loader.js`, ten dots built from
   `.loop`: copy the file into your mod to show the same.
 
@@ -1126,7 +1127,7 @@ All of it is in `herdr.d.ts`. In short:
   input (a stronger border), foreground, muted, dim, accent,
   accent_foreground, solid and solid_foreground (a primary button),
   selection, working, blocked, done, idle, unknown, ansi0..15; light and
-  dark themes name the same ones; the `zaki` theme adds the window design's own names,
+  dark themes name the same ones; the `kavex` theme adds the window design's own names,
   such as `panel`, `card`, `pill`, `tile`, `status_needs_bg`, `group_blue_tint`:
   each shipped mod's `look.js` shows them and what stands in under other themes), `settings()` (with `dark`: the
   appearance now), `keys()`, `commands()` (every app
@@ -1143,8 +1144,8 @@ All of it is in `herdr.d.ts`. In short:
 - Overlays: `openOverlay({ mod, props, kind: "dialog" | "popup" | "window", width, height, at, frame })`
   returns an id; the mod gets `props().overlay` and closes itself with
   `closeOverlay(id)`; Esc closes the top dialog or popup. `frame: "none"`
-  drops Zaki's border, corners and shadow so the mod draws its own.
-  A framed overlay gets its background, rounded corners, border and shadow from Zaki, and
+  drops Kavex's border, corners and shadow so the mod draws its own.
+  A framed overlay gets its background, rounded corners, border and shadow from Kavex, and
   dialogs and popups fade in by themselves: its mod paints no background of its own, or
   square corners show over the rounded frame.
   `notify({ title, body, level, icon, timeout })` posts a notification, drawn by the `toast` mod.
@@ -1181,14 +1182,14 @@ All of it is in `herdr.d.ts`. In short:
 
 Mods are trusted code: commands and network access (including `fetch`) are unrestricted.
 Other built-ins: `localStorage` (per mod copy), `console.log`, `fetch`,
-`import * as fs from "fs/promises"` (read in home, write under `~/.config/zaki`).
+`import * as fs from "fs/promises"` (read in home, write under `~/.config/kavex`).
 
 ## herdr-core (`hc`)
 
-`zaki --skill` prints the manual for driving this window;
+`kavex --skill` prints the manual for driving this window;
 `hc --skill` prints the manual for running and coordinating programs and agents,
 including a small herdr-core skill you can install with the user's permission.
-`zaki commands` lists app commands and arguments without needing an open window.
+`kavex commands` lists app commands and arguments without needing an open window.
 
 - `hc ls --json`, `hc read t3 --lines 50`, `hc run --json --cwd <dir> --label k=v -- <cmd>`,
   `hc label t3 k=v`, `hc send t3 "text"`, `hc wait t3`. `hc --help` for all.

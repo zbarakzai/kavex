@@ -18,7 +18,7 @@ test("an idle row at the default width is as designed", () => {
 test("a working row at the default width keeps its name: the spinner and the time give way", () => {
   expect(fitRow(DEFAULT, row())).toEqual({ gap: 6, spinner: false, time: false, percent: true, word: true });
   // A short name needs less: the time stays.
-  expect(fitRow(DEFAULT, row({ name: "zaki" }))).toEqual({ gap: 6, spinner: false, time: true, percent: true, word: true });
+  expect(fitRow(DEFAULT, row({ name: "web" }))).toEqual({ gap: 6, spinner: false, time: true, percent: true, word: true });
 });
 
 test("just above the rail, a row is its name and a dot", () => {

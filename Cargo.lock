@@ -10069,7 +10069,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "zaki"
+name = "kavex"
 version = "0.4.1"
 dependencies = [
  "anyhow",

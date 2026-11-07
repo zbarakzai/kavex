@@ -577,7 +577,7 @@ mod tests {
             (r"C:\a b\c.py: error", r"C:\a b\c.py"),
             (r"Update(C:\a b\c.py)", r"C:\a b\c.py"),
             (r"`C:\a b\c.py`", r"C:\a b\c.py"),
-            (r"C:\Users\Zaki\Digital Twin Research\Neuvix\prototype\x.py then", r"C:\Users\Zaki\Digital Twin Research\Neuvix\prototype\x.py"),
+            (r"C:\Users\Kavex\Digital Twin Research\Neuvix\prototype\x.py then", r"C:\Users\Kavex\Digital Twin Research\Neuvix\prototype\x.py"),
             (r"C:\Program Files (x86)\Tool\x.py", r"C:\Program Files (x86)\Tool\x.py"),
             (r"Update(C:\Program Files (x86)\Tool\x.py)", r"C:\Program Files (x86)\Tool\x.py"),
             (r".\my docs\x.py and more", r".\my docs\x.py"),
@@ -790,7 +790,7 @@ mod tests {
     #[cfg(not(windows))]
     #[test]
     fn a_file_link_naming_this_machine_counts_when_the_file_is_here() {
-        let dir = std::env::temp_dir().join(format!("zaki-host-links-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("kavex-host-links-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let md = dir.join("c.md");
         std::fs::write(&md, "").unwrap();
@@ -857,7 +857,7 @@ mod tests {
     #[cfg(windows)]
     impl Files {
         fn new(name: &str, files: &[&str]) -> Self {
-            let root = std::env::temp_dir().join(format!("zaki-links-{name}-{}", std::process::id()));
+            let root = std::env::temp_dir().join(format!("kavex-links-{name}-{}", std::process::id()));
             for file in files {
                 let path = root.join("repo").join(file);
                 std::fs::create_dir_all(path.parent().unwrap()).unwrap();
@@ -958,7 +958,7 @@ mod tests {
         let files = Files::new("vars", &[r"src\main.rs"]);
         let repo = files.repo();
         assert_eq!(resolve(r"$PWD\src\main.rs", Some(&repo)), Some(Target::File(repo.join(r"src\main.rs"))));
-        assert_eq!(resolve(r"~\nowhere-zaki-test", Some(&repo)), None);
+        assert_eq!(resolve(r"~\nowhere-kavex-test", Some(&repo)), None);
     }
 
     // Windows paths: elsewhere `\` isn't a separator, and only Windows runs what it opens.
@@ -994,7 +994,7 @@ mod tests {
     #[cfg(windows)]
     #[test]
     fn a_runnable_file_is_shown_but_a_folder_still_opens() {
-        let dir = std::env::temp_dir().join(format!("zaki-links-reveal-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("kavex-links-reveal-{}", std::process::id()));
         std::fs::create_dir_all(dir.join("tool.exe")).unwrap();
         std::fs::write(dir.join("setup.exe"), "").unwrap();
         std::fs::write(dir.join("notes.txt"), "").unwrap();

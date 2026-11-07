@@ -73,11 +73,17 @@ fn rpc_error(error: anyhow::Error) -> Outcome {
 
 fn read(core: &Core, machine: &str, timeout: Duration) -> Result<(Document, u64), Outcome> {
     let on = (!machine.is_empty()).then_some(machine);
-    let result = core.call_timeout("doc.get", json!({"name":"zaki", "on":on}), timeout).map_err(rpc_error)?;
-    let document = if result["value"].is_null() {
+    let result = core.call_timeout("doc.get", json!({"name":"kavex", "on":on}), timeout).map_err(rpc_error)?;
+    // A machine Zaki used: its layout, saved under Kavex's name by the next write.
+    let value = if result["value"].is_null() {
+        core.call_timeout("doc.get", json!({"name":crate::zaki_compat::OLD_DOCUMENT, "on":on}), timeout).map(|old| old["value"].clone()).unwrap_or_default()
+    } else {
+        result["value"].clone()
+    };
+    let document = if value.is_null() {
         Document::default()
     } else {
-        serde_json::from_value(result["value"].clone()).map_err(|e| Outcome::Undecodable(format!("Cannot read this machine's layout: {e}")))?
+        serde_json::from_value(value).map_err(|e| Outcome::Undecodable(format!("Cannot read this machine's layout: {e}")))?
     };
     let version = result["version"].as_u64().ok_or_else(|| Outcome::Undecodable("Layout document has no version".into()))?;
     Ok((document, version))
@@ -91,7 +97,7 @@ pub fn round_timeout(core: &Core, work: Work, timeout: Duration) -> (String, Out
     let on = (!work.machine.is_empty()).then_some(work.machine.as_str());
     let deadline = std::time::Instant::now() + timeout;
     let result = match work.write {
-        Some(document) => match core.call_timeout("doc.set", json!({"name":"zaki", "on":on, "version":work.version, "value":document}), timeout) {
+        Some(document) => match core.call_timeout("doc.set", json!({"name":"kavex", "on":on, "version":work.version, "value":document}), timeout) {
             Ok(v) => match v["version"].as_u64() {
                 Some(version) => Outcome::Written(document, version),
                 None => Outcome::Undecodable("Layout write returned no version".into()),

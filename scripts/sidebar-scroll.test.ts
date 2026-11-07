@@ -26,7 +26,7 @@ const all = (e: El): El[] => [e, ...e.kids.flatMap((k) => (mine(k) ? all(mine(k)
 const arg = (e: El, name: string) => e.calls.findLast(([k]) => k === name)?.[1][0];
 const byId = (root: El, id: string) => all(root).find((e) => arg(e, "id") === id)!;
 
-const colors = JSON.parse(readFileSync(new URL("../defaults/themes/zaki.json", import.meta.url), "utf8")).colors;
+const colors = JSON.parse(readFileSync(new URL("../defaults/themes/kavex.json", import.meta.url), "utf8")).colors;
 let state: { spaces: any[]; agents: any[]; sidebar: number; notified: number };
 mock.module("gpui-kit", () => ({ View: class {}, div: make, image: make, svg: make }));
 mock.module("gpui-base", () => ({ h_flex: make, v_flex: make }));

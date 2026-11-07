@@ -8,16 +8,16 @@ pub fn init(cx: &mut App) {
     cx.on_action(|_: &HideOthers, cx| cx.hide_other_apps());
     cx.on_action(|_: &ShowAll, cx| cx.unhide_other_apps());
     cx.on_action(|_: &Settings, _| crate::mods::request(crate::mods::Request::Run { name: "app.settings".into(), args: serde_json::Value::Null }));
-    cx.set_menus([Menu::new("Zaki").items([
+    cx.set_menus([Menu::new("Kavex").items([
         MenuItem::action("Settings", Settings),
         MenuItem::separator(),
         MenuItem::os_submenu("Services", SystemMenuType::Services),
         MenuItem::separator(),
-        MenuItem::action("Hide Zaki", Hide),
+        MenuItem::action("Hide Kavex", Hide),
         MenuItem::action("Hide Others", HideOthers),
         MenuItem::action("Show All", ShowAll),
         MenuItem::separator(),
-        MenuItem::action("Quit Zaki", Quit),
+        MenuItem::action("Quit Kavex", Quit),
     ])]);
 }
 

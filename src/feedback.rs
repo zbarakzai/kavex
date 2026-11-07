@@ -43,7 +43,7 @@ pub fn attach(bytes: &[u8]) -> Result<String, String> {
     let (bytes, ext) = match sniff(bytes) {
         Some(ext) => (bytes.to_vec(), ext),
         None => {
-            let img = image::load_from_memory(bytes).map_err(|_| "That isn't an image Zaki can read.".to_owned())?;
+            let img = image::load_from_memory(bytes).map_err(|_| "That isn't an image Kavex can read.".to_owned())?;
             let mut png = std::io::Cursor::new(Vec::new());
             img.write_to(&mut png, image::ImageFormat::Png).map_err(|_| "Couldn't convert that image.".to_owned())?;
             (png.into_inner(), "png")
@@ -113,7 +113,7 @@ pub async fn send(body: Value, shots: Vec<String>) -> Result<(), String> {
         return Err("Up to 3 screenshots.".into());
     }
     let files = shots.iter().map(|s| shot_file(s)).collect::<Result<Vec<_>, _>>()?;
-    let url = endpoint().ok_or("Zaki can't send feedback yet.")?;
+    let url = endpoint().ok_or("Kavex can't send feedback yet.")?;
     let (tx, rx) = async_channel::bounded(1);
     std::thread::spawn(move || {
         let result = post(&url, &body.to_string(), &files);

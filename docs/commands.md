@@ -2,14 +2,14 @@
 
 # Commands
 
-Inspect the window with `zaki ls` and `zaki status`.
-`zaki commands` lists the app actions below, even without an open window.
+Inspect the window with `kavex ls` and `kavex status`.
+`kavex commands` lists the app actions below, even without an open window.
 
-Run an action in the open window with `zaki do`:
+Run an action in the open window with `kavex do`:
 
 ```sh
-zaki do pane.split --direction right
-zaki do pane.split '{"direction":"right"}'
+kavex do pane.split --direction right
+kavex do pane.split '{"direction":"right"}'
 ```
 
 Arguments can be named flags or one JSON object. Required arguments are marked below.
@@ -122,7 +122,7 @@ Close a pane and end its terminal.
 
 ## `file.preview`
 
-Show a file in the Files panel, Markdown rendered: its path, absolute or from the focused terminal's folder, and the machine it's on (`hc machine ls`; default the focused terminal's; null is this computer). `zaki do` from a shell means its own folder on this computer unless `on` says otherwise. A layout without that panel uses the tab's Files pane, or opens one beside.
+Show a file in the Files panel, Markdown rendered: its path, absolute or from the focused terminal's folder, and the machine it's on (`hc machine ls`; default the focused terminal's; null is this computer). `kavex do` from a shell means its own folder on this computer unless `on` says otherwise. A layout without that panel uses the tab's Files pane, or opens one beside.
 
 | Argument | Required |
 |---|---|
@@ -159,7 +159,7 @@ Take a terminal's pane away and disable core keep; it keeps running (a sub-agent
 
 ## `terminal.right_click`
 
-Where right-clicks in a terminal (default: the focused one) go when its program takes the mouse: "program" or "menu" (Zaki's, the default). Shift+right-click is always the menu.
+Where right-clicks in a terminal (default: the focused one) go when its program takes the mouse: "program" or "menu" (Kavex's, the default). Shift+right-click is always the menu.
 
 | Argument | Required |
 |---|---|
@@ -464,7 +464,7 @@ Open the settings (section: look, machines, alerts, updates, privacy).
 
 ## `app.check_updates`
 
-Look for a newer Zaki and herdr-core now.
+Look for a newer Kavex and herdr-core now.
 
 No arguments.
 
@@ -508,7 +508,7 @@ No arguments.
 
 ## `app.update`
 
-Restart into the update Zaki downloaded (your terminals keep running).
+Restart into the update Kavex downloaded (your terminals keep running).
 
 No arguments.
 
@@ -554,4 +554,4 @@ Maximize the window, or back.
 
 No arguments.
 
-[Back to Zaki](../README.md)
+[Back to Kavex](../README.md)

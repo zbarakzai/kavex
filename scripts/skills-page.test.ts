@@ -31,7 +31,7 @@ const byId = (root: El, id: string) => all(root).find((e) => arg(e, "id") === id
 const words = (root: El) => all(root).flatMap((e) => e.kids.filter((k) => typeof k === "string"));
 const handler = (e: El, name: string) => e.calls.find(([k]) => k === name)?.[1].at(-1);
 
-const file = JSON.parse(readFileSync(new URL("../defaults/themes/zaki.json", import.meta.url), "utf8"));
+const file = JSON.parse(readFileSync(new URL("../defaults/themes/kavex.json", import.meta.url), "utf8"));
 const colors = { foreground: "#D6D6D6", ...Object.fromEntries((file.ansi ?? []).map((c: string, i: number) => [`ansi${i}`, c])), ...file.colors, background: file.background };
 let state: { shared: Record<string, any>; files: Record<string, string>; ran: string[][]; closed: string[]; props: any };
 const input = { on: () => {}, value: () => "", focus: () => {}, set_value: () => {} };
@@ -62,7 +62,7 @@ const { default: Customize } = await import("../defaults/mods/customize/main.js"
 const cx: any = { notify: () => {}, spawn: (f: any) => f(cx), focus_handle: () => ({ focus: () => {} }), timer: { every: () => {}, after: (_ms: number, f: any) => f(cx) }, stop_propagation: () => {} };
 const settle = async () => { for (let i = 0; i < 4; i++) await new Promise((r) => setTimeout(r, 0)); };
 const entry = (name: string, repo = "mattpocock/skills", extra: any = {}) => ({ id: `${repo}/skills/${name}`, name, title: name[0].toUpperCase() + name.slice(1), short: `${name} in one line`, description: `All about ${name}.`, repo, path: `skills/${name}`, ref: "main", commit: "a".repeat(40), tree: `t-${name}`, ...extra });
-const zaki = (name: string, extra: any = {}) => ({ ...entry(name), source: "catalog", folder: `/app/skills/${name}`, enabled: true, hash: "h", ...extra });
+const kavex = (name: string, extra: any = {}) => ({ ...entry(name), source: "catalog", folder: `/app/skills/${name}`, enabled: true, hash: "h", ...extra });
 
 async function open(seed: { catalog?: any[]; lock?: Record<string, any>; personal?: any[]; system?: any[] } = {}) {
   const view: any = new Customize();
@@ -99,15 +99,15 @@ test("it opens over the whole window, framed by itself, with Skills and Code rev
   expect(view.page).toBe("review");
 });
 
-test("Installed lists Zaki's skills and the person's own, by name; a skill that's off says so", async () => {
-  const { draw } = await open({ lock: { tdd: zaki("tdd"), grill: zaki("grill", { enabled: false }) }, personal: [{ name: "mine", title: "Alpha mine", short: "my own", places: ["~/.claude/skills"], folder: "/home/me/.claude/skills/mine" }] });
+test("Installed lists Kavex's skills and the person's own, by name; a skill that's off says so", async () => {
+  const { draw } = await open({ lock: { tdd: kavex("tdd"), grill: kavex("grill", { enabled: false }) }, personal: [{ name: "mine", title: "Alpha mine", short: "my own", places: ["~/.claude/skills"], folder: "/home/me/.claude/skills/mine" }] });
   const w = words(draw());
   expect(w.filter((x) => ["Alpha mine", "Grill", "Tdd"].includes(x))).toEqual(["Alpha mine", "Grill", "Tdd"]);
   expect(w).toContain("Off");
 });
 
 test("Browse: a + for a free name, a check for one installed, nothing for a taken name", async () => {
-  const { draw } = await open({ catalog: [entry("tdd"), entry("pdf"), entry("pdf", "openai/skills"), entry("free")], lock: { tdd: zaki("tdd"), pdf: zaki("pdf") } });
+  const { draw } = await open({ catalog: [entry("tdd"), entry("pdf"), entry("pdf", "openai/skills"), entry("free")], lock: { tdd: kavex("tdd"), pdf: kavex("pdf") } });
   const root = draw();
   expect(byId(root, "cz-get-c:mattpocock/skills/skills/free")).toBeTruthy();
   expect(byId(root, "cz-get-c:mattpocock/skills/skills/tdd")).toBeUndefined();
@@ -128,7 +128,7 @@ test("a long section shows eight and says what else there is; search shows every
 });
 
 test("updates come first; one the person changed asks to replace or keep", async () => {
-  const { page, draw } = await open({ lock: { tdd: zaki("tdd"), grill: zaki("grill") } });
+  const { page, draw } = await open({ lock: { tdd: kavex("tdd"), grill: kavex("grill") } });
   state.shared["skills.updates"] = [{ name: "tdd", title: "Tdd", tree: "t2", entry: entry("tdd") }, { name: "grill", title: "Grill", tree: "t3", entry: entry("grill") }];
   let root = draw();
   const w = words(root);
@@ -140,7 +140,7 @@ test("updates come first; one the person changed asks to replace or keep", async
   expect(byId(root, "cz-update-tdd")).toBeUndefined();
 });
 
-test("the + installs: curl downloads into Zaki's folder", async () => {
+test("the + installs: curl downloads into Kavex's folder", async () => {
   state.files["/app/skills.json"] = JSON.stringify({ version: 1, skills: {} });
   const free = { ...entry("free"), files: [{ path: "SKILL.md", size: 10 }] };
   const { draw } = await open({ catalog: [free] });
@@ -173,8 +173,8 @@ test("Add and the options open menus over the page; Esc shuts the menu before th
 
 test("a skill up close: where it's from, which agents have it, its SKILL.md; turning it off; Esc goes back", async () => {
   state.files["/app/skills/tdd/SKILL.md"] = "---\nname: tdd\n---\n# TDD\nRed, green.";
-  state.files["/app/skills.json"] = JSON.stringify({ version: 1, skills: { tdd: zaki("tdd") } });
-  const { view, page, draw } = await open({ lock: { tdd: zaki("tdd") } });
+  state.files["/app/skills.json"] = JSON.stringify({ version: 1, skills: { tdd: kavex("tdd") } });
+  const { view, page, draw } = await open({ lock: { tdd: kavex("tdd") } });
   await click(draw(), "cz-tdd");
   const root = draw(), w = words(root);
   expect(byId(root, "cz-d-back")).toBeTruthy();

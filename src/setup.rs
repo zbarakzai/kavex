@@ -15,7 +15,7 @@ use gpui::*;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-const ICON: &[u8] = include_bytes!("../assets/icons/zaki-ui-icon-clean.png");
+const ICON: &[u8] = include_bytes!("../assets/icons/kavex-ui-icon-clean.png");
 #[cfg(not(windows))]
 const CORE_INSTALL: &str = "curl -fsSL https://releases.herdr.dev/core/install.sh | sh";
 #[cfg(windows)]
@@ -44,13 +44,13 @@ pub struct Setup {
 pub fn open(need: Need, requests: async_channel::Receiver<Request>, cx: &mut App) {
     let options = WindowOptions {
         window_bounds: Some(WindowBounds::Windowed(Bounds::centered(None, size(px(620.0), px(460.0)), cx))),
-        titlebar: Some(TitlebarOptions { title: Some("Zaki".into()), ..Default::default() }),
-        app_id: Some("zaki".into()),
+        titlebar: Some(TitlebarOptions { title: Some("Kavex".into()), ..Default::default() }),
+        app_id: Some("kavex".into()),
         ..Default::default()
     };
     let icon = Arc::new(Image::from_bytes(ImageFormat::Png, ICON.to_vec()));
     cx.open_window(options, |_, cx| cx.new(|_| Setup { need, state: State::Ready, requests: Some(requests), icon }))
-        .expect("cannot open the Zaki window");
+        .expect("cannot open the Kavex window");
     cx.activate(true);
 }
 
@@ -117,7 +117,7 @@ impl Setup {
                     cx.notify();
                     return;
                 }
-                // Remembered: next time Zaki looks there first.
+                // Remembered: next time Kavex looks there first.
                 let mut person = settings::load_person().unwrap_or_default();
                 person.core = Some(bin.to_string_lossy().into_owned());
                 let _ = settings::write_person(&person);
@@ -132,24 +132,24 @@ impl Setup {
     fn words(&self) -> (String, String, String) {
         match &self.need {
             Need::Install => (
-                "Zaki needs herdr-core".into(),
-                "herdr-core runs your terminals and agents, and keeps them alive when this window closes. Zaki couldn't find it on this computer.".into(),
+                "Kavex needs herdr-core".into(),
+                "herdr-core runs your terminals and agents, and keeps them alive when this window closes. Kavex couldn't find it on this computer.".into(),
                 format!("Install it for me puts it in {CORE_PLACE} (with hc), like its own installer: {CORE_INSTALL}"),
             ),
             Need::Fix(Mismatch::TooOld { have, need }) => (
-                "Zaki needs a newer herdr-core".into(),
-                format!("Yours is {have}; this Zaki needs {need} or newer. Updating keeps your terminals running."),
+                "Kavex needs a newer herdr-core".into(),
+                format!("Yours is {have}; this Kavex needs {need} or newer. Updating keeps your terminals running."),
                 "Or update it yourself: hc update".into(),
             ),
             Need::Fix(Mismatch::Missing(methods)) => (
-                "Zaki needs a newer herdr-core".into(),
-                format!("Your herdr-core can't do everything this Zaki needs ({}). Updating keeps your terminals running.", methods.join(", ")),
+                "Kavex needs a newer herdr-core".into(),
+                format!("Your herdr-core can't do everything this Kavex needs ({}). Updating keeps your terminals running.", methods.join(", ")),
                 "Or update it yourself: hc update".into(),
             ),
             Need::Fix(Mismatch::Newer { generation }) => (
-                "This Zaki is older than your herdr-core".into(),
-                format!("Your herdr-core speaks a newer protocol (generation {generation}) than this Zaki understands. Update Zaki; your terminals keep running."),
-                "Run Zaki's install command again to update it.".into(),
+                "This Kavex is older than your herdr-core".into(),
+                format!("Your herdr-core speaks a newer protocol (generation {generation}) than this Kavex understands. Update Kavex; your terminals keep running."),
+                "Run Kavex's install command again to update it.".into(),
             ),
         }
     }

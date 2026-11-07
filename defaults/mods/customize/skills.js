@@ -1,4 +1,4 @@
-// Skills: one copy of each skill in ~/.config/zaki/skills, linked into the folders every agent reads
+// Skills: one copy of each skill in ~/.config/kavex/skills, linked into the folders every agent reads
 // (~/.agents/skills: Codex, Pi, Gemini CLI, OpenCode, Cursor, Amp; ~/.claude/skills: Claude Code), so
 // an update reaches all of them at once. Customize > Skills draws it and the sidebar footer looks for
 // updates, so each keeps a copy of this file, as mods can't import each other's files;
@@ -6,7 +6,7 @@
 //
 // Mods may only write under the app's folder, so links, moves and downloads go through `sh`
 // (PowerShell on Windows) and `curl`. Nothing outside the store is ever deleted: a link is removed
-// only when it points at Zaki's copy, and a folder in the way is moved to skills-backup.
+// only when it points at Kavex's copy, and a folder in the way is moved to skills-backup.
 
 import { createHash } from "crypto";
 import { appHome, exec, home, notify, readTextFile, setShared, shared, window, writeTextFile } from "herdr";
@@ -102,7 +102,7 @@ const PS = {
 const psQuote = (s) => `'${String(s).replace(/'/g, "''")}'`;
 function op(name, ...args) {
   if (windows()) return exec("powershell", ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", `& { ${PS[name]} } ${args.map(psQuote).join(" ")}`]);
-  return exec("sh", ["-c", SH[name], "zaki-skills", ...args]);
+  return exec("sh", ["-c", SH[name], "kavex-skills", ...args]);
 }
 async function must(name, ...args) {
   const r = await op(name, ...args);
@@ -112,7 +112,7 @@ async function must(name, ...args) {
 
 export const openFolder = (path) => op("open", path);
 
-// skills.json: what Zaki installed, and from where. Written only if nobody changed it meanwhile.
+// skills.json: what Kavex installed, and from where. Written only if nobody changed it meanwhile.
 export async function readLock() {
   const raw = await readTextFile(places().lock);
   let lock = { version: 1, skills: {} };
@@ -171,7 +171,7 @@ export const webUrl = (s) => (s.repo ? `https://github.com/${s.repo}/tree/${s.co
 async function withFiles(entry) {
   if (Array.isArray(entry.files)) return entry;
   if (!/^[\w.-]+\/[\w.-]+$/.test(entry.repo ?? "")) throw new Error(`${entry.name} doesn't say where it comes from.`);
-  const r = await fetch(FILES(entry.repo), { headers: { "User-Agent": "zaki" } });
+  const r = await fetch(FILES(entry.repo), { headers: { "User-Agent": "kavex" } });
   if (!r.ok) throw new Error(`The file list for ${entry.repo} answered ${r.status}.`);
   const list = await r.json(), found = list?.skills?.[entry.path];
   if (!found) throw new Error(`${entry.title ?? entry.name} isn't in the list any more.`);
@@ -217,7 +217,7 @@ async function unlinkAll(name, folder) {
   for (const t of TARGETS) await op("unlink", join(targetDir(t), name), folder);
 }
 
-// Where something that isn't Zaki's already has this name.
+// Where something that isn't Kavex's already has this name.
 async function takenIn(name, folder) {
   const found = [];
   for (const t of TARGETS) if ((await op("taken", join(targetDir(t), name), folder)).code === 0) found.push(t);
@@ -361,7 +361,7 @@ export async function cachedCatalog() {
 }
 
 export async function fetchCatalog() {
-  const r = await fetch(CATALOG, { headers: { "User-Agent": "zaki" } });
+  const r = await fetch(CATALOG, { headers: { "User-Agent": "kavex" } });
   if (!r.ok) throw new Error(`The skill list answered ${r.status}.`);
   const text = await r.text(), catalog = parseCatalog(text);
   if (!catalog) throw new Error("The skill list couldn't be read.");
@@ -385,7 +385,7 @@ export function catalogUpdates(catalog, lock) {
 
 // GitHub ----------------------------------------------------------------------
 
-const github = (path, accept = "application/vnd.github+json") => fetch(`${API}${path}`, { headers: { "User-Agent": "zaki", Accept: accept } });
+const github = (path, accept = "application/vnd.github+json") => fetch(`${API}${path}`, { headers: { "User-Agent": "kavex", Accept: accept } });
 
 export function parseLink(link) {
   const m = /^(?:https?:\/\/)?(?:www\.)?github\.com\/([\w.-]+)\/([\w.-]+?)(?:\.git)?(?:\/(?:tree|blob)\/([^/]+)(?:\/(.*?))?)?\/?$/.exec(link.trim());
@@ -505,7 +505,7 @@ function announce(found) {
 
 // What's on this computer ---------------------------------------------------------
 
-// Every skill the agents can see. Zaki's own, the person's own (in a skills folder, not from Zaki),
+// Every skill the agents can see. Kavex's own, the person's own (in a skills folder, not from Kavex),
 // and the agents' own: Codex's built-in ones and Claude Code plugins'. Plugin skills are read-only.
 export async function scan() {
   const { lock } = await readLock();

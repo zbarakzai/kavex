@@ -1,4 +1,4 @@
-# Zaki changelog
+# Kavex changelog
 
 ## [0.4.1] - 2026-11-05
 

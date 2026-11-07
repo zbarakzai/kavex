@@ -12,8 +12,8 @@ import { pi } from "./pi.js";
 
 const AGENTS = { claude, codex, pi };
 
-const LABEL = "zaki.session";
-const TOTAL = "zaki.total";
+const LABEL = "kavex.session";
+const TOTAL = "kavex.total";
 const NONE = { state: "none" };
 const EMPTY = { state: "empty", say: "No usage yet" };
 const WORKED = ["working", "done"];

@@ -3,8 +3,8 @@ import { HC_PLACES } from "./machine.js";
 const place = (path) => (path.startsWith("~/") ? `join(home, ${JSON.stringify(path.slice(2))})` : JSON.stringify(path));
 
 // Pi started by a tool in this terminal (`pi -p`) isn't this terminal's agent, hence `ctx.mode`.
-const EXTENSION = `// Zaki's Pi extension: labels this terminal with its session file and its context's total, so Zaki
-// shows the right numbers. Zaki writes this file. It does nothing outside a Zaki terminal.
+const EXTENSION = `// Kavex's Pi extension: labels this terminal with its session file and its context's total, so Kavex
+// shows the right numbers. Kavex writes this file. It does nothing outside a Kavex terminal.
 import { execFile } from "node:child_process";
 import { homedir } from "node:os";
 import { join } from "node:path";
@@ -29,7 +29,7 @@ export default function (pi) {
   const report = (_event, ctx) => {
     const file = ctx.sessionManager.getSessionFile();
     if (ctx.mode !== "tui" || !file) return;
-    label(["label", terminal, "zaki.session=" + file, "zaki.total=" + (ctx.getContextUsage()?.contextWindow ?? "")]);
+    label(["label", terminal, "kavex.session=" + file, "kavex.total=" + (ctx.getContextUsage()?.contextWindow ?? "")]);
   };
   pi.on("session_start", report);
   pi.on("model_select", report);
@@ -62,7 +62,7 @@ export const pi = {
   setup: 1,
 
   async install({ home, keep }) {
-    await keep(`${home}/.pi/agent/extensions/zaki-session.ts`, EXTENSION);
+    await keep(`${home}/.pi/agent/extensions/kavex-session.ts`, EXTENSION);
     return true;
   },
 
@@ -72,7 +72,7 @@ export const pi = {
 
   // The extension runs at launch, so past this a Pi with no label isn't just still starting.
   patience: 6000,
-  waiting: { state: "waiting", say: "Run `/reload` in Pi to load Zaki's extension." },
+  waiting: { state: "waiting", say: "Run `/reload` in Pi to load Kavex's extension." },
 
   // Any folder can hold a session, with `--session-dir`, so all a path has to be is one.
   locate({ label, total }) {
