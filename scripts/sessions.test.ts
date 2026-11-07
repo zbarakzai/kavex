@@ -26,9 +26,9 @@ const arg = (e: El, name: string) => e.calls.findLast(([k]) => k === name)?.[1][
 const byId = (root: El, id: string) => all(root).find((e) => arg(e, "id") === id);
 const words = (root: El) => all(root).flatMap((e) => e.kids.filter((k) => typeof k === "string"));
 
-const home = mkdtempSync(join(tmpdir(), "zaki-sessions-"));
+const home = mkdtempSync(join(tmpdir(), "kavex-sessions-"));
 afterAll(() => rmSync(home, { recursive: true, force: true }));
-const theme = JSON.parse(readFileSync(new URL("../defaults/themes/zaki.json", import.meta.url), "utf8"));
+const theme = JSON.parse(readFileSync(new URL("../defaults/themes/kavex.json", import.meta.url), "utf8"));
 const colors = { background: theme.background, ...theme.colors, ...Object.fromEntries(theme.ansi.map((c: string, i: number) => [`ansi${i}`, c])) };
 
 (globalThis as any).localStorage = { getItem: () => null, setItem() {} };
@@ -126,7 +126,7 @@ function windowsExec(cmd: string, args: string[], on: string | null) {
 // Stands in for `hc` in everything `exec` runs, so no test can reach a real one. It does what the
 // real `hc file write --on` does (makes folders, takes stdin as the file, swaps it in, so a file it
 // can't read is replaced all the same), inside the scratch only.
-const fakeBin = mkdtempSync(join(tmpdir(), "zaki-hc-"));
+const fakeBin = mkdtempSync(join(tmpdir(), "kavex-hc-"));
 afterAll(() => rmSync(fakeBin, { recursive: true, force: true }));
 writeFileSync(join(fakeBin, "hc"), `#!/bin/sh
 [ "$1 $2 $3" = "file write --on" ] || exit 9
@@ -281,7 +281,7 @@ const open = async () => {
 const shows = (draw: () => El, address: string) => words(byId(draw(), `ag-${address}`)!);
 
 beforeEach(() => {
-  for (const folder of [".claude", ".claude-work", ".claude-tools", "elsewhere", ".codex", ".zaki", ".pi", "machines"]) rmSync(join(home, folder), { recursive: true, force: true });
+  for (const folder of [".claude", ".claude-work", ".claude-tools", "elsewhere", ".codex", ".kavex", ".pi", "machines"]) rmSync(join(home, folder), { recursive: true, force: true });
   state = {
     agents: [], terminals: [], ran: [], shared: {}, opened: [], closed: [], props: {}, layout: null, platform: "macos", away: {}, fed: [],
     reads: [], readOn: [], watched: [], watchers: [], execs: [], execOn: [], running: 0, parked: 0, timers: [], notified: 0, stopped: 0,
@@ -998,7 +998,7 @@ test("/compact keeps the cost going", async () => {
   expect(await card(draw)).toContain("$6.00");
 });
 
-test("a resumed session keeps its cost, in a new process and after Zaki restarts", async () => {
+test("a resumed session keeps its cost, in a new process and after Kavex restarts", async () => {
   const { draw } = await one([said({ id: "m1", input: 1000000 })]);
   recordOf(202, "one");
   state.terminals = [running("t1", 202)];
@@ -1203,7 +1203,7 @@ const SHELL = { key: "shell", name: "Shell", icon: null, tint: false, tile: null
 const sessionsRoot = (at = home) => join(at, ".codex", "sessions");
 const uuid = (n: number) => `01a19000-0000-7000-8000-${String(n).padStart(12, "0")}`;
 const rollout = (id: string, day = "01", at = home) => join(sessionsRoot(at), "2026", "11", day, `rollout-2026-11-${day}T10-00-00-${id}.jsonl`);
-const labelled = (id: string, day?: string) => ({ "zaki.session": rollout(id, day) });
+const labelled = (id: string, day?: string) => ({ "kavex.session": rollout(id, day) });
 const aCodex = (address: string, more: any = {}) => running(address, 201, CODEX, { foreground: { pid: 201, name: "codex", argv: ["codex"], cwd: "/work/project" }, ...more });
 
 const envelope = (type: string, payload: any) => JSON.stringify({ timestamp: "2026-11-01T10:00:00.000Z", ordinal: state.ordinal++, type, payload });
@@ -1285,7 +1285,7 @@ test("a Codex with nothing new costs a size check, not a read of its lines", asy
   expect(known).toBe(String(statSync(file).size));
 });
 
-const HOOKS_MESSAGE = "Run `/hooks` in Codex, trust Zaki's hook, then restart this Codex.";
+const HOOKS_MESSAGE = "Run `/hooks` in Codex, trust Kavex's hook, then restart this Codex.";
 const quietCodex = async (more: any = {}) => {
   const term = aCodex("t1", more);
   state.terminals = [term];
@@ -1354,8 +1354,8 @@ test("a dropdown opened on a waiting Codex says so from the start, though it has
 
 test("only a real session file in the label counts", async () => {
   for (const label of ["hello", "/etc/passwd", join(sessionsRoot(), "notes.jsonl"), join(home, "2026", "11", "01", `rollout-x-${uuid(1)}.jsonl`), `${rollout(uuid(1))}.bak`, join(sessionsRoot(), "2026", "11", "01", "rollout-made-up.jsonl")]) {
-    const { draw } = await quietCodex({ labels: { "zaki.session": label } });
-    await works({ labels: { "zaki.session": label } });
+    const { draw } = await quietCodex({ labels: { "kavex.session": label } });
+    await works({ labels: { "kavex.session": label } });
     expect(shows(draw, "t1")).toContain("–");
     expect(state.execs).toEqual([]);
   }
@@ -1428,7 +1428,7 @@ test("the dropdown names the newest turn's model and the newest record's context
   expect(seen).toContain("What this would cost on the API, not what you paid.");
 });
 
-test("a model name Zaki can't tidy stays as Codex wrote it", async () => {
+test("a model name Kavex can't tidy stays as Codex wrote it", async () => {
   const id = uuid(1);
   expect(await card((await codexRow(id, [turn("o3-made-up"), spent(id, { input: 100000 })])).draw)).toContain("o3-made-up");
 });
@@ -1600,7 +1600,7 @@ test("compacting drops context at once: Codex writes the new size with no new us
   expect(seen).toContain("$0.27");
 });
 
-test("a resumed session keeps its numbers in the same file, also after Zaki restarts", async () => {
+test("a resumed session keeps its numbers in the same file, also after Kavex restarts", async () => {
   const id = uuid(1);
   const { draw } = await codexRow(id, [metaOf(id), turn(), spent(id, { input: 1000000, window: 2000000 })]);
   codexWrites(id, [turn(), spent(id, { input: 500000, window: 2000000 })]);
@@ -1668,7 +1668,7 @@ const spawned = (kid: string) => envelope("response_item", { type: "function_cal
 const spawnedByScript = (kid: string) => envelope("response_item", { type: "custom_tool_call_output", call_id: "c", output: [{ type: "input_text", text: "Script completed" }, { type: "input_text", text: `{"agent_id":"${kid}","nickname":"Made"}` }] });
 const reviewing = () => envelope("event_msg", { type: "item_completed", item: { type: "EnteredReviewMode", id: "i", review: "made up" } });
 
-test("a helper its parent names but Zaki can't find means no price, and the tokens stay", async () => {
+test("a helper its parent names but Kavex can't find means no price, and the tokens stay", async () => {
   const one = uuid(1);
   const seen = await card((await codexRow(one, [turn(), started(uuid(7)), spent(one, { input: 73600 })])).draw);
   expect(seen).toContain("no price");
@@ -1743,7 +1743,7 @@ test("a session with no helpers looks for none", async () => {
 
 // Setting up. All of it stays in the scratch home: the fake writer refuses anything else.
 const hooksPath = () => join(home, ".codex", "hooks.json");
-const scriptPath = () => join(home, ".zaki", "codex-session.sh");
+const scriptPath = () => join(home, ".kavex", "codex-session.sh");
 const hookCommand = () => `sh '${scriptPath()}'`;
 const hooksFile = (text: string) => {
   mkdirSync(dirname(hooksPath()), { recursive: true });
@@ -1757,14 +1757,14 @@ const seesCodex = async () => {
 };
 const oldHook = { hooks: [{ command: "bash '/made/up/other-hook.sh' session", timeout: 10, type: "command" }] };
 
-test("the hook goes in when Zaki first sees Codex, as a group of its own, with its script", async () => {
+test("the hook goes in when Kavex first sees Codex, as a group of its own, with its script", async () => {
   await seesCodex();
   const groups = sessionStart();
   expect(groups).toHaveLength(1);
   expect(groups[0].matcher).toBeUndefined();
   expect(groups[0].hooks).toHaveLength(1);
   expect(groups[0].hooks[0]).toMatchObject({ type: "command", command: hookCommand(), timeout: 10 });
-  expect(groups[0].hooks[0].commandWindows).toContain(".zaki/codex-session.ps1");
+  expect(groups[0].hooks[0].commandWindows).toContain(".kavex/codex-session.ps1");
   expect(existsSync(scriptPath())).toBe(true);
   expect(state.shared["agents.setup"]).toEqual({ codex: 1 });
 });
@@ -1891,7 +1891,7 @@ test("a dropdown never sets anything up", async () => {
   expect(state.shared).toEqual({});
 });
 
-test("Zaki never writes Codex's approval record, and doesn't even read it", async () => {
+test("Kavex never writes Codex's approval record, and doesn't even read it", async () => {
   const config = `[hooks.state."${hooksPath()}:session_start:0:0"]\ntrusted_hash = "made-up"\n`;
   hooksFile(JSON.stringify({ hooks: { SessionStart: [oldHook] } }));
   writeFileSync(join(home, ".codex", "config.toml"), config);
@@ -1933,7 +1933,7 @@ const resetHc = () => {
   for (const path of [join(home, "hc-said"), join(home, "bin"), join(home, ".local")]) rmSync(path, { recursive: true, force: true });
 };
 
-test("the hook does nothing outside a Zaki terminal", async () => {
+test("the hook does nothing outside a Kavex terminal", async () => {
   await seesCodex();
   resetHc();
   fakeHc(join(home, "bin"));
@@ -1952,7 +1952,7 @@ test("every way a session starts labels the terminal with its session file, and 
     expect(r.exitCode).toBe(0);
     expect(r.stdout.toString()).toBe("");
     expect(r.stderr.toString()).toBe("");
-    expect(hcSaid()).toEqual(["label", "t7", `zaki.session=${rollout(uuid(1))}`]);
+    expect(hcSaid()).toEqual(["label", "t7", `kavex.session=${rollout(uuid(1))}`]);
   }
 });
 
@@ -1961,12 +1961,12 @@ test("the label the hook sets is one the mod takes", async () => {
   resetHc();
   fakeHc(join(home, "bin"));
   hook(payload(), onPath(join(home, "bin")));
-  const label = hcSaid()![2].slice("zaki.session=".length);
+  const label = hcSaid()![2].slice("kavex.session=".length);
   rmSync(join(home, "hc-said"));
   const id = uuid(1);
   const { draw } = await quietCodex();
   codexWrites(id, [turn(), spent(id, { input: 73600 })]);
-  await works({ labels: { "zaki.session": label } });
+  await works({ labels: { "kavex.session": label } });
   expect(rowPercents(draw, "t1")).toEqual(["25%"]);
 });
 
@@ -1976,7 +1976,7 @@ test("a home with spaces stays whole in the label", async () => {
   fakeHc(join(home, "bin"));
   const path = join(home, "first last", ".codex", "sessions", "2026", "11", "01", `rollout-x-${uuid(1)}.jsonl`);
   hook(payload({ transcript_path: path }), onPath(join(home, "bin")));
-  expect(hcSaid()).toEqual(["label", "t7", `zaki.session=${path}`]);
+  expect(hcSaid()).toEqual(["label", "t7", `kavex.session=${path}`]);
 });
 
 test("no transcript, or a payload the hook can't read, labels nothing and fails nothing", async () => {
@@ -2004,7 +2004,7 @@ test.skipIf(systemHc)("the hook finds hc where the app does when PATH doesn't ha
     fakeHc(join(home, folder));
     const r = hook(payload(), bare);
     expect(r.exitCode).toBe(0);
-    expect(hcSaid()).toEqual(["label", "t7", `zaki.session=${rollout(uuid(1))}`]);
+    expect(hcSaid()).toEqual(["label", "t7", `kavex.session=${rollout(uuid(1))}`]);
   }
   rmSync(join(home, ".cargo"), { recursive: true, force: true });
   rmSync(join(home, ".nix-profile"), { recursive: true, force: true });
@@ -2040,7 +2040,7 @@ test("a terminal back at its shell loses its label, so the next Codex there can'
   expect(state.hc).toEqual([]);
   state.terminals = [aCodex("t1", { program: SHELL, labels: labelled(id) })];
   await ticks();
-  expect(state.hc).toEqual([["label", "t1", "zaki.session="]]);
+  expect(state.hc).toEqual([["label", "t1", "kavex.session="]]);
 
   state.hc = [];
   state.terminals = [aCodex("t1")];
@@ -2125,7 +2125,7 @@ const PI = { key: "pi", name: "Pi", icon: "icons/pi.svg", tint: true, tile: null
 const piFolder = (cwd = "/work/project", at = home) => join(at, ".pi", "agent", "sessions", `--${cwd.slice(1).replace(/\//g, "-")}--`);
 const piId = (n: number) => `019c0000-0000-7000-8000-${String(n).padStart(12, "0")}`;
 const piFile = (id: string, cwd?: string, at = home) => join(piFolder(cwd, at), `2026-11-01T10-00-00-000Z_${id}.jsonl`);
-const piLabels = (id: string, limit: number | null = 200000, cwd?: string) => ({ "zaki.session": piFile(id, cwd), ...(limit ? { "zaki.total": String(limit) } : {}) });
+const piLabels = (id: string, limit: number | null = 200000, cwd?: string) => ({ "kavex.session": piFile(id, cwd), ...(limit ? { "kavex.total": String(limit) } : {}) });
 const aPi = (address: string, more: any = {}) => running(address, 301, PI, { foreground: { pid: 301, name: "pi", argv: ["pi"], cwd: "/work/project" }, ...more });
 
 const entry = (type: string, more: any = {}) => JSON.stringify({ type, id: (++state.ordinal).toString(16).padStart(8, "0"), parentId: null, timestamp: "2026-11-01T10:00:00.000Z", ...more });
@@ -2280,7 +2280,7 @@ test("with no limit reported the dropdown shows tokens and the row shows nothing
 
 test("a limit that isn't a number is no limit", async () => {
   for (const limit of ["lots", "0", "-5", ""]) {
-    const term = aPi("t1", { labels: { ...piLabels(piId(1)), "zaki.total": limit } });
+    const term = aPi("t1", { labels: { ...piLabels(piId(1)), "kavex.total": limit } });
     piWrites(piId(1), [piSaid({ read: 40000 })]);
     state.terminals = [term];
     state.agents = [listed(term)];
@@ -2350,7 +2350,7 @@ test("a compaction read twice by the window doesn't wipe the newer answer", asyn
   expect(rowPercents(draw, "t1")).toEqual(["10%"]);
 });
 
-test("a resumed session keeps its numbers, in the same file, also after Zaki restarts", async () => {
+test("a resumed session keeps its numbers, in the same file, also after Kavex restarts", async () => {
   const first = await piRow(piId(1), [piSaid({ read: 40000, cost: 2 })]);
   expect(rowPercents(first.draw, "t1")).toEqual(["20%"]);
   state.timers = [];
@@ -2378,7 +2378,7 @@ test("two Pi agents in one folder each show their own numbers", async () => {
 
 test("only a real session file in the label counts", async () => {
   for (const label of ["hello", "relative/session.jsonl", join(piFolder(), "notes.txt"), `${piFile(piId(1))}.bak`]) {
-    const term = aPi("t1", { labels: { "zaki.session": label, "zaki.total": "200000" } });
+    const term = aPi("t1", { labels: { "kavex.session": label, "kavex.total": "200000" } });
     state.terminals = [term];
     state.agents = [listed(term)];
     await open();
@@ -2391,7 +2391,7 @@ test("a session folder set by the person works, with spaces in it", async () => 
   const file = join(home, ".pi", "my sessions", `2026-11-01T10-00-00-000Z_${piId(1)}.jsonl`);
   mkdirSync(dirname(file), { recursive: true });
   writeFileSync(file, `${piSaid({ read: 40000 })}\n`);
-  const term = aPi("t1", { labels: { "zaki.session": file, "zaki.total": "200000" } });
+  const term = aPi("t1", { labels: { "kavex.session": file, "kavex.total": "200000" } });
   state.terminals = [term];
   state.agents = [listed(term)];
   const { draw } = await open();
@@ -2404,7 +2404,7 @@ test("a terminal back at its shell loses both labels", async () => {
   await piRow(piId(1), [piSaid({ read: 40000 })]);
   state.terminals = [aPi("t1", { program: SHELL, labels: piLabels(piId(1)) })];
   await ticks();
-  expect(state.hc).toEqual([["label", "t1", "zaki.session=", "zaki.total="]]);
+  expect(state.hc).toEqual([["label", "t1", "kavex.session=", "kavex.total="]]);
 });
 
 test("an answer that failed with tokens says nothing of the context, so no percent shows", async () => {
@@ -2415,7 +2415,7 @@ test("an answer that failed with tokens says nothing of the context, so no perce
   expect(seen).toContain("$1.00");
 });
 
-const RELOAD_MESSAGE = "Run `/reload` in Pi to load Zaki's extension.";
+const RELOAD_MESSAGE = "Run `/reload` in Pi to load Kavex's extension.";
 const quietPi = async (more: any = {}) => {
   const term = aPi("t1", more);
   state.terminals = [term];
@@ -2475,13 +2475,13 @@ test("a Pi that reports in time never shows a dash, and one that reports late sh
   expect(words(open2())).toContain("40k / 200k");
 });
 
-const extensionPath = () => join(home, ".pi", "agent", "extensions", "zaki-session.ts");
+const extensionPath = () => join(home, ".pi", "agent", "extensions", "kavex-session.ts");
 const seesPi = async () => {
   await quietPi();
   await settle();
 };
 
-test("the extension goes in when Zaki first sees Pi, and other extensions and Pi's settings stay as they were", async () => {
+test("the extension goes in when Kavex first sees Pi, and other extensions and Pi's settings stay as they were", async () => {
   const other = join(home, ".pi", "agent", "extensions", "my-own.ts");
   const settings = join(home, ".pi", "agent", "settings.json");
   mkdirSync(dirname(other), { recursive: true });
@@ -2563,7 +2563,7 @@ for (const { event, file, window, mode = "tui" } of JSON.parse(steps)) {
 };
 const piRuns = (steps: any[], env: Record<string, string>) => Bun.spawnSync([process.execPath, "run", standIn(), extensionPath(), JSON.stringify(steps)], { env: { HOME: home, PATH: "/usr/bin:/bin", ...env } });
 
-test("the extension does nothing outside a Zaki terminal", async () => {
+test("the extension does nothing outside a Kavex terminal", async () => {
   await seesPi();
   resetHc();
   fakeHc(join(home, "bin"));
@@ -2580,15 +2580,15 @@ test("every way a session starts labels the terminal with its file and limit, an
   expect(r.exitCode).toBe(0);
   expect(r.stdout.toString()).toBe("");
   expect(r.stderr.toString()).toBe("");
-  expect(hcSaid()).toEqual(["label", "t7", `zaki.session=${piFile(piId(1))}`, "zaki.total=200000"]);
+  expect(hcSaid()).toEqual(["label", "t7", `kavex.session=${piFile(piId(1))}`, "kavex.total=200000"]);
 });
 
-test("picking another model tells Zaki its limit", async () => {
+test("picking another model tells Kavex its limit", async () => {
   await seesPi();
   resetHc();
   fakeHc(join(home, "bin"));
   piRuns([{ event: "model_select", file: piFile(piId(1)), window: 1000000 }], onPath(join(home, "bin")));
-  expect(hcSaid()).toEqual(["label", "t7", `zaki.session=${piFile(piId(1))}`, "zaki.total=1000000"]);
+  expect(hcSaid()).toEqual(["label", "t7", `kavex.session=${piFile(piId(1))}`, "kavex.total=1000000"]);
 });
 
 test("the labels the extension sets are ones the mod takes", async () => {
@@ -2608,7 +2608,7 @@ test("with no model there's no limit, and an old one goes", async () => {
   resetHc();
   fakeHc(join(home, "bin"));
   piRuns([{ event: "session_start", file: piFile(piId(1)) }], onPath(join(home, "bin")));
-  expect(hcSaid()).toEqual(["label", "t7", `zaki.session=${piFile(piId(1))}`, "zaki.total="]);
+  expect(hcSaid()).toEqual(["label", "t7", `kavex.session=${piFile(piId(1))}`, "kavex.total="]);
 });
 
 test("a Pi run by a tool in this terminal, or with no session file, can't take the terminal's label", async () => {
@@ -2628,7 +2628,7 @@ test.skipIf(systemHc)("the extension finds hc where the app does when PATH doesn
     rmSync(join(home, ".nix-profile"), { recursive: true, force: true });
     fakeHc(join(home, folder));
     expect(piRuns([{ event: "session_start", file: piFile(piId(1)), window: 200000 }], bare).exitCode).toBe(0);
-    expect(hcSaid()).toEqual(["label", "t7", `zaki.session=${piFile(piId(1))}`, "zaki.total=200000"]);
+    expect(hcSaid()).toEqual(["label", "t7", `kavex.session=${piFile(piId(1))}`, "kavex.total=200000"]);
   }
   rmSync(join(home, ".cargo"), { recursive: true, force: true });
   rmSync(join(home, ".nix-profile"), { recursive: true, force: true });
@@ -2695,7 +2695,7 @@ test("an added machine's smaller windows count a long answer across their edge t
   const at = addMachine();
   const id = piId(1);
   piWrites(id, [piStart(id), piSaid({ read: 2000, cost: 1 }), filler(Math.floor(2.5 * BLOCK)), longAnswer(3 * BLOCK, { input: 40000, cost: 1 }), filler(BLOCK)], undefined, at);
-  const term = aPi("vps/t1", { labels: { "zaki.session": piFile(id, undefined, at), "zaki.total": "200000" } });
+  const term = aPi("vps/t1", { labels: { "kavex.session": piFile(id, undefined, at), "kavex.total": "200000" } });
   state.terminals = [term];
   state.agents = [listed(term)];
   const { draw } = await open();
@@ -2755,7 +2755,7 @@ test("on Windows too a long answer across a window's edge is counted whole", asy
   const root = onWindows();
   const id = piId(1);
   piWrites(id, spanningWindows(id), undefined, root);
-  const term = aPi("t1", { labels: { "zaki.session": asWindows(piFile(id, undefined, root)), "zaki.total": "200000" } });
+  const term = aPi("t1", { labels: { "kavex.session": asWindows(piFile(id, undefined, root)), "kavex.total": "200000" } });
   state.terminals = [term];
   state.agents = [listed(term)];
   const { draw } = await open();
@@ -2832,7 +2832,7 @@ test("the last line stays for Pi, whose stored cost is at API prices", async () 
 });
 
 test("a session that hasn't changed isn't read again, whatever its limit label says", async () => {
-  for (const labels of [piLabels(piId(1)), piLabels(piId(1), null), { ...piLabels(piId(1)), "zaki.total": "lots" }]) {
+  for (const labels of [piLabels(piId(1)), piLabels(piId(1), null), { ...piLabels(piId(1)), "kavex.total": "lots" }]) {
     piWrites(piId(1), [piSaid({ read: 40000 })]);
     const term = aPi("t1", { labels });
     state.terminals = [term];
@@ -2976,8 +2976,8 @@ test("Codex and Pi on an added machine follow their labels there, helpers includ
   codexWrites(main, [turn(), started(kid), spent(main, { input: 73600 })], undefined, at);
   codexWrites(kid, [turn(), spent(kid, { input: 1000, output: 5 })], "02", at);
   piWrites(piId(1), [piSaid({ input: 50000, cost: 0.5 })], undefined, at);
-  const codexTerm = aCodex("vps/t1", { labels: { "zaki.session": rollout(main, undefined, at) } });
-  const piTerm = aPi("vps/t2", { labels: { "zaki.session": piFile(piId(1), undefined, at), "zaki.total": "200000" } });
+  const codexTerm = aCodex("vps/t1", { labels: { "kavex.session": rollout(main, undefined, at) } });
+  const piTerm = aPi("vps/t2", { labels: { "kavex.session": piFile(piId(1), undefined, at), "kavex.total": "200000" } });
   state.terminals = [codexTerm, piTerm];
   state.agents = [listed(codexTerm), listed(piTerm)];
   const { draw } = await open();
@@ -3006,9 +3006,9 @@ test("the Codex hook goes in on the agent's machine, under its home, and nothing
   const at = addMachine();
   await codexThere();
   const [group] = JSON.parse(readFileSync(thereHooks(at), "utf8")).hooks.SessionStart;
-  expect(group.hooks[0].command).toBe(`sh '${at}/.zaki/codex-session.sh'`);
-  expect(group.hooks[0].commandWindows).toContain(`${at}/.zaki/codex-session.ps1`);
-  expect(readFileSync(join(at, ".zaki", "codex-session.sh"), "utf8")).toStartWith("#!/bin/sh");
+  expect(group.hooks[0].command).toBe(`sh '${at}/.kavex/codex-session.sh'`);
+  expect(group.hooks[0].commandWindows).toContain(`${at}/.kavex/codex-session.ps1`);
+  expect(readFileSync(join(at, ".kavex", "codex-session.sh"), "utf8")).toStartWith("#!/bin/sh");
   expect(state.shared["agents.setup"]).toEqual({ "vps/codex": 1 });
   expect(state.written).toEqual([]);
   expect(existsSync(hooksPath())).toBe(false);
@@ -3128,7 +3128,7 @@ test.skipIf(asRoot)("a hook file that can't be read on this computer is left unt
 
 test.skipIf(asRoot)("Pi's extension on an added machine isn't replaced when it can't be read", async () => {
   const at = addMachine();
-  const path = join(at, ".pi", "agent", "extensions", "zaki-session.ts");
+  const path = join(at, ".pi", "agent", "extensions", "kavex-session.ts");
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, "// the person's own");
   chmodSync(path, 0o000);
@@ -3171,7 +3171,7 @@ test("a hook file changed on an added machine just before the write is left as i
   expect(state.shared["agents.setup"]).toBeUndefined();
 });
 
-test("Zaki never writes Codex's approval on an added machine, so each machine asks the person once", async () => {
+test("Kavex never writes Codex's approval on an added machine, so each machine asks the person once", async () => {
   const at = addMachine();
   const config = '[features]\nhooks = true\n';
   mkdirSync(join(at, ".codex"), { recursive: true });
@@ -3180,7 +3180,7 @@ test("Zaki never writes Codex's approval on an added machine, so each machine as
   expect(readFileSync(join(at, ".codex", "config.toml"), "utf8")).toBe(config);
   expect(state.reads.filter((path: string) => path.endsWith("config.toml"))).toEqual([]);
   const wrote = state.execs.filter((args: string[]) => args.join(" ").includes("hc file write")).map((args: string[]) => args.at(-1));
-  expect(wrote.sort()).toEqual([thereHooks(at), join(at, ".zaki", "codex-session.ps1"), join(at, ".zaki", "codex-session.sh")].sort());
+  expect(wrote.sort()).toEqual([thereHooks(at), join(at, ".kavex", "codex-session.ps1"), join(at, ".kavex", "codex-session.sh")].sort());
 });
 
 test("setup on one added machine says nothing about another", async () => {
@@ -3204,7 +3204,7 @@ test("Pi's extension goes in on the agent's machine, folders and all", async () 
   await open();
   await ticks();
   await settle();
-  expect(readFileSync(join(at, ".pi", "agent", "extensions", "zaki-session.ts"), "utf8")).toContain("HC_TERMINAL_ID");
+  expect(readFileSync(join(at, ".pi", "agent", "extensions", "kavex-session.ts"), "utf8")).toContain("HC_TERMINAL_ID");
   expect(state.shared["agents.setup"]).toEqual({ "vps/pi": 1 });
   expect(existsSync(extensionPath())).toBe(false);
 });
@@ -3236,7 +3236,7 @@ test("a Codex whose machine has no hc where the hook looks stays at a dash, neve
 
 test("a label pointing nowhere on an added machine shows no number", async () => {
   const at = addMachine();
-  const { draw } = await codexThere({ labels: { "zaki.session": rollout(uuid(9), undefined, at) } });
+  const { draw } = await codexThere({ labels: { "kavex.session": rollout(uuid(9), undefined, at) } });
   expect(rowPercents(draw, "vps/t1")).toEqual([]);
 });
 
@@ -3246,7 +3246,7 @@ test("a terminal back at its shell on an added machine loses its label, by its f
   state.terminals = [shell];
   await open();
   await ticks();
-  expect(state.hc).toEqual([["label", "vps/t1", "zaki.session="]]);
+  expect(state.hc).toEqual([["label", "vps/t1", "kavex.session="]]);
 });
 
 // What a machine's terminals look like with its line down: still listed, as the core keeps them.
@@ -3574,7 +3574,7 @@ test("a Codex on Windows follows a label with backslashes, finds its helpers, an
   const main = uuid(1), kid = uuid(2);
   codexWrites(main, [turn(), started(kid), spent(main, { input: 73600 })], undefined, root);
   codexWrites(kid, [turn(), spent(kid, { input: 1000, output: 5 })], "02", root);
-  const term = aCodex("t1", { labels: { "zaki.session": inWindows(root, rollout(main, undefined, root)) } });
+  const term = aCodex("t1", { labels: { "kavex.session": inWindows(root, rollout(main, undefined, root)) } });
   state.terminals = [term];
   state.agents = [listed(term)];
   const { draw } = await open();
@@ -3593,23 +3593,23 @@ test("the hook goes in on Windows with its Windows command, under the Windows ho
   await ticks();
   await settle();
   const [{ hooks: [hook] }] = JSON.parse(readFileSync(join(root, ".codex", "hooks.json"), "utf8")).hooks.SessionStart;
-  expect(hook.commandWindows).toBe('powershell -NoProfile -ExecutionPolicy Bypass -File "C:\\Users\\me/.zaki/codex-session.ps1"');
-  expect(hook.command).toBe("sh 'C:\\Users\\me/.zaki/codex-session.sh'");
-  expect(readFileSync(join(root, ".zaki", "codex-session.ps1"), "utf8")).toContain("HC_TERMINAL_ID");
+  expect(hook.commandWindows).toBe('powershell -NoProfile -ExecutionPolicy Bypass -File "C:\\Users\\me/.kavex/codex-session.ps1"');
+  expect(hook.command).toBe("sh 'C:\\Users\\me/.kavex/codex-session.sh'");
+  expect(readFileSync(join(root, ".kavex", "codex-session.ps1"), "utf8")).toContain("HC_TERMINAL_ID");
   expect(state.shared["agents.setup"]).toEqual({ codex: 1 });
 });
 
 test("a Pi on Windows follows its label, and its extension goes in under the Windows home", async () => {
   const root = onWindows();
   piWrites(piId(1), [piSaid({ input: 50000, cost: 0.5 })], undefined, root);
-  const term = aPi("t1", { labels: { "zaki.session": inWindows(root, piFile(piId(1), undefined, root)), "zaki.total": "200000" } });
+  const term = aPi("t1", { labels: { "kavex.session": inWindows(root, piFile(piId(1), undefined, root)), "kavex.total": "200000" } });
   state.terminals = [term];
   state.agents = [listed(term)];
   const { draw } = await open();
   await ticks();
   await settle();
   expect(rowPercents(draw, "t1")).toEqual(["25%"]);
-  expect(existsSync(join(root, ".pi", "agent", "extensions", "zaki-session.ts"))).toBe(true);
+  expect(existsSync(join(root, ".pi", "agent", "extensions", "kavex-session.ts"))).toBe(true);
   noShell();
 });
 
@@ -3619,7 +3619,7 @@ test("a quote in a path stays in its string, smart ones too, even from a label",
     const path = join(root, odd, "session.jsonl");
     mkdirSync(dirname(path), { recursive: true });
     writeFileSync(path, `${piSaid({ input: 50000, cost: 0.5 })}\n`);
-    const term = aPi("t1", { labels: { "zaki.session": `C:\\Users\\o'neil\\${odd}\\session.jsonl`, "zaki.total": "200000" } });
+    const term = aPi("t1", { labels: { "kavex.session": `C:\\Users\\o'neil\\${odd}\\session.jsonl`, "kavex.total": "200000" } });
     state.terminals = [term];
     state.agents = [listed(term)];
     const { draw } = await open();
@@ -3630,7 +3630,7 @@ test("a quote in a path stays in its string, smart ones too, even from a label",
 
 test("nothing in a label can run as code on Windows", async () => {
   onWindows();
-  const term = aPi("t1", { labels: { "zaki.session": "C:\\x'; Remove-Item C:\\y; 'z.jsonl", "zaki.total": "200000" } });
+  const term = aPi("t1", { labels: { "kavex.session": "C:\\x'; Remove-Item C:\\y; 'z.jsonl", "kavex.total": "200000" } });
   state.terminals = [term];
   state.agents = [listed(term)];
   const seen: string[] = [];
@@ -3832,7 +3832,7 @@ test("a Pi session with more kept lines than an added machine's output can carry
   const at = addMachine();
   const count = 900;
   piWrites(piId(1), Array.from({ length: count }, () => piSaid({ input: 100, cost: 0.01, text: "x".repeat(20000) })), undefined, at);
-  const term = aPi("vps/t1", { labels: { "zaki.session": piFile(piId(1), undefined, at), "zaki.total": "200000" } });
+  const term = aPi("vps/t1", { labels: { "kavex.session": piFile(piId(1), undefined, at), "kavex.total": "200000" } });
   state.terminals = [term];
   state.agents = [listed(term)];
   const { draw } = await open();

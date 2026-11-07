@@ -15,7 +15,7 @@ const make = (): any => {
 };
 
 type Doc = { options: any; values: string[]; scrolled: number[]; released: boolean; outlined: any[]; looks: number };
-const theme = JSON.parse(readFileSync(new URL("../defaults/themes/zaki.json", import.meta.url), "utf8"));
+const theme = JSON.parse(readFileSync(new URL("../defaults/themes/kavex.json", import.meta.url), "utf8"));
 const colors = { background: theme.background, ansi: theme.ansi, ...theme.colors, ...Object.fromEntries(theme.ansi.map((c: string, i: number) => [`ansi${i}`, c])) };
 
 let state: any;

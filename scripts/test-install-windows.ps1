@@ -10,16 +10,16 @@ New-Item -ItemType Directory -Path $tmp | Out-Null
 try {
     $binary = Join-Path $tmp "build.exe"
     $icon = Join-Path $tmp "icon.svg"
-    $destination = Join-Path $tmp "Programs\zaki"
+    $destination = Join-Path $tmp "Programs\kavex"
     Set-Content -LiteralPath $binary -Value "first build"
     Set-Content -LiteralPath $icon -Value "icon"
-    Install-ZakiAppFiles $binary $icon $destination
-    Assert ((Get-Content "$destination\zaki.exe") -eq "first build") "First install lost the binary"
-    Assert ((Get-Content "$destination\zaki.svg") -eq "icon") "First install lost the icon"
+    Install-KavexAppFiles $binary $icon $destination
+    Assert ((Get-Content "$destination\kavex.exe") -eq "first build") "First install lost the binary"
+    Assert ((Get-Content "$destination\kavex.svg") -eq "icon") "First install lost the icon"
 
     Set-Content -LiteralPath $binary -Value "new build"
-    Install-ZakiAppFiles $binary $icon $destination
-    Assert ((Get-Content "$destination\zaki.exe") -eq "new build") "Replacement kept the old binary"
+    Install-KavexAppFiles $binary $icon $destination
+    Assert ((Get-Content "$destination\kavex.exe") -eq "new build") "Replacement kept the old binary"
     Assert ((Get-ChildItem (Split-Path $destination)).Count -eq 1) "Replacement left temporary files"
 
     # Fail the promotion, then the rollback too, using real moves otherwise.
@@ -33,18 +33,18 @@ try {
         $script:moves = 0
         $script:failMoves = $failures
         $errorText = $null
-        try { Install-ZakiAppFiles $binary $icon $destination }
+        try { Install-KavexAppFiles $binary $icon $destination }
         catch { $errorText = $_.ToString() }
         Assert ($null -ne $errorText) "Failed installation reported success"
         if ($failures.Count -eq 1) {
-            Assert ((Get-Content "$destination\zaki.exe") -eq "new build") "Rollback lost the previous build"
+            Assert ((Get-Content "$destination\kavex.exe") -eq "new build") "Rollback lost the previous build"
         } else {
-            $backup = Get-ChildItem (Split-Path $destination) -Directory -Filter "zaki.old-*"
+            $backup = Get-ChildItem (Split-Path $destination) -Directory -Filter "kavex.old-*"
             Assert ($backup.Count -eq 1) "Failed rollback lost the backup"
             Assert ($errorText.Contains($backup.FullName)) "Failed rollback did not report the backup path"
-            Assert ((Get-Content "$($backup.FullName)\zaki.exe") -eq "new build") "Failed rollback damaged the backup"
+            Assert ((Get-Content "$($backup.FullName)\kavex.exe") -eq "new build") "Failed rollback damaged the backup"
         }
-        Assert (-not (Get-ChildItem (Split-Path $destination) -Directory -Filter "zaki.install-*")) "Failed install left staging files"
+        Assert (-not (Get-ChildItem (Split-Path $destination) -Directory -Filter "kavex.install-*")) "Failed install left staging files"
     }
     Write-Host "Installer file replacement and rollback checks passed."
 } finally {

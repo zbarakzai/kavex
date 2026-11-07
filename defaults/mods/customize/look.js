@@ -1,4 +1,4 @@
-// The window's design tokens by name, under any theme: the zaki theme has them all, and
+// The window's design tokens by name, under any theme: the kavex theme has them all, and
 // the others stand in with their nearest colors. Each mod that draws the design keeps a
 // copy, as mods can't import each other's files; scripts/look.test.ts keeps them equal.
 

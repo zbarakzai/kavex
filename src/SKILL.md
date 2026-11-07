@@ -1,7 +1,7 @@
-# zaki: drive the person's window
+# kavex: drive the person's window
 
-Zaki shows spaces, tabs and panes. herdr-core (`hc`) runs their terminals
-and keeps them alive when the window closes. Use `zaki` only to change
+Kavex shows spaces, tabs and panes. herdr-core (`hc`) runs their terminals
+and keeps them alive when the window closes. Use `kavex` only to change
 what the person sees. For starting, reading, messaging, waiting on or cleaning
 up agents and programs, read `hc --skill` and use hc.
 Your terminal address is `$HC_TERMINAL_ID`; it is not a pane ID.
@@ -9,14 +9,14 @@ Your terminal address is `$HC_TERMINAL_ID`; it is not a pane ID.
 ## Inspect before acting
 
 ```sh
-zaki ls          # spaces > tabs > terminals, including pane IDs
-zaki status      # current layout, focus, overlays, zoom and file/mod errors
-zaki commands    # available commands, arguments and descriptions
+kavex ls          # spaces > tabs > terminals, including pane IDs
+kavex status      # current layout, focus, overlays, zoom and file/mod errors
+kavex commands    # available commands, arguments and descriptions
 ```
 
 `ls` and `status` talk to the running window, not a new app. `commands`
 prints the built-in command list even without an open window. Do not launch bare
-`zaki` to inspect it: that opens or raises the window. Do not stop,
+`kavex` to inspect it: that opens or raises the window. Do not stop,
 signal or restart the person's app or core. A window closing does not kill
 its terminals.
 
@@ -30,31 +30,31 @@ default names. Use IDs from `ls` rather than guessing or acting on the wrong
 focused pane.
 
 ```sh
-zaki do space.new --name api --folder /path/to/api
-zaki do tab.new --name "fix login" --argv '["claude"]' --task "Look at the login bug"
-zaki do tab.new --space sp4 --name "worker 2" --argv '["claude"]' --background true
-zaki do pane.split --direction right --pane p12
-zaki do agent.focus --terminal t7
+kavex do space.new --name api --folder /path/to/api
+kavex do tab.new --name "fix login" --argv '["claude"]' --task "Look at the login bug"
+kavex do tab.new --space sp4 --name "worker 2" --argv '["claude"]' --background true
+kavex do pane.split --direction right --pane p12
+kavex do agent.focus --terminal t7
 ```
 
 To show the person a Markdown file (a plan, a report), open it in the Files panel
 when asked. It renders there and follows the file as you save it:
 
 ```sh
-zaki do file.preview --file plan.md
+kavex do file.preview --file plan.md
 ```
 
 A relative path starts at your own folder. Add `--on vps` for a file on another machine. Cmd-click (Ctrl-click) on a Markdown file's name in terminal text does the
 same, so naming a file that exists in your output lets the person open it themselves.
 
-Tab groups and colors belong to the person. `zaki do tabs.group`, `tabs.fold`,
+Tab groups and colors belong to the person. `kavex do tabs.group`, `tabs.fold`,
 `tabs.ungroup` and `tabs.color` act on the shown tab, in layouts with the tab
 bar: use them only when asked. Folded tabs show `settled` in `ls`.
 
 For a remote space:
 
 ```sh
-zaki do space.new --name "remote api" --machine vps --folder /srv/api
+kavex do space.new --name "remote api" --machine vps --folder /srv/api
 ```
 
 The folder is on that machine; tabs and splits in the space stay there.
@@ -69,7 +69,7 @@ object. Unknown argument names fail and list valid names; they never target the
 current space or pane instead. Use `commands` to confirm the command's exact shape:
 
 ```sh
-zaki do pane.split '{"direction":"right","pane":"p12"}'
+kavex do pane.split '{"direction":"right","pane":"p12"}'
 ```
 
 It prints the created IDs (for example `{ "pane": "...", "terminal": "..." }`)
@@ -80,8 +80,8 @@ terminal was created, not that its program started correctly. If it exits
 with a nonzero code within two seconds, the window shows an error toast with
 the exit code and last output lines.
 
-A terminal started with hc opts into the window with `zaki.space=<id>`. Add `zaki.group=<name>` to land its tab in that tab group, made if it's new.
-`zaki.tab=<id>` chooses its tab; without it, Zaki creates a tab in that space.
+A terminal started with hc opts into the window with `kavex.space=<id>`. Add `kavex.group=<name>` to land its tab in that tab group, made if it's new.
+`kavex.tab=<id>` chooses its tab; without it, Kavex creates a tab in that space.
 Unlabeled workers stay hidden. Do not add labels just to run a background
 worker. Use app commands when the
 user wants to see a new tab or split, hc for orchestration that need not change
@@ -89,17 +89,17 @@ the screen.
 
 ## Customize layouts, keys, or mods
 
-First read `~/.config/zaki/AGENTS.md` (or `$HERDR_APP_HOME/AGENTS.md` if
+First read `~/.config/kavex/AGENTS.md` (or `$HERDR_APP_HOME/AGENTS.md` if
 set). It is the installed guide to settings, layouts, commands and mods.
 Read the generated `.d.ts` files beside it for full API details; do not edit
 those files or the generated guide. The app rewrites them on start.
 
-- Home defaults to `~/.config/zaki`; `HERDR_APP_HOME` selects another.
+- Home defaults to `~/.config/kavex`; `HERDR_APP_HOME` selects another.
 - Mods live in `mods/<name>/` with `main.js` and optional `mod.json`.
   They are trusted JavaScript with command and network access.
-- Shipped mods belong to Zaki: duplicate with `mod.clone` before editing.
+- Shipped mods belong to Kavex: duplicate with `mod.clone` before editing.
   Shipped layouts likewise use `layout.clone` for a personal copy.
-  Discover required arguments with `zaki commands`.
+  Discover required arguments with `kavex commands`.
 - Save to reload. A broken save keeps the old version running and reports
   an error in `status`; a still-working screen is not proof the edit worked.
 - Make only the requested change. Don't touch unrelated mods or settings.
@@ -114,9 +114,9 @@ those files or the generated guide. The app rewrites them on start.
 After every mod change:
 
 ```sh
-zaki check ~/.config/zaki/mods/<name>
-zaki status
-zaki shot /tmp/mod.png   # then look at the picture
+kavex check ~/.config/kavex/mods/<name>
+kavex status
+kavex shot /tmp/mod.png   # then look at the picture
 ```
 
 `check` loads the mod and renders it once. It exits nonzero with the exact
@@ -124,8 +124,8 @@ error. Never call a mod done without a passing check. Then confirm it is
 shown correctly in the running window with `shot`; don't claim a visual
 check you haven't made.
 
-`zaki shot [file.png]` saves the window's last frame and prints its
-absolute path (default: `zaki-shot.png` in your current folder). It is the
+`kavex shot [file.png]` saves the window's last frame and prints its
+absolute path (default: `kavex-shot.png` in your current folder). It is the
 app's own rendering at full pixel size: terminals, images, overlays and
 floats included, even when the window is covered or minimized. No screen
 capture or permissions. It needs a running window that has drawn a frame;
@@ -133,7 +133,7 @@ capture or permissions. It needs a running window that has drawn a frame;
 
 ## Problems and safety
 
-If Zaki misbehaves, `zaki feedback "<what happened>"` drafts a report.
+If Kavex misbehaves, `kavex feedback "<what happened>"` drafts a report.
 The person reviews and sends it; it does not silently send feedback.
 
 Never experiment with pointer/key automation on the person's real display.

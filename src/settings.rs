@@ -1,7 +1,7 @@
 //! Live settings and the resolved layout look, including persisted app zoom.
 //!
 //! A theme is a palette plus optional color overrides: a built-in preset
-//! (graphite, ink, moss, paper) or `themes/<name>.json` (`zaki` ships as one). Chrome colors are
+//! (graphite, ink, moss, paper) or `themes/<name>.json` (`kavex` ships as one). Chrome colors are
 //! derived from the palette (dark or light by its background), so every
 //! theme is consistent and overrides only need what they change.
 
@@ -14,7 +14,7 @@ use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::Mutex;
 
-/// A terminal palette, as zaki shipped them.
+/// A terminal palette, as kavex shipped them.
 #[derive(Clone)]
 struct Palette {
     background: u32,
@@ -80,7 +80,7 @@ const PAPER: Palette = Palette {
 pub const PRESETS: &[&str] = &["graphite", "ink", "moss", "paper"];
 
 /// The theme a layout without one shows, by appearance.
-pub const DEFAULT_DARK: &str = "zaki";
+pub const DEFAULT_DARK: &str = "kavex";
 pub const DEFAULT_LIGHT: &str = "paper";
 
 fn preset(name: &str) -> Option<&'static Palette> {
@@ -97,9 +97,9 @@ fn preset(name: &str) -> Option<&'static Palette> {
 const THEMES: &[(&str, &str)] = &[
     ("atom-one-dark", include_str!("../defaults/themes/atom-one-dark.json")),
     ("win98", include_str!("../defaults/themes/win98.json")),
-    ("zaki", include_str!("../defaults/themes/zaki.json")),
+    ("kavex", include_str!("../defaults/themes/kavex.json")),
 ];
-pub const SHIPPED_THEMES: &[&str] = &["atom-one-dark", "win98", "zaki"];
+pub const SHIPPED_THEMES: &[&str] = &["atom-one-dark", "win98", "kavex"];
 
 /// `themes/<name>.json`: a palette, plus `colors` overrides like settings.json's.
 #[derive(Deserialize)]
@@ -374,7 +374,7 @@ pub struct Person {
     /// How big the whole app is drawn (1 = as designed). The zoom keys change it.
     pub zoom: f32,
     pub sounds: Sounds,
-    /// The herdr-core to use, when it isn't where Zaki looks (core_bin.rs).
+    /// The herdr-core to use, when it isn't where Kavex looks (core_bin.rs).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub core: Option<String>,
     /// Fonts for layouts that don't set their own.
@@ -491,7 +491,7 @@ pub struct Settings {
 
 /// Attention sounds: when an agent needs you, and when one finished while you
 /// weren't looking. `done` / `blocked`: an MP3 file instead of the bundled one
-/// (absolute, or relative to ~/.config/zaki).
+/// (absolute, or relative to ~/.config/kavex).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Sounds {
@@ -542,11 +542,11 @@ impl Settings {
             Appearance::Dark => true,
         };
         let (theme_light, theme_dark) = match look.theme.as_ref().or(person.theme.as_ref()) {
-            Some(c) => (c.pick(false).to_owned(), c.pick(true).to_owned()),
+            Some(c) => (crate::zaki_compat::theme(c.pick(false)).to_owned(), crate::zaki_compat::theme(c.pick(true)).to_owned()),
             None => (DEFAULT_LIGHT.to_owned(), DEFAULT_DARK.to_owned()),
         };
         Settings {
-            // The layout's own, else the person's, else Zaki's.
+            // The layout's own, else the person's, else Kavex's.
             font_family: look.font.clone().or(person.font.clone()).unwrap_or(d.font_family),
             font_size: look.font_size.or(person.font_size).unwrap_or(d.font_size),
             ui_font_family: look.ui_font.clone().or(person.ui_font.clone()).unwrap_or(d.ui_font_family),
@@ -758,7 +758,7 @@ pub fn note_fonts(names: Vec<String>) {
 }
 
 /// Font files the home brings: `fonts/` and each mod's `fonts/` (a layout's
-/// look travels with its mod, as Zaki 98's does). Loads the ones not loaded
+/// look travels with its mod, as Kavex 98's does). Loads the ones not loaded
 /// yet; true when any was.
 pub fn load_home_fonts(cx: &mut gpui::App) -> bool {
     static LOADED: Mutex<Vec<PathBuf>> = Mutex::new(Vec::new());
@@ -805,7 +805,7 @@ pub fn terminal_font() -> String {
     }
 }
 
-/// Fonts Zaki ships, so the defaults look the same everywhere.
+/// Fonts Kavex ships, so the defaults look the same everywhere.
 pub const BUNDLED_FONTS: &[&[u8]] = &[
     include_bytes!("../assets/fonts/GeistMono-Variable.ttf"),
     include_bytes!("../assets/fonts/GeistMono-Italic-Variable.ttf"),

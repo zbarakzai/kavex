@@ -1,4 +1,4 @@
-# Zaki
+# Kavex
 
 A desktop app for running coding agents side by side, on this computer and on added machines.
 
@@ -21,7 +21,7 @@ What a session's tokens would cost at the provider's public API prices. On a sub
 _Avoid_: Spend, bill, price
 
 **Machine**:
-A computer Zaki runs terminals on: this computer or one the person added.
+A computer Kavex runs terminals on: this computer or one the person added.
 _Avoid_: Host, server, remote
 
 **Provider**:

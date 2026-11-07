@@ -1,6 +1,6 @@
 # Patches to vendored packages
 
-`vendor/` holds third-party packages. Zaki's changes to them are small, marked
+`vendor/` holds third-party packages. Kavex's changes to them are small, marked
 `HERDR:` in the code, and noted in the package's Cargo.toml header (or in the
 app's `Cargo.toml` `[patch]` comments). Each patch from the performance work
 has a page here and a `.patch` file next to it.

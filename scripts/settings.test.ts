@@ -24,7 +24,7 @@ const byId = (root: El, id: string) => all(root).find((e) => arg(e, "id") === id
 const words = (root: El) => all(root).flatMap((e) => e.kids.filter((k) => typeof k === "string"));
 const handler = (e: El, name: string) => e.calls.find(([k]) => k === name)?.[1].at(-1);
 
-const file = JSON.parse(readFileSync(new URL("../defaults/themes/zaki.json", import.meta.url), "utf8"));
+const file = JSON.parse(readFileSync(new URL("../defaults/themes/kavex.json", import.meta.url), "utf8"));
 const colors = { background: file.background, ...file.colors };
 let state: { shared: Record<string, any> };
 const input = { on: () => {}, value: () => "", focus: () => {}, set_value: () => {}, set_selected_range: () => {} };
@@ -34,11 +34,11 @@ mock.module("herdr", () => ({
   hc: async () => ({ code: 0, stdout: '{"machines":[]}', stderr: "" }),
   run: () => {},
   theme: () => colors,
-  themes: () => [{ name: "zaki", light: false, colors: { ...colors, terminal_foreground: "#fff" } }, { name: "paper", light: true, colors: { ...colors, terminal_foreground: "#000" } }],
+  themes: () => [{ name: "kavex", light: false, colors: { ...colors, terminal_foreground: "#fff" } }, { name: "paper", light: true, colors: { ...colors, terminal_foreground: "#000" } }],
   fonts: () => ["Geist"],
   updates: () => ({ app: { version: "0.4.0", updates: true }, core: { version: "0.1.15" }, checks: true }),
   telemetry: () => null,
-  settings: () => ({ zoom: 1, font_family: "Geist Mono", font_size: 13, ui_font_family: "Geist", theme_dark: "zaki", theme_light: "paper" }),
+  settings: () => ({ zoom: 1, font_family: "Geist Mono", font_size: 13, ui_font_family: "Geist", theme_dark: "kavex", theme_light: "paper" }),
   layouts: () => ["main"],
   shared: (k: string) => state.shared[k],
   setShared: (k: string, v: any) => { state.shared[k] = v; },

@@ -280,7 +280,7 @@ test("each action means the right thing in each scope", () => {
 
 // The real thing: what git does with the patches and the snapshot.
 function repo() {
-  const dir = mkdtempSync(join(tmpdir(), "zaki-changes-"));
+  const dir = mkdtempSync(join(tmpdir(), "kavex-changes-"));
   const git = (...args: string[]) => execFileSync("git", args, { cwd: dir, encoding: "utf8", input: "", stdio: ["pipe", "pipe", "pipe"] });
   git("init", "-q");
   git("config", "user.email", "t@t");

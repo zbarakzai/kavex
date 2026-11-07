@@ -1,13 +1,13 @@
 #!/bin/bash
 # Builds a release of the app for this machine and packs it:
 #
-#   scripts/package            -> dist/zaki-<os>-<arch>.tar.gz
+#   scripts/package            -> dist/kavex-<os>-<arch>.tar.gz
 #   scripts/package <triple>   -> the same for another supported Rust target
 #
-# Linux: a folder holding zaki and the icon.
-# macOS: Zaki.app, signed with APPLE_CERTIFICATE_P12 when available,
+# Linux: a folder holding kavex and the icon.
+# macOS: Kavex.app, signed with APPLE_CERTIFICATE_P12 when available,
 # otherwise ad hoc. The notarized DMG is a separate, non-blocking CI job.
-# Windows (Git Bash): a folder holding zaki.exe and the icon.
+# Windows (Git Bash): a folder holding kavex.exe and the icon.
 # Windows has curl and tar too, so the app updates the same way.
 # No core inside: the installer and the app install the core's own release
 # (distribution/core-version is the oldest core this app works with).
@@ -49,43 +49,42 @@ target="$os-$arch"
 
 sha256() { if command -v sha256sum >/dev/null; then sha256sum "$1" | cut -d' ' -f1; else shasum -a 256 "$1" | cut -d' ' -f1; fi; }
 
-echo "package: zaki $version for $target"
-for notice in LICENSE THIRD-PARTY-NOTICES; do
+echo "package: kavex $version for $target"
+for notice in LICENSE NOTICE THIRD-PARTY-NOTICES; do
   [[ -s $notice ]] || { echo "package: $notice is missing or empty" >&2; exit 1; }
 done
-# Only release builds update themselves (src/update.rs), from RELEASES_URL.
-if [[ -n ${RELEASES_URL:-} ]]; then export HERDR_APP_RELEASE=1; fi
+# Only release builds update themselves (src/update.rs): CI sets HERDR_APP_RELEASE.
 cargo build --release --locked ${triple:+--target "$triple"}
 
 if [[ $os == linux ]]; then export TMPDIR=${TMPDIR:-/var/tmp}; fi
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 mkdir -p dist
-out="dist/zaki-$target.tar.gz"
+out="dist/kavex-$target.tar.gz"
 if [[ $os == linux || $os == windows ]]; then
-  dir="$work/zaki"
+  dir="$work/kavex"
   mkdir -p "$dir"
-  if [[ $os == windows ]]; then cp "$bin/zaki.exe" "$dir/"; else cp "$bin/zaki" "$dir/"; fi
-  cp assets/icons/zaki-ui-icon-clean.svg "$dir/zaki.svg"
-  cp LICENSE THIRD-PARTY-NOTICES "$dir/"
-  notices_path=zaki/THIRD-PARTY-NOTICES
-  tar -czf "$out" -C "$work" zaki
+  if [[ $os == windows ]]; then cp "$bin/kavex.exe" "$dir/"; else cp "$bin/kavex" "$dir/"; fi
+  cp assets/icons/kavex-ui-icon-clean.svg "$dir/kavex.svg"
+  cp LICENSE NOTICE THIRD-PARTY-NOTICES "$dir/"
+  notices_path=kavex/THIRD-PARTY-NOTICES
+  tar -czf "$out" -C "$work" kavex
 else
-  app="$work/Zaki.app"
+  app="$work/Kavex.app"
   mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
-  cp "$bin/zaki" "$app/Contents/MacOS/Zaki"
-  cp assets/icons/Zaki.icns "$app/Contents/Resources/Zaki.icns"
-  cp LICENSE THIRD-PARTY-NOTICES "$app/Contents/Resources/"
-  notices_path=Zaki.app/Contents/Resources/THIRD-PARTY-NOTICES
+  cp "$bin/kavex" "$app/Contents/MacOS/Kavex"
+  cp assets/icons/Kavex.icns "$app/Contents/Resources/Kavex.icns"
+  cp LICENSE NOTICE THIRD-PARTY-NOTICES "$app/Contents/Resources/"
+  notices_path=Kavex.app/Contents/Resources/THIRD-PARTY-NOTICES
   cat > "$app/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
-    <key>CFBundleExecutable</key><string>Zaki</string>
-    <key>CFBundleIdentifier</key><string>dev.zaki.app</string>
-    <key>CFBundleName</key><string>Zaki</string>
-    <key>CFBundleDisplayName</key><string>Zaki</string>
-    <key>CFBundleIconFile</key><string>Zaki</string>
+    <key>CFBundleExecutable</key><string>Kavex</string>
+    <key>CFBundleIdentifier</key><string>dev.kavex.app</string>
+    <key>CFBundleName</key><string>Kavex</string>
+    <key>CFBundleDisplayName</key><string>Kavex</string>
+    <key>CFBundleIconFile</key><string>Kavex</string>
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>CFBundleShortVersionString</key><string>$version</string>
     <key>CFBundleVersion</key><string>$version</string>
@@ -94,7 +93,7 @@ else
     <key>LSEnvironment</key><dict/></dict></plist>
 PLIST
   scripts/mac-sign "$app"
-  tar -czf "$out" -C "$work" Zaki.app
+  tar -czf "$out" -C "$work" Kavex.app
 fi
 tar -xOf "$out" "$notices_path" | cmp - THIRD-PARTY-NOTICES
 license_path="${notices_path%/*}/LICENSE"

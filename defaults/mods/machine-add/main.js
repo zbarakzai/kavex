@@ -255,7 +255,7 @@ export default class MachineAdd extends View {
       .child(v_flex().flex_none().gap(4).px(EDGE).pt(15).pb(12)
         .child(div().text_size(14).font_medium().child("Add a machine"))
         .child(div().text_size(12.5).line_height("18px").text_color(k.muted)
-          .child("A VPS, a Mac mini, a box at home: Zaki reaches it over ssh, and agents there keep running while your laptop sleeps.")))
+          .child("A VPS, a Mac mini, a box at home: Kavex reaches it over ssh, and agents there keep running while your laptop sleeps.")))
       .child(v_flex().min_h(0).flex_shrink(1).gap(GUTTER).px(GUTTER)
         .child(card(k).p(4)
           .child(div().px(9).pt(8).pb(8).text_color(k.text_faint).child(caption("From your ssh config")))

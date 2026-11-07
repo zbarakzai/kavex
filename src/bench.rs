@@ -172,7 +172,7 @@ pub fn init() {
     let _ = MAIN.set(std::thread::current().id());
     EVENTS.store(true, Relaxed);
     mark("main");
-    let _ = std::thread::Builder::new().name("zaki-bench".into()).spawn(move || write_events(file));
+    let _ = std::thread::Builder::new().name("kavex-bench".into()).spawn(move || write_events(file));
     #[cfg(all(windows, target_arch = "x86_64"))]
     if let Some(path) = std::env::var_os("HERDR_APP_PROFILE") {
         sampler::start(path.into());

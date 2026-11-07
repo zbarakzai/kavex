@@ -1,9 +1,9 @@
-# Installs the Zaki app on Windows, and herdr-core if there's none yet:
+# Installs the Kavex app on Windows, and herdr-core if there's none yet:
 #
-#   powershell -c "irm __RELEASES_URL__/app/install.ps1 | iex"
+#   powershell -c "irm https://github.com/zbarakzai/kavex/releases/latest/download/install.ps1 | iex"
 #
-# The app into %LOCALAPPDATA%\Programs\zaki (added to your PATH for
-# `zaki`), Zaki in the Start menu. The core, with its own installer,
+# The app into %LOCALAPPDATA%\Programs\kavex (added to your PATH for
+# `kavex`), Kavex in the Start menu. The core, with its own installer,
 # only if none is there yet; the app keeps it current after that. Running it
 # again updates the app (an open one keeps running until it quits). No admin
 # needed. HERDR_RELEASES_URL points elsewhere (tests).
@@ -14,12 +14,12 @@ $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
 # throw, not exit: under `irm | iex`, exit would close the person's window.
-function Fail($why) { throw "zaki: $why" }
+function Fail($why) { throw "kavex: $why" }
 
-# Publishing fills in Zaki's server. The core stays on Herdr's, which publishes it.
-$releases = if ($env:HERDR_RELEASES_URL) { $env:HERDR_RELEASES_URL.TrimEnd("/") } else { "__RELEASES_URL__" }
+# Kavex's GitHub releases. The core stays on Herdr's server, which publishes it.
+$releases = if ($env:HERDR_RELEASES_URL) { $env:HERDR_RELEASES_URL.TrimEnd("/") } else { "https://github.com/zbarakzai/kavex/releases" }
 $coreReleases = if ($env:HERDR_RELEASES_URL) { $releases } else { "https://releases.herdr.dev" }
-$dir = Join-Path $env:LOCALAPPDATA "Programs\zaki"
+$dir = Join-Path $env:LOCALAPPDATA "Programs\kavex"
 $arch = if ($env:PROCESSOR_ARCHITEW6432) { $env:PROCESSOR_ARCHITEW6432 } else { $env:PROCESSOR_ARCHITECTURE }
 if ($arch -ne "AMD64") { Fail "no build for $arch Windows yet (x64 only)" }
 $target = "windows-x86_64"
@@ -32,40 +32,32 @@ if (-not (Get-Command curl.exe -ErrorAction SilentlyContinue) -or -not (Test-Pat
 $tmp = Join-Path ([IO.Path]::GetTempPath()) "herdr-install-$PID"
 New-Item -ItemType Directory -Force $tmp | Out-Null
 try {
-    curl.exe -fsSL "$releases/app/latest.json" -o "$tmp\latest.json"
+    curl.exe -fsSL "$releases/latest/download/latest.json" -o "$tmp\latest.json"
     if ($LASTEXITCODE) { Fail "cannot reach $releases" }
     $m = Get-Content -Raw "$tmp\latest.json" | ConvertFrom-Json
     $t = $m.targets.$target
     if (-not $t.url -or -not $t.sha256) { Fail "no build for $target yet" }
 
-    # Tells the release server's download counter a new install from a
-    # reinstall; the file is the same either way. Only plain URLs on the
-    # release server in use are marked: one with a query or fragment (a
-    # mirror's signed URL) is fetched exactly as the manifest gives it.
-    $src = if (Test-Path $dir) { "reinstall" } else { "install" }
-    $plain = $t.url.StartsWith("$releases/", [StringComparison]::Ordinal) -and $t.url.IndexOfAny([char[]]"?#") -lt 0
-    $download = if ($plain) { "$($t.url)?src=$src" } else { $t.url }
-
-    Write-Host "Installing Zaki $($m.version) for $target..."
-    curl.exe -fsSL $download -o "$tmp\app.tar.gz"
+    Write-Host "Installing Kavex $($m.version) for $target..."
+    curl.exe -fsSL $t.url -o "$tmp\app.tar.gz"
     if ($LASTEXITCODE) { Fail "download failed: $($t.url)" }
     # .NET, not Get-FileHash: that one fails when PowerShell 7 starts 5.1.
     $stream = [IO.File]::OpenRead("$tmp\app.tar.gz")
     try { $got = -join ([Security.Cryptography.SHA256]::Create().ComputeHash($stream) | ForEach-Object { $_.ToString("x2") }) } finally { $stream.Close() }
     if ($got -ne $t.sha256) { Fail "the download is damaged (checksum mismatch); try again" }
     & $tar -xzf "$tmp\app.tar.gz" -C $tmp
-    if ($LASTEXITCODE -or -not (Test-Path "$tmp\zaki\zaki.exe")) { Fail "the download holds no complete app" }
+    if ($LASTEXITCODE -or -not (Test-Path "$tmp\kavex\kavex.exe")) { Fail "the download holds no complete app" }
 
     # A running app's folder can be renamed, not deleted: the old one goes
     # now if it can, else on the next install.
     New-Item -ItemType Directory -Force (Split-Path $dir) | Out-Null
     Remove-Item -Recurse -Force "$dir.old" -ErrorAction SilentlyContinue
     if (Test-Path $dir) { Rename-Item $dir "$dir.old" }
-    Move-Item "$tmp\zaki" $dir
+    Move-Item "$tmp\kavex" $dir
     Remove-Item -Recurse -Force "$dir.old" -ErrorAction SilentlyContinue
 
-    $exe = Join-Path $dir "zaki.exe"
-    $menu = Join-Path ([Environment]::GetFolderPath("Programs")) "Zaki.lnk"
+    $exe = Join-Path $dir "kavex.exe"
+    $menu = Join-Path ([Environment]::GetFolderPath("Programs")) "Kavex.lnk"
     $link = (New-Object -ComObject WScript.Shell).CreateShortcut($menu)
     $link.TargetPath = $exe
     $link.WorkingDirectory = $env:USERPROFILE
@@ -86,6 +78,16 @@ try {
     $key.Close()
     if (($env:Path -split ";") -notcontains $dir) { $env:Path += ";$dir" }
 
+    # Kavex was Zaki: its app goes (an open one stays until it quits), its
+    # settings in ~/.config/zaki stay (Kavex copies them).
+    $old = Join-Path $env:LOCALAPPDATA "Programs\zaki"
+    Remove-Item -Recurse -Force $old, (Join-Path ([Environment]::GetFolderPath("Programs")) "Zaki.lnk") -ErrorAction SilentlyContinue
+    $key = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey("Environment", $true)
+    $raw = [string]$key.GetValue("Path", "", [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames)
+    $kept = $raw -split ";" | Where-Object { $_ -and $_.Trim().TrimEnd("\") -ine $old }
+    if (($kept -join ";") -ne $raw.TrimEnd(";")) { $key.SetValue("Path", ($kept -join ";"), $key.GetValueKind("Path")) }
+    $key.Close()
+
     # The core: installed only if there's none yet. One that's already there
     # is left alone; the app updates it.
     $core = Join-Path $env:LOCALAPPDATA "Programs\herdr-core\herdr-core.exe"
@@ -94,11 +96,11 @@ try {
             $env:HERDR_RELEASES_URL = $coreReleases
             Invoke-RestMethod "$coreReleases/core/install.ps1" | Invoke-Expression
         } catch {
-            Write-Host "herdr-core didn't install; Zaki will offer it when it opens."
+            Write-Host "herdr-core didn't install; Kavex will offer it when it opens."
         }
     }
 
-    Write-Host "Zaki is installed. Open it from the Start menu, or run: zaki"
+    Write-Host "Kavex is installed. Open it from the Start menu, or run: kavex"
 } finally {
     Remove-Item -Recurse -Force $tmp -ErrorAction SilentlyContinue
 }

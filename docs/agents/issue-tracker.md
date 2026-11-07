@@ -12,7 +12,7 @@ Issues and specs for this repo live as markdown files in `.scratch/`.
 
 ## Not GitHub
 
-Don't use `gh issue` for this repo. This checkout has an `upstream` remote and no default `gh` repo, so a plain `gh issue` reaches Herdr's tracker, not Zaki's.
+Don't use `gh issue` for this repo. This checkout has an `upstream` remote and no default `gh` repo, so a plain `gh issue` reaches Herdr's tracker, not Kavex's.
 
 ## When a skill says "publish to the issue tracker"
 

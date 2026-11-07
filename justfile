@@ -30,9 +30,9 @@ pre-release: test docs-check
     echo; echo "Since $last:"; git log --oneline "$last"..HEAD
     echo
     if git diff --quiet "$last"..HEAD -- src/SKILL.md; then
-      echo "review: the agent manual (zaki --skill, src/SKILL.md) is unchanged since $last. Does it still match the changes above?"
+      echo "review: the agent manual (kavex --skill, src/SKILL.md) is unchanged since $last. Does it still match the changes above?"
     else
-      echo "review: the agent manual (zaki --skill) changed since $last. Read it once more."
+      echo "review: the agent manual (kavex --skill) changed since $last. Read it once more."
     fi
     echo "review: the mod guide (defaults/AGENTS.md), README.md and docs/ describe the changes above."
 
@@ -63,11 +63,11 @@ docs-check: build
     bun test scripts/docs.test.ts
     bun scripts/docs.ts check
 
-# This checkout beside an installed Zaki: its own window, home and core.
+# This checkout beside an installed Kavex: its own window, home and core.
 [unix]
 dev:
     cargo build
-    HC_SESSION=zaki-dev HERDR_APP_HOME=/var/tmp/zaki-dev/home XDG_STATE_HOME=/var/tmp/zaki-dev/state HERDR_APP_ID=zaki-dev HERDR_APP_NO_SOUND=1 target/debug/zaki
+    HC_SESSION=kavex-dev HERDR_APP_HOME=/var/tmp/kavex-dev/home XDG_STATE_HOME=/var/tmp/kavex-dev/state HERDR_APP_ID=kavex-dev HERDR_APP_NO_SOUND=1 target/debug/kavex
 
 [linux]
 install:

@@ -223,7 +223,7 @@ index 3a9feed..a6406cc 100644
 +    /// keeps the shared copy a snapshot holds (`Entry::shared`, and whole
 +    /// call entries in `frozen`), made again only when the cell changes, so a
 +    /// snapshot copies pointers instead of allocating every list. On Windows
-+    /// that copying was most of the main thread while Zaki's Settings opened.
++    /// that copying was most of the main thread while Kavex's Settings opened.
      pub fn snapshot(&self, epoch: u64) -> FeedbackSnapshot {
          let entries = self
              .entries

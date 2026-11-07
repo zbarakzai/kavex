@@ -1,9 +1,9 @@
-# Zaki app
+# Kavex app
 
-The Zaki desktop app (`zaki`): a native GPUI client of
+The Kavex desktop app (`kavex`): a native GPUI client of
 [herdr-core](https://github.com/herdrdev/herdr-core), forked from
 [Herdr](https://github.com/herdrdev/herdr-app). Zakiullah (`zbarakzai`)
-maintains Zaki. Can (`ogulcancelik`) maintains Herdr and herdr-core.
+maintains Kavex. Can (`ogulcancelik`) maintains Herdr and herdr-core.
 
 If AGENTS.local.md exists, read it too: the maintainer's local rules.
 
@@ -29,12 +29,12 @@ If all three are no, it belongs in mods (their shared storage, their own
 code), even at the price of some repetition. What the app asks of
 herdr-core goes through Can, who maintains it.
 
-`zaki --skill` prints the window manual in `src/SKILL.md`.
+`kavex --skill` prints the window manual in `src/SKILL.md`.
 Keep it current when changing agent-facing behavior.
 
 ## The guide users' agents read
 
-`defaults/AGENTS.md` is written into every user's `~/.config/zaki` on
+`defaults/AGENTS.md` is written into every user's `~/.config/kavex` on
 every start: it's how their agents learn what the app can do. A change to
 what users or agents can do (a command, a setting, a layout or mod
 feature, a file) updates it in the same commit. `cargo test` checks that it
@@ -62,13 +62,13 @@ checked on those systems, not only by cross-compiling.
 ## Building and testing
 
 `just build`, `just test` (what CI runs, on Linux), `just check` (the tests).
-`just dev` runs this checkout beside an installed Zaki, with its own home and core.
+`just dev` runs this checkout beside an installed Kavex, with its own home and core.
 `just install` builds and installs the desktop app using the platform installer,
-replacing an installed release. On Windows it updates `%LOCALAPPDATA%\Programs\zaki` and the Start menu;
-quit and reopen Zaki to use the new build. Windows recipes use PowerShell by default;
+replacing an installed release. On Windows it updates `%LOCALAPPDATA%\Programs\kavex` and the Start menu;
+quit and reopen Kavex to use the new build. Windows recipes use PowerShell by default;
 `just --shell pwsh --shell-arg -Command <recipe>` uses pwsh.
 
-Never run a bare `target/*/zaki` (no arguments) on a machine where you
+Never run a bare `target/*/kavex` (no arguments) on a machine where you
 also use the app without `HERDR_APP_HOME` pointing at a scratch home: it
 opens a second window on your real setup. Subcommands and `--help` only
 talk.
@@ -77,7 +77,7 @@ On Linux, test UI changes in the sandbox: `scripts/sandbox up`, then `do
 <command> [json]`, `status`, `shot` (screenshot), `move|click|drag`
 (pointer input, window px), `type`, `key <keysym> [Control_L ...]`, `hc
 ...`, `restart`, `down`. It has its own core, home and a headless display
-(Weston + Xwayland) under `/var/tmp/zaki-sandbox`, so nothing pops up
+(Weston + Xwayland) under `/var/tmp/kavex-sandbox`, so nothing pops up
 on your screen. Never fake input on a real display. Run `scripts/sandbox
 down` when done.
 
@@ -89,15 +89,15 @@ commits, single line, no AI co-author lines. Only Zakiullah releases: check
 `defaults/mods/agents/prices.js` against each provider's official pricing page
 (a model missing from it reads "no price" until it's added), bump the version
 in `Cargo.toml`, add its CHANGELOG section, wait for `ci` on `master`, then
-push the `v*` tag. `release.yml` publishes to the R2 bucket in the
-repository's `R2_BUCKET` and `RELEASES_URL` variables, and installed copies
-update from there. The bucket stays private: the Cloudflare Worker in
-`distribution/worker` serves it under the secret key in `RELEASES_URL`. That
-key is built into installed copies, so changing it means everyone reinstalls.
+push the `v*` tag. `release.yml` makes a draft GitHub release with the
+builds, `latest.json`, `changelog.md` and the install scripts, then publishes
+it; installed copies update from `releases/latest`. A release that names the
+repository (`zbarakzai/kavex`) is built into installed copies: moving the
+repository leaves them on GitHub's redirect.
 
 CHANGELOG.md: every release gets a `## [x.y.z] - YYYY-MM-DD` section
 (`### New` / `### Fixed`), written at release time from the commits since the
-last tag; Zaki shows it as the update notes. One line per change, in user
+last tag; Kavex shows it as the update notes. One line per change, in user
 words (what a person notices, not code), with the issue or PR number and
 `thanks @name` for contributors. Leave out internal changes and fixes for bugs
 that never shipped.

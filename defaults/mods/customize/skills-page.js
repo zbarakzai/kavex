@@ -192,9 +192,9 @@ export class SkillsPage {
 
   installed() {
     const updates = new Set(this.updates().map((u) => u.name));
-    const zaki = Object.values(this.lock()).map((s) => ({ kind: "zaki", key: s.name, name: s.name, title: s.title, short: s.short, description: s.description, hue: s.repo ?? "folder", s, update: updates.has(s.name) }));
+    const kavex = Object.values(this.lock()).map((s) => ({ kind: "kavex", key: s.name, name: s.name, title: s.title, short: s.short, description: s.description, hue: s.repo ?? "folder", s, update: updates.has(s.name) }));
     const own = (this.state?.personal ?? []).map((p) => ({ kind: "personal", key: `p:${p.name}`, name: p.name, title: p.title, short: p.short, description: p.description, hue: "personal", p }));
-    return [...zaki, ...own].sort((a, b) => a.title.localeCompare(b.title));
+    return [...kavex, ...own].sort((a, b) => a.title.localeCompare(b.title));
   }
 
   browseList() {
@@ -269,8 +269,8 @@ export class SkillsPage {
   // What sits at a row's end: nothing loud. A check when it's in, a + to get it.
   end(t, item) {
     const doing = this.doing(t, item.name);
-    if (doing && (item.kind === "zaki" || (item.kind === "catalog" && this.standing(item.e).is === "free"))) return doing;
-    if (item.kind === "zaki") {
+    if (doing && (item.kind === "kavex" || (item.kind === "catalog" && this.standing(item.e).is === "free"))) return doing;
+    if (item.kind === "kavex") {
       if (item.update) return div().size(7).mr(4).rounded(4).bg(t.accent);
       return svg(I("check")).size(16).flex_none().text_color(item.s.enabled === false ? t.dim : t.label);
     }
@@ -283,7 +283,7 @@ export class SkillsPage {
   }
 
   row(t, item) {
-    const off = item.kind === "zaki" && item.s.enabled === false;
+    const off = item.kind === "kavex" && item.s.enabled === false;
     return h_flex().id(`cz-row-${item.key}`).flex_1().min_w(0).h(60).pr(10).gap(8).items_center().rounded(10).hover((s) => s.bg(t.hover))
       .child(h_flex().id(`cz-${item.key}`).flex_1().min_w(0).h_full().pl(10).gap(12).items_center().cursor_pointer().on_click((_e, cx) => this.openDetail(item, cx))
         .child(this.tile(t, item))
@@ -388,7 +388,7 @@ export class SkillsPage {
       : null;
     const rows = list.map((u) => {
       const s = this.lock()[u.name], edited = this.edited[u.name], error = this.errors[u.name];
-      const item = { kind: "zaki", key: u.name, name: u.name, title: s?.title ?? u.title, hue: s?.repo ?? "folder" };
+      const item = { kind: "kavex", key: u.name, name: u.name, title: s?.title ?? u.title, hue: s?.repo ?? "folder" };
       const controls = this.doing(t, u.name)
         ?? (edited
           ? h_flex().gap(6).flex_none()
@@ -463,7 +463,7 @@ export class SkillsPage {
       if (st.is === "theirs") return out.child(this.button(t, "cz-d-replace", "Use this one", (_e, cx) => this.act(item.name, cx, () => install(this.listed(item.e), { replace: true })), { solid: true }));
       return out;
     }
-    if (item.kind !== "zaki") return item.p || item.x ? out.child(this.button(t, "cz-d-folder", "Open folder", () => openFolder((item.p ?? item.x).folder))) : out;
+    if (item.kind !== "kavex") return item.p || item.x ? out.child(this.button(t, "cz-d-folder", "Open folder", () => openFolder((item.p ?? item.x).folder))) : out;
     const s = item.s, unlink = s.source === "folder";
     if (this.confirm === item.name)
       return out.child(this.button(t, "cz-d-cancel", "Cancel", (_e, cx) => { this.confirm = null; cx.notify(); }))
@@ -485,7 +485,7 @@ export class SkillsPage {
     const rows = [];
     if (source.repo) rows.push(line("From", `${source.repo}${source.path ? `/${source.path}` : ""}`, () => browse(webUrl(source))));
     if (source.commit) rows.push(line("Version", source.commit.slice(0, 7)));
-    if (item.kind === "zaki") {
+    if (item.kind === "kavex") {
       const linked = this.state?.linked?.[item.name] ?? [];
       rows.push(line("Agents", item.s.enabled === false ? "Off for every agent" : TARGETS.filter((x) => linked.includes(x.id)).map((x) => x.agents).join(", ") || "None yet"));
     }
@@ -515,7 +515,7 @@ export class SkillsPage {
           .child(div().truncate().text_size(13).text_color(t.label).child(item.s?.enabled === false ? `${from} · Off` : from)))
         .child(this.actions(t, item)))
       .when(this.confirm === item.name, (el) => el.child(div().pt(14).text_size(13).text_color(t.muted)
-        .child(item.s?.source === "folder" ? `Agents stop seeing ${item.title}. Your folder stays as it is.` : `Every agent stops seeing ${item.title}, and Zaki's copy is deleted.`)))
+        .child(item.s?.source === "folder" ? `Agents stop seeing ${item.title}. Your folder stays as it is.` : `Every agent stops seeing ${item.title}, and Kavex's copy is deleted.`)))
       .when(Boolean(error), (el) => el.child(div().pt(14).text_size(13).text_color(t.failed).child(error)))
       .when(Boolean(this.edited[item.name]), (el) => el.child(div().pt(14).text_size(13).text_color(t.muted).child("You changed this skill. Pick Replace or Keep mine under Updates.")))
       .when(Boolean(item.description), (el) => el.child(div().pt(24).max_w(680).text_size(14).line_height("21px").text_color(t.text_secondary).child(item.description)))

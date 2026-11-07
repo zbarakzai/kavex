@@ -212,7 +212,7 @@ pub struct FocusLook {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum HeaderContent {
-    /// `"tabs"`: Zaki's plain built-in tab strip (fallback).
+    /// `"tabs"`: Kavex's plain built-in tab strip (fallback).
     Builtin(String),
     Mod {
         #[serde(rename = "mod")]

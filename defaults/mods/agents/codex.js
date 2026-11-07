@@ -29,8 +29,8 @@ function dollars(model, tier, prompt, tokens) {
 // Codex's trust covers the hook's definition, not what it runs, so these can change without asking
 // the person again. They must print nothing: Codex passes it to the model.
 const SCRIPT = `#!/bin/sh
-# Zaki's Codex hook: labels this terminal with its session file, so Zaki shows the right numbers.
-# Zaki writes this file. It does nothing outside a Zaki terminal.
+# Kavex's Codex hook: labels this terminal with its session file, so Kavex shows the right numbers.
+# Kavex writes this file. It does nothing outside a Kavex terminal.
 [ -n "$HC_TERMINAL_ID" ] || exit 0
 IFS= read -r hook
 case "$hook" in *'"transcript_path":"'*) ;; *) exit 0 ;; esac
@@ -38,15 +38,15 @@ file=\${hook#*\\"transcript_path\\":\\"}
 file=\${file%%\\"*}
 for hc in hc ${HC_PLACES.map((place) => `"${place.replace("~", "$HOME")}"`).join(" ")}; do
   if command -v "$hc" >/dev/null 2>&1; then
-    "$hc" label "$HC_TERMINAL_ID" "zaki.session=$file" >/dev/null 2>&1
+    "$hc" label "$HC_TERMINAL_ID" "kavex.session=$file" >/dev/null 2>&1
     exit 0
   fi
 done
 exit 0
 `;
 
-const WINDOWS_SCRIPT = `# Zaki's Codex hook: labels this terminal with its session file, so Zaki shows the right numbers.
-# Zaki writes this file. It does nothing outside a Zaki terminal.
+const WINDOWS_SCRIPT = `# Kavex's Codex hook: labels this terminal with its session file, so Kavex shows the right numbers.
+# Kavex writes this file. It does nothing outside a Kavex terminal.
 if (-not $env:HC_TERMINAL_ID) { exit 0 }
 try {
   $hook = New-Object IO.StreamReader([Console]::OpenStandardInput(), [Text.Encoding]::UTF8)
@@ -56,7 +56,7 @@ try {
   foreach ($usual in @("$env:LOCALAPPDATA\\Programs\\herdr-core\\hc.exe", "$env:USERPROFILE\\.cargo\\bin\\hc.exe")) {
     if (-not $hc -and (Test-Path $usual)) { $hc = $usual }
   }
-  if ($hc) { & $hc label $env:HC_TERMINAL_ID "zaki.session=$file" *> $null }
+  if ($hc) { & $hc label $env:HC_TERMINAL_ID "kavex.session=$file" *> $null }
 } catch {}
 exit 0
 `;
@@ -67,8 +67,8 @@ const quoted = (path) => `'${path.replace(/'/g, `'\\''`)}'`;
 // for every way a session starts, and `timeout` leaves room for a slow login shell.
 const hook = (home) => ({
   type: "command",
-  command: `sh ${quoted(`${home}/.zaki/codex-session.sh`)}`,
-  commandWindows: `powershell -NoProfile -ExecutionPolicy Bypass -File "${home}/.zaki/codex-session.ps1"`,
+  command: `sh ${quoted(`${home}/.kavex/codex-session.sh`)}`,
+  commandWindows: `powershell -NoProfile -ExecutionPolicy Bypass -File "${home}/.kavex/codex-session.ps1"`,
   timeout: 10,
 });
 
@@ -104,8 +104,8 @@ export const codex = {
   // Script first, so the hook never points at nothing.
   async install(files) {
     const { home, read, write, keep } = files;
-    await keep(`${home}/.zaki/codex-session.sh`, SCRIPT);
-    await keep(`${home}/.zaki/codex-session.ps1`, WINDOWS_SCRIPT);
+    await keep(`${home}/.kavex/codex-session.sh`, SCRIPT);
+    await keep(`${home}/.kavex/codex-session.ps1`, WINDOWS_SCRIPT);
     const path = `${home}/.codex/hooks.json`;
     const text = await read(path);
     const edited = withHook(text, hook(home));
@@ -120,7 +120,7 @@ export const codex = {
   // Codex holds its file open, and macOS reports no write to an open file until it's closed, so
   // only the file's size says it has grown.
   keepsOpen: true,
-  waiting: { state: "waiting", say: "Run `/hooks` in Codex, trust Zaki's hook, then restart this Codex." },
+  waiting: { state: "waiting", say: "Run `/hooks` in Codex, trust Kavex's hook, then restart this Codex." },
 
   locate({ label }) {
     const [, folder, id] = label?.match(SESSION_FILE) ?? [];

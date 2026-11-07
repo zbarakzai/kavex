@@ -29,7 +29,7 @@ const handler = (e: El, name: string, button?: string) => e.calls.find(([k, a]) 
 const rings = (e: El) => e.kids.map(mine).filter((k): k is El => Boolean(k) && has(k!, "border_color") && has(k!, "inset_0"));
 
 let state: { tabs: any[]; shared: Record<string, any>; ran: [string, any][]; focused: boolean; overlays: any[]; terminals?: any[]; panes?: any[] };
-const colors = JSON.parse(readFileSync(new URL("../defaults/themes/zaki.json", import.meta.url), "utf8")).colors;
+const colors = JSON.parse(readFileSync(new URL("../defaults/themes/kavex.json", import.meta.url), "utf8")).colors;
 const flex = () => make();
 const icon = (path: string) => { const s = make(); s.el.calls.push(["path", [path]]); return s; };
 mock.module("gpui-kit", () => ({ View: class {}, div: make, image: make, svg: icon }));

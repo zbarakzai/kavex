@@ -23,7 +23,7 @@ Scenarios for `--only`: `cold`, `open`, `input`, `frames`, `throughput`, `idle`.
 
 Each test instance has its own `HC_SESSION`, `HERDR_APP_HOME`, `XDG_STATE_HOME`,
 `XDG_CONFIG_HOME` and app id, and the environment is rebuilt without `HC_*` and
-`HERDR*`, because the shell it runs in may be a terminal of a live Zaki. Before
+`HERDR*`, because the shell it runs in may be a terminal of a live Kavex. Before
 the first launch it proves the core is new and has a different id from the live
 one. Processes are ended only by tracked pid and creation time. Test homes turn
 the usage footer off (`usage.enabled: false`) so a test never runs the person's
@@ -70,7 +70,7 @@ copy. `profile` needs a build with line tables, which doesn't change the code:
 
 ```powershell
 $env:CARGO_TARGET_DIR='target/symbols'; $env:CARGO_PROFILE_RELEASE_DEBUG='line-tables-only'; $env:CARGO_PROFILE_RELEASE_STRIP='none'
-cargo build --release --locked --bin zaki
+cargo build --release --locked --bin kavex
 Remove-Item Env:CARGO_TARGET_DIR, Env:CARGO_PROFILE_RELEASE_DEBUG, Env:CARGO_PROFILE_RELEASE_STRIP
 py -3.12 scripts/perf/perf.py profile --only idle,open
 ```

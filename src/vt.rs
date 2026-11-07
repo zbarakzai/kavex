@@ -1,4 +1,4 @@
-//! Zaki's view of a core terminal: libghostty-vt fed with the relayed bytes,
+//! Kavex's view of a core terminal: libghostty-vt fed with the relayed bytes,
 //! read back as frames to draw, and asked to encode keys and mouse input.
 
 use ghostty_sys::*;
@@ -301,7 +301,7 @@ fn kitty_virtual_placement_geometry(
 
 fn kitty_placeholder_diacritic_index(codepoint: u32) -> Option<u32> {
     let map = KITTY_PLACEHOLDER_DIACRITICS.get_or_init(|| {
-        // Reuse Ghostty's vendored table so Zaki decodes the same placeholder
+        // Reuse Ghostty's vendored table so Kavex decodes the same placeholder
         // row/column diacritics that libghostty accepts.
         let source =
             include_str!("../vendor/ghostty/src/terminal/kitty/graphics_unicode.zig");
@@ -1926,9 +1926,9 @@ mod tests {
         assert_eq!(hit.spans, vec![(0, 7, 11), (1, 0, 11)]);
         assert_eq!(vt.link_at(0, 2, find), None, "the closing paren");
         let mut vt = Vt::new(10, 3);
-        vt.write(br"C:\Users\Zaki Barakzai\x.py then");
+        vt.write(br"C:\Users\Kavex Barakzai\x.py then");
         let hit = vt.link_at(1, 1, find).unwrap();
-        assert_eq!(hit.target, r"C:\Users\Zaki Barakzai\x.py");
+        assert_eq!(hit.target, r"C:\Users\Kavex Barakzai\x.py");
     }
 
     #[test]

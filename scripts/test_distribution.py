@@ -60,7 +60,7 @@ done
 exit 97''')
                 result = self.run_script("distribution/install.sh", "Darwin", "x86_64")
                 self.assertEqual(result.returncode, 1)
-                self.assertIn("Installing Zaki test for macos-aarch64", result.stdout)
+                self.assertIn("Installing Kavex test for macos-aarch64", result.stdout)
                 self.assertIn("download is damaged", result.stderr)
                 self.assertNotIn("Intel Macs", result.stderr)
 
@@ -68,8 +68,8 @@ exit 97''')
         """The URL install.sh downloads the app from, for a manifest giving `url`."""
         home = Path(self.work.name) / "home"
         data = home / ".local/share"
-        shutil.rmtree(data / "zaki", ignore_errors=True)
-        (data / "zaki" if installed else data).mkdir(parents=True, exist_ok=True)
+        shutil.rmtree(data / "kavex", ignore_errors=True)
+        (data / "kavex" if installed else data).mkdir(parents=True, exist_ok=True)
         log = Path(self.work.name) / "urls"
         log.unlink(missing_ok=True)
         manifest = Path(self.work.name) / "latest.json"
@@ -89,32 +89,63 @@ exit 22''')
         self.assertIn("download failed", result.stderr)
         return log.read_text().splitlines()[-1]
 
-    def test_installer_marks_plain_release_downloads_for_the_counter(self):
-        r = "https://releases.example"
-        tarball = f"{r}/app/1.0.0/zaki-linux-x86_64.tar.gz"
-        self.assertEqual(self.download_url(tarball), f"{tarball}?src=install")
-        self.assertEqual(self.download_url(tarball, installed=True), f"{tarball}?src=reinstall")
-        # A mirror's query (a signed URL) or fragment, or another host: exactly as given.
-        for url in (f"{tarball}?sig=a%2Fb&exp=1", f"{tarball}?src=update", f"{tarball}#x",
-                    "https://mirror.example/app/1.0.0/zaki-linux-x86_64.tar.gz",
-                    "https://releases.example.evil/app/1.0.0/zaki-linux-x86_64.tar.gz"):
-            with self.subTest(url=url):
-                self.assertEqual(self.download_url(url), url)
-        # A test server elsewhere marks its own URLs.
-        local = "http://127.0.0.1:8000/e2e"
-        self.assertEqual(self.download_url(f"{local}/app/1.0.0/a.tar.gz", releases=local), f"{local}/app/1.0.0/a.tar.gz?src=install")
+    def test_installer_reads_github_latest_and_downloads_the_manifest_url(self):
+        r = "https://github.example/o/kavex/releases"
+        tarball = f"{r}/download/v1.0.0/kavex-linux-x86_64.tar.gz"
+        self.assertEqual(self.download_url(tarball, releases=r), tarball)
+        self.assertEqual(self.download_url(tarball, releases=r, installed=True), tarball)
+        self.assertEqual(Path(self.work.name, "urls").read_text().splitlines()[0], f"{r}/latest/download/latest.json")
+        signed = f"{tarball}?sig=a%2Fb&exp=1"
+        self.assertEqual(self.download_url(signed, releases=r), signed)
+
+    def test_installer_removes_the_old_zaki_app_and_keeps_its_settings(self):
+        home = Path(self.work.name) / "home"
+        data = home / ".local/share"
+        (data / "zaki").mkdir(parents=True)
+        (data / "applications").mkdir(parents=True)
+        (data / "applications/zaki.desktop").touch()
+        (home / ".config/zaki").mkdir(parents=True)
+        (home / ".local/bin").mkdir(parents=True)
+        (home / ".local/bin/herdr-core").touch()
+        (home / ".local/bin/zaki").symlink_to(data / "zaki/zaki")
+        app = self.bin / "app"
+        (app / "kavex").mkdir(parents=True)
+        (app / "kavex/kavex.svg").touch()
+        archive = self.bin / "release.tar.gz"
+        with tarfile.open(archive, "w:gz") as tar:
+            tar.add(app / "kavex", arcname="kavex")
+        sha = hashlib.sha256(archive.read_bytes()).hexdigest()
+        manifest = self.bin / "manifest.json"
+        manifest.write_text('{"version":"1.0.0","targets":{"linux-x86_64":{"url":"release","sha256":"%s"}}}' % sha)
+        self.stub("curl", f'''url=; out=; prev=
+for a; do
+  if [ "$prev" = -o ]; then out=$a; else case $a in -*) ;; *) url=$a ;; esac; fi
+  prev=$a
+done
+case $url in */latest.json) cp "{manifest}" "$out" ;; release) cp "{archive}" "$out" ;; *) exit 97 ;; esac''')
+        env = dict(os.environ, PATH=f"{self.bin}:{os.environ['PATH']}", TEST_OS="Linux", TEST_ARCH="x86_64",
+                   HOME=str(home), XDG_DATA_HOME=str(data))
+        env.pop("HERDR_RELEASES_URL", None)
+        result = subprocess.run([str(ROOT / "distribution/install.sh")], cwd=ROOT, env=env,
+                                capture_output=True, text=True, check=False)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue((data / "kavex/kavex.svg").exists())
+        self.assertFalse((data / "zaki").exists())
+        self.assertFalse((data / "applications/zaki.desktop").exists())
+        self.assertFalse((home / ".local/bin/zaki").is_symlink())
+        self.assertTrue((home / ".config/zaki").is_dir())
 
     def mac_installer(self, signature, status, verify_status=0):
         home = self.bin / "home"
         (home / ".local/bin").mkdir(parents=True)
         (home / ".local/bin/herdr-core").touch()
-        source = self.bin / "source/Zaki.app/Contents"
+        source = self.bin / "source/Kavex.app/Contents"
         source.mkdir(parents=True)
         plist = b"signed release plist must stay unchanged"
         (source / "Info.plist").write_bytes(plist)
         archive = self.bin / "release.tar.gz"
         with tarfile.open(archive, "w:gz") as tar:
-            tar.add(source.parent, arcname="Zaki.app")
+            tar.add(source.parent, arcname="Kavex.app")
         sha = hashlib.sha256(archive.read_bytes()).hexdigest()
         manifest = self.bin / "manifest.json"
         manifest.write_text('{"version":"1.0.0","targets":{"macos-aarch64":{"url":"release","sha256":"%s"}}}' % sha)
@@ -124,7 +155,7 @@ for a; do
   prev=$a
 done
 case $url in */latest.json) cp "{manifest}" "$out" ;; release) cp "{archive}" "$out" ;; *) exit 97 ;; esac''')
-        installed = home / "Applications/Zaki.app/Contents/Info.plist"
+        installed = home / "Applications/Kavex.app/Contents/Info.plist"
         installed.parent.mkdir(parents=True)
         installed.write_bytes(b"previous installed app")
         fixture = self.bin / "signature.txt"
@@ -217,7 +248,7 @@ printf 'dev PATH added' >> "$3"''')
         checkout = self.bin / "checkout"
         for path in [
             "Cargo.toml", "LICENSE", "THIRD-PARTY-NOTICES", "scripts/package",
-            "assets/icons/zaki-ui-icon-clean.svg", "assets/icons/Zaki.icns",
+            "assets/icons/kavex-ui-icon-clean.svg", "assets/icons/Kavex.icns",
         ]:
             destination = checkout / path
             destination.parent.mkdir(parents=True, exist_ok=True)
@@ -227,18 +258,18 @@ printf 'dev PATH added' >> "$3"''')
         sign.chmod(0o755)
         release = checkout / "target/release"
         release.mkdir(parents=True)
-        for name in ("zaki", "zaki.exe"):
+        for name in ("kavex", "kavex.exe"):
             (release / name).write_bytes(b"test binary")
         self.stub("cargo", "exit 0")
         for os_name, arch, target, prefix in (
-            ("Linux", "x86_64", "linux-x86_64", "zaki"),
-            ("Darwin", "arm64", "macos-aarch64", "Zaki.app/Contents/Resources"),
-            ("MINGW64_NT", "x86_64", "windows-x86_64", "zaki"),
+            ("Linux", "x86_64", "linux-x86_64", "kavex"),
+            ("Darwin", "arm64", "macos-aarch64", "Kavex.app/Contents/Resources"),
+            ("MINGW64_NT", "x86_64", "windows-x86_64", "kavex"),
         ):
             with self.subTest(target=target):
                 result = self.run_script(checkout / "scripts/package", os_name, arch)
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-                with tarfile.open(checkout / f"dist/zaki-{target}.tar.gz") as archive:
+                with tarfile.open(checkout / f"dist/kavex-{target}.tar.gz") as archive:
                     for name in ("LICENSE", "THIRD-PARTY-NOTICES"):
                         self.assertEqual(
                             archive.extractfile(f"{prefix}/{name}").read(),

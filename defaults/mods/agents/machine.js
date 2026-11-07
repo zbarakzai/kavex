@@ -6,7 +6,7 @@ import { exec, home, readTextFile, window, writeTextFile } from "herdr";
 export const BLOCK = 1048576;
 export const NO_FILE = 3;
 
-// Where `hc` may be, after PATH, for what runs outside Zaki: `~` is the home it runs under. Follows
+// Where `hc` may be, after PATH, for what runs outside Kavex: `~` is the home it runs under. Follows
 // `usual_dirs` in core_bin.rs, which has to stay in step.
 export const HC_PLACES = ["~/.local/bin/hc", "/opt/homebrew/bin/hc", "/usr/local/bin/hc", "~/.local/share/mise/shims/hc", "~/.nix-profile/bin/hc", "/run/current-system/sw/bin/hc", "~/.cargo/bin/hc"];
 

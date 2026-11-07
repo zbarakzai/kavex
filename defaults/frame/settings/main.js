@@ -16,7 +16,7 @@ const SECTIONS = [
   { id: "privacy", title: "Privacy", icon: "privacy" },
 ];
 
-const LOOKS = { main: "Zaki", terminals: "Terminals", win98: "Zaki 98" };
+const LOOKS = { main: "Kavex", terminals: "Terminals", win98: "Kavex 98" };
 const APPEARANCES = [
   [null, "System"],
   ["light", "Light"],
@@ -717,7 +717,7 @@ export default class Settings extends View {
   alerts(t) {
     const sounds = this.person.sounds ?? {};
     const on = sounds.enabled !== false;
-    const file = (f) => (f ? f.split(/[\\/]/).pop() : "Zaki's sound");
+    const file = (f) => (f ? f.split(/[\\/]/).pop() : "Kavex's sound");
     return this.group(
       t,
       "Sounds",
@@ -781,12 +781,12 @@ export default class Settings extends View {
               : ["Not checked: a build from source looks for no updates.", null];
     return v_flex()
       .w_full()
-      .child(this.group(t, "Zaki", this.card(t, this.row(t, this.named(t, "Zaki", u.app.version), app[0], h_flex().gap(8).flex_none().items_center()
+      .child(this.group(t, "Kavex", this.card(t, this.row(t, this.named(t, "Kavex", u.app.version), app[0], h_flex().gap(8).flex_none().items_center()
         .child(this.button(t, "st-whats-new", "What's new", () => { closeOverlay(props()?.overlay); run("app.whats_new"); }))
         .when(Boolean(app[1]), (el) => el.child(app[1]))))))
       .child(this.group(t, "herdr-core",
         this.card(t, this.row(t, this.named(t, "herdr-core", c.version), core[0], core[1] ?? div())),
-        this.note(t, "Zaki looks for both every hour and tells you in the corner. herdr-core runs your terminals, so they keep running through its updates.")));
+        this.note(t, "Kavex looks for both every hour and tells you in the corner. herdr-core runs your terminals, so they keep running through its updates.")));
   }
 
 
@@ -819,7 +819,7 @@ export default class Settings extends View {
     const s = telemetry();
     const on = s ? s.setting : this.person.telemetry !== false;
     const at = (secs) => new Date(secs * 1000).toLocaleString();
-    const why = s?.off_because ? `Off for now: ${s.off_because} is set where Zaki started.` : null;
+    const why = s?.off_because ? `Off for now: ${s.off_because} is set where Kavex started.` : null;
     const body = v_flex()
       .w_full()
       .child(this.heading(t, "Usage data"))
@@ -829,7 +829,7 @@ export default class Settings extends View {
           this.row(
             t,
             "Share anonymous usage data",
-            why ?? "Once a day: which agents and features you use, how many spaces and tabs, your system and Zaki's version. Never what's in your terminals, never names of files, folders or projects.",
+            why ?? "Once a day: which agents and features you use, how many spaces and tabs, your system and Kavex's version. Never what's in your terminals, never names of files, folders or projects.",
             this.toggle(t, "st-telemetry", on, (_e, cx) =>
               this.change((p) => {
                 if (on) p.telemetry = false;
@@ -840,7 +840,7 @@ export default class Settings extends View {
           this.row(
             t,
             "What we send",
-            s && !s.sends ? "Zaki never sends this. It's only shown here." : "Exactly what leaves your computer, word for word.",
+            s && !s.sends ? "Kavex never sends this. It's only shown here." : "Exactly what leaves your computer, word for word.",
             this.button(t, "st-telemetry-show", this.showData ? "Hide" : "Show", (_e, cx) => {
               this.showData = !this.showData;
               cx.notify();

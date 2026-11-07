@@ -3,12 +3,12 @@
 use std::io;
 use std::path::Path;
 
-fn zaki_bundle(exe: &Path) -> bool {
-    exe.is_absolute() && exe.ends_with("Zaki.app/Contents/MacOS/Zaki")
+fn kavex_bundle(exe: &Path) -> bool {
+    exe.is_absolute() && exe.ends_with("Kavex.app/Contents/MacOS/Kavex")
 }
 
 fn installed_bundle(exe: &Path) -> bool {
-    zaki_bundle(exe)
+    kavex_bundle(exe)
         && !exe.starts_with("/Volumes")
         && !exe.components().any(|c| c.as_os_str() == "AppTranslocation" || c.as_os_str() == "target")
 }
@@ -17,7 +17,7 @@ pub(super) fn ensure(home: &Path, exe: &Path) -> io::Result<()> {
     if !installed_bundle(exe) {
         return Ok(());
     }
-    let link = home.join(".local/bin/zaki");
+    let link = home.join(".local/bin/kavex");
     match std::fs::symlink_metadata(&link) {
         Ok(meta) if meta.file_type().is_symlink() => {
             let target = std::fs::read_link(&link)?;
@@ -25,7 +25,7 @@ pub(super) fn ensure(home: &Path, exe: &Path) -> io::Result<()> {
                 return Ok(());
             }
             let resolved = if target.is_absolute() { target } else { link.parent().unwrap().join(target) };
-            if !zaki_bundle(&resolved) {
+            if !kavex_bundle(&resolved) {
                 return Ok(());
             }
             std::fs::remove_file(&link)?;
@@ -48,8 +48,8 @@ mod tests {
         let home = std::env::temp_dir().join(format!("herdr-cli-link-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&home);
         std::fs::create_dir_all(&home).unwrap();
-        let exe = home.join("Applications/Zaki.app/Contents/MacOS/Zaki");
-        let link = home.join(".local/bin/zaki");
+        let exe = home.join("Applications/Kavex.app/Contents/MacOS/Kavex");
+        let link = home.join(".local/bin/kavex");
         ensure(&home, &exe).unwrap();
         assert_eq!(std::fs::read_link(&link).unwrap(), exe);
         // Running it again leaves the same link alone.
@@ -57,17 +57,17 @@ mod tests {
         assert_eq!(std::fs::read_link(&link).unwrap(), exe);
 
         for old in [
-            home.join("old/Zaki.app/Contents/MacOS/Zaki"),
-            "../../Applications/Zaki.app/Contents/MacOS/Zaki".into(),
-            "/Volumes/Zaki/Zaki.app/Contents/MacOS/Zaki".into(),
-            "/private/var/folders/AppTranslocation/old/d/Zaki.app/Contents/MacOS/Zaki".into(),
+            home.join("old/Kavex.app/Contents/MacOS/Kavex"),
+            "../../Applications/Kavex.app/Contents/MacOS/Kavex".into(),
+            "/Volumes/Kavex/Kavex.app/Contents/MacOS/Kavex".into(),
+            "/private/var/folders/AppTranslocation/old/d/Kavex.app/Contents/MacOS/Kavex".into(),
         ] {
             std::fs::remove_file(&link).unwrap();
             symlink(old, &link).unwrap();
             ensure(&home, &exe).unwrap();
             assert_eq!(std::fs::read_link(&link).unwrap(), exe);
         }
-        let old = home.join("previous/Zaki.app/Contents/MacOS/Zaki");
+        let old = home.join("previous/Kavex.app/Contents/MacOS/Kavex");
         std::fs::create_dir_all(old.parent().unwrap()).unwrap();
         std::fs::write(&old, "previous executable").unwrap();
         std::fs::remove_file(&link).unwrap();
@@ -88,11 +88,11 @@ mod tests {
         std::fs::remove_file(&link).unwrap();
 
         for skipped in [
-            "/Volumes/Zaki/Zaki.app/Contents/MacOS/Zaki",
-            "/private/var/folders/AppTranslocation/random/d/Zaki.app/Contents/MacOS/Zaki",
-            "/work/target/debug/Zaki.app/Contents/MacOS/Zaki",
-            "/work/target/debug/zaki",
-            "/Applications/Other.app/Contents/MacOS/Zaki",
+            "/Volumes/Kavex/Kavex.app/Contents/MacOS/Kavex",
+            "/private/var/folders/AppTranslocation/random/d/Kavex.app/Contents/MacOS/Kavex",
+            "/work/target/debug/Kavex.app/Contents/MacOS/Kavex",
+            "/work/target/debug/kavex",
+            "/Applications/Other.app/Contents/MacOS/Kavex",
         ] {
             ensure(&home, Path::new(skipped)).unwrap();
             assert!(link.symlink_metadata().is_err(), "{skipped}");

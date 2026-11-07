@@ -2,7 +2,7 @@
 
 ## Mods have your access
 
-A mod is trusted JavaScript running inside Zaki. It can run programs with your environment, fetch URLs and read files.
+A mod is trusted JavaScript running inside Kavex. It can run programs with your environment, fetch URLs and read files.
 `fs/promises` limits writes to the app home, but `writeTextFile` writes anywhere you can, and a mod can run a program to do the same. Neither is a security boundary.
 Mods can also run programs and write files on connected machines.
 
@@ -11,21 +11,21 @@ Layouts can load mods. Check those references too.
 
 ## What stays on disk
 
-The default app home is `~/.config/zaki`, including on macOS and Windows (under your user home).
+The default app home is `~/.config/kavex`, including on macOS and Windows (under your user home).
 `XDG_CONFIG_HOME` changes the config root. `HERDR_APP_HOME` selects an app home directly and takes precedence.
 
 This folder holds your settings, keys, layouts, mods, generated agent guide and API types.
 It also holds mod data, shared state, window positions, this screen's focus and zoom, update notes and cached media, and telemetry while enabled.
-Mods may store sensitive data here. Zaki does not encrypt this folder.
+Mods may store sensitive data here. Kavex does not encrypt this folder.
 The [installed guide's file map](../defaults/AGENTS.md#the-files) explains the files.
 
-For [session context](#session-context-and-api-cost), Zaki also writes these outside the app home, on each machine where it sees the agent:
+For [session context](#session-context-and-api-cost), Kavex also writes these outside the app home, on each machine where it sees the agent:
 
-- `~/.codex/hooks.json`: one hook added at the end of `SessionStart`. Your own hooks keep their place, and a file Zaki can't read or understand is left alone.
-- `~/.zaki/codex-session.sh` and `~/.zaki/codex-session.ps1`: the script that hook runs.
-- `~/.pi/agent/extensions/zaki-session.ts`: an extension of Zaki's own. Pi loads it with nothing to approve.
+- `~/.codex/hooks.json`: one hook added at the end of `SessionStart`. Your own hooks keep their place, and a file Kavex can't read or understand is left alone.
+- `~/.kavex/codex-session.sh` and `~/.kavex/codex-session.ps1`: the script that hook runs.
+- `~/.pi/agent/extensions/kavex-session.ts`: an extension of Kavex's own. Pi loads it with nothing to approve.
 
-They do nothing outside a Zaki terminal, and they stay behind if you remove Zaki or the app home.
+They do nothing outside a Kavex terminal, and they stay behind if you remove Kavex or the app home.
 
 Spaces, tabs and splits are stored in each machine's core document, not in the app home.
 Terminals and their output belong to [herdr-core](https://github.com/herdrdev/herdr-core).
@@ -37,9 +37,8 @@ Remote connections use SSH through the core.
 
 ## Updates and signing
 
-Installed releases check Zaki's release service, download an update, and check its SHA-256 checksum against the release manifest before unpacking it.
+Installed releases check Kavex's GitHub releases (`github.com/zbarakzai/kavex/releases`), download an update, and check its SHA-256 checksum against the release manifest before unpacking it.
 The app switches to the downloaded version on quit. Source builds do not update themselves.
-The release service is reached through a private link. It keeps Zaki from being found, but anyone who has the link, or a copy of the app, can download releases.
 Core updates are handled separately by the core's updater, from Herdr's release service.
 
 A checksum from the same service detects a damaged download; it is not an independent signature on the manifest.
@@ -58,7 +57,7 @@ The gauge in the sidebar footer shows your subscriptions' limits. It checks 5 se
 **What it runs.** On this computer and on each added machine:
 
 - Your shell, once per check, to learn its `PATH`: `$SHELL -ic 'printenv PATH'`. Your shell's startup files run when it does. Windows skips this step.
-- `command -v` (`Get-Command` on Windows), to look for an agent Zaki didn't find by itself.
+- `command -v` (`Get-Command` on Windows), to look for an agent Kavex didn't find by itself.
 - Claude Code: `claude auth status`, then `claude -p /usage`, with no hooks, plugins, MCP servers or saved session. It spends no tokens.
 - Codex: `codex app-server` in read-only mode, asked for your account and your limits.
 
@@ -71,7 +70,7 @@ If `programs.json`'s `run` points to the agent's own program at another path, th
 - Nothing is read or sent until you press Allow on the card in the popover. Not now saves that answer and reads nothing. Turning Usage limits off and on asks again.
 - After Allow, on this computer only, each check reads the keys for `opencode` and `opencode-go` from `~/.local/share/opencode/auth.json` and from the `credential` table of `opencode.db` beside it, with `sqlite3 -readonly`. Keys on added machines are never read.
 - A key written as a variable or a command, such as `$OPENCODE_API_KEY` or `!pass show opencode`, is left alone and never sent.
-- Each key is sent in turn to `https://opencode.ai/zen/go/v1/usage` as a Bearer header, until one gives Go's limits. That is the only address it goes to. Zaki's `fetch` refuses to carry that header through a redirect to anywhere else.
+- Each key is sent in turn to `https://opencode.ai/zen/go/v1/usage` as a Bearer header, until one gives Go's limits. That is the only address it goes to. Kavex's `fetch` refuses to carry that header through a redirect to anywhere else.
 
 **What it keeps.** In `shared.json` in the app home, not encrypted: each subscription's name, tier and limits, and the fingerprint for Claude Code and Codex. No key, login or email is saved, and nothing made from an OpenCode key.
 
@@ -83,9 +82,9 @@ The `agents` mod shows how full each Claude Code, Codex and Pi session is, and w
 
 - Claude Code: `claude -p "/context"`, once per model and kept for a day, with no saved session, MCP servers or setting sources. It spends no tokens.
 - `sh` with `dd`, `wc`, `grep` and `find` to read session files. Windows uses PowerShell, which also lists running processes to find Claude Code's.
-- Codex's hook and Pi's extension run `hc label`, to tell Zaki which session file a terminal holds and, for Pi, its context's total.
+- Codex's hook and Pi's extension run `hc label`, to tell Kavex which session file a terminal holds and, for Pi, its context's total.
 
-Zaki never approves its Codex hook. Codex runs it only after you trust it in `/hooks`.
+Kavex never approves its Codex hook. Codex runs it only after you trust it in `/hooks`.
 
 **What it reads.** Your agents' session files, which hold your conversations, and Claude Code's per-process record in `~/.claude/sessions`. A filter runs over each file, and only lines with usage, a model or a helper's name reach the mod. For Pi those lines hold the whole answer. To set up, it reads `~/.codex/hooks.json` and the files listed under [What stays on disk](#what-stays-on-disk). It doesn't read any agent's login, or Codex's `config.toml`.
 
@@ -95,7 +94,7 @@ Zaki never approves its Codex hook. Codex runs it only after you trust it in `/h
 
 ## Telemetry
 
-Zaki collects a small daily usage report with a random install ID, but no build sends it: Zaki has no telemetry server yet.
+Kavex collects a small daily usage report with a random install ID, but no build sends it: Kavex has no telemetry server yet.
 Reports include app and core versions, OS and architecture, bucketed usage time and counts, known agent names, built-in layout names, mod counts, app command names, and fixed event counters.
 Custom layout names become `custom`; custom mod names are not sent.
 Terminal text, prompts, file contents, folder paths and free-text names are not included.
@@ -116,4 +115,4 @@ Ordinary source builds collect locally while enabled but do not send, unless poi
 Telemetry being off does not stop update checks, Usage limits, mod network requests or feedback you choose to send.
 Feedback is drafted for you to review and send, not sent silently.
 
-[Back to Zaki](../README.md)
+[Back to Kavex](../README.md)

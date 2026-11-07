@@ -1,5 +1,5 @@
 name: Bug
-description: Something broke in Zaki or a shipped layout or mod.
+description: Something broke in Kavex or a shipped layout or mod.
 labels: [bug]
 body:
   - type: textarea
@@ -18,8 +18,8 @@ body:
   - type: input
     id: version
     attributes:
-      label: Zaki version
-      description: Find it in Settings or run zaki --version.
+      label: Kavex version
+      description: Find it in Settings or run kavex --version.
     validations:
       required: true
   - type: input

@@ -103,12 +103,12 @@ export default class Tabs extends View {
     this.away = out;
   }
 
-  // A terminal started with the label `zaki.group=<name>` lands in that group, once: after
+  // A terminal started with the label `kavex.group=<name>` lands in that group, once: after
   // that where its tab sits is the person's to change.
   byLabel(groups, space, ps, terms) {
     let next = groups;
     for (const k of terms) {
-      const name = k.labels?.["zaki.group"], tab = name && ps.find((p) => p.terminal === k.address)?.tab;
+      const name = k.labels?.["kavex.group"], tab = name && ps.find((p) => p.terminal === k.address)?.tab;
       if (!tab || this.placed.has(k.address) || !space.tabs.some((c) => c.id === tab)) continue;
       next = labeled(next, tab, name, HUES, `g${Date.now().toString(36)}${this.placed.size}`);
       this.placed.add(k.address);
