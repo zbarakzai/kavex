@@ -1,5 +1,5 @@
 //! Anonymous usage data: one small report per install per UTC day, so we
-//! know how Zaki is used. Never what's in a terminal, never from the core,
+//! know how Kavex is used. Never what's in a terminal, never from the core,
 //! never free text: every field is a number, a bucket, a yes/no or a name
 //! from a list the app ships (anything else is `other`).
 //!
@@ -11,7 +11,7 @@
 //!
 //! On unless settings.json says `"telemetry": false` (that also deletes the
 //! id and anything not sent yet). `DO_NOT_TRACK`, `HERDR_TELEMETRY=0` and CI
-//! turn it off for one run. Zaki has no telemetry server: only a build
+//! turn it off for one run. Kavex has no telemetry server: only a build
 //! pointed at one with `HERDR_TELEMETRY_URL` sends. Every other build
 //! collects and shows, but never sends.
 

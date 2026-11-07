@@ -1,6 +1,6 @@
-"""One isolated Zaki: its own home, state, core session and app id.
+"""One isolated Kavex: its own home, state, core session and app id.
 
-The shell this runs in may itself be a terminal of the person's live Zaki, with
+The shell this runs in may itself be a terminal of the person's live Kavex, with
 HC_TERMINAL_SOCKET and friends pointing at the live core. So the environment is
 built from scratch for hc and the app, and `start_core` refuses to go on unless
 what answers is a new core of its own. Every process is tracked by pid and
@@ -21,7 +21,7 @@ import time
 import winapi as w
 
 # Point at, or belong to, the session around us.
-INHERITED = ("HC_", "HERDR", "ZAKI_", "TERM", "COLORTERM", "XDG_", "CARGO", "RUSTUP", "LIBCLANG", "ZIG", "DOCKER_HOST")
+INHERITED = ("HC_", "HERDR", "KAVEX_", "TERM", "COLORTERM", "XDG_", "CARGO", "RUSTUP", "LIBCLANG", "ZIG", "DOCKER_HOST")
 # Where an app that ended on its own leaves its evidence; clean_files never goes there.
 CRASHES = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), ".scratch", "perf", "crashes")
 # Windows Error Reporting's local dumps (on when LocalDumps is set up, as on the perf machine).
@@ -96,7 +96,7 @@ class Instance:
         e.update(
             HC_SESSION=self.session,
             HERDR_APP_HOME=os.path.join(self.root, "home"),
-            HERDR_APP_ID="zaki-perf",
+            HERDR_APP_ID="kavex-perf",
             HERDR_APP_NO_SOUND="1",
             HERDR_APP_BENCH_EVENTS=self.events_path,
             # Pointer moves are posted with the real cursor elsewhere: see src/bench/wndproc.rs.

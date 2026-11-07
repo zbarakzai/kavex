@@ -28,7 +28,7 @@ const handler = (e: El, name: string, button?: string) => e.calls.find(([k, a]) 
 const icons = (e: El) => all(e).filter((x) => has(x, "path")).map((x) => arg(x, "path"));
 
 const shipped = readFileSync(new URL("../defaults/layouts/main.json", import.meta.url), "utf8");
-const colors = JSON.parse(readFileSync(new URL("../defaults/themes/zaki.json", import.meta.url), "utf8")).colors;
+const colors = JSON.parse(readFileSync(new URL("../defaults/themes/kavex.json", import.meta.url), "utf8")).colors;
 const WINDOWS = { platform: "windows", titlebar: "none", buttons: true, maximized: false, fullscreen: false, active: true };
 
 let state: { window: any; layout: any; shared: Record<string, any>; ran: string[] };

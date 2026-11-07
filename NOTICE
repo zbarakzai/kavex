@@ -1,0 +1,10 @@
+Kavex
+Copyright 2026 Zakiullah Barakzai
+
+Kavex is a fork of Herdr (https://github.com/herdrdev/herdr-app),
+copyright Can Celik and the Herdr contributors, licensed under the
+Apache License, Version 2.0. Kavex changes many of Herdr's files; the git
+history records each change and its author.
+
+Third-party software included in Kavex releases is listed, with its
+licenses, in THIRD-PARTY-NOTICES.

@@ -26,9 +26,9 @@ const byId = (root: El, id: string) => all(root).find((e) => arg(e, "id") === id
 const words = (root: El) => all(root).flatMap((e) => e.kids.filter((k) => typeof k === "string"));
 const press = (e: El, name: string, cx: any, button?: string) => e.calls.find(([k, a]) => k === name && (!button || a[0] === button))?.[1].at(-1)({}, cx);
 
-const scratch = mkdtempSync(join(tmpdir(), "zaki-files-"));
+const scratch = mkdtempSync(join(tmpdir(), "kavex-files-"));
 afterAll(() => rmSync(scratch, { recursive: true, force: true }));
-const theme = JSON.parse(readFileSync(new URL("../defaults/themes/zaki.json", import.meta.url), "utf8"));
+const theme = JSON.parse(readFileSync(new URL("../defaults/themes/kavex.json", import.meta.url), "utf8"));
 const colors = { background: theme.background, ...theme.colors, ...Object.fromEntries(theme.ansi.map((c: string, i: number) => [`ansi${i}`, c])) };
 
 (globalThis as any).localStorage = { getItem: () => null, setItem() {} };

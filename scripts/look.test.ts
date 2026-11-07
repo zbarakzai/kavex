@@ -11,7 +11,7 @@ const { DOTS } = await import("../defaults/mods/agents/loader.js");
 const { logoOf, tagOf } = await import("../defaults/mods/files/filetypes.js");
 
 const root = new URL("../defaults/", import.meta.url).pathname;
-const zaki = JSON.parse(readFileSync(join(root, "themes/zaki.json"), "utf8"));
+const kavex = JSON.parse(readFileSync(join(root, "themes/kavex.json"), "utf8"));
 
 // What a theme without the design's names resolves to: only what src/settings.rs always gives.
 const plain = Object.fromEntries(["background", "canvas", "chrome", "surface", "raised", "hover", "selected", "border", "input", "foreground", "muted", "dim",
@@ -55,8 +55,8 @@ test("the loader's bright dot steps around the edge, the rest stay readable, in 
   expect(readFileSync(join(root, "mods/agents/loader.js"), "utf8")).not.toMatch(/#[0-9a-f]{3,8}\b/i);
 });
 
-test("the zaki theme's values come through untouched", () => {
-  const k = look(zaki.colors);
+test("the kavex theme's values come through untouched", () => {
+  const k = look(kavex.colors);
   expect(k.panel).toBe("#0E0E0E");
   expect([k.row_name, k.row_pressed, k.row_active_hover, k.row_dragging, k.row_ring]).toEqual(["#E2E2E2", "#202020", "#282828", "#262626", "#333333"]);
   expect(k.status.blocked).toEqual({ label: "NEEDS YOU", bg: "#EC6F3E2E", fg: "#F5A27E", dot: "#EC6F3E" });
@@ -87,7 +87,7 @@ test("no framed overlay paints its own background over the rounded frame", () =>
 });
 
 test("a group saved under an old color keeps the nearest of the three, never orange", () => {
-  const k = look(zaki.colors);
+  const k = look(kavex.colors);
   expect(groupHue(k, "violet").text).toBe("#B9A8F7");
   expect(groupHue(k, "ansi4").text).toBe("#8C9CF5");
   expect(groupHue(k, "ansi2").text).toBe("#6FCFAE");

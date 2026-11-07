@@ -25,7 +25,7 @@ const words = (root: El) => all(root).flatMap((e) => e.kids.filter((k) => typeof
 const handler = (e: El, name: string) => e.calls.find(([k]) => k === name)?.[1].at(-1);
 
 let state: { shared: Record<string, any>; props: any; closed: string[]; ran: string[]; moved: any[]; input: any };
-const file = JSON.parse(readFileSync(new URL("../defaults/themes/zaki.json", import.meta.url), "utf8"));
+const file = JSON.parse(readFileSync(new URL("../defaults/themes/kavex.json", import.meta.url), "utf8"));
 const colors = { background: file.background, ...file.colors };
 const InputState = {
   new: ({ value }: { value: string }) => {

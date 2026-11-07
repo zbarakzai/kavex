@@ -1,4 +1,4 @@
-// Cuts assets/zaki-icon.svg into what the `start` mod animates: the filled shapes as one-color SVGs
+// Cuts assets/kavex-icon.svg into what the `start` mod animates: the filled shapes as one-color SVGs
 // (tinted by the theme) and the outlines as short polylines (outline.js), which it fades on in turn
 // so the lines seem to draw themselves. Run it after changing the icon: bun scripts/start-art.ts
 
@@ -6,7 +6,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 
 const root = new URL("..", import.meta.url).pathname;
 const out = `${root}defaults/mods/start/`;
-const svg = readFileSync(`${root}assets/zaki-icon.svg`, "utf8");
+const svg = readFileSync(`${root}assets/kavex-icon.svg`, "utf8");
 const [vx, vy, vw, vh] = svg.match(/viewBox="([^"]+)"/)![1].split(" ").map(Number);
 
 type Pt = [number, number];

@@ -138,7 +138,7 @@ export default class WorkspaceChrome extends View {
     const collapsed = narrow(), mac = window()?.platform === "macos";
     return h_flex().size_full().pl(mac && !collapsed ? 76 : 8).gap(8).items_center()
       .when(!collapsed, el => el.child(image("mods/workspace-chrome/logo.png").size(22).flex_none())
-        .child(div().flex_1().min_w(0).truncate().text_size(16).font_medium().text_color(t.foreground).child("Zaki"))
+        .child(div().flex_1().min_w(0).truncate().text_size(16).font_medium().text_color(t.foreground).child("Kavex"))
         .child(this.button("search", svg("mods/workspace-chrome/icons/search.svg").size(16), () => run("mod.open", { name: "picker" }), t)))
       // On the macOS rail the traffic lights fill the row; the agents list's » unfolds it.
       .when(collapsed && !mac, el => el.child(this.button("sidebar-toggle", svg("mods/workspace-chrome/icons/sidebar.svg").size(16), toggleSidebar, t)));

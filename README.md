@@ -1,32 +1,33 @@
-# Zaki
+# Kavex
 
-Zaki is a desktop app for terminals and coding agents. Keep work in spaces, see which agents need you, and leave terminals running when you close the window.
+Kavex is a desktop app for terminals and coding agents. Keep work in spaces, see which agents need you, and leave terminals running when you close the window.
 
-Zaki is a fork of [Herdr](https://github.com/herdrdev/herdr-app), under the same [Apache-2.0 license](LICENSE).
+Kavex is a fork of [Herdr](https://github.com/herdrdev/herdr-app) by Can Celik and its contributors, under the same [Apache-2.0 license](LICENSE). See [NOTICE](NOTICE) and [THIRD-PARTY-NOTICES](THIRD-PARTY-NOTICES).
 
 ## Install
-
-Zaki installs from a private release link. Ask whoever gave you Zaki for it, and use it in place of `<link>`.
 
 On Linux (x86-64) and macOS (Apple Silicon):
 
 ```sh
-curl -fsSL <link>/app/install.sh | sh
+curl -fsSL https://github.com/zbarakzai/kavex/releases/latest/download/install.sh | sh
 ```
 
 On x64 Windows, in PowerShell:
 
 ```powershell
-irm <link>/app/install.ps1 | iex
+irm https://github.com/zbarakzai/kavex/releases/latest/download/install.ps1 | iex
 ```
 
-The installer adds Zaki to your apps and puts the command in `~/.local/bin` (on Windows, `%LOCALAPPDATA%\Programs\zaki` on your PATH).
-On macOS the app lives in `~/Applications/Zaki.app`.
+The installer adds Kavex to your apps and puts the command in `~/.local/bin` (on Windows, `%LOCALAPPDATA%\Programs\kavex` on your PATH).
+On macOS the app lives in `~/Applications/Kavex.app`.
 Run the command again at any time to reinstall the latest version.
+Downloads are also on the [releases page](https://github.com/zbarakzai/kavex/releases).
+
+Kavex was called Zaki before 0.5.0. Installing Kavex removes the Zaki app and brings your settings, spaces and running terminals over; `~/.config/zaki` is left in place.
 
 Linux needs a desktop session and a working Vulkan driver.
 
-Zaki runs on [herdr-core](https://github.com/herdrdev/herdr-core), the same core Herdr uses.
+Kavex runs on [herdr-core](https://github.com/herdrdev/herdr-core), the same core Herdr uses.
 The app can help install or update a core it cannot use.
 
 ## Find your work
@@ -66,10 +67,10 @@ Remote work keeps running when your local window closes or your laptop sleeps, a
 ## Make it yours
 
 Open the command palette to find an action by name, or open Settings to change fonts, colors, sounds and other preferences.
-The built-in layouts include Zaki, Terminals and Zaki 98.
+The built-in layouts include Kavex, Terminals and Kavex 98.
 A **layout** arranges the window. **Mods** are small JavaScript programs that draw its panels, menus and dialogs.
 
-Duplicate a shipped layout or mod before changing its structure or code. Your copies stay yours; Zaki updates the shipped ones on start.
+Duplicate a shipped layout or mod before changing its structure or code. Your copies stay yours; Kavex updates the shipped ones on start.
 Save a personal layout, mod or key file and the window reloads it.
 A broken edit keeps the last good version and reports the error.
 
@@ -82,27 +83,27 @@ Ctrl+Shift+P shows every command and its key (Cmd+Shift+P on macOS). Change any 
 Installed releases check for updates in the background and download a new app beside the running one. It takes over when you quit and reopen, or choose the update action. Your terminals keep running in the core.
 Settings → Updates shows what is available. Builds from source do not update themselves.
 
-Zaki sends no telemetry, and no feedback unless you send it.
+Kavex sends no telemetry, and no feedback unless you send it.
 
-Usage limits shows how much of your subscriptions is left by running Claude Code's and Codex's own commands, on the machine each one is signed in on. Your logins stay with those agents, and Zaki sends nothing for them. OpenCode has no such command, so it is the one exception: only after you press Allow, Zaki reads your OpenCode key and sends it to `opencode.ai`, and nowhere else, to ask for your Go plan's limits. The key is never saved. Settings → Look turns Usage limits off. [Security and privacy](docs/security.md#usage-limits) says exactly what it reads, runs and sends.
+Usage limits shows how much of your subscriptions is left by running Claude Code's and Codex's own commands, on the machine each one is signed in on. Your logins stay with those agents, and Kavex sends nothing for them. OpenCode has no such command, so it is the one exception: only after you press Allow, Kavex reads your OpenCode key and sends it to `opencode.ai`, and nowhere else, to ask for your Go plan's limits. The key is never saved. Settings → Look turns Usage limits off. [Security and privacy](docs/security.md#usage-limits) says exactly what it reads, runs and sends.
 
-Session context and API cost come from the files agents already write on their own machine, and nothing is sent anywhere. To tell agents apart, Zaki adds a small hook to Codex, which you approve in `/hooks`, and a small extension to Pi.
+Session context and API cost come from the files agents already write on their own machine, and nothing is sent anywhere. To tell agents apart, Kavex adds a small hook to Codex, which you approve in `/hooks`, and a small extension to Pi.
 
 Mods are trusted code, not sandboxed extensions. Read [security and privacy](docs/security.md) before installing someone else's mod.
 
 ## For agents
 
 ```sh
-zaki --skill
+kavex --skill
 ```
 
 This prints the agent guide for driving the window. The herdr-core skill points agents here.
 Use herdr-core for running and coordinating programs; use the app to change what you see.
 
 ```sh
-zaki ls
-zaki status
-zaki commands
+kavex ls
+kavex status
+kavex commands
 ```
 
 The first two inspect the open window. The command list also works without one.
@@ -117,8 +118,8 @@ Linux needs the development packages listed in that workflow.
 macOS needs Xcode, not only the Command Line Tools: `sudo xcode-select -s /Applications/Xcode.app/Contents/Developer` selects it.
 
 ```sh
-git clone --recurse-submodules https://github.com/zbarakzai/zaki.git
-cd zaki
+git clone --recurse-submodules https://github.com/zbarakzai/kavex.git
+cd kavex
 just build
 just test
 just install
@@ -127,9 +128,9 @@ just install
 Install [just](https://github.com/casey/just) to use these recipes.
 The platform installer builds a release and adds the app to your desktop.
 On Linux it links to this checkout, so keep the checkout in place.
-Quit and reopen Zaki to use the new build.
+Quit and reopen Kavex to use the new build.
 
-`just install` replaces an installed Zaki. To try a build beside it instead, run `just dev` (macOS and Linux): it opens a separate window with its own settings, spaces and terminals.
+`just install` replaces an installed Kavex. To try a build beside it instead, run `just dev` (macOS and Linux): it opens a separate window with its own settings, spaces and terminals.
 
 Documentation checks also need [Bun](https://bun.sh): `just docs-check` checks generated pages and CLI examples; `just docs-generate` refreshes the reference pages.
 

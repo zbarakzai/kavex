@@ -1,1 +1,1 @@
-Zaki.app: code object is not signed at all
+Kavex.app: code object is not signed at all

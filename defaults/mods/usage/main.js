@@ -26,7 +26,7 @@ const DOT_GAP = 8;
 // Claude wears the primary orange. On any other agent, orange means a limit that's nearly used.
 const hueOf = (agent, k) => ({ claude: k.accent, codex: k.groups.blue.text, opencode: k.groups.teal.text })[agent] ?? k.muted;
 const ASK_TALL = 148;
-const ASKS = "Zaki reads your OpenCode key and sends it only to opencode.ai, to ask for your Go plan's limits.";
+const ASKS = "Kavex reads your OpenCode key and sends it only to opencode.ai, to ask for your Go plan's limits.";
 
 const limitTall = (limit, row, now) => LIMIT_TALL + (runsOut(limit, row.checkedAt, now) ? ESTIMATE_TALL : 0);
 

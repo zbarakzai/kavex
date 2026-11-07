@@ -1,6 +1,6 @@
 #!/bin/bash
-# Points ~/.local/bin/zaki at this checkout's release build and adds the
-# launcher entry with the Zaki icon. Re-run after moving the checkout.
+# Points ~/.local/bin/kavex at this checkout's release build and adds the
+# launcher entry with the Kavex icon. Re-run after moving the checkout.
 set -euo pipefail
 
 [[ $(uname -s) == Linux ]] || { echo 'This installer is for Linux.' >&2; exit 1; }
@@ -9,20 +9,20 @@ cargo build --release
 
 data=${XDG_DATA_HOME:-$HOME/.local/share}
 mkdir -p "$HOME/.local/bin" "$data/applications" "$data/icons/hicolor/scalable/apps"
-ln -sfn "$PWD/target/release/zaki" "$HOME/.local/bin/zaki"
-cp assets/icons/zaki-ui-icon-clean.svg "$data/icons/hicolor/scalable/apps/zaki.svg"
-cat > "$data/applications/zaki.desktop" <<EOF
+ln -sfn "$PWD/target/release/kavex" "$HOME/.local/bin/kavex"
+cp assets/icons/kavex-ui-icon-clean.svg "$data/icons/hicolor/scalable/apps/kavex.svg"
+cat > "$data/applications/kavex.desktop" <<EOF
 [Desktop Entry]
 Type=Application
-Name=Zaki
+Name=Kavex
 Comment=Terminals and coding agents that keep running
-Exec=$HOME/.local/bin/zaki
-Icon=zaki
+Exec=$HOME/.local/bin/kavex
+Icon=kavex
 Terminal=false
 Categories=Development;
-StartupWMClass=zaki
+StartupWMClass=kavex
 EOF
 update-desktop-database "$data/applications" 2>/dev/null || true
 # A stale icon cache hides new icons until it's rebuilt.
 [[ -f $data/icons/hicolor/icon-theme.cache ]] && gtk-update-icon-cache -f -t "$data/icons/hicolor" >/dev/null 2>&1 || true
-echo "Installed zaki. Quit and reopen Zaki to use the new build."
+echo "Installed kavex. Quit and reopen Kavex to use the new build."

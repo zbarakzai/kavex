@@ -1,7 +1,7 @@
 //! The app's shared world, the same for every layout: spaces, each with
 //! tabs (named pieces of work), each tab holding its terminals and
 //! how they're split. Plus which pane has focus and agent attention (done vs
-//! seen) with Zaki's rollup. Pure data; the window drives it.
+//! seen) with Kavex's rollup. Pure data; the window drives it.
 
 use crate::layout::{Axis, Content, Kind, Node};
 use serde::{Deserialize, Serialize};
@@ -29,7 +29,7 @@ pub struct Tab {
 pub struct Space {
     pub id: String,
     /// The name someone gave it; empty: named after where its first
-    /// terminal is (Zaki's way, `Model::space_name`).
+    /// terminal is (Kavex's way, `Model::space_name`).
     pub name: String,
     pub folder: String,
     /// The machine its terminals run on (`hc machine ls`); None: this one.
@@ -83,7 +83,7 @@ pub struct Model {
     pub folder_info: HashMap<String, FolderInfo>,
 }
 
-/// Zaki's attention priority: blocked > done > working > idle > nothing.
+/// Kavex's attention priority: blocked > done > working > idle > nothing.
 pub fn priority(status: Option<&str>) -> u8 {
     match status {
         Some("blocked") => 4,
@@ -230,7 +230,7 @@ impl Model {
 
     /// Adds a space at the end and selects it.
     /// What a space is called: its name, else its first terminal's checkout
-    /// (a worktree's own folder; outside git its folder), as Zaki names workspaces.
+    /// (a worktree's own folder; outside git its folder), as Kavex names workspaces.
     pub fn space_name(&self, p: &Space, home: &str) -> String {
         if !p.name.is_empty() {
             return p.name.clone();
@@ -470,7 +470,7 @@ impl Model {
         self.active_tab().map(|c| addresses(c.shown())).unwrap_or_default()
     }
 
-    /// Applies a status word from core (Zaki's seen rules).
+    /// Applies a status word from core (Kavex's seen rules).
     pub fn set_word(&mut self, address: &str, word: Option<String>, app: Option<String>, looking: bool) -> bool {
         let a = self.agents.entry(address.to_owned()).or_insert_with(|| Agent { seen: true, ..Default::default() });
         a.app = app.or(a.app.take());
@@ -491,7 +491,7 @@ impl Model {
         true
     }
 
-    /// Zaki's attention rule for a change of 7501 word: needing you always
+    /// Kavex's attention rule for a change of 7501 word: needing you always
     /// alerts; finishing alerts only if the person wasn't looking.
     pub fn alert(prev: Option<&str>, new: Option<&str>, looking: bool) -> Option<Alert> {
         let blocked = |w: Option<&str>| matches!(w, Some("blocked" | "error"));
@@ -599,7 +599,7 @@ pub struct FolderInfo {
 }
 
 /// A space as mods see it. `name` is what to call it; `named`: someone gave it
-/// (else it's Zaki's automatic name, which a mod may show its own way).
+/// (else it's Kavex's automatic name, which a mod may show its own way).
 pub fn space_json(m: &Model, p: &Space, index: usize, branch: Option<&str>, home: &str) -> Value {
     let active = p.active_tab().map(|c| c.id.clone());
     let tabs: Vec<Value> = p

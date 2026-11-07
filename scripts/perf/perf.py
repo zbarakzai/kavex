@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Zaki's performance harness for Windows: one command, numbers you can compare.
+"""Kavex's performance harness for Windows: one command, numbers you can compare.
 
     py -3.12 scripts/perf/perf.py run [--label NAME] [--only cold,open,...]
     py -3.12 scripts/perf/perf.py compare before.json after.json
@@ -349,7 +349,7 @@ def live_identity():
         ids.add(json.loads(out.stdout)["core"]["id"])
     except (ValueError, KeyError):
         pass
-    survivors = {pid: p.created for pid, p in w.snapshot({"zaki.exe", "herdr.exe", "herdr-core.exe", "hc.exe"}).items()}
+    survivors = {pid: p.created for pid, p in w.snapshot({"kavex.exe", "herdr.exe", "herdr-core.exe", "hc.exe"}).items()}
     return ids, survivors
 
 
@@ -380,7 +380,7 @@ def build(args):
         return
     # 4 jobs: a full build with one per CPU, and later with 8, ran this 32 GB laptop out of memory.
     print(f"perf: building (cargo build --release --locked -j {args.jobs})...", flush=True)
-    subprocess.run(["cargo", "build", "--release", "--locked", "-j", str(args.jobs), "--bin", "zaki"], cwd=REPO, check=True, env={k: v for k, v in os.environ.items() if k != "HERDR_APP_RELEASE"})
+    subprocess.run(["cargo", "build", "--release", "--locked", "-j", str(args.jobs), "--bin", "kavex"], cwd=REPO, check=True, env={k: v for k, v in os.environ.items() if k != "HERDR_APP_RELEASE"})
 
 
 def first_ink(events, t0, channel=None, timeout=30):
@@ -537,7 +537,7 @@ def strip_vt(data):
 def core_only(instance, argv, cwd):
     """Time from asking the core to the program's first text, no app involved."""
     client = core_only.client
-    env = {"TERM": "xterm-256color", "COLORTERM": "truecolor", "TERM_PROGRAM": "zaki"}
+    env = {"TERM": "xterm-256color", "COLORTERM": "truecolor", "TERM_PROGRAM": "kavex"}
     t0 = w.now_us()
     made = client.call("terminal.run", {"argv": argv, "cwd": cwd, "env": env, "labels": {}, "keep": True})
     ran = w.now_us()
@@ -969,7 +969,7 @@ def run(args):
             overhead(results, args, work, live_ids)
         rest = wanted - {"cold", "overhead"}
         if rest:
-            instance = Instance(work, "main", args.binary, log="warn,gpui_windows=info,zaki=info")
+            instance = Instance(work, "main", args.binary, log="warn,gpui_windows=info,kavex=info")
             instance.seed_home()
             instance.start_core(live_ids)
             try:
@@ -1099,7 +1099,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="command", required=True)
     r = sub.add_parser("run")
-    r.add_argument("--bin", default=os.path.join(REPO, "target", "release", "zaki.exe"))
+    r.add_argument("--bin", default=os.path.join(REPO, "target", "release", "kavex.exe"))
     r.add_argument("--no-build", action="store_true")
     r.add_argument("--jobs", type=int, default=4, help="cargo build jobs (default 4, to keep memory in hand)")
     r.add_argument("--label")
@@ -1127,7 +1127,7 @@ def main():
     l.add_argument("--seconds", type=float, default=20)
     l.add_argument("--top", type=int, default=12)
     p = sub.add_parser("profile")
-    p.add_argument("--bin", default=os.path.join(REPO, "target", "symbols", "release", "zaki.exe"))
+    p.add_argument("--bin", default=os.path.join(REPO, "target", "symbols", "release", "kavex.exe"))
     p.add_argument("--only", help="comma-separated: startup,idle,hover,open,typing,scroll,output")
     p.add_argument("--out", default=os.path.join(RESULTS, "profiles"))
     p.add_argument("--seconds", type=float, default=12)

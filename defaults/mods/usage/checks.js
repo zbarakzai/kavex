@@ -164,7 +164,7 @@ function programOf({ key, run }) {
   return name === key ? run[0] : key;
 }
 
-const HAS = "zaki-has:", ASKED = "zaki-asked";
+const HAS = "kavex-has:", ASKED = "kavex-asked";
 
 // knownAgents also says "not installed" when it couldn't ask, and on an added machine it looks in
 // another PATH than the agents', so the machine's own shell settles it. Null: it can't be asked.
@@ -196,7 +196,7 @@ async function claude(where, now) {
 }
 
 const CODEX_REQUESTS = [
-  { id: 1, method: "initialize", params: { clientInfo: { name: "zaki", version: "1" } } },
+  { id: 1, method: "initialize", params: { clientInfo: { name: "kavex", version: "1" } } },
   { method: "initialized", params: {} },
   { id: 2, method: "account/read", params: {} },
   { id: 3, method: "account/rateLimits/read" },
@@ -248,7 +248,7 @@ async function opencode() {
   for (const key of await opencodeKeys()) {
     if (!opencodeAllowed()) return null;
     try {
-      const answer = await fetch("https://opencode.ai/zen/go/v1/usage", { headers: { Authorization: `Bearer ${key}`, Accept: "application/json", "User-Agent": "zaki-usage/1.0" } });
+      const answer = await fetch("https://opencode.ai/zen/go/v1/usage", { headers: { Authorization: `Bearer ${key}`, Accept: "application/json", "User-Agent": "kavex-usage/1.0" } });
       if (answer.status === 401 || answer.status === 403) continue;
       const limits = answer.ok ? goLimits(await answer.json()) : [];
       if (limits.length) return { plan: "Go", limits };

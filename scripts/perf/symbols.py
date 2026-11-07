@@ -2,7 +2,7 @@
 and writes folded stacks and top-function tables per scenario.
 
 Folded stacks (`a;b;c 12`) are what flamegraph tools read. Our own code is named
-from the PDB of a build with line tables (`target/symbols/release/zaki.exe`, see
+from the PDB of a build with line tables (`target/symbols/release/kavex.exe`, see
 README.md) by llvm-symbolizer; system DLLs by their export tables, which
 is enough to tell a wait from a syscall from the GPU driver.
 """
@@ -24,7 +24,7 @@ from instance import Instance
 
 
 def symbolizer():
-    for folder in (os.environ.get("LIBCLANG_PATH", ""), os.path.join(os.environ.get("LOCALAPPDATA", ""), "zaki-perf", "llvm", "bin")):
+    for folder in (os.environ.get("LIBCLANG_PATH", ""), os.path.join(os.environ.get("LOCALAPPDATA", ""), "kavex-perf", "llvm", "bin")):
         path = os.path.join(folder, "llvm-symbolizer.exe")
         if os.path.exists(path):
             return path

@@ -1,6 +1,6 @@
-﻿"""Why a terminal Zaki opens with an argv takes about 1.3 s to show its prompt.
+﻿"""Why a terminal Kavex opens with an argv takes about 1.3 s to show its prompt.
 
-    py -3.12 scripts/perf/open_delay.py [target/release/zaki.exe]
+    py -3.12 scripts/perf/open_delay.py [target/release/kavex.exe]
 
 Starts cmd.exe four ways on one isolated core, with the app running on it:
 `hc run --bg`, this script's own connection (instance.CoreClient), the same
@@ -20,7 +20,7 @@ from instance import Instance, CoreClient
 
 live_ids, _ = perf.live_identity()
 work = tempfile.mkdtemp(prefix="zp-")
-binary = sys.argv[1] if len(sys.argv) > 1 else os.path.join(HERE, "..", "..", "target", "release", "zaki.exe")
+binary = sys.argv[1] if len(sys.argv) > 1 else os.path.join(HERE, "..", "..", "target", "release", "kavex.exe")
 i = Instance(work, "open-delay", os.path.abspath(binary))
 i.seed_home()
 i.start_core(live_ids)

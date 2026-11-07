@@ -178,7 +178,7 @@ mod tests {
     fn cwd_with(files: &[&str]) -> PathBuf {
         use std::sync::atomic::{AtomicU32, Ordering};
         static NEXT: AtomicU32 = AtomicU32::new(0);
-        let dir = std::env::temp_dir().join(format!("zaki-refs-{}-{}", std::process::id(), NEXT.fetch_add(1, Ordering::Relaxed)));
+        let dir = std::env::temp_dir().join(format!("kavex-refs-{}-{}", std::process::id(), NEXT.fetch_add(1, Ordering::Relaxed)));
         std::fs::create_dir_all(dir.join("docs")).unwrap();
         for file in files {
             std::fs::write(dir.join(file), "").unwrap();
