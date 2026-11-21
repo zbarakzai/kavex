@@ -82,10 +82,9 @@ the exit code and last output lines.
 
 A terminal started with hc opts into the window with `kavex.space=<id>`. Add `kavex.group=<name>` to land its tab in that tab group, made if it's new.
 `kavex.tab=<id>` chooses its tab; without it, Kavex creates a tab in that space.
-Unlabeled workers stay hidden. Do not add labels just to run a background
-worker. Use app commands when the
-user wants to see a new tab or split, hc for orchestration that need not change
-the screen.
+Use unlabeled `hc run` for a background worker. Live sub-agents appear under
+their parent in the Agents sidebar. A worker with a pane that reports status
+gets its own row. Use app commands when the user wants a new tab or split.
 
 ## Customize layouts, keys, or mods
 

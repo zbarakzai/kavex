@@ -193,9 +193,10 @@ the highlighted line shows where it will land.
   looking (it becomes `idle` once they look). A space's and a tab's
   status is the most urgent of its agents: blocked > done > working > idle.
 - **Sub-agents** are terminals an agent started with `hc run`: the core
-  records the starter as `parent` (see `terminals()`). They belong to their
-  parent's tab without a pane; the `agents` mod shows them,
-  `terminal.peek` opens one, `terminal.keep` gives one a pane.
+  records the starter as `parent` (see `terminals()`). The Agents list nests
+  them under their parent. `terminal.peek` opens one, and `terminal.keep`
+  gives one a pane. A kept agent that reports status gets its own row and
+  carries its workers with it. `terminal.park` puts it back under its parent.
   Ctrl-click (Cmd-click on macOS) a live terminal address in terminal text to
   peek at it. The same click on a Markdown file opens it in the Files panel; any other
   file or URL goes to the system (on Windows a program or script is shown in Explorer, not run). Bare addresses refer to the machine of the terminal showing them;
