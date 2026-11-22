@@ -1825,6 +1825,8 @@ test("the usage status strip shows the active machine and opens the roster above
   const view: any = new WorkspaceStatus();
   state.props = { usage: true };
   const status = view.render(cx).el as El;
+  expect(arg(status, "bg")).toBeUndefined();
+  expect(arg(status, "border_t")).toBe(1);
   const strip = byId(status, "usage-status")!;
   expect(words(strip)).toEqual(expect.arrayContaining(["Usage", "81%"]));
   expect(words(strip)).not.toContain("12%");

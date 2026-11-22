@@ -77,7 +77,8 @@ export default class WorkspaceStatus extends View {
       .when(Boolean(highest), (el) => el.child(div().font_family("Geist Mono").text_size(11)
         .text_color(used >= 90 ? t.blocked : t.foreground).child(`${value}%${highest.row.failed ? "*" : ""}`)));
 
-    return h_flex().size_full().px(9).gap(8).items_center().bg(t.chrome)
+    // The workspace already paints its rounded surface behind the strip.
+    return h_flex().size_full().px(9).gap(8).items_center()
       .border_t(1).border_color(t.border).text_size(11).text_color(t.muted)
       .on_size_change((size, cx) => {
         const width = Math.round(size.width / (settings().zoom || 1));
