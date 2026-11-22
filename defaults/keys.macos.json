@@ -61,8 +61,7 @@
     "ctrl-9": "space.select:9"
   },
   "layout:main": {
-    "cmd-shift-b": "layout.toggle:panel",
-    "cmd-shift-r": "tabs-column.focus"
+    "cmd-shift-b": "layout.toggle:panel"
   },
   "terminal": {
     "cmd-c": "terminal.copy",

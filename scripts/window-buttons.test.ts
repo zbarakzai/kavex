@@ -69,7 +69,7 @@ const holders = () => Object.entries(places()).filter(([, root]) => byId(root, "
 function show(ids: { panel?: boolean; column?: boolean; width?: number }) {
   const root = JSON.parse(shipped), find = (id: string) => root.children.find((n: any) => n.id === id);
   find("panel").hidden = !ids.panel;
-  find("tabs-column").hidden = !ids.column;
+  if (ids.column) root.children.push({ id: "tabs-column", type: "block", content: { mod: "tabs-column" } });
   if (ids.width) find("panel").size.px = ids.width;
   state.layout = root;
   return root;
@@ -90,6 +90,28 @@ test("the tab bar draws them at its right end in every layout state, and nothing
     expect(tabs.kids.map(mine).at(-1), name).toBe(byId(tabs, "window-buttons")!); // after the folder button
     expect(arg(tabs, "pr"), name).toBe(6);
   }
+});
+
+test("the shipped layout keeps grouped tabs on top with a saved right placement", () => {
+  state.shared["tabs.placement"] = "right";
+  state.shared["tab.groups"] = { test: { name: "Test", color: "blue", tabs: ["a"] } };
+  const tabs = draw(Tabs);
+  expect(state.layout.children.some((node: any) => node.id === "tabs-column")).toBe(false);
+  expect(byId(tabs, "placement")).toBeUndefined();
+  expect(byId(tabs, "group-test")).toBeDefined();
+  expect(byId(tabs, "tab-scroll")).toBeDefined();
+  expect(state.ran).not.toContain("layout.show");
+});
+
+test("scrolling the tab bar or a custom Tabs column does not select a tab", () => {
+  for (const [name, root] of Object.entries(places())) {
+    if (name !== "tabs" && name !== "column") continue;
+    state.ran = [];
+    handler(root, "on_scroll_wheel")?.({ delta_lines: { x: 0, y: 1 } }, cx);
+    expect(state.ran, name).not.toContain("tab.select");
+    expect(has(root, "on_scroll_wheel"), name).toBe(false);
+  }
+  expect(has(byId(draw(Tabs), "tab-scroll")!, "overflow_x_scroll")).toBe(true);
 });
 
 test("with the Tabs column shown the bar still draws, showing the current tab, with the buttons", () => {

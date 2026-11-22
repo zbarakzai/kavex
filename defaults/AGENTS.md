@@ -127,8 +127,8 @@ on this screen in `shared("spaces.recent")`.
   `settled` on each tab. Kavex's tab bar settles the tabs of a folded group; the
   other shipped layouts list every tab, and a mod can hide or fold settled tabs.
   Showing one, or an agent in it needing the user, brings it back.
-- Tabs can be **grouped** on this screen, in the `tabs` bar (the main layout's) or
-  its `tabs-column`. It's shared state, not the model, so any mod can read or edit it and
+- Tabs can be **grouped** in the `tabs` bar above the terminals. Groups use shared state,
+  so any mod can read or edit them and
   the bar makes the tabs follow: `shared("tab.groups")` is `{ id: { name, color,
   fill?, folded, tabs: [tab ids] } }`. A group's color is `blue`, `violet` or `teal`, never
   orange, which means "you"; a group saved under another color shows the nearest of
@@ -136,31 +136,23 @@ on this screen in `shared("spaces.recent")`.
   also the background of the tabs in it in the column, never of its name.
   `shared("tab.colors")` is `{ tab id: color }`, the same three: a tab's own background, which
   wins over its group's; `"none"` keeps a tab clear in a filled group. Setting either moves nothing. `shared("tab.folders")`, older per-folder colors, are kept but no
-  longer drawn. A group's tabs stay side by side (strays are moved with `tab.move`); with tabs
-  on the right the tabs' order is the one the column draws, so a tab leaving a group lands at
-  the end of the loose tabs and a new group comes first among the groups. A folded group's tabs are settled, so `tab.next`,
+  longer drawn. A group's tabs stay side by side (strays are moved with `tab.move`).
+  A folded group's tabs are settled, so `tab.next`,
   `tab.prev` and `tab.select {index}` skip them, and its name shows how many, with an
   orange dot if one needs you; the shown tab stays out of the fold until you leave it.
-  `shared("tabs.placement")` is `"top"` (the default) or `"right"`: one value, set by
-  the bar's switch and the row in Settings > Look, each showing what the other set. On
-  the right the bar shows the current tab and the `tabs-column` block lists tabs as
-  rows, loose ones first, then each group under its name, with a folded group keeping
-  only the current tab's row; only one side panel shows at a time, so the column makes
-  way while Files or Changes is open. Both placements do the same things:
-  `shared("tabs.picked")` holds the picked tabs. `tabs-column.focus` (`cmd-shift-r`,
-  `ctrl-shift-r`, under `layout:main`) moves the keyboard onto the column, on the
-  current tab: up and down move, left and right fold and unfold a group, Enter opens a
-  tab or folds a group, and Esc goes back to the terminal. It needs the column on
-  screen, and otherwise fails with a toast. The list can't be scrolled from a mod, so
-  a list too long for the column can leave the keyboard's row out of view.
+  `shared("tabs.picked")` holds the picked tabs. A custom layout can include the
+  legacy `tabs-column` block and use `shared("tabs.placement")` set to `"right"`.
+  `tabs-column.focus` focuses the visible column. Up and down move, left and right
+  fold and unfold a group, Enter opens a tab or folds a group, and Esc returns to
+  the terminal.
   A person right-clicks a tab or a group's name (the `tab-menu` mod: props `{ tabs, make: true }`
   drafts a new group, which changes nothing until it's created), clicks a
   name to fold, drags a tab in or out of a group and a name to move the group,
   and Cmd-clicks (Ctrl-clicks) or Shift-clicks to pick several tabs. The bar or
   column makes room as a tab is carried; pulled far from it, the tab goes back
   (`tab-drag`, a clear layer over the window, carries the pointer meanwhile; its prop
-  `to` names the mod that gets the positions). A mouse wheel over them steps through
-  tabs and stops at the ends; a trackpad scrolls. A terminal started with the label
+  `to` names the mod that gets the positions). The wheel and trackpad scroll through
+  tabs when they overflow. A terminal started with the label
   `kavex.group=<name>` lands in that group, made if it's new, once; after that its tab
   is the person's to move. For keys:
   `tabs.group` (the picked tabs, or the shown one; asks for a name and a color), `tabs.fold`,
@@ -482,8 +474,8 @@ Properties any node can have:
   room. Where the system draws no buttons (`window().buttons`, Linux and
   Windows), the layout draws them with `window.minimize`, `window.maximize`, `window.close`.
   In `main` the `tabs` bar above the terminals always draws them, as three small
-  buttons at its right end, even with Files, Changes or the Tabs column open beside
-  it; those never draw them. Close turns red on hover.
+  buttons at its right end, even with Files or Changes open beside it. Close turns
+  red on hover.
   Windows' shipped window buttons and system strip use vector window icons, with a
   restore icon when maximized, rather than font glyphs.
 - Root only: `"preview": "layouts/<name>.svg"` (or png): the picture the
@@ -640,9 +632,7 @@ The default window, in short (`layouts/main.json` is the whole of it):
     { "id": "panel", "type": "column", "hidden": true, "size": { "px": 680 }, "min": 330, "max": 900,
       "children": [ { "id": "panel-body", "type": "stack", "active": "files", "children": [
         { "id": "files", "type": "block", "content": { "mod": "files" } },
-        { "id": "changes", "type": "block", "content": { "mod": "changes" } } ] } ] },
-    { "id": "tabs-column", "type": "block", "hidden": true, "size": { "px": 330 }, "min": 330, "max": 480,
-      "content": { "mod": "tabs-column" } } ] }
+        { "id": "changes", "type": "block", "content": { "mod": "changes" } } ] } ] } ] }
 ```
 
 Sidebar on the right: move `sidebar` to the end of `root`'s children. No sidebar: set

@@ -69,10 +69,10 @@ test("no color is missing under a theme without the design's names", () => {
   for (const [name, value] of colors) expect(value, name).toMatch(/^#[0-9a-f]{6}([0-9a-f]{2})?$/i);
 });
 
-test("the Tabs column's focus key sits beside the panel key, on a key nothing else uses", () => {
+test("the main layout omits the old Tabs column shortcut", () => {
   for (const [file, key] of [["keys.macos.json", "cmd-shift-r"], ["keys.json", "ctrl-shift-r"]] as const) {
     const keys = JSON.parse(readFileSync(join(root, file), "utf8"));
-    expect(keys["layout:main"][key]).toBe("tabs-column.focus");
+    expect(keys["layout:main"][key]).toBeUndefined();
     for (const section of ["global", "terminal"]) expect(keys[section][key], section).toBeUndefined();
   }
 });

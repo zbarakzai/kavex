@@ -1,6 +1,6 @@
 import { test, expect } from "bun:test";
 import { readFile } from "node:fs/promises";
-import { COLUMN, GAP, HUES, INNER, away, clicked, columnHome, columnOrder, columnRuns, columnSlots, columnStops, failed, firstAmongGroups, gathered, groupOf, home, labeled, landed, leastUsed, moves, nearest, nearestY, nextColor, pruned, reopening, runs, sectionHeight, shownIn, shows, slots, stepped } from "../defaults/mods/tabs/groups.js";
+import { COLUMN, GAP, HUES, INNER, away, clicked, columnHome, columnOrder, columnRuns, columnSlots, columnStops, failed, firstAmongGroups, gathered, groupOf, home, labeled, landed, leastUsed, moves, nearest, nearestY, nextColor, pruned, reopening, runs, sectionHeight, shownIn, shows, slots } from "../defaults/mods/tabs/groups.js";
 
 const blank = { groups: {}, colors: {}, folders: [] };
 const auth = { auth: { name: "auth", color: "ansi4", folded: false, tabs: ["b", "c"] } };
@@ -59,13 +59,6 @@ test("a fold keeps out only the shown tab", () => {
 test("tabs that are gone leave their group, and an empty group goes", () => {
   expect(pruned(auth, (id) => id === "b").auth.tabs).toEqual(["b"]);
   expect(pruned(auth, () => false)).toEqual({});
-});
-
-test("a mouse wheel steps through tabs and stops at the ends", () => {
-  const tabs = [{ id: "a", active: true }, { id: "b", settled: true }, { id: "c" }];
-  expect(stepped(tabs, true)?.id).toBe("c");
-  expect(stepped(tabs, false)).toBeNull();
-  expect(stepped([{ id: "a" }, { id: "c", active: true }], true)).toBeNull();
 });
 
 // a | [tag b c] | d, every tab 100 wide, every tag 50.

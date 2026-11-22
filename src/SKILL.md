@@ -47,7 +47,8 @@ kavex do file.preview --file plan.md
 A relative path starts at your own folder. Add `--on vps` for a file on another machine. Cmd-click (Ctrl-click) on a Markdown file's name in terminal text does the
 same, so naming a file that exists in your output lets the person open it themselves.
 
-Tab groups and colors belong to the person. `kavex do tabs.group`, `tabs.fold`,
+In the main layout, tabs and groups sit above the terminals. Tab groups and
+colors belong to the person. `kavex do tabs.group`, `tabs.fold`,
 `tabs.ungroup` and `tabs.color` act on the shown tab, in layouts with the tab
 bar: use them only when asked. Folded tabs show `settled` in `ls`.
 

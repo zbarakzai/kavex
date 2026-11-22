@@ -2003,7 +2003,7 @@ const flip = () => handler(byId(settingsPage(), "st-usage")!, "on_click")({}, cx
 test("Settings has a Usage limits row in its Workspace group, on until turned off", () => {
   const root = settingsPage();
   expect(words(root)).toContain("Usage limits");
-  const card = all(root).filter((e) => byId(e, "st-tabs-On top") && byId(e, "st-usage")).at(-1)!;
+  const card = all(root).filter((e) => byId(e, "st-panel-files") && byId(e, "st-usage")).at(-1)!;
   expect(arg(card, "bg")).toBe(colors.card);
   expect(arg(byId(root, "st-usage-knob")!, "left")).toBe(18);
   flip();

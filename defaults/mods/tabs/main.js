@@ -1,7 +1,7 @@
 import { View, div, svg, image } from "gpui-kit";
 import { h_flex } from "gpui-base";
 import { spaces, panes, terminals, machines, knownAgents, run, openOverlay, closeOverlay, theme, window, shared, setShared, layout, settings, nextCommand, home as homeFolder } from "herdr";
-import { GAP, HUES, INNER, away, clicked, columnOrder, failed, gathered, groupOf, home, labeled, landed, moves, nearest, nextColor, pruned, reopening, runs, shows, slotKey, slots, stepped } from "./groups.js";
+import { GAP, HUES, INNER, away, clicked, columnOrder, failed, gathered, groupOf, home, labeled, landed, moves, nearest, nextColor, pruned, reopening, runs, shows, slotKey, slots } from "./groups.js";
 import { look, groupHue, tabHue, spaced, MONO } from "./look.js";
 import { loader } from "./loader.js";
 import { windowButtons } from "./window-buttons.js";
@@ -233,17 +233,6 @@ export default class Tabs extends View {
     cx.notify();
   }
 
-  // A mouse wheel's notch steps through the tabs. A trackpad only scrolls the strip, and so
-  // does a wheel when the strip overflows: GPUI hands every event on, and stepping tabs
-  // while scrolling changed the strip's width under it, which is what made it flicker.
-  wheel(e, { space, s }) {
-    const notch = e.delta_lines?.y ?? 0;
-    if (Math.abs(notch) < 1 || !space) return;
-    const end = slots(runs(space.tabs, s.groups), {}, (key) => this.width(key), this.away).at(-1).x - GAP;
-    const next = end <= this.stripW && stepped(space.tabs, notch < 0);
-    if (next) run("tab.select", { id: next.id });
-  }
-
   // In a drag, every place it could land is a room, shut but for the one it's over. The layout
   // does the rest: neighbours slide apart and a tray grows to take it in.
   room(key) {
@@ -338,18 +327,6 @@ export default class Tabs extends View {
       .children(out.map((c) => this.roomed(this.pill(c, v, true), c.id, c === out.at(-1) ? inside : null)));
   }
 
-  placement(k) {
-    const now = shared("tabs.placement") === "right" ? "right" : "top";
-    const radio = (value, icon) => h_flex().id(`place-${value}`).size(26).flex_none().items_center().justify_center().rounded(13)
-      .text_color(now === value ? k.foreground : k.label).when(now === value, (el) => el.bg(k.pill_selected))
-      .when(now !== value, (el) => el.hover((s) => s.bg(k.hover_strong).text_color(k.foreground)))
-      .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
-      .on_click(() => setShared("tabs.placement", value))
-      .child(svg(`mods/workspace-chrome/icons/${icon}.svg`).size(16));
-    return h_flex().id("placement").flex_none().gap(2).p(3).items_center().rounded(999).bg(k.pill).border_1().border_color(k.pill_ring)
-      .child(radio("top", "tabs-top")).child(radio("right", "tabs-right"));
-  }
-
   current(shown, v) {
     const { k } = v, c = shown.find((x) => x.active);
     if (!c) return div().flex_1();
@@ -400,7 +377,9 @@ export default class Tabs extends View {
   render(cx) {
     const t = theme(), k = look(t);
     // Each live read copies its whole list into the script: once per render.
-    const all = spaces(), terms = terminals(), right = shared("tabs.placement") === "right";
+    const all = spaces(), terms = terminals(), root = layout(), w = window();
+    const { sidebar, panel, "panel-body": body, "tabs-column": column } = find(root, ["sidebar", "panel", "panel-body", "tabs-column"]);
+    const right = column?.content?.mod === "tabs-column" && shared("tabs.placement") === "right";
     const space = all.find(p => p.active);
     const machine = space?.machine ?? null;
     const ready = () => machine === null || machines().some(m => m.name === machine && m.layout === "ready");
@@ -423,8 +402,6 @@ export default class Tabs extends View {
     const d = this.drag;
     const bar = runs(shown, s.groups).filter((r) => !d || (r.group ? r.group !== d.moving.group : !d.moving.tabs?.includes(r.tab.id)));
     const stop = (_e, cx) => cx.stop_propagation();
-    const root = layout(), w = window();
-    const { sidebar, panel, "panel-body": body, "tabs-column": column } = find(root, ["sidebar", "panel", "panel-body", "tabs-column"]);
     // Old saved rails and a dragged-narrow sidebar can be smaller than the window buttons.
     const lightsPadding = w?.platform === "macos" && w.titlebar === "none" && !w.fullscreen && root?.traffic_lights
       ? Math.max(6, (root.traffic_lights[0] + 64) / settings().zoom - (sidebar?.hidden ? 0 : sidebar?.size?.px ?? 0))
@@ -452,14 +429,12 @@ export default class Tabs extends View {
       .when(Boolean(this.press || d), (el) => el.on_mouse_move((e, cx) => this.moved(e, v, cx)))
       .on_mouse_up("left", (_e, cx) => this.up(cx))
       .on_hover((on) => { if (!on) this.press = null; })
-      .on_scroll_wheel((e) => this.wheel(e, v))
       .child(right ? this.current(shown, v) : strip)
       .when(!right && v.picked.length > 1, el => el.child(h_flex().id("group-picked").h(CHIP).px(10).flex_none().items_center().rounded(11)
         .border(1).border_color(k.foreground).text_size(13.5).text_color(k.foreground).hover(s => s.bg(k.hover))
         .on_mouse_down("left", (e, cx) => this.armed(e, cx)).on_click(this.unlessShut("group-picked", () => this.group(v.picked))).child(`Group ${v.picked.length} tabs`)))
       .when(!right, (el) => el.child(h_flex().id("tab-new").size(28).flex_none().items_center().justify_center().rounded(8).text_color(k.muted).hover(s => s.bg(k.hover_strong).text_color(k.foreground))
         .on_mouse_down("left", (e, cx) => this.armed(e, cx)).on_click(this.unlessShut("tab-new", () => openOverlay({ mod: "new-menu", kind: "popup", width: 250, height: 512, props: { from: "tab-new" } }))).child(svg("mods/workspace-chrome/icons/plus.svg").size(16))))
-      .child(this.placement(k))
       .when(enabled.length > 0, (el) => el.child(folder))
       .when(Boolean(w?.buttons), (el) => el.child(windowButtons(k)))
       .when(Boolean(d), el => el.child(this.ghost(v)));

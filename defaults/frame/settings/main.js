@@ -355,12 +355,6 @@ export default class Settings extends View {
       );
   }
 
-  // The same value as the tab bar's switch: each shows what the other sets.
-  tabsPicker(t) {
-    const now = shared("tabs.placement") === "right" ? "right" : "top";
-    return this.segments(t, "st-tabs", [["top", "On top"], ["right", "On the right"]], now, (value) => setShared("tabs.placement", value));
-  }
-
   appearancePicker(t) {
     const pick = (value, cx) =>
       this.change((p) => {
@@ -537,7 +531,6 @@ export default class Settings extends View {
             "Workspace",
             this.card(
               t,
-              this.row(t, "Tabs", "A bar on top, or a column on the right.", this.tabsPicker(t)),
               ...PANELS.map(([id, title, about]) => this.row(t, title, about, this.toggle(t, `st-panel-${id}`, this.panels().includes(id), () => this.togglePanel(id)))),
               this.row(t, "Usage limits", "Show account usage in the workspace footer and refresh while Kavex is active.", this.toggle(t, "st-usage", this.usageOn(), () => this.toggleUsage())),
             ),

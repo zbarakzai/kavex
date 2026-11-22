@@ -180,19 +180,6 @@
           ]
         }
       ]
-    },
-    {
-      "id": "tabs-column",
-      "type": "block",
-      "hidden": true,
-      "size": {
-        "px": 330
-      },
-      "min": 330,
-      "max": 480,
-      "content": {
-        "mod": "tabs-column"
-      }
     }
   ]
 }

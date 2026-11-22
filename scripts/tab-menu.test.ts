@@ -24,7 +24,7 @@ const byId = (root: El, id: string) => all(root).find((e) => arg(e, "id") === id
 const words = (root: El) => all(root).flatMap((e) => e.kids.filter((k) => typeof k === "string"));
 const handler = (e: El, name: string) => e.calls.find(([k]) => k === name)?.[1].at(-1);
 
-let state: { shared: Record<string, any>; props: any; closed: string[]; ran: string[]; moved: any[]; input: any };
+let state: { shared: Record<string, any>; props: any; layout?: any; closed: string[]; ran: string[]; moved: any[]; input: any };
 const file = JSON.parse(readFileSync(new URL("../defaults/themes/kavex.json", import.meta.url), "utf8"));
 const colors = { background: file.background, ...file.colors };
 const InputState = {
@@ -47,7 +47,7 @@ mock.module("herdr", () => ({
   spaces: () => [{ id: "s", active: true, tabs: ["a", "b", "c"].map((id) => ({ id })) }],
   shared: (k: string) => state.shared[k],
   setShared: (k: string, v: any) => { state.shared[k] = v; },
-  layout: () => null,
+  layout: () => state.layout,
 }));
 const { default: TabMenu } = await import("../defaults/mods/tab-menu/main.js");
 
@@ -101,13 +101,15 @@ test("a new group changes nothing until it's created", () => {
 
 test("with tabs on the right a new group's section comes first among the groups", () => {
   state.shared["tabs.placement"] = "right";
+  state.layout = { children: [{ id: "tabs-column", content: { mod: "tabs-column" } }] };
   const { draw } = open({ tabs: ["c"], make: true, space: "s" });
   click(rowNamed(draw(), "Create group"), "tm-0");
   expect(state.moved).toEqual([{ id: "c", index: 2 }]);
   expect(state.shared["tabs.hold"]).toBeGreaterThan(Date.now());
 });
 
-test("on the bar a new group moves no tab", () => {
+test("on the bar a new group moves no tab with a saved right placement", () => {
+  state.shared["tabs.placement"] = "right";
   const { draw } = open({ tabs: ["c"], make: true, space: "s" });
   click(rowNamed(draw(), "Create group"), "tm-0");
   expect(state.moved).toEqual([]);
