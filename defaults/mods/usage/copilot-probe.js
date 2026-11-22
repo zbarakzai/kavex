@@ -107,6 +107,9 @@ export function copilotPowershell(program) {
   return `
 $ErrorActionPreference = 'Stop'
 $utf8 = New-Object Text.UTF8Encoding $false
+# .NET Framework lacks StandardInputEncoding and inherits the console encoding.
+# A UTF-8 preamble before Content-Length makes the server reject the first frame.
+[Console]::InputEncoding = $utf8
 [Console]::OutputEncoding = $utf8
 $go = New-Object Diagnostics.ProcessStartInfo
 $go.FileName = $env:ComSpec

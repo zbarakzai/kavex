@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, readFileSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { readCopilot } from "../defaults/mods/usage/copilot-probe.js";
@@ -179,6 +179,8 @@ test("Amp leaves unavailable and malformed readings out of its meters", async ()
 const copilotServer = String.raw`
 if (JSON.stringify(process.argv.slice(2)) !== '["--headless","--no-auto-update","--stdio"]') process.exit(1);
 const legacy = process.env.KAVEX_QUOTA_FIXTURE === "legacy";
+const trace = process.env.KAVEX_QUOTA_TRACE;
+const { appendFileSync } = require("node:fs");
 let buffer = Buffer.alloc(0), connected = false;
 function frame(payload, split = false) {
   const json = Buffer.from(JSON.stringify({ jsonrpc: "2.0", ...payload }));
@@ -212,6 +214,7 @@ function reply(call) {
   }
 }
 process.stdin.on("data", (chunk) => {
+  if (trace) appendFileSync(trace, chunk);
   buffer = Buffer.concat([buffer, chunk]);
   for (;;) {
     const headers = buffer.indexOf("\r\n\r\n");
@@ -247,9 +250,10 @@ async function wiredCopilot(legacy: boolean) {
         const invoked = windows
           ? ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", powershell("'" + program.replaceAll("'", "''") + "'")]
           : ["sh", "-c", posix(shellQuote(program))];
-        const child = Bun.spawn(invoked, { cwd: dir, env: { ...process.env, KAVEX_QUOTA_FIXTURE: legacy ? "legacy" : "current" }, stderr: "pipe", stdout: "pipe" });
+        const child = Bun.spawn(invoked, { cwd: dir, env: { ...process.env, KAVEX_QUOTA_FIXTURE: legacy ? "legacy" : "current", KAVEX_QUOTA_TRACE: join(dir, "input.bin") }, stderr: "pipe", stdout: "pipe" });
         const [code, stdout, stderr] = await Promise.all([child.exited, new Response(child.stdout).text(), new Response(child.stderr).text()]);
-        expect(code, stderr).toBe(0);
+        const trace = existsSync(join(dir, "input.bin")) ? readFileSync(join(dir, "input.bin")).toString("hex").slice(0, 96) : "none";
+        expect(code, stderr + "\nFixture input bytes: " + trace).toBe(0);
         return { code, stdout, stderr };
       },
     });
