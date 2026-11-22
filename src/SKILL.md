@@ -114,7 +114,7 @@ Use the back button to return to the list. **History** groups saved readings by
 date. **Accounts** shows provider status and access controls. Use **More actions**
 for Add machine and Customize.
 
-The activity icon beside **Usage** opens **System monitor** for this computer.
+The memory icon beside **Usage** opens **System monitor** for this computer.
 It shows live CPU and memory history and the usage of Kavex's desktop process
 and local agent sessions. From any layout, open it with
 `kavex do mod.open '{"name":"system-monitor"}'`.

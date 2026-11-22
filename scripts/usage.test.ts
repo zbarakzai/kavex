@@ -3018,6 +3018,7 @@ test("the main status strip opens a local monitor alongside independent Usage li
   const root = view.render(cx).el as El;
   const monitor = byId(root, "system-monitor-status")!;
   expect(arg(monitor, "accessibility_label")).toBe("System monitor");
+  expect(paths(monitor)).toEqual(["mods/workspace-chrome/icons/memory.svg"]);
   expect(words(root)).toEqual(["Usage"]);
   handler(monitor, "on_mouse_down")({ bounds: BUTTON }, cx);
   handler(monitor, "on_click")({}, cx);

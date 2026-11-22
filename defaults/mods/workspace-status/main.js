@@ -9,8 +9,6 @@ const MONITOR = "system-monitor-status";
 const MONITOR_WIDTH = 442;
 const MONITOR_HEIGHT = 336;
 
-const activity = () => svg("mods/workspace-chrome/icons/activity.svg").size(16).flex_none();
-
 export default class WorkspaceStatus extends View {
   init(_props, cx) {
     if (props()?.monitor) this.monitorFocus = cx.focus_handle();
@@ -86,7 +84,7 @@ export default class WorkspaceStatus extends View {
         })
         .on_mouse_down("left", (e) => { this.monitorPressed = { at: Date.now(), bounds: e.bounds }; })
         .on_click(() => this.openMonitor())
-        .child(activity())))
+        .child(svg("mods/workspace-chrome/icons/memory.svg").size(16).flex_none())))
       .when(config.usage && shared("usage.enabled") !== false, (el) => el.child(button(SOURCE, "Usage limits")
         .on_mouse_down("left", (e) => { this.pressed = { at: Date.now(), bounds: e.bounds }; })
         .on_click(() => this.open(space?.machine ?? null))

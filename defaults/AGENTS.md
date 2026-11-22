@@ -373,7 +373,7 @@ the **Used** and **Left** setting. **Accounts** shows provider status and access
 - **Off** in **Settings → Look → Usage limits** hides the Usage button, stops checks, and clears readings,
   usage history, warnings and consent. Display preferences are kept in `shared("usage.presentation")`.
 
-The activity icon next to **Usage** opens **System monitor**. When focused,
+The memory icon next to **Usage** opens **System monitor**. When focused,
 Enter or Space also opens it. It shows this computer's CPU and memory, a short
 live history, and the CPU and resident memory of Kavex's desktop process and
 local agent sessions. CPU percentages
