@@ -245,6 +245,8 @@ export function window(): {
   maximized: boolean;
   fullscreen: boolean;
   active: boolean;
+  /** Keep computer awake mode and whether the operating system is holding an assertion. */
+  awake: { mode: "on" | "auto" | "off"; active: boolean };
 };
 
 /** For a floating mod: where it sits now. `vertical` on the left/right edges, horizontal on

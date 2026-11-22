@@ -47,6 +47,7 @@ let state: {
   platform: string;
   zoom?: number;
   active: boolean;
+  awake?: { mode: string; active: boolean };
   agents: Record<string, any[] | Error>;
   machines: { name: string | null; layout: string }[];
   runs: { line: string; on: string | null }[];
@@ -111,7 +112,7 @@ mock.module("herdr", () => ({
   props: () => state.props,
   theme: () => colors,
   settings: () => ({ zoom: state.zoom ?? 1, font_family: "Geist Mono", font_size: 13, ui_font_family: "Geist", theme_dark: "kavex", theme_light: "paper" }),
-  window: () => ({ platform: state.platform, active: state.active }),
+  window: () => ({ platform: state.platform, active: state.active, awake: state.awake }),
   home: () => "/home/person",
   appHome: () => "/home/person/.config/kavex",
   readTextFile: async (path: string) => { state.reads.push(path); return state.files[path] ?? null; },
@@ -1856,15 +1857,91 @@ test("the standalone Usage button opens the roster at the right edge for the act
   expect(arg(status, "bg")).toBeUndefined();
   expect(arg(status, "border_t")).toBeUndefined();
   expect(status.calls.some(([name]) => name === "justify_end")).toBe(true);
-  expect(words(status)).toEqual(["Usage"]);
   const strip = byId(status, "usage-status")!;
+  expect(words(strip)).toEqual(["Usage"]);
   handler(strip, "on_mouse_down")({ bounds: BUTTON }, cx);
   handler(strip, "on_click")({}, cx);
   expect(state.overlays.at(-1)).toMatchObject({ mod: "usage", width: 400, props: { from: "usage-status", machine: "vps" } });
   expect(state.overlays.at(-1).at).toEqual({ x: BUTTON.x + BUTTON.width - 400, y: BUTTON.y - (92 + 53 + 23) - 8 });
 
   state.shared["usage.enabled"] = false;
-  expect(words(view.render(cx).el)).toEqual([]);
+  expect(byId(view.render(cx).el, "usage-status")).toBeUndefined();
+});
+
+test("Keep computer awake sits beside Usage and stays available when usage checks are off", () => {
+  const view = new WorkspaceStatus();
+  state.props = { usage: true };
+  const status = view.render().el;
+  const controls = all(status).filter((el) => ["keep-awake", "usage-status"].includes(arg(el, "id")));
+  expect(controls.map(words)).toEqual([["Usage"], ["Off"]]);
+  state.shared["usage.enabled"] = false;
+  expect(byId(view.render().el, "keep-awake")).toBeDefined();
+  expect(byId(view.render().el, "usage-status")).toBeUndefined();
+});
+
+test("the awake menu opens upward, picks a mode with the keyboard, and toggles closed on a second press", () => {
+  const view = new WorkspaceStatus();
+  state.props = { usage: true };
+  const trigger = byId(view.render().el, "keep-awake")!;
+  expect(arg(trigger, "tab_index")).toBe(0);
+  const click = () => {
+    handler(trigger, "on_mouse_down")({ bounds: BUTTON }, cx);
+    handler(trigger, "on_click")({}, cx);
+  };
+  click();
+  const popup = state.overlays[0];
+  expect(popup).toMatchObject({ mod: "workspace-status", kind: "popup", props: { awakeMenu: true } });
+  expect(popup.at.x + popup.width).toBe(BUTTON.x + BUTTON.width);
+  expect(popup.at.y + popup.height).toBeLessThan(BUTTON.y);
+  expect(words(view.render().el)).not.toContain("Closing the Mac's lid still allows sleep.");
+
+  // A press on the trigger dismisses the open popup before the click reaches the trigger.
+  state.props = { ...popup.props, overlay: "awake-popup" };
+  new WorkspaceStatus().close();
+  state.props = { usage: true };
+  click();
+  expect(state.overlays).toHaveLength(1);
+
+  setSystemTime(Date.now() + 101);
+  click();
+  expect(state.overlays).toHaveLength(2);
+  state.props = { ...popup.props, overlay: "awake-popup" };
+  const menu = new WorkspaceStatus();
+  menu.init({}, cx);
+  const tree = menu.render().el;
+  expect(arg(byId(tree, "awake-off")!, "aria_selected")).toBe(true);
+  const key = handler(byId(tree, "awake-menu")!, "on_key_down");
+  key({ key: "up" }, cx);
+  const focused = menu.render().el;
+  expect(arg(byId(focused, "awake-auto")!, "border_color")).toBe(colors.accent);
+  expect(arg(byId(focused, "awake-auto")!, "aria_selected")).toBe(false);
+  expect(arg(byId(focused, "awake-off")!, "aria_selected")).toBe(true);
+  key({ key: "enter" }, cx);
+  expect(state.shared["awake.mode"]).toBe("auto");
+  expect(state.closedOverlays).toEqual(["awake-popup"]);
+
+  state.props = { usage: true };
+  state.awake = { mode: "auto", active: true };
+  expect(arg(byId(view.render().el, "keep-awake")!, "accessibility_label")).toBe("Keep computer awake, Agent · Active");
+});
+
+test("hover emphasizes a single spaced row and leaves the saved mode checked", () => {
+  state.props = { awakeMenu: true, overlay: "awake-popup" };
+  const menu = new WorkspaceStatus();
+  menu.init({}, cx);
+  const resting = menu.render().el;
+  expect(arg(byId(resting, "awake-options")!, "gap")).toBe(4);
+  expect(words(byId(resting, "awake-auto")!)).toEqual(["Agent", "While local agents work"]);
+  const hover = handler(byId(resting, "awake-on")!, "on_hover");
+  hover(true, cx);
+  const pointed = menu.render().el;
+  const on = byId(pointed, "awake-on")!, off = byId(pointed, "awake-off")!;
+  expect(arg(on, "bg")).toBe(`${colors.foreground.slice(0, 7)}24`);
+  expect(arg(off, "bg")).toBeUndefined();
+  expect(arg(off, "aria_selected")).toBe(true);
+  expect(paths(off)).toEqual(["mods/workspace-chrome/icons/check.svg"]);
+  hover(false, cx);
+  expect(arg(byId(menu.render().el, "awake-off")!, "bg")).toBe(colors.selected);
 });
 
 test("reaching 90% raises one toast saying which limit and when it resets", async () => {
@@ -3009,7 +3086,7 @@ test("consent for a remote OpenCode account runs the probe on its execution owne
   expect(state.fetched).toEqual([]);
 });
 
-test("the main status strip opens a local monitor alongside independent Usage limits", () => {
+test("the main footer keeps System monitor, Usage and Keep computer awake together", () => {
   const status = shippedLayout.children.find((node: any) => node.id === "work-area")
     .children.find((node: any) => node.id === "workspace-status");
   state.props = status.content.props;
@@ -3019,7 +3096,9 @@ test("the main status strip opens a local monitor alongside independent Usage li
   const monitor = byId(root, "system-monitor-status")!;
   expect(arg(monitor, "accessibility_label")).toBe("System monitor");
   expect(paths(monitor)).toEqual(["mods/workspace-chrome/icons/memory.svg"]);
-  expect(words(root)).toEqual(["Usage"]);
+  const buttons = all(root).map((el) => arg(el, "id"))
+    .filter((id) => ["system-monitor-status", "usage-status", "keep-awake"].includes(id));
+  expect(buttons).toEqual(["system-monitor-status", "usage-status", "keep-awake"]);
   handler(monitor, "on_mouse_down")({ bounds: BUTTON }, cx);
   handler(monitor, "on_click")({}, cx);
   expect(state.overlays.at(-1)).toMatchObject({
@@ -3030,6 +3109,7 @@ test("the main status strip opens a local monitor alongside independent Usage li
   state.shared["usage.enabled"] = false;
   const withoutUsage = view.render(cx).el as El;
   expect(byId(withoutUsage, "system-monitor-status")).toBeDefined();
+  expect(byId(withoutUsage, "keep-awake")).toBeDefined();
   expect(byId(withoutUsage, "usage-status")).toBeUndefined();
 });
 

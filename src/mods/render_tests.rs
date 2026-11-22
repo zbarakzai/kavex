@@ -654,6 +654,8 @@ fn local_state_and_overlay_initial_descriptions(cx: &mut TestAppContext) {
         ("mods/spaces", json!({"recent":true})),
         ("mods/workspace-chrome", json!({"footer":true})),
         ("mods/workspace-chrome", json!({"footerMenu":true})),
+        ("mods/workspace-status", json!({"usage":true})),
+        ("mods/workspace-status", json!({"awakeMenu":true})),
         ("mods/prompt", json!({"machines":true})),
         (
             "mods/confirm",
