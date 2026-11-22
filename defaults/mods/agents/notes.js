@@ -4,6 +4,11 @@ import { closeOverlay, focused, notify, openOverlay, revealTerminalNote, termina
 import { noteScope, terminalScope } from "./notes-scope.js";
 import { listNotes, saveNote } from "./notes-store.js";
 
+const NOTE_LINE = 18;
+const NOTE_GAP = 4;
+const NOTE_PADDING = 7;
+const noteHeight = (note) => NOTE_PADDING * 2 + NOTE_LINE + (note.comment ? NOTE_LINE + NOTE_GAP : 0);
+
 const icon = (name) => svg(`mods/workspace-chrome/icons/${name}.svg`).size(16).flex_none();
 
 function button(t, id, label, click, { primary = false, disabled = false, glyph } = {}) {
@@ -178,6 +183,7 @@ export class TerminalNotes {
       ];
     }
     const matches = this.matches();
+    const listHeight = matches.reduce((height, note) => height + noteHeight(note) + NOTE_GAP, -NOTE_GAP);
     let empty = this.scope?.session && !this.showTerminal ? "No notes for this session yet." : "No notes for this terminal yet.";
     if (this.currentItems().length) empty = "No matching notes.";
     if (!this.scope) empty = "Focus a terminal to see its notes.";
@@ -186,12 +192,15 @@ export class TerminalNotes {
       ui.Input.new(this.search).w_full().h(34).px(10).rounded(7)
         .bg(t.background).border_1().border_color(t.input).text_size(13).text_color(t.foreground),
       matches.length
-        ? ui.v_flex().id("notes-list").w_full().min_h(0).max_h(290).overflow_y_scrollbar().gap(4)
-          .children(matches.map((note, i) => ui.v_flex().id(note.id).px(10).py(7).gap(4).flex_none().rounded(7)
+        ? ui.v_flex().id("notes-list").w_full().h(Math.min(290, listHeight)).min_h(0).flex_shrink(1)
+          .overflow_y_scrollbar().gap(NOTE_GAP)
+          .children(matches.map((note, i) => ui.v_flex().id(note.id).h(noteHeight(note)).px(10).py(NOTE_PADDING)
+            .gap(NOTE_GAP).flex_none().rounded(7)
             .cursor_pointer().when(i === this.at, (el) => el.bg(t.selected))
             .hover((el) => el.bg(t.hover)).on_click((_e, cx) => this.choose(note, cx))
-            .child(div().truncate().text_size(13).child(note.comment || note.text))
-            .when(Boolean(note.comment), (el) => el.child(div().truncate().text_size(12).text_color(t.muted).child(note.text)))))
+            .child(div().truncate().text_size(13).line_height(`${NOTE_LINE}px`).child(note.comment || note.text))
+            .when(Boolean(note.comment), (el) => el.child(div().truncate().text_size(12)
+              .line_height(`${NOTE_LINE}px`).text_color(t.muted).child(note.text)))))
         : div().py(12).text_size(13).text_color(t.muted).child(empty),
     ];
   }

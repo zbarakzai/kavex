@@ -42,11 +42,13 @@ mock.module("herdr", () => ({
   },
 }));
 
-type Element = { label?: string; click?: (_event: unknown, context: unknown) => void; children: Element[] };
+type Element = { id?: string; height?: number; label?: string; click?: (_event: unknown, context: unknown) => void; children: Element[] };
 function element(): any {
   const node: Element = { children: [] };
   const api: any = new Proxy({}, { get(_target, key) {
     if (key === "node") return node;
+    if (key === "id") return (id: string) => { node.id = id; return api; };
+    if (key === "h") return (height: number) => { node.height = height; return api; };
     if (key === "child") return (child: any) => {
       node.children.push(typeof child === "string" ? { label: child, children: [] } : child.node);
       return api;
@@ -218,6 +220,19 @@ test("a note without a live match still opens its saved quote and comment", asyn
   copy!.click!({}, cx);
   expect(clipboard).toBe(quote.text);
   expect(panel.detail.comment).toBe(quote.comment);
+});
+
+test("the notes picker reserves room for each saved row and its excerpt", async () => {
+  const scope = { machine: null, terminalRun: "t7:100" };
+  await saveNote(scope, { text: "A note without a comment" });
+  await saveNote(scope, quote);
+  const panel = new TerminalNotes({ notes: "browse", overlay: "o1" }, cx);
+  await settle();
+
+  const list = (panel.render(cx).node as Element).children.find((node) => node.id === "notes-list")!;
+  const [withComment, withoutComment] = list.children;
+  expect(withComment.height).toBeGreaterThan(withoutComment.height!);
+  expect(list.height).toBeGreaterThan(withComment.height! + withoutComment.height!);
 });
 
 test("choosing a live note jumps in its terminal and dismisses the picker", async () => {
