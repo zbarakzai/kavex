@@ -173,10 +173,13 @@ the highlighted line shows where it will land.
   and mod panes stay. An exited or killed terminal is closed, not restarted.
   Focus, zoom, recent spaces, settled tabs and seen attention stay on this screen.
 - **Terminal notes:** Select text and release the mouse for **Add note** and **Copy**.
-  A note saves the selected text with an optional comment. Open the command palette
+  A note saves the selected text with an optional comment. Cmd+Enter on macOS or
+  Ctrl+Enter elsewhere saves from the editor. Open the command palette
   (Cmd+Shift+P on macOS, Ctrl+Shift+P elsewhere), type `%note`, and press Enter to
-  browse the focused terminal's notes. Choose a note to highlight its original
-  output. When the location is unavailable, Kavex shows the saved excerpt and comment.
+  browse the focused terminal's notes. Search by text or comment, then use the
+  arrow keys and Enter or click a note to highlight its original
+  output. Use the copy icon on a note row to copy its saved text. When the location is
+  unavailable, Kavex shows the saved excerpt and comment.
   Notes follow known Claude Code, Codex, and Pi sessions when resumed. Other notes
   belong to the terminal where they were saved. Notes are local versioned JSON
   under `terminal-notes/` in the app's home, including notes on remote terminals.

@@ -89,9 +89,11 @@ the screen.
 
 ## Terminal notes
 
-Select output for Add note or Copy. In Kavex's command palette, enter `%note`
-to browse the focused terminal's notes. Choosing a note highlights the
-retained output or shows the saved excerpt. Notes are local to Kavex and
+Select output for Add note or Copy. Save with Cmd+Enter on macOS or Ctrl+Enter
+elsewhere. In Kavex's command palette, enter `%note` to browse the focused
+terminal's notes. Search by text or comment, then click a note or use the
+arrow keys and Enter. The copy icon copies the saved text. Choosing a note
+highlights the retained output or shows the saved excerpt. Notes are local to Kavex and
 use the current agent session when Kavex can identify it.
 
 ## Customize layouts, keys, or mods

@@ -165,7 +165,7 @@ export default class Palette extends View {
         command: { name: "mod.clone", args: {} },
       } });
     } else if (e.name === "mod.open" && e.args.name === "agents") {
-      openOverlay({ mod: "agents", kind: "dialog", width: 460, props: { notes: "browse", terminal: props().terminal } });
+      openOverlay({ mod: "agents", kind: "dialog", width: 520, props: { notes: "browse", terminal: props().terminal } });
     } else {
       run(e.name, e.name === "layout.clone" ? { name: shared("layout") ?? "main" } : e.args);
     }

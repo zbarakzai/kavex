@@ -10,6 +10,7 @@ let currentTerminal: typeof shell & { labels?: Record<string, string> } = shell;
 let clipboard = "";
 let dismissed: string[] = [];
 let jobs: Promise<unknown>[] = [];
+let noteScrolls: number[] = [];
 let interfere: (() => void) | null = null;
 mock.module("herdr", () => ({
   theme: () => ({}),
@@ -42,7 +43,15 @@ mock.module("herdr", () => ({
   },
 }));
 
-type Element = { id?: string; height?: number; label?: string; click?: (_event: unknown, context: unknown) => void; children: Element[] };
+type Element = {
+  id?: string;
+  height?: number;
+  label?: string;
+  click?: (_event: unknown, context: unknown) => void;
+  mouseDown?: (event: { local_position: { x: number }; bounds: { width: number } }) => void;
+  itemClick?: (id: string, context: unknown) => void;
+  children: Element[];
+};
 function element(): any {
   const node: Element = { children: [] };
   const api: any = new Proxy({}, { get(_target, key) {
@@ -56,15 +65,21 @@ function element(): any {
     if (key === "children") return (children: any[]) => children.reduce((builder, child) => builder.child(child), api);
     if (key === "when") return (condition: boolean, apply: (builder: any) => any) => condition ? apply(api) : api;
     if (key === "on_click") return (callback: Element["click"]) => { node.click = callback; return api; };
+    if (key === "on_mouse_down") return (_button: string, callback: Element["mouseDown"]) => { node.mouseDown = callback; return api; };
+    if (key === "on_item_click") return (callback: Element["itemClick"]) => { node.itemClick = callback; return api; };
     return () => api;
   } });
   return api;
 }
 
 const input = () => ({ value: () => "", focus() {}, on() {} });
-mock.module("gpui-kit", () => ({ View: class {}, div: element, svg: element }));
+mock.module("gpui-kit", () => ({ View: class {}, div: element, image: element, svg: element }));
 mock.module("gpui-base", () => ({
   h_flex: element, v_flex: element,
+  v_virtual_list: (_id: string, count: number, _sizes: number[], _key: unknown, render: (range: { start: number; end: number }) => unknown[]) =>
+    element().children(render({ start: 0, end: count })),
+  VirtualListScrollHandle: { new: () => ({ scroll_to_item: (index: number) => noteScrolls.push(index) }) },
+  Scrollbar: { vertical: element },
   InputState: { new: input }, TextareaState: { new: input }, Input: { new: element }, Textarea: { new: element },
 }));
 
@@ -72,6 +87,7 @@ const cx = {
   spawn: (work: (context: unknown) => Promise<unknown>) => jobs.push(work(cx)),
   timer: { after: (_ms: number, work: (context: unknown) => void) => work(cx) },
   notify() {},
+  stop_propagation() {},
   focus_handle: () => ({ focus() {} }),
   write_to_clipboard: (text: string) => { clipboard = text; },
 };
@@ -92,6 +108,7 @@ const quote = { text: "First line\n  indented code", comment: "Look here", ancho
 
 beforeEach(() => {
   files.clear();
+  noteScrolls = [];
   opened = [];
   revealed = [];
   canReveal = false;
@@ -222,6 +239,28 @@ test("a note without a live match still opens its saved quote and comment", asyn
   expect(panel.detail.comment).toBe(quote.comment);
 });
 
+test("moving the keyboard selection keeps the active note visible", async () => {
+  const scope = { machine: null, terminalRun: "t7:100" };
+  for (let i = 0; i < 12; i++) await saveNote(scope, { text: `Sample output ${i}` });
+  const panel = new TerminalNotes({ notes: "browse", overlay: "o1" }, cx);
+  await settle();
+
+  for (let i = 0; i < 9; i++) panel.keys({ key: "down" }, cx);
+  expect(panel.at).toBe(9);
+  expect(noteScrolls.at(-1)).toBe(9);
+});
+
+test("the editor accepts the macOS save shortcut without a mouse", async () => {
+  platform = "macos";
+  const panel = new TerminalNotes({ notes: "edit", terminal: "t7", overlay: "o1", text: quote.text, anchor: quote.anchor }, cx);
+  await settle();
+  panel.keys({ key: "enter", modifiers: { platform: true, control: false } }, cx);
+  await settle();
+
+  expect(await listNotes({ machine: null, terminalRun: "t7:100" })).toMatchObject([{ text: quote.text }]);
+  expect(dismissed).toEqual(["o1"]);
+});
+
 test("the notes picker reserves room for each saved row and its excerpt", async () => {
   const scope = { machine: null, terminalRun: "t7:100" };
   await saveNote(scope, { text: "A note without a comment" });
@@ -230,21 +269,37 @@ test("the notes picker reserves room for each saved row and its excerpt", async 
   await settle();
 
   const list = (panel.render(cx).node as Element).children.find((node) => node.id === "notes-list")!;
-  const [withComment, withoutComment] = list.children;
-  expect(withComment.height).toBeGreaterThan(withoutComment.height!);
-  expect(list.height).toBeGreaterThan(withComment.height! + withoutComment.height!);
+  const [withComment, withoutComment] = list.children[0].children;
+  expect(withComment.children[0].height).toBeGreaterThan(withoutComment.children[0].height!);
+  expect(list.height).toBe(withComment.height! + withoutComment.height!);
 });
 
 test("choosing a live note jumps in its terminal and dismisses the picker", async () => {
-  await saveNote({ machine: null, terminalRun: "t7:100" }, quote);
+  const note = await saveNote({ machine: null, terminalRun: "t7:100" }, quote);
   const panel = new TerminalNotes({ notes: "browse", overlay: "o1" }, cx);
   await settle();
   canReveal = true;
-  panel.choose(panel.matches()[0], cx);
+  const list = (panel.render(cx).node as Element).children.find((node) => node.id === "notes-list")!;
+  list.children[0].itemClick!(note.id, cx);
   await settle();
 
   expect(revealed).toEqual([["t7", quote.anchor, quote.text]]);
   expect(dismissed).toEqual(["o1"]);
+});
+
+test("copying a note from its row puts the full excerpt on the clipboard and keeps the picker open", async () => {
+  const note = await saveNote({ machine: null, terminalRun: "t7:100" }, quote);
+  const panel = new TerminalNotes({ notes: "browse", overlay: "o1" }, cx);
+  await settle();
+
+  const list = (panel.render(cx).node as Element).children.find((node) => node.id === "notes-list")!;
+  list.mouseDown!({ local_position: { x: 465 }, bounds: { width: 490 } });
+  list.children[0].itemClick!(note.id, cx);
+  await settle();
+
+  expect(clipboard).toBe(quote.text);
+  expect(revealed).toEqual([]);
+  expect(dismissed).toEqual([]);
 });
 
 test("notes saved before an agent reports its ID remain available under Terminal notes", async () => {
