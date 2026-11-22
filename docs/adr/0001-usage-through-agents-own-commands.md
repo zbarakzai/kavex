@@ -1,4 +1,6 @@
-# Usage limits come from each agent's own command
+# Usage limits originally came from each agent's own command
+
+The [provider usage design](0003-provider-usage.md) extends this decision. The original CLI paths and the local OpenCode access setting remain available.
 
 The `usage` mod shows subscription limits by running `claude -p /usage` and `codex app-server`, on the machine each agent is signed in on. It does not read Claude's or Codex's login, and it does not call `api.anthropic.com/api/oauth/usage` or `chatgpt.com/backend-api/wham/usage`, even though those give cleaner data and Omarchy uses the Claude one.
 

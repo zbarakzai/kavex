@@ -98,9 +98,9 @@ test("section labels are spaced mono, and numbers are mono", () => {
 });
 
 test("buttons and switches are pills like the tab bar's", () => {
-  const root = open().draw(), reset = byId(root, "st-zoom-reset")!, tabs = byId(root, "st-tabs-On top")!;
+  const root = open().draw(), reset = byId(root, "st-zoom-reset")!, appearance = byId(root, "st-ap-System")!;
   expect([arg(reset, "h"), arg(reset, "rounded"), arg(reset, "bg"), arg(reset, "border_color")]).toEqual([34, 999, colors.pill, colors.pill_ring]);
-  expect([arg(tabs, "h"), arg(tabs, "bg")]).toEqual([26, colors.pill_selected]);
+  expect([arg(appearance, "h"), arg(appearance, "bg")]).toEqual([26, colors.pill_selected]);
 });
 
 test("a switch's knob slides, and an on switch isn't orange", () => {
@@ -121,11 +121,16 @@ test("both panels start on, and each switch turns its own off and on", () => {
   expect(state.shared["workspace.panels"]).toEqual(["files"]);
 });
 
-test("panels and tabs are only offered in the layout that has them", () => {
+test("the default workspace has no Tabs placement picker", () => {
+  const root = open().draw();
+  expect(byId(root, "st-tabs-On top")).toBeUndefined();
+  expect(byId(root, "st-tabs-On the right")).toBeUndefined();
+});
+
+test("panels are only offered in the layout that has them", () => {
   state.shared.layout = "terminals";
   const root = open().draw();
   expect(byId(root, "st-panel-files")).toBeUndefined();
-  expect(byId(root, "st-tabs-On top")).toBeUndefined();
   expect(byId(root, "st-usage")).toBeUndefined();
 });
 

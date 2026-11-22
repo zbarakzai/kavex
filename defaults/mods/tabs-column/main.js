@@ -6,7 +6,7 @@ import { h_flex, v_flex } from "gpui-base";
 import { spaces, panes, terminals, theme, run, openOverlay, closeOverlay, shared, setShared, settings, nextCommand, window } from "herdr";
 import { look, badge, duration, groupHue, tabHue, tile, MONO } from "./look.js";
 import { loader } from "./loader.js";
-import { COLUMN, clicked, columnHome, columnRuns, columnSlots, columnStops, failed, groupOf, groupStop, landed, moves, nearestY, reopening, sectionHeight, shownIn, shows, slotKey, stepped, stoppedGroup } from "./groups.js";
+import { COLUMN, clicked, columnHome, columnRuns, columnSlots, columnStops, failed, groupOf, groupStop, landed, moves, nearestY, reopening, sectionHeight, shownIn, shows, slotKey, stoppedGroup } from "./groups.js";
 
 const SLIDE = { response: 150, damping: 1 }; // room opening and shutting
 const HELD = { response: 0 }; // stuck to the pointer
@@ -207,16 +207,6 @@ export default class TabsColumn extends View {
     if (!picks) run("tab.select", { id: c.id });
   }
 
-  // A mouse wheel's notch steps through the tabs, as on the bar. A trackpad scrolls, and so
-  // does a wheel when the list is too long to fit.
-  wheel(e, v) {
-    const notch = e.delta_lines?.y ?? 0;
-    if (Math.abs(notch) < 1 || !v.space) return;
-    const end = columnSlots(v.list, v.groups, {}).at(-1).y;
-    const next = end <= this.rootH - HEADER && stepped(v.list, notch < 0);
-    if (next) run("tab.select", { id: next.id });
-  }
-
   // In a drag, every place it could land is a room, shut but for the one it's over. A tab let
   // go on a fold goes in with the rest, so that room shuts as it fades.
   room(key, extra = 0) {
@@ -348,7 +338,6 @@ export default class TabsColumn extends View {
       .when(Boolean(this.press || d), (el) => el.on_mouse_move((e, cx) => this.moved(e, v, cx)))
       .on_mouse_up("left", (_e, cx) => this.up(cx))
       .on_hover((on, cx) => { if (!on) { this.press = null; this.over = null; cx.notify(); } })
-      .on_scroll_wheel((e) => this.wheel(e, v))
       // Holds the keyboard without being a thing to click: a click here must leave it with the terminal.
       .child(div().id("column-keys").absolute().size(0).track_focus(this.keys).on_key_down((e, cx) => this.key(e, v, cx)))
       .child(h_flex().h(HEADER).flex_none().pl(18).pr(10).gap(8).items_center()

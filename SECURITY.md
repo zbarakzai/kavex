@@ -8,4 +8,4 @@ Only the latest release is supported.
 
 For how Kavex handles trusted mods, updates and telemetry, see [security and privacy](docs/security.md).
 
-Usage limits runs Claude Code's and Codex's own commands and reads their answers, so their logins stay with them. The one thing it sends itself is your OpenCode key, to `opencode.ai` only, and only after you press Allow. [Usage limits](docs/security.md#usage-limits) lists what it reads, runs and sends.
+Usage limits calls agent usage commands and account endpoints. Credential-backed checks require the person to authorize that provider on the machine holding the login. [Usage limits](docs/security.md#usage-limits) lists what it reads, runs and sends.

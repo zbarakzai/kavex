@@ -127,8 +127,8 @@ on this screen in `shared("spaces.recent")`.
   `settled` on each tab. Kavex's tab bar settles the tabs of a folded group; the
   other shipped layouts list every tab, and a mod can hide or fold settled tabs.
   Showing one, or an agent in it needing the user, brings it back.
-- Tabs can be **grouped** on this screen, in the `tabs` bar (the main layout's) or
-  its `tabs-column`. It's shared state, not the model, so any mod can read or edit it and
+- Tabs can be **grouped** in the `tabs` bar above the terminals. Groups use shared state,
+  so any mod can read or edit them and
   the bar makes the tabs follow: `shared("tab.groups")` is `{ id: { name, color,
   fill?, folded, tabs: [tab ids] } }`. A group's color is `blue`, `violet` or `teal`, never
   orange, which means "you"; a group saved under another color shows the nearest of
@@ -136,31 +136,23 @@ on this screen in `shared("spaces.recent")`.
   also the background of the tabs in it in the column, never of its name.
   `shared("tab.colors")` is `{ tab id: color }`, the same three: a tab's own background, which
   wins over its group's; `"none"` keeps a tab clear in a filled group. Setting either moves nothing. `shared("tab.folders")`, older per-folder colors, are kept but no
-  longer drawn. A group's tabs stay side by side (strays are moved with `tab.move`); with tabs
-  on the right the tabs' order is the one the column draws, so a tab leaving a group lands at
-  the end of the loose tabs and a new group comes first among the groups. A folded group's tabs are settled, so `tab.next`,
+  longer drawn. A group's tabs stay side by side (strays are moved with `tab.move`).
+  A folded group's tabs are settled, so `tab.next`,
   `tab.prev` and `tab.select {index}` skip them, and its name shows how many, with an
   orange dot if one needs you; the shown tab stays out of the fold until you leave it.
-  `shared("tabs.placement")` is `"top"` (the default) or `"right"`: one value, set by
-  the bar's switch and the row in Settings > Look, each showing what the other set. On
-  the right the bar shows the current tab and the `tabs-column` block lists tabs as
-  rows, loose ones first, then each group under its name, with a folded group keeping
-  only the current tab's row; only one side panel shows at a time, so the column makes
-  way while Files or Changes is open. Both placements do the same things:
-  `shared("tabs.picked")` holds the picked tabs. `tabs-column.focus` (`cmd-shift-r`,
-  `ctrl-shift-r`, under `layout:main`) moves the keyboard onto the column, on the
-  current tab: up and down move, left and right fold and unfold a group, Enter opens a
-  tab or folds a group, and Esc goes back to the terminal. It needs the column on
-  screen, and otherwise fails with a toast. The list can't be scrolled from a mod, so
-  a list too long for the column can leave the keyboard's row out of view.
+  `shared("tabs.picked")` holds the picked tabs. A custom layout can include the
+  legacy `tabs-column` block and use `shared("tabs.placement")` set to `"right"`.
+  `tabs-column.focus` focuses the visible column. Up and down move, left and right
+  fold and unfold a group, Enter opens a tab or folds a group, and Esc returns to
+  the terminal.
   A person right-clicks a tab or a group's name (the `tab-menu` mod: props `{ tabs, make: true }`
   drafts a new group, which changes nothing until it's created), clicks a
   name to fold, drags a tab in or out of a group and a name to move the group,
   and Cmd-clicks (Ctrl-clicks) or Shift-clicks to pick several tabs. The bar or
   column makes room as a tab is carried; pulled far from it, the tab goes back
   (`tab-drag`, a clear layer over the window, carries the pointer meanwhile; its prop
-  `to` names the mod that gets the positions). A mouse wheel over them steps through
-  tabs and stops at the ends; a trackpad scrolls. A terminal started with the label
+  `to` names the mod that gets the positions). The wheel and trackpad scroll through
+  tabs when they overflow. A terminal started with the label
   `kavex.group=<name>` lands in that group, made if it's new, once; after that its tab
   is the person's to move. For keys:
   `tabs.group` (the picked tabs, or the shown one; asks for a name and a color), `tabs.fold`,
@@ -272,16 +264,20 @@ on this screen in `shared("spaces.recent")`.
 Each file is one whole window. `layout.switch` (`ctrl-shift-l`) cycles
 through them, `layout.switch {name}` picks one; `shared("layout")` is the
 shown one's name. Kavex ships `main` ("Kavex": three regions on `canvas`, a
-sidebar of spaces by machine, the agents list and `workspace-chrome`; the
-terminals with their tabs on one rounded surface, with a + menu
-that starts a terminal or any installed agent, `new-menu`; a pane gets a frame
-and header once its tab is split; Files and Changes panels on the right, `files` and
-`changes`, opened from the tab bar's folder button, shown or hidden with `cmd-shift-b` (`ctrl-shift-j`)
-and remembered per space (which ones:
-shared `"workspace.panels"`, set by the welcome and the switches in Settings > Look; one left out
-has no button or tab and can't stay open)), and as examples `terminals` ("Terminals": tabs in
-the title bar, panes as cards, a space picker) and `win98`
-("Kavex 98": a whole desktop in one mod, `win98`). Add a layout by writing a new file.
+sidebar, a terminal area, and a right panel). The sidebar groups spaces by machine
+and includes the agents list and `workspace-chrome`. The terminals share one
+rounded surface with their tabs and a + menu (`new-menu`) that starts a terminal
+or any installed agent. A split pane gets its own frame and header.
+
+The right panel shows Files (`files`) or Changes (`changes`).
+The top-right folder opens Files and the branch opens Changes. Click the active icon again
+or use the panel's close button to hide it. `cmd-shift-b` (`ctrl-shift-j`) toggles the last view,
+and each space remembers its panel state. The welcome and the switches in Settings > Look set
+shared `"workspace.panels"`. A disabled view's toolbar button is hidden.
+
+Kavex also ships `terminals` ("Terminals" with tabs in the title bar, panes as cards,
+and a space picker) and `win98` ("Kavex 98" with a whole desktop in one mod).
+Add a layout by writing a new file.
 
 The + menu shows the last detected agents for the active machine while it checks for changes.
 On the first check for a machine, it shows “Checking installed agents…”. Each number keeps
@@ -342,42 +338,40 @@ be undone. Cmd-click (Ctrl-click) a line opens it in Cursor, VS Code or Zed,
 else the system's app. Commit takes what's staged, or everything if nothing is, by its
 button, Enter or `cmd-enter` (`ctrl-enter`).
 
-The three-dot **More actions** menu beside **Settings** in the sidebar footer offers
-**Usage limits**, **Add machine**, and **Customize**. Use ↑ or ↓ and Enter to choose an action.
-An orange dot on the menu button points to a usage warning or skill update inside.
+In the expanded sidebar footer, the three-dot **More actions** menu beside **Settings** offers
+**Add machine** and **Customize**. Use ↑ or ↓ and Enter to choose an action.
+An orange dot on the menu button points to a skill update inside.
 
-**Usage limits** (the `usage` popup mod) shows each Claude Code, Codex
-and OpenCode Go subscription, with its tier and each limit's percent used and time to reset, weekly
-first. A limit past its reset reads 0%. At 90% used its percent turns orange, the menu shows a dot and
-a toast says so, once until the limit falls below 90% again. A limit whose pace so far would use it up
-before it resets also says when, from 5% of the way through its window: a straight line, not a forecast.
+**Usage** at the bottom right, below the workspace, opens limits for the active machine.
+A custom layout with just the sidebar footer offers **More actions → Usage limits**
+for all machines.
+The roster shows all reported windows and orders providers by the highest primary
+percentage used. Choose **Used** or **Left** to show the percentage consumed or remaining.
+Select a provider to see its reset times and reading status in the same dropdown. Use the back
+button or ← to return to the roster. **History** groups saved readings by date and shares
+the **Used** and **Left** setting. **Accounts** shows provider status and access controls.
 
-- **Numbers:** each agent's own commands on its machine, in that machine's shell PATH: `claude auth
-  status`, `claude -p /usage` (no hooks, plugins, MCP or saved session), and `codex app-server`'s
-  `account/read` and `account/rateLimits/read` (read-only). No tokens spent, no login read, no request
-  sent. From programs.json's `run` they take only a path to the agent's own program, never flags;
-  a program of another name means the plain agent.
-- **Rows:** none for an agent signed out, on an API key or not installed. One account on several
-  machines is one row, with the newest numbers. A removed machine's rows go at the next check. Only
-  the login in an agent's default config counts: a second account through `CLAUDE_CONFIG_DIR` has no row.
-- **Checks:** on opening (a result under a minute old is reused), on the refresh button, and 5 seconds
-  after the footer starts and every 15 minutes, so only in a layout with that footer: not Terminals
-  or Kavex 98. `workspace-chrome.check-usage` and `workspace-chrome.refresh-usage` run one.
-- **Failure:** a failed check or an unreachable machine keeps the last numbers with their age, or
-  reads "Could not check" with none.
-- **Saved:** `shared("usage")` holds the numbers and an account fingerprint, never an email, login,
-  key or anything made from a key. `shared("usage.warned")` names the limits already warned about.
-- **Off:** the Usage limits row in Settings > Look, under Workspace. `shared("usage.enabled")` is
-  `false` (anything else is on): the menu hides Usage limits, no check runs, one still running saves nothing, and
-  `shared("usage")`, `shared("usage.warned")` and `shared("usage.opencode")` are cleared. Back on, it
-  checks within a minute.
-- **OpenCode** has no such command, so it's the one thing Usage sends itself, on this computer only.
-  A card in the popover asks first, and no key is read until it's answered. Allow sets
-  `shared("usage.opencode")` to `true` and checks at once; Not now sets it to `false` and stops
-  asking. Only the person's press answers: no command does, so never set it for them. Turning Usage
-  off and on asks again. Keys come only from OpenCode's `auth.json` and its database's `credential`
-  table and go only to `opencode.ai`, as a Bearer header; one written as a variable or a command is
-  never sent. A 401 or 403 means no Go plan: no row and no error.
+- **Provider coverage** includes Claude Code, Codex, OpenCode Go, Cursor, Gemini, Grok,
+  Antigravity, Kimi, Muse, GitHub Copilot and Amp. Other detected agents show the source or
+  account action that is available for them. Agents that use another provider’s subscription
+  do not get a separate meter for that subscription.
+- **Refresh** runs when the workspace becomes active and the latest check is due, every
+  15 minutes while the app is active, and after a known reset. A manual refresh queues one
+  follow-up if a check is already running. Provider errors retry on separate schedules.
+- **Freshness** uses the time the provider reading was obtained. Expired windows disappear.
+  A transient failure preserves current readings for 30 minutes, up to 24 hours for throttling
+  or a renewable Claude login. A signed-out account has a status row and no limits.
+- **Accounts** grants access for one provider on one machine. A login or key goes only to the
+  corresponding provider. An added machine that needs network usage runs the probe on that
+  machine with Node.js 18 or Bun. CLI probes run through the agent's program.
+- **History** stores a bounded set of measured windows as `shared("usage.history")`, keyed by
+  provider and machine. It clears a timeline when that source changes account or signs out.
+  The remaining `shared("usage")` fields hold the latest readings and refresh state. No
+  credential, email, login response or account ID is saved there.
+- **Commands** `workspace-chrome.check-usage` and `workspace-chrome.refresh-usage` request a check.
+  Signing in belongs to the provider. An agent must not grant usage access on the person's behalf.
+- **Off** in **Settings → Look → Usage limits** hides the Usage button, stops checks, and clears readings,
+  usage history, warnings and consent. Display preferences are kept in `shared("usage.presentation")`.
 
 **Customize** (in **More actions**, the `customize` mod, `mod.open {name: "customize"}`)
 covers the window with its own sidebar: Skills, and Code review (empty for now). Back or Esc closes it.
@@ -484,8 +478,8 @@ Properties any node can have:
   room. Where the system draws no buttons (`window().buttons`, Linux and
   Windows), the layout draws them with `window.minimize`, `window.maximize`, `window.close`.
   In `main` the `tabs` bar above the terminals always draws them, as three small
-  buttons at its right end, even with Files, Changes or the Tabs column open beside
-  it; those never draw them. Close turns red on hover.
+  buttons at its right end, even with Files or Changes open beside it. Close turns
+  red on hover.
   Windows' shipped window buttons and system strip use vector window icons, with a
   restore icon when maximized, rather than font glyphs.
 - Root only: `"preview": "layouts/<name>.svg"` (or png): the picture the
@@ -642,17 +636,16 @@ The default window, in short (`layouts/main.json` is the whole of it):
     { "id": "panel", "type": "column", "hidden": true, "size": { "px": 680 }, "min": 330, "max": 900,
       "children": [ { "id": "panel-body", "type": "stack", "active": "files", "children": [
         { "id": "files", "type": "block", "content": { "mod": "files" } },
-        { "id": "changes", "type": "block", "content": { "mod": "changes" } } ] } ] },
-    { "id": "tabs-column", "type": "block", "hidden": true, "size": { "px": 330 }, "min": 330, "max": 480,
-      "content": { "mod": "tabs-column" } } ] }
+        { "id": "changes", "type": "block", "content": { "mod": "changes" } } ] } ] } ] }
 ```
 
 Sidebar on the right: move `sidebar` to the end of `root`'s children. No sidebar: set
 `"hidden": true` on `sidebar` (the user can toggle it: `ctrl-shift-b`).
-Narrower than 160px, the sidebar mods draw a compact rail; folding resizes
-`sidebar` to 44 (76 on macOS, room for the traffic lights). Left between the
-rail and 200px, it settles to the nearer of the two once it holds still. On macOS,
-the tabs also leave room for the window buttons when the sidebar is narrower.
+In the Kavex layout, drag the sidebar divider inward past 200px to snap to the
+icon rail. Pull it outward to reopen at 200px, then keep dragging to resize.
+The 48px rail separates **Spaces** and **Agents**. Hover an avatar to see its
+name. Use **+** to add a space and the bottom gear for **Settings**. A saved
+or programmatic width below 200px settles to the rail or 200px once it holds still.
 
 ### Layouts and mods other people made
 

@@ -45,6 +45,7 @@ let state: {
   says: Record<string, Reply>;
   on: Record<string, Record<string, Reply>>;
   platform: string;
+  active: boolean;
   agents: Record<string, any[] | Error>;
   machines: { name: string | null; layout: string }[];
   runs: { line: string; on: string | null }[];
@@ -55,6 +56,7 @@ let state: {
   shared: Record<string, any>;
   props: any;
   sidebar: number;
+  useShippedLayout?: boolean;
   agentsShown: number;
   space: any;
   overlays: any[];
@@ -67,7 +69,9 @@ let state: {
 };
 
 // `solid` and its text are made for every theme by src/settings.rs, not written in the file.
-const colors = { ...JSON.parse(readFileSync(new URL("../defaults/themes/kavex.json", import.meta.url), "utf8")).colors, solid: "#abcdef", solid_foreground: "#123456" };
+const themeFile = JSON.parse(readFileSync(new URL("../defaults/themes/kavex.json", import.meta.url), "utf8"));
+const shippedLayout = JSON.parse(readFileSync(new URL("../defaults/layouts/main.json", import.meta.url), "utf8"));
+const colors = { background: themeFile.background, foreground: themeFile.foreground, ...themeFile.colors, solid: "#abcdef", solid_foreground: "#123456" };
 
 async function exec(command: string, args: string[] = [], options: { on?: string | null } = {}) {
   const line = [command, ...args].join(" "), on = options.on ?? null;
@@ -106,7 +110,7 @@ mock.module("herdr", () => ({
   props: () => state.props,
   theme: () => colors,
   settings: () => ({ zoom: 1, font_family: "Geist Mono", font_size: 13, ui_font_family: "Geist", theme_dark: "kavex", theme_light: "paper" }),
-  window: () => ({ platform: state.platform }),
+  window: () => ({ platform: state.platform, active: state.active }),
   home: () => "/home/person",
   appHome: () => "/home/person/.config/kavex",
   readTextFile: async (path: string) => { state.reads.push(path); return state.files[path] ?? null; },
@@ -119,7 +123,7 @@ mock.module("herdr", () => ({
   playSound: () => {},
   closeOverlay: (id: string) => void state.closedOverlays.push(id),
   notify: (note: any) => void state.notes.push(note),
-  layout: () => ({ id: "root", children: [{ id: "sidebar", size: { px: state.sidebar } }] }),
+  layout: () => state.useShippedLayout ? shippedLayout : { id: "root", children: [{ id: "sidebar", size: { px: state.sidebar } }] },
   updates: () => ({ app: { ready: false, version: "0.4.0", updates: true }, core: { version: "0.1.15" }, checks: true }),
   agents: () => Array.from({ length: state.agentsShown }, () => ({})),
   spaces: () => (state.space ? [state.space] : []),
@@ -139,6 +143,8 @@ mock.module("herdr", () => ({
 const { default: WorkspaceChrome } = await import("../defaults/mods/workspace-chrome/main.js");
 const { default: Usage } = await import("../defaults/mods/usage/main.js");
 const { default: Settings } = await import("../defaults/frame/settings/main.js");
+const { default: WorkspaceStatus } = await import("../defaults/mods/workspace-status/main.js");
+const { subscriptions } = await import("../defaults/mods/usage/checks.js");
 
 // A mod copy's context. Its timers run as `wait` moves the clock, and stop when the copy closes.
 type Copy = { closed: boolean; notified: number; every: number[] };
@@ -229,17 +235,39 @@ function chooseUsage(f: ReturnType<typeof footer>) {
 }
 
 // What the app does when an overlay opens: a new copy of its mod, with the spec's props.
-function openPopover() {
-  const spec = state.overlays.at(-1), own = { ...spec.props, overlay: `overlay-${state.overlays.length}` };
+function openPopover(spec = state.overlays.at(-1)) {
+  const own = { ...spec.props, overlay: `overlay-${state.overlays.length}` };
   const view: any = new Usage(), { copy, context } = copyContext();
   state.props = own;
   view.init(own, context);
   return {
     view,
     copy,
-    draw: () => { state.props = own; return view.render(cx).el as El; },
-    close: () => view.close(cx),
+    draw: () => { state.props = own; return view.render(context).el as El; },
+    close: () => view.close(context),
   };
+}
+
+function providerPopover(roster: { draw: () => El }, provider: string) {
+  const row = all(roster.draw()).find((node) => String(arg(node, "id")).startsWith("usage-row-" + provider + "-"));
+  if (!row) throw new Error("Usage roster row is missing: " + provider);
+  handler(row, "on_click")({}, cx);
+  return roster;
+}
+
+function cachedRows() {
+  return subscriptions(state.shared.usage?.entries, Date.now());
+}
+
+function cachedLimits() {
+  return cachedRows().flatMap((row) => row.limits.map(({ label, used, resetsAt }: any) => ({ label, used, resetsAt })));
+}
+
+const checkingShown = (root: El) => !paths(byId(root, "usage-refresh")!).includes("mods/workspace-chrome/icons/refresh.svg");
+
+function expectCachedAge(minutes: number) {
+  const checkedAt = Date.now() - minutes * 60_000;
+  expect(cachedRows().some((row) => row.failed && row.limits.length > 0 && row.checkedAt === checkedAt)).toBe(true);
 }
 
 // The popover as it looks with nothing more asked of it: checks made so far, none started.
@@ -264,6 +292,7 @@ beforeEach(() => {
     says: {},
     on: {},
     platform: "macos",
+    active: true,
     agents: {},
     machines: [{ name: null, layout: "ready" }],
     runs: [],
@@ -272,7 +301,7 @@ beforeEach(() => {
     files: {},
     reads: [],
     // The footer also looks for skill updates (scripts/skills.test.ts); these tests are about Usage alone.
-    shared: { "skills.checks": false },
+    shared: { "skills.checks": false, "usage.presentation": { display: "used" } },
     props: null,
     sidebar: 230,
     agentsShown: 2,
@@ -299,12 +328,22 @@ test("the footer exposes More actions and Settings, with three short menu rows",
   expect(words(footerMenu().draw())).toEqual(["Usage limits", "Add machine", "Customize"]);
 });
 
-test("the narrow rail keeps both actions inside its available width", () => {
-  state.sidebar = 44;
-  const f = footer(), root = f.draw();
-  expect(arg(byId(root, "settings")!, "w") + arg(byId(root, "footer-more")!, "w")).toBeLessThanOrEqual(36);
+test("More actions offers only Add machine and Customize when Usage has a dedicated button", async () => {
+  state.useShippedLayout = true;
+  claude(AT(92));
+  const f = footer();
+  await wait(5_000);
+  expect(dotOn(f.draw())).toBeUndefined();
   press(f, "footer-more");
-  expect(words(footerMenu().draw())).toContain("Customize");
+  expect(words(footerMenu().draw())).toEqual(["Add machine", "Customize"]);
+});
+
+test("the collapsed sidebar footer shows only Settings", () => {
+  state.sidebar = 44;
+  const root = footer().draw();
+  expect(byId(root, "footer-more")).toBeUndefined();
+  const settings = byId(root, "settings")!;
+  expect([arg(settings, "w"), arg(settings, "h")]).toEqual([30, 30]);
 });
 
 test("the dropdown opens above the footer and Usage limits opens beside the buttons", () => {
@@ -351,25 +390,32 @@ test("a Customize update keeps its mark in the menu and on the three-dot button"
   expect(all(row).some((e) => arg(e, "bg") === colors.accent)).toBe(true);
 });
 
-test("a Claude subscription shows its logo, name and tier, and each limit's percent, bar and time", async () => {
+
+test("the detailed roster uses Kavex cards and shows the provider, plan, quota and reset", async () => {
   claude(WEEK);
   const { popover } = await opened();
   const root = popover.draw();
   expect(paths(root)).toContain("icons/claude.svg");
-  expect(words(root)).toEqual(expect.arrayContaining(["Claude Code", "MAX"]));
+  expect(words(root)).toEqual(expect.arrayContaining(["Usage limits", "Claude Code", "· Max", "Resets in 5d 7h"]));
+  expect(arg(root, "bg")).toBe(colors.canvas);
+  expect(arg(root, "rounded")).toBe(13);
+  const [row] = rows(root);
+  expect(arg(row, "bg")).toBe(colors.card);
+  expect(arg(row, "border_color")).toBe(colors.card_border);
+  expect(arg(row, "rounded")).toBe(10);
+  expect(arg(byId(root, "usage-refresh")!, "bg")).toBe(colors.accent);
   const [week] = limits(root);
-  expect(words(week)).toEqual(["THIS WEEK", "12%", "RESETS IN 5D 7H"]);
+  expect(words(week)).toEqual(["wk", "12%"]);
   expect(filled(week)).toBe(12);
 });
 
-test("weekly limits come first, then model limits, then the 5-hour limit", async () => {
+
+test("detailed Claude usage shows every window, with the next reset beside the provider", async () => {
   claude(SESSION, SONNET, WEEK);
   const { popover } = await opened();
-  expect(limits(popover.draw()).map((limit) => words(limit))).toEqual([
-    ["THIS WEEK", "12%", "RESETS IN 5D 7H"],
-    ["SONNET", "4%", "RESETS IN 2D 0H"],
-    ["5 HOURS", "33%", "RESETS IN 3H 30M", "RUNS OUT IN 3H 2M AT THIS PACE"],
-  ]);
+  const root = popover.draw();
+  expect(limits(root).map(words)).toEqual([["wk", "12%"], ["Sonnet", "4%"], ["5h", "33%"]]);
+  expect(words(root)).toContain("Resets in 3h 30m");
 });
 
 const checks = () => state.runs.filter((run) => run.line.includes("claude -p /usage")).length;
@@ -381,19 +427,19 @@ function held() {
 }
 const ANSWER = usageAnswer(WEEK);
 
-test("opening again within a minute reuses the last result, and after that checks", async () => {
+test("opening the roster reuses fresh data for five minutes", async () => {
   claude(WEEK);
   const { f, popover } = await opened();
   expect(checks()).toBe(1);
   popover.close();
 
-  setSystemTime(NOW + 59_000);
+  setSystemTime(NOW + 5 * 60_000 - 1);
   chooseUsage(f);
   openPopover();
   await settle();
   expect(checks()).toBe(1);
 
-  setSystemTime(NOW + 60_000);
+  setSystemTime(NOW + 5 * 60_000);
   chooseUsage(f);
   openPopover();
   await settle();
@@ -410,34 +456,42 @@ test("the refresh button checks at once, and shows the new numbers", async () =>
   expect(words(limits(popover.draw())[0])).toContain("40%");
 });
 
-test("a check under way isn't started twice, by refresh or by opening", async () => {
+test("refreshes during a check coalesce into one follow-up", async () => {
   const usage = held();
   claude(WEEK);
   state.says["claude -p /usage"] = usage.answer;
   const { f, popover } = await opened();
+  refresh(popover);
   refresh(popover);
   await settle();
   chooseUsage(f);
   openPopover();
   await settle();
   expect(checks()).toBe(1);
+  state.says["claude -p /usage"] = usageAnswer(weekAt(45));
   usage.release(ANSWER);
+  await settle();
+  expect(checks()).toBe(2);
+  expect(words(popover.draw())).toContain("45%");
 });
 
-test("while a check runs the window stays free and the line says so, then says how old the numbers are", async () => {
+
+test("refresh progress is visible in the roster and the provider detail shows the reading age", async () => {
   const usage = held();
   claude(WEEK);
   state.says["claude -p /usage"] = usage.answer;
   const { popover } = await opened();
-  expect(words(popover.draw())).toContain("CHECKING…");
+  expect(words(popover.draw())).toContain("Loading usage…");
+  expect(checkingShown(popover.draw())).toBe(true);
 
   usage.release(ANSWER);
   await settle();
-  expect(words(popover.draw())).toContain("UPDATED JUST NOW");
-  expect(words(popover.draw())).not.toContain("CHECKING…");
+  expect(checkingShown(popover.draw())).toBe(false);
+  const detail = providerPopover(popover, "claude");
+  expect(words(detail.draw())).toContain("Updated just now");
 
   setSystemTime(NOW + 3 * 60_000);
-  expect(words(popover.draw())).toContain("UPDATED 3M AGO");
+  expect(words(detail.draw())).toContain("Updated 3m ago");
 });
 
 test("closing the popover midway leaves the check to finish, so its numbers still arrive", async () => {
@@ -476,25 +530,53 @@ test("a check started under a minute ago still counts as running", async () => {
   state.shared.usage = { startedAt: NOW - 59_000 };
   const { popover } = await opened();
   expect(checks()).toBe(0);
-  expect(words(popover.draw())).toContain("CHECKING…");
+  expect(checkingShown(popover.draw())).toBe(true);
 });
 
-test("while open, the time left is redrawn every 30 seconds", async () => {
+
+test("the open roster redraws at the next displayed countdown boundary", async () => {
   claude(SESSION);
   const { popover } = await opened();
-  expect(popover.copy.every).toEqual([30_000]);
-  expect(words(limits(popover.draw())[0])).toContain("RESETS IN 3H 30M");
-  setSystemTime(NOW + 31 * 60_000);
-  expect(words(limits(popover.draw())[0])).toContain("RESETS IN 2H 59M");
+  expect(words(popover.draw())).toContain("Resets in 3h 30m");
+  expect(popover.copy.every).toEqual([]);
+  await wait(1);
+  expect(popover.copy.notified).toBe(1);
+  expect(words(popover.draw())).toContain("Resets in 3h 29m");
 });
 
-test("a limit past its reset time reads 0% and empties its bar before the next check", async () => {
-  claude(SESSION);
+test("a reset hides only the expired reading until the provider reports the new window", async () => {
+  claude(WEEK, "Current session: 96% used · resets 12:04pm (UTC)");
   const { popover } = await opened();
-  setSystemTime(NOW + 4 * 3600_000);
-  const [limit] = limits(popover.draw());
-  expect(words(limit)).toEqual(["5 HOURS", "0%"]);
-  expect(filled(limit)).toBe(0);
+  setSystemTime(NOW + 4 * 60_000);
+  const root = popover.draw();
+  expect(limits(root).map(words)).toEqual([["wk", "12%"]]);
+  expect(cachedRows()[0].expired).toBe(true);
+  expect(words(root)).not.toContain("0%");
+});
+
+test("the next background tick after a reset asks for the new window", async () => {
+  claude("Current session: 96% used · resets 12:04pm (UTC)");
+  const f = footer();
+  await wait(5_000);
+  expect(dotOn(f.draw())).toBeDefined();
+  claude("Current session: 15% used · resets 5pm (UTC)");
+  await wait(4 * 60_000);
+  expect(checks()).toBe(2);
+  expect(words(openedAfter().draw())).toContain("15%");
+  expect(dotOn(f.draw())).toBeUndefined();
+});
+
+test("repeated failures retire old numbers and their warning after 30 minutes", async () => {
+  claude(AT(95));
+  const { f, popover } = await opened();
+  state.says["claude -p /usage"] = new Error("unavailable");
+  await wait(16 * 60_000);
+  expect(words(popover.draw())).toContain("95%");
+  expect(dotOn(f.draw())).toBeDefined();
+  await wait(15 * 60_000);
+  expect(limits(popover.draw())).toEqual([]);
+  expect(words(popover.draw())).toContain("Could not check");
+  expect(dotOn(f.draw())).toBeUndefined();
 });
 
 test("bars slide to new numbers, and keep their place to do it", async () => {
@@ -508,13 +590,13 @@ test("bars slide to new numbers, and keep their place to do it", async () => {
   expect(arg(barOf(limits(popover.draw())[0]), "id")).toBe(arg(bar, "id"));
 });
 
-const NONE = "No subscriptions found";
+const NONE = "No usage data";
 
 for (const [why, answer] of [
   ["signed out", { code: 1, stdout: JSON.stringify({ loggedIn: false, authMethod: "none" }) }],
   ["using an API key", JSON.stringify({ loggedIn: true, authMethod: "api_key", apiProvider: "firstParty" })],
 ] as const) {
-  test(`Claude ${why} gives no row, asks nothing more, and takes an older row with it`, async () => {
+  test(`Claude ${why} clears prior quota and stops the provider probe`, async () => {
     claude(WEEK);
     const { popover } = await opened();
     expect(limits(popover.draw()).length).toBe(1);
@@ -525,8 +607,8 @@ for (const [why, answer] of [
     await settle();
     expect(checks()).toBe(0);
     expect(limits(popover.draw())).toEqual([]);
-    expect(words(popover.draw())).not.toContain("Claude Code");
-    expect(words(popover.draw())).toContain(NONE);
+    expect(words(popover.draw())).toContain("Claude Code");
+    expect(words(popover.draw())).toContain(why === "signed out" ? "not signed in" : "This account uses API billing.");
   });
 }
 
@@ -543,7 +625,7 @@ test("with no agents at all the popover reads as a result, and Usage limits stay
   state.says["printenv PATH"] = "/made/up/bin\n";
   const { popover } = await opened();
   expect(words(popover.draw())).toContain(NONE);
-  expect(words(popover.draw())).toContain("UPDATED JUST NOW");
+  expect(state.shared.usage.checkedAt).toBe(NOW);
   expect(byId(footerMenu().draw(), "footer-action-usage")).toBeDefined();
 });
 
@@ -556,18 +638,18 @@ test("before the first check ends, nothing claims there are no subscriptions", a
   auth.release(JSON.stringify(ACCOUNT));
 });
 
-test("a failed check keeps the last numbers, saying how old they are, in the row and on the line", async () => {
+
+test("a failed check keeps the last numbers and shows their age in the provider detail", async () => {
   claude(WEEK);
   const { popover } = await opened();
   setSystemTime(NOW + 12 * 60_000);
   state.says["claude -p /usage"] = new Error("claude took longer than 30 s and was stopped");
   refresh(popover);
   await settle();
-  const root = popover.draw();
-  expect(words(limits(root)[0])).toContain("12%");
-  expect(words(root)).toContain("LAST CHECKED 12M AGO");
-  expect(words(root)).toContain("UPDATED 12M AGO");
-  expect(words(root)).not.toContain("COULD NOT CHECK");
+  const detail = providerPopover(popover, "claude");
+  const text = words(detail.draw());
+  expect(text).toEqual(expect.arrayContaining(["12%", "Updated 12m ago", "Refresh failed · showing cached data"]));
+  expect(text).not.toContain("Could not check");
 });
 
 test("the next good check clears the note", async () => {
@@ -578,9 +660,10 @@ test("the next good check clears the note", async () => {
   refresh(popover);
   await settle();
   claude(WEEK);
+  setSystemTime(Date.now() + 30_000);
   refresh(popover);
   await settle();
-  expect(words(popover.draw()).filter((word) => word.startsWith("LAST CHECKED"))).toEqual([]);
+  expect(cachedRows().every((row) => !row.failed)).toBe(true);
 });
 
 for (const [why, usage] of [
@@ -590,17 +673,28 @@ for (const [why, usage] of [
   ["a percent that isn't one", usageAnswer("Current week (all models): most% used · resets Nov 6 at 7:59pm (UTC)")],
   ["an empty answer", ""],
 ] as const) {
-  test(`${why} with no earlier numbers reads "COULD NOT CHECK", with no numbers and no age`, async () => {
+  test(`${why} with no earlier numbers reads "Could not check", with no numbers and no age`, async () => {
     claude(WEEK);
     state.says["claude -p /usage"] = usage;
     const { popover } = await opened();
     const root = popover.draw();
-    expect(words(root)).toEqual(expect.arrayContaining(["Claude Code", "COULD NOT CHECK"]));
+    expect(words(root)).toEqual(expect.arrayContaining(["Claude Code", "Could not check"]));
     expect(words(root)).not.toContain(NONE);
     expect(limits(root)).toEqual([]);
     expect(words(root).filter((word) => word.startsWith("Updated"))).toEqual([]);
   });
 }
+
+test("Claude reads only the result from a stream with events before and after it", async () => {
+  claude(WEEK);
+  state.says["claude -p /usage"] = [
+    '{"type":"assistant","result":"Current session: 97% used"}',
+    usageAnswer(WEEK),
+    '{"type":"rate_limit_event","rate_limit_info":{"status":"allowed"}}',
+  ].join("\n");
+  const { popover } = await opened();
+  expect(cachedLimits()).toEqual([{ label: "This week", used: 12, resetsAt: Date.UTC(2026, 10, 6, 19, 59) }]);
+});
 
 test("unreadable sign-in text is a failed check, not a signed-out one", async () => {
   claude(WEEK);
@@ -609,19 +703,19 @@ test("unreadable sign-in text is a failed check, not a signed-out one", async ()
   refresh(popover);
   await settle();
   expect(words(limits(popover.draw())[0])).toContain("12%");
-  expect(words(popover.draw())).toContain("LAST CHECKED JUST NOW");
+  expectCachedAge(0);
 });
 
 test("unreadable lines are left out, and the ones that read stay", async () => {
   claude("Current week (all models): most% used", SONNET);
   const { popover } = await opened();
-  expect(limits(popover.draw()).map((limit) => words(limit)[0])).toEqual(["SONNET"]);
+  expect(limits(popover.draw()).map((limit) => words(limit)[0])).toEqual(["Sonnet"]);
 });
 
 test("a line whose reset text can't be read gives no limit, and the ones that read stay", async () => {
   claude("Current week (all models): 12% used · resets when it feels like it", SONNET);
   const { popover } = await opened();
-  expect(limits(popover.draw()).map((limit) => words(limit)[0])).toEqual(["SONNET"]);
+  expect(limits(popover.draw()).map((limit) => words(limit)[0])).toEqual(["Sonnet"]);
 });
 
 test("every line's reset text unreadable is a failed check, keeping the last numbers", async () => {
@@ -632,23 +726,24 @@ test("every line's reset text unreadable is a failed check, keeping the last num
   refresh(popover);
   await settle();
   expect(words(limits(popover.draw())[0])).toContain("12%");
-  expect(words(popover.draw())).toContain("LAST CHECKED 12M AGO");
+  expectCachedAge(12);
 });
 
-test("Claude's reset text: date and time, time only, the turn of the year, and none at all", async () => {
+
+test("Claude's reset text handles a date, midnight, the turn of the year, and no reset", async () => {
   setSystemTime(Date.UTC(2026, 11, 31, 20, 0));
   claude(
     "Current week (all models): 10% used · resets Jan 2 at 8:15pm (UTC)",
     "Current week (Sonnet only): 20% used · resets Dec 31 at 9pm (UTC)",
     "Current week (Opus only): 30% used",
-    "Current session: 40% used · resets 7pm (UTC)",
+    "Current session: 40% used · resets 1am (UTC)",
   );
-  const { popover } = await opened();
-  expect(limits(popover.draw()).map((limit) => words(limit))).toEqual([
-    ["THIS WEEK", "10%", "RESETS IN 2D 0H"],
-    ["SONNET", "20%", "RESETS IN 1H 0M"],
-    ["OPUS", "30%"],
-    ["5 HOURS", "40%", "RESETS IN 23H 0M"],
+  await opened();
+  expect(cachedLimits()).toEqual([
+    { label: "This week", used: 10, resetsAt: Date.UTC(2027, 0, 2, 20, 15) },
+    { label: "Sonnet", used: 20, resetsAt: Date.UTC(2026, 11, 31, 21) },
+    { label: "Opus", used: 30, resetsAt: null },
+    { label: "5 hours", used: 40, resetsAt: Date.UTC(2027, 0, 1, 1) },
   ]);
 });
 
@@ -660,7 +755,7 @@ test("Claude's reset text with a comma and a named zone reads as this computer's
     "Current session: 40% used · resets 7pm (Europe/London)",
   );
   const { popover } = await opened();
-  expect(limits(popover.draw()).map((limit) => words(limit)[0])).toEqual(["THIS WEEK", "FABLE", "5 HOURS"]);
+  expect(limits(popover.draw()).map((limit) => words(limit)[0])).toEqual(["wk", "Fable", "5h"]);
   const [{ limits: saved }] = Object.values<any>(state.shared.usage.entries);
   expect(saved[0].resetsAt).toBe(new Date(2026, 10, 6, 19, 59).getTime());
   expect(saved[2].resetsAt).toBe(new Date(2026, 10, 1, 19, 0).getTime());
@@ -670,8 +765,8 @@ test("Claude is asked with no hooks, plugins, MCP or saved session, and in UTC",
   claude(WEEK);
   await opened();
   const asked = state.runs.find((run) => run.line.includes("claude -p /usage"))!.line;
-  for (const flag of ["--output-format json", "--no-session-persistence", "--strict-mcp-config", "--setting-sources=", "TZ=UTC"]) expect(asked).toContain(flag);
-  expect(state.runs.every((run) => /claude (auth status|-p \/usage)|printenv PATH/.test(run.line))).toBe(true);
+  for (const flag of ["--output-format stream-json --verbose", "--no-session-persistence", "--strict-mcp-config", "--setting-sources=", "TZ=UTC"]) expect(asked).toContain(flag);
+  expect(state.runs.every((run) => /claude (auth status|-p \/usage)|printenv PATH|command -v/.test(run.line))).toBe(true);
 });
 
 test("Claude's commands run in the PATH of the person's own shell, as a Dock start has none of it", async () => {
@@ -704,13 +799,24 @@ test("no login, email or organisation reaches shared storage", async () => {
   expect(saved).not.toMatch(/email|org/i);
 });
 
+function expectThemeColors(root: El) {
+  const palette = Object.values(colors).filter((color): color is string => typeof color === "string");
+  const rgb = new Set(palette.map((color) => color.slice(0, 7).toLowerCase()));
+  for (const e of all(root)) {
+    for (const name of ["bg", "text_color", "border_color"]) {
+      const shade = arg(e, name);
+      if (typeof shade === "string") expect(rgb.has(shade.slice(0, 7).toLowerCase())).toBe(true);
+    }
+  }
+}
+
 test("colors come from the theme, and the popover sits on the window's darkest color", async () => {
   expect(readFileSync(new URL("../defaults/mods/usage/main.js", import.meta.url), "utf8")).not.toMatch(/#[0-9a-f]{3,8}\b/i);
   claude(WEEK);
   const { popover } = await opened();
-  const root = popover.draw(), theirs = new Set(Object.values(colors));
+  const root = popover.draw();
   expect(arg(root, "bg")).toBe(colors.canvas);
-  for (const e of all(root)) for (const name of ["bg", "text_color"]) if (arg(e, name)) expect(theirs.has(arg(e, name))).toBe(true);
+  expectThemeColors(root);
 });
 
 test("a list that fits has no scroller to collapse; a longer one scrolls inside the popover's 540 px", async () => {
@@ -724,7 +830,8 @@ test("a list that fits has no scroller to collapse; a longer one scrolls inside 
   state.shared.usage = { checkedAt: 1, entries: Object.fromEntries(many) };
   const root = popover.draw(), list = byId(root, "usage-rows")!;
   expect(scrolls(list)).toBe(true);
-  expect(arg(list, "h")).toBe(448);
+  expect(arg(list, "h") + 44 + 46 + 2).toBeLessThanOrEqual(540);
+  expect(arg(list, "h")).toBeGreaterThan(300);
   expect(arg(root, "min_h")).toBe(0);
   expect(arg(list, "min_h")).toBe(0);
   for (const part of root.kids.map(mine).filter((kid) => kid !== list)) expect(part!.calls.some(([name]) => name === "flex_none")).toBe(true);
@@ -734,7 +841,7 @@ test("a limit over 100% still fills its bar and no more", async () => {
   claude("Current week (all models): 104% used · resets Nov 6 at 7:59pm (UTC)");
   const { popover } = await opened();
   const [limit] = limits(popover.draw());
-  expect(words(limit)).toContain("104%");
+  expect(words(limit)).toContain("100%");
   expect(filled(limit)).toBe(100);
 });
 
@@ -770,31 +877,28 @@ test("a Codex subscription shows its tier and every limit: weekly, then a model'
   const { popover } = await opened();
   const root = popover.draw();
   expect(paths(root)).toContain("icons/codex.svg");
-  expect(words(root)).toEqual(expect.arrayContaining(["Codex", "PRO 100"]));
-  expect(limits(root).map((limit) => words(limit))).toEqual([
-    ["THIS WEEK", "12%", "RESETS IN 5D 7H"],
-    ["GPT-5-SPARK", "20%", "RESETS IN 1D 6H"],
-    ["5 HOURS", "33%", "RESETS IN 3H 30M", "RUNS OUT IN 3H 2M AT THIS PACE"],
-    ["GPT-5-SPARK · 5 HOURS", "30%", "RESETS IN 1H 0M"],
+  expect(words(root)).toEqual(expect.arrayContaining(["Codex", "· Pro 100"]));
+  expect(limits(root).map(words)).toEqual([
+    ["wk", "12%"], ["GPT-5-Spark", "20%"], ["5h", "33%"], ["GPT-5-Spark · 5 hours", "30%"],
   ]);
 });
 
 test("a Codex answer with one bucket and no list of them still shows its limits", async () => {
   codex(PRO, { rateLimits: GENERAL, rateLimitsByLimitId: null });
   const { popover } = await opened();
-  expect(limits(popover.draw()).map((limit) => words(limit)[0])).toEqual(["THIS WEEK", "5 HOURS"]);
+  expect(limits(popover.draw()).map((limit) => words(limit)[0])).toEqual(["wk", "5h"]);
 });
 
 test("a model's bucket with no name of its own still shows", async () => {
   codex(PRO, { rateLimits: GENERAL, rateLimitsByLimitId: { codex: GENERAL, codex_other: bucket("codex_other", null, window_(5, 10080, 2)) } });
   const { popover } = await opened();
-  expect(limits(popover.draw()).map((limit) => words(limit)[0])).toEqual(["THIS WEEK", "CODEX OTHER", "5 HOURS"]);
+  expect(limits(popover.draw()).map((limit) => words(limit)[0])).toEqual(["wk", "Codex other", "5h"]);
 });
 
 test("a window of any other length reads as what it is", async () => {
   codex(PRO, { rateLimitsByLimitId: { codex: bucket("codex", null, window_(1, 60, 1), window_(2, 1440, 2)), codex_a: bucket("codex_a", "A", window_(3, 45, 1), window_(4, 43200, 2)), codex_b: bucket("codex_b", "B", window_(5, null, 1)) } });
   const { popover } = await opened();
-  expect(limits(popover.draw()).map((limit) => words(limit)[0]).sort()).toEqual(["1 DAY", "1 HOUR", "A · 30 DAYS", "A · 45 MINUTES", "B"]);
+  expect(limits(popover.draw()).map((limit) => words(limit)[0]).sort()).toEqual(["1d", "1h", "A · 30 days", "A · 45 minutes", "B"]);
 });
 
 for (const [planType, tier] of [
@@ -806,7 +910,7 @@ for (const [planType, tier] of [
   test(`Codex's ${planType} plan reads ${tier}`, async () => {
     codex({ ...PRO, planType });
     const { popover } = await opened();
-    expect(words(popover.draw())).toContain(tier.toUpperCase());
+    expect(words(popover.draw())).toContain(`· ${tier}`);
   });
 }
 
@@ -826,7 +930,7 @@ for (const [why, account, rates] of [
   ["signed in through Amazon Bedrock", { type: "amazonBedrock", usesCodexManagedCredentials: false }, null],
   ["signed in through Amazon Bedrock, with limits in the answer", { type: "amazonBedrock", usesCodexManagedCredentials: false }, RATES],
 ] as const) {
-  test(`Codex ${why} gives no row, and takes an older row with it`, async () => {
+  test(`Codex ${why} clears previously read usage and shows account status`, async () => {
     codex();
     const { popover } = await opened();
     expect(limits(popover.draw()).length).toBe(4);
@@ -834,8 +938,8 @@ for (const [why, account, rates] of [
     state.says["app-server"] = codexSays(account, rates);
     refresh(popover);
     await settle();
-    expect(words(popover.draw())).not.toContain("Codex");
-    expect(words(popover.draw())).toContain(NONE);
+    expect(words(popover.draw())).toContain("Codex");
+    expect(words(popover.draw())).toContain(account === null ? "not signed in" : "This account uses API billing.");
   });
 }
 
@@ -849,12 +953,12 @@ for (const [why, answer] of [
   ["limits with no window in them", codexSays(PRO, { rateLimits: bucket("codex", null, null), rateLimitsByLimitId: { codex: bucket("codex", null, null) } })],
   ["limits with no bucket at all", codexSays(PRO, {})],
 ] as const) {
-  test(`${why} from Codex with no earlier numbers reads "COULD NOT CHECK"`, async () => {
+  test(`${why} from Codex with no earlier numbers reads "Could not check"`, async () => {
     codex();
     state.says["app-server"] = answer;
     const { popover } = await opened();
     const root = popover.draw();
-    expect(words(root)).toEqual(expect.arrayContaining(["Codex", "COULD NOT CHECK"]));
+    expect(words(root)).toEqual(expect.arrayContaining(["Codex", "Could not check"]));
     expect(limits(root)).toEqual([]);
   });
 
@@ -866,7 +970,7 @@ for (const [why, answer] of [
     refresh(popover);
     await settle();
     expect(words(limits(popover.draw())[0])).toContain("12%");
-    expect(words(popover.draw())).toContain("LAST CHECKED 12M AGO");
+    expectCachedAge(12);
   });
 }
 
@@ -881,7 +985,7 @@ test("checking Codex sends no request of its own and reads no login", async () =
   codex();
   await opened();
   expect(state.fetched).toEqual([]);
-  expect(state.runs.every((run) => /app-server|printenv PATH/.test(run.line))).toBe(true);
+  expect(state.runs.every((run) => /app-server|printenv PATH|command -v/.test(run.line))).toBe(true);
   expect(state.runs.some((run) => /auth\.json|keychain|security /i.test(run.line))).toBe(false);
 });
 
@@ -928,6 +1032,70 @@ test("a Codex check keeps its input open for a slow last answer, and stops as so
   expect(readdirSync(join(dir, "tmp"))).toEqual([]);
 }, 10_000);
 
+test("Codex requests the account and limits only after a successful initialize reply", async () => {
+  const dir = realShell("codex", codexSays(PRO));
+  const server = join(dir, "codex");
+  const answers = codexSays(PRO).trim().split("\n");
+  writeFileSync(server, `#!/bin/sh
+read -r init
+exec 5<&0
+(
+  read -r notification
+  [ -f "${dir}/ready" ] || touch "${dir}/early"
+  read -r account
+  read -r limits
+  printf '%s\\n' "$init" "$notification" "$account" "$limits" > "${dir}/requests"
+  printf '%s\\n' '${answers[2]}' '${answers[3]}'
+  while read -r line; do :; done
+) <&5 &
+printf '%s\\n' '{"id":1,"method":"unrelated/request","params":{"result":{}}}'
+sleep 0.4
+touch "${dir}/ready"
+printf '%s\\n' '${answers[0]}'
+wait
+`);
+  const { popover } = await opened();
+  await checked();
+  expect(limits(popover.draw()).length).toBe(4);
+  expect(existsSync(join(dir, "early"))).toBe(false);
+  expect(readFileSync(join(dir, "requests"), "utf8").trim().split("\n").map((line) => JSON.parse(line))).toEqual([
+    expect.objectContaining({ jsonrpc: "2.0", id: 1, method: "initialize" }),
+    expect.objectContaining({ jsonrpc: "2.0", method: "initialized" }),
+    expect.objectContaining({ jsonrpc: "2.0", id: 2, method: "account/read" }),
+    expect.objectContaining({ jsonrpc: "2.0", id: 3, method: "account/rateLimits/read" }),
+  ]);
+}, 10_000);
+
+test("an incomplete Codex window cannot replace the last real reading with zero", async () => {
+  codex();
+  const { popover } = await opened();
+  state.says["app-server"] = codexSays(PRO, { rateLimits: bucket("codex", null, { windowDurationMins: 10080 }) });
+  refresh(popover);
+  await settle();
+  expect(words(popover.draw())).toContain("12%");
+  expectCachedAge(0);
+});
+
+test("a Codex reply split across writes is read after the closing brace", async () => {
+  const dir = realShell("codex", codexSays(PRO));
+  const [init, , account, limitsReply] = codexSays(PRO).trim().split("\n");
+  writeFileSync(join(dir, "codex"), `#!/bin/sh
+read -r init
+printf '%s\\n' '${init}'
+read -r notification
+read -r account
+read -r limits
+printf '%s\\n' '${account}'
+printf '%s' '{"id":3,"result":'
+sleep 0.6
+printf '%s\\n' '${limitsReply.slice('{"id":3,"result":'.length)}'
+while read -r line; do :; done
+`);
+  const { popover } = await opened();
+  await checked();
+  expect(limits(popover.draw()).length).toBe(4);
+}, 10_000);
+
 test("a Codex that answers limits before the account still gets to finish", async () => {
   realShell("codex", codexSays(PRO).trim().split("\n").reverse().join("\n"), 0.1, 0.5);
   const { popover } = await opened();
@@ -940,7 +1108,7 @@ test("a signed-out Codex's refused last answer ends the wait too", async () => {
   const started = Bun.nanoseconds();
   const { popover } = await opened();
   await checked();
-  expect(words(popover.draw())).toContain(NONE);
+  expect(words(popover.draw())).toContain("not signed in");
   expect((Bun.nanoseconds() - started) / 1e9).toBeLessThan(5);
 }, 10_000);
 
@@ -948,7 +1116,7 @@ test("Codex is asked read-only, with no approvals", async () => {
   const dir = realShell("codex", codexSays(PRO));
   await opened();
   await checked();
-  expect(readFileSync(join(dir, "asked"), "utf8").trim()).toBe("-s read-only -a never app-server");
+  expect(readFileSync(join(dir, "asked"), "utf8").trim()).toBe("-c approval_policy=never -c features.plugins=false -s read-only -a never app-server");
 }, 10_000);
 
 test("a path the shell would take apart still runs as itself, and only that", async () => {
@@ -979,7 +1147,7 @@ test("a custom path to codex in programs.json is used, and the person's flags st
   state.agents[""] = [{ ...CODEX, run: ["/opt/made-up/bin/codex", "--profile", "work"] }];
   await opened();
   const asked = state.runs.find((run) => run.line.includes("app-server"))!.line;
-  expect(asked).toContain("/opt/made-up/bin/codex -s read-only -a never app-server");
+  expect(asked).toContain("/opt/made-up/bin/codex -c approval_policy=never -c features.plugins=false -s read-only -a never app-server");
   expect(asked).not.toContain("--profile");
 });
 
@@ -1020,11 +1188,12 @@ test("on Windows the agents are asked through PowerShell, with no PATH to fetch 
   state.says["app-server"] = codexSays(PRO);
   const { popover } = await opened();
   expect(limits(popover.draw()).length).toBe(5);
-  expect(state.runs.map((run) => run.line.slice(0, "powershell -NoLogo -NoProfile -Command".length))).toEqual(Array(3).fill("powershell -NoLogo -NoProfile -Command"));
+  expect(state.runs.every((run) => run.line.startsWith("powershell -NoLogo -NoProfile -Command"))).toBe(true);
+  expect(state.runs.filter((run) => /auth status|\/usage|app-server/.test(run.line))).toHaveLength(3);
   const line = (piece: string) => state.runs.find((run) => run.line.includes(piece))!.line;
   expect(line("auth status")).toEndWith("-Command & 'C:\\made up\\it''s\\claude.exe' auth status");
   expect(line("/usage")).toContain("$env:TZ='UTC'; & 'C:\\made up\\it''s\\claude.exe' -p /usage");
-  expect(line("app-server")).toContain(`'/d /c ""' + 'C:\\made up\\it’’s\\codex.CMD' + '" -s read-only -a never app-server 2>nul"'`);
+  expect(line("app-server")).toContain(`'/d /c ""' + 'C:\\made up\\it’’s\\codex.CMD' + '" -c approval_policy=never -c features.plugins=false -s read-only -a never app-server 2>nul"'`);
 });
 
 // Windows PowerShell gives a pipe's input to a program only once the pipe has ended, and the server
@@ -1038,9 +1207,53 @@ test("on Windows Codex's input stays open in a process of its own until both ans
   const asked = state.runs.find((run) => run.line.includes("app-server"))!.line;
   expect(asked).not.toContain("Start-Sleep");
   expect(asked).toContain("RedirectStandardInput = $true");
-  // Where the console's input is UTF-8, .NET puts a byte order mark ahead of the first line it writes.
-  expect(asked).toMatch(/WriteLine\(''\);.*initialize.*"id":2\[,}\].*"id":3\[,}\].*StandardInput\.Close\(\)/);
+  expect(asked).toMatch(/Send-Line ''[\s\S]*"method":"initialize"[\s\S]*until \(\$reply\.message\.id -eq 1\)[\s\S]*"method":"initialized"[\s\S]*"method":"account\/rateLimits\/read"/);
+  expect(asked).toContain("$server.StandardInput.Close()");
 });
+
+test.skipIf(process.platform !== "win32")("native Windows Codex probe waits for initialize and reads both replies", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "usage probe "));
+  scratch.push(dir);
+  const server = join(dir, "codex.cmd");
+  writeFileSync(server, '@echo off\r\n"' + process.execPath + '" "%~dp0server.js"\r\n');
+  writeFileSync(join(dir, "server.js"), `
+import { createInterface } from "node:readline";
+let ready = false;
+const send = (message) => console.log(JSON.stringify(message));
+createInterface({ input: process.stdin }).on("line", (line) => {
+  if (!line.trim()) return;
+  const request = JSON.parse(line);
+  if (request.jsonrpc !== "2.0") process.exit(1);
+  if (request.method === "initialize") {
+    send({ id: 1, method: "windows/unrelated", params: { result: {} } });
+    setTimeout(() => {
+      ready = true;
+      send({ result: { userAgent: "made-up/0" }, id: 1 });
+    }, 300);
+    return;
+  }
+  if (!ready) process.exit(1);
+  if (request.method === "account/rateLimits/read") {
+    send({ id: 2, method: "windows/unrelated", params: {} });
+    send({ result: ${JSON.stringify(RATES)}, id: 3 });
+    setTimeout(() => send({ id: 2, result: { account: ${JSON.stringify(PRO)} } }), 100);
+  }
+});
+`);
+  state.platform = "windows";
+  state.agents[""] = [{ ...CODEX, run: [server] }];
+  let result: { code: number; stdout: string; stderr: string } | undefined;
+  state.says["app-server"] = async ({ args }) => {
+    const child = Bun.spawn(["powershell.exe", ...args], { cwd: dir, stdout: "pipe", stderr: "pipe" });
+    const [code, stdout, stderr] = await Promise.all([child.exited, new Response(child.stdout).text(), new Response(child.stderr).text()]);
+    result = { code, stdout, stderr };
+    return result;
+  };
+  const { popover } = await opened();
+  await checked();
+  expect(result?.code, result?.stderr).toBe(0);
+  expect(limits(popover.draw()).length).toBe(4);
+}, 15_000);
 
 const OTHER = { ...ACCOUNT, email: "someone-else@example.test", orgId: "org-also-made-up" };
 const SHELL = "/remote/bin:/usr/bin\n";
@@ -1065,7 +1278,7 @@ test("Claude Code and Codex are checked on every added machine, on that machine,
   state.agents.box.push(CODEX);
   state.on.box["app-server"] = codexSays(PRO);
   await opened();
-  const on = (name: string) => state.runs.filter((run) => run.on === name);
+  const on = (name: string) => state.runs.filter((run) => run.on === name && /printenv PATH|claude auth status|claude -p \/usage|app-server/.test(run.line));
   expect(on("vps").length).toBe(3);
   expect(on("box").length).toBe(4);
   for (const run of [...on("vps"), ...on("box")].filter((run) => !run.line.includes("printenv PATH"))) expect(run.line).toContain(SHELL.trim());
@@ -1075,13 +1288,13 @@ test("a row on this computer alone has no machine label, even with a machine add
   claude(WEEK);
   added("vps");
   const { popover } = await opened();
-  expect(words(rows(popover.draw())[0])).toEqual(["Claude Code", "MAX", "THIS WEEK", "12%", "RESETS IN 5D 7H"]);
+  expect(words(rows(popover.draw())[0])).toEqual(["Claude Code", "· Max", "Resets in 5d 7h", "wk", "12%"]);
 });
 
 test("a row on an added machine is labelled with it", async () => {
   claudeOn("vps", ACCOUNT, WEEK);
   const { popover } = await opened();
-  expect(words(rows(popover.draw())[0])).toContain("VPS");
+  expect(words(rows(popover.draw())[0])).toContain("vps");
 });
 
 test("one account on two machines is one row, labelled with both", async () => {
@@ -1091,7 +1304,7 @@ test("one account on two machines is one row, labelled with both", async () => {
   const root = popover.draw();
   expect(rows(root).length).toBe(1);
   expect(limits(root).length).toBe(1);
-  expect(words(root)).toContain("THIS COMPUTER, VPS");
+  expect(words(root)).toContain("This computer, vps");
 });
 
 for (const last of ["vps", "this computer"]) {
@@ -1115,8 +1328,8 @@ test("different accounts on two machines are two rows, each labelled with its ma
   const { popover } = await opened();
   const shown = rows(popover.draw());
   expect(shown.length).toBe(2);
-  expect(words(shown[0])).toEqual(expect.arrayContaining(["THIS COMPUTER", "10%"]));
-  expect(words(shown[1])).toEqual(expect.arrayContaining(["VPS", "20%"]));
+  expect(words(shown[0])).toEqual(expect.arrayContaining(["vps", "20%"]));
+  expect(words(shown[1])).toEqual(expect.arrayContaining(["This computer", "10%"]));
 });
 
 test("different agents on two machines leave this computer's row unlabelled, as nothing needs telling apart", async () => {
@@ -1126,8 +1339,8 @@ test("different agents on two machines leave this computer's row unlabelled, as 
   state.on.vps = { "printenv PATH": SHELL, "app-server": codexSays(PRO) };
   const { popover } = await opened();
   const shown = rows(popover.draw());
-  expect(words(shown[0])).not.toContain("This computer");
-  expect(words(shown[1])).toContain("VPS");
+  expect(words(shown.find((row) => words(row).includes("Claude Code"))!)).not.toContain("This computer");
+  expect(words(shown.find((row) => words(row).includes("Codex"))!)).toContain("vps");
 });
 
 test("Claude Code and Codex on one email stay two rows, as they're two subscriptions", async () => {
@@ -1162,7 +1375,8 @@ test("an unreachable machine keeps its last numbers, marked with their age, and 
   const root = popover.draw();
   expect(state.runs.filter((run) => run.on === "vps")).toEqual([]);
   expect(words(limits(root)[0])).toContain("40%");
-  expect(words(root)).toEqual(expect.arrayContaining(["VPS", "LAST CHECKED 12M AGO"]));
+  expect(words(root)).toContain("vps");
+  expectCachedAge(12);
 });
 
 test("an unreachable machine with no last numbers shows nothing, and leaves the others alone", async () => {
@@ -1170,7 +1384,7 @@ test("an unreachable machine with no last numbers shows nothing, and leaves the 
   added("vps", "unavailable");
   const { popover } = await opened();
   expect(rows(popover.draw()).length).toBe(1);
-  expect(words(popover.draw())).not.toContain("COULD NOT CHECK");
+  expect(words(popover.draw())).not.toContain("Could not check");
 });
 
 test("a machine still connecting is asked like any other", async () => {
@@ -1196,7 +1410,7 @@ test("a machine lost after it last looked ready keeps its rows too", async () =>
   refresh(popover);
   await settle();
   expect(words(limits(popover.draw())[0])).toContain("40%");
-  expect(words(popover.draw())).toContain("LAST CHECKED 12M AGO");
+  expectCachedAge(12);
 });
 
 for (const [why, machine] of [
@@ -1217,10 +1431,21 @@ for (const [why, machine] of [
     const root = popover.draw();
     expect(rows(root).length).toBe(1);
     expect(words(limits(root)[0])).toContain("30%");
-    expect(words(root)).toContain("THIS COMPUTER, VPS");
-    expect(words(root).filter((word) => word.startsWith("LAST CHECKED"))).toEqual([]);
+    expect(words(root)).toContain("This computer, vps");
+    expect(cachedRows().every((row) => !row.failed)).toBe(true);
   });
 }
+
+test("a failed usage check on a newly signed-in account clears the old account reading", async () => {
+  claude(WEEK);
+  const { popover } = await opened();
+  state.says["claude auth status"] = JSON.stringify(OTHER);
+  state.says["claude -p /usage"] = new Error("unavailable");
+  refresh(popover);
+  await settle();
+  expect(limits(popover.draw())).toEqual([]);
+  expect(words(popover.draw())).toContain("Could not check");
+});
 
 test("a shared row failing everywhere shows the newest it has, with its age", async () => {
   claude(weekAt(10));
@@ -1230,7 +1455,7 @@ test("a shared row failing everywhere shows the newest it has, with its age", as
   state.says["claude -p /usage"] = state.on.vps["claude -p /usage"] = new Error("no");
   refresh(popover);
   await settle();
-  expect(words(popover.draw())).toContain("LAST CHECKED 12M AGO");
+  expectCachedAge(12);
 });
 
 test("one machine's failure leaves another machine's agents alone", async () => {
@@ -1242,7 +1467,7 @@ test("one machine's failure leaves another machine's agents alone", async () => 
   const { popover } = await opened();
   const root = popover.draw();
   expect(rows(root).length).toBe(3);
-  expect(words(root)).toContain("COULD NOT CHECK");
+  expect(words(root)).toContain("Could not check");
   expect(words(root)).toEqual(expect.arrayContaining(["10%", "12%"]));
 });
 
@@ -1290,7 +1515,7 @@ for (const [why, shell, probe] of [
     refresh(popover);
     await settle();
     expect(words(limits(popover.draw())[0])).toContain("12%");
-    expect(words(popover.draw())).toContain("LAST CHECKED 12M AGO");
+    expectCachedAge(12);
     expect(checks()).toBe(0);
   });
 
@@ -1353,16 +1578,19 @@ for (const [why, list] of [["fails", new Error("no")], ["comes back empty", []]]
     refresh(popover);
     await settle();
     expect(words(limits(popover.draw())[0])).toContain("12%");
-    expect(words(popover.draw())).toContain("LAST CHECKED 12M AGO");
+    expectCachedAge(12);
   });
 }
 
-test("OpenCode isn't checked on an added machine", async () => {
+
+test("an added machine gets an OpenCode setup row before any credential check", async () => {
   claudeOn("vps", ACCOUNT, WEEK);
   state.agents.vps.push(OPENCODE);
   const { popover } = await opened();
-  expect(rows(popover.draw()).length).toBe(1);
-  expect(Object.keys(state.shared.usage.entries)).toEqual(["claude|vps"]);
+  expect(rows(popover.draw())).toHaveLength(2);
+  expect(state.shared.usage.entries["opencode|vps"]).toMatchObject({ ask: true, state: "setup", limits: [] });
+  expect(state.reads).toEqual([]);
+  expect(state.fetched).toEqual([]);
 });
 
 test("the same limit on two machines counts once, following the numbers on show", async () => {
@@ -1392,10 +1620,10 @@ test("no email or organisation is saved from any machine, only a fingerprint", a
   expect(entries[0].who).not.toBe(entries[1].who);
 });
 
-test("the first background check starts 5 seconds after launch, with nothing opened", async () => {
+test("the first background check starts 1 second after launch, with nothing opened", async () => {
   claude(WEEK);
   footer();
-  await wait(4_999);
+  await wait(999);
   expect(checks()).toBe(0);
   await wait(1);
   expect(checks()).toBe(1);
@@ -1482,7 +1710,7 @@ test("a footer cut off in the middle of a check doesn't stop the next footer che
   footer();
   await wait(60_000);
   expect(checks()).toBe(2);
-  expect(words(openedAfter().draw())).toContain("UPDATED JUST NOW");
+  expect(words(providerPopover(openedAfter(), "claude").draw())).toContain("Updated just now");
 });
 
 const AT = (percent: number) => `Current week (all models): ${percent}% used · resets Nov 6 at 7:59pm (UTC)`;
@@ -1507,32 +1735,14 @@ test("any one limit at 90% is enough for the dot", async () => {
   expect(dotOn(f.draw())).toBeDefined();
 });
 
-const percentColor = (limit: El) => arg(all(limit).find((e) => e.kids.some((kid) => typeof kid === "string" && kid.endsWith("%")))!, "text_color");
 
-test("a limit's percent turns orange at 90%, and not at 89%", async () => {
-  claude(AT(89), "Current week (Sonnet only): 90% used · resets Nov 3 at 12:30pm (UTC)");
+test("overview and details use Kavex provider colors and the near-limit theme color", async () => {
+  claude(AT(45), "Current week (Sonnet only): 80% used", "Current week (Opus only): 90% used");
   const { popover } = await opened();
-  const [week, sonnet] = limits(popover.draw());
-  expect(percentColor(week)).toBe(colors.foreground);
-  expect(percentColor(sonnet)).toBe(colors.accent_text);
-});
-
-test("a percent past its reset time isn't orange", async () => {
-  claude("Current session: 96% used · resets 3:30pm (UTC)");
-  const { popover } = await opened();
-  setSystemTime(NOW + 4 * 3600_000);
-  expect(percentColor(limits(popover.draw())[0])).toBe(colors.foreground);
-});
-
-test("Claude's bar is the primary orange; other agents keep their color until 90%", async () => {
-  claude(WEEK);
-  const { popover } = await opened();
-  expect(barColor(limits(popover.draw())[0])).toBe(colors.accent);
-  const codexAt = (used: number) => ({ agent: "codex", name: "Codex", icon: "icons/codex.svg", machine: null, who: "codex", limits: [{ label: "This week", used }], checkedAt: 1 });
-  state.shared.usage = { checkedAt: 1, entries: { "codex|": codexAt(89) } };
-  expect(barColor(limits(popover.draw())[0])).toBe(colors.group_blue);
-  state.shared.usage = { checkedAt: 1, entries: { "codex|": codexAt(90) } };
-  expect(barColor(limits(popover.draw())[0])).toBe(colors.blocked);
+  const overview = limits(popover.draw());
+  expect(new Set(overview.map(barColor)).size).toBe(1);
+  const detail = limits(providerPopover(popover, "claude").draw());
+  expect(detail.map(barColor)).toEqual([colors.accent, colors.accent, colors.blocked]);
 });
 
 test("the footer redraws by itself when a limit resets, and not for every look at the clock", async () => {
@@ -1551,102 +1761,109 @@ test("the footer redraws by itself when a limit resets, and not for every look a
   expect(f.copy.notified).toBe(1);
 });
 
-const lineOf = (root: El, limit: number) => words(limits(root)[limit]);
-const PACE = (percent: number) => `Current week (all models): ${percent}% used · resets Nov 4 at 12:00pm (UTC)`;
-
-test("a limit on course to run out before it resets says when, at the pace so far", async () => {
-  claude(PACE(80));
+test("the roster always shows all windows with only Used and Left choices", async () => {
+  delete state.shared["usage.presentation"];
+  claude(WEEK, SESSION);
   const { popover } = await opened();
-  expect(lineOf(popover.draw(), 0)).toEqual(["THIS WEEK", "80%", "RESETS IN 3D 0H", "RUNS OUT IN 1D 0H AT THIS PACE"]);
+  const root = popover.draw(), display = byId(root, "usage-display")!;
+  expect(words(display)).toEqual(["Used", "Left"]);
+  expect(paths(display)).toEqual([]);
+  expect(arg(display, "p")).toBe(3);
+  expect(arg(display, "bg")).toBe(colors.pill);
+  expect(arg(byId(root, "usage-used")!, "bg")).toBe(colors.pill_selected);
+  expect(arg(byId(root, "usage-used")!, "h")).toBe(26);
+  expect(byId(root, "usage-density")).toBeUndefined();
+  expect(limits(root).map(words)).toEqual([["wk", "12%"], ["5h", "33%"]]);
+
+  state.shared["usage.presentation"] = { display: "used", mode: "compact" };
+  expect(limits(popover.draw()).map(words)).toEqual([["wk", "12%"], ["5h", "33%"]]);
+
+  handler(byId(root, "usage-remaining")!, "on_click")({}, cx);
+  expect(arg(byId(popover.draw(), "usage-remaining")!, "bg")).toBe(colors.pill_selected);
+  expect(limits(popover.draw()).map(words)).toEqual([["wk", "88%"], ["5h", "67%"]]);
+  expect(state.shared["usage.presentation"]).toEqual({ display: "remaining" });
+
+  const detail = providerPopover(popover, "claude");
+  expect(arg(byId(detail.draw(), "usage-remaining")!, "aria_selected")).toBe(true);
+  handler(byId(detail.draw(), "usage-used")!, "on_click")({}, cx);
+  expect(limits(detail.draw()).map(words).flat()).toContain("33%");
+  expect(state.shared["usage.presentation"]).toEqual({ display: "used" });
 });
 
-test("a limit that lasts to its reset says nothing more", async () => {
-  claude(PACE(57), WEEK);
+test("the roster links to provider details, refresh history and account management", async () => {
+  claude(WEEK);
   const { popover } = await opened();
-  expect(lineOf(popover.draw(), 0)).toEqual(["THIS WEEK", "57%", "RESETS IN 3D 0H"]);
-  expect(lineOf(popover.draw(), 1)).toEqual(["THIS WEEK", "12%", "RESETS IN 5D 7H"]);
+  const [row] = rows(popover.draw());
+  expect(handler(row, "on_mouse_move")).toBeUndefined();
+  expect(handler(row, "on_hover")).toBeUndefined();
+
+  const overlayCount = state.overlays.length;
+  const detail = providerPopover(popover, "claude");
+  expect(state.overlays.length).toBe(overlayCount);
+  expect(byId(detail.draw(), "usage-provider")).toBeDefined();
+  expect(words(detail.draw())).toEqual(expect.arrayContaining(["This week", "12%", "Updated just now"]));
+  handler(byId(detail.draw(), "usage-back")!, "on_click")({}, cx);
+  expect(state.overlays.length).toBe(overlayCount);
+  expect(byId(popover.draw(), "usage-rows")).toBeDefined();
+
+  handler(popover.draw(), "on_key_down")({ key: "right" }, cx);
+  expect(byId(popover.draw(), "usage-provider")).toBeDefined();
+  handler(popover.draw(), "on_key_down")({ key: "left" }, cx);
+  expect(byId(popover.draw(), "usage-rows")).toBeDefined();
+  expect(state.overlays.length).toBe(overlayCount);
+
+  handler(byId(popover.draw(), "usage-history")!, "on_click")({}, cx);
+  const historyDialog = openPopover();
+  const history = historyDialog.draw();
+  expect(byId(history, "usage-history-page")).toBeDefined();
+  const { width, height } = state.overlays.at(-1);
+  expectThemeColors(history);
+  expect(words(history)).toEqual(expect.arrayContaining(["Claude Code", "12%"]));
+  handler(byId(history, "usage-remaining")!, "on_click")({}, cx);
+  expect(words(historyDialog.draw())).toContain("88%");
+
+  handler(byId(popover.draw(), "usage-accounts")!, "on_click")({}, cx);
+  const accounts = openPopover().draw();
+  expect(byId(accounts, "usage-accounts-page")).toBeDefined();
+  expect(state.overlays.at(-1)).toMatchObject({ width, height });
+  expectThemeColors(accounts);
+  expect(words(accounts)).toContain("Claude Code");
+
+  for (const [root, name] of [[history, "history"], [accounts, "accounts"]] as const) {
+    expect(arg(root, "bg")).toBe(colors.panel);
+    expect(root.calls.some(([method]) => method === "border_1")).toBe(false);
+    expect(mine(root.kids[1])).toBe(byId(root, `usage-${name}-list`));
+    expect(arg(byId(root, "usage-close")!, "accessibility_label")).toBe("Close");
+  }
 });
 
-test("the first 5% of a window gives no estimate, as its pace says little yet", async () => {
-  claude("Current week (all models): 50% used · resets Nov 8 at 4:00am (UTC)");
-  const { popover } = await opened();
-  expect(lineOf(popover.draw(), 0)).toEqual(["THIS WEEK", "50%", "RESETS IN 6D 16H"]);
-  state.says["claude -p /usage"] = usageAnswer("Current week (all models): 50% used · resets Nov 8 at 3:00am (UTC)");
-  refresh(popover);
-  await settle();
-  expect(lineOf(popover.draw(), 0)).toEqual(["THIS WEEK", "50%", "RESETS IN 6D 15H", "RUNS OUT IN 9H 0M AT THIS PACE"]);
-});
-
-test("the estimate is worked out from when the numbers were checked, and counts down between checks", async () => {
-  claude(PACE(80));
-  const { popover } = await opened();
-  setSystemTime(NOW + 3 * 3600_000);
-  expect(lineOf(popover.draw(), 0).at(-1)).toBe("RUNS OUT IN 21H 0M AT THIS PACE");
-});
-
-test("old numbers whose estimate has passed say nothing about it", async () => {
-  claude(PACE(80));
-  const { popover } = await opened();
-  setSystemTime(NOW + 25 * 3600_000);
-  expect(lineOf(popover.draw(), 0)).toEqual(["THIS WEEK", "80%", "RESETS IN 1D 23H"]);
-});
-
-test("a limit at 0% or used up gives no estimate", async () => {
-  claude(PACE(0));
-  const { popover } = await opened();
-  expect(lineOf(popover.draw(), 0)).toEqual(["THIS WEEK", "0%", "RESETS IN 3D 0H"]);
-  state.says["claude -p /usage"] = usageAnswer(PACE(100));
-  refresh(popover);
-  await settle();
-  expect(lineOf(popover.draw(), 0)).toEqual(["THIS WEEK", "100%", "RESETS IN 3D 0H"]);
-});
-
-test("numbers saved before estimates existed still draw, with none", async () => {
+test("saved provider readings without a window length still render", async () => {
   claude(WEEK);
   const { popover } = await opened();
   state.shared.usage.entries["claude|"].limits = [{ label: "This week", used: 80, resetsAt: NOW + 3 * 86_400_000 }];
-  expect(lineOf(popover.draw(), 0)).toEqual(["THIS WEEK", "80%", "RESETS IN 3D 0H"]);
+  expect(limits(popover.draw()).map(words)).toEqual([["This week", "80%"]]);
 });
 
-test("Claude's 5-hour limit goes by its own length", async () => {
-  claude("Current session: 80% used · resets 2:00pm (UTC)");
-  const { popover } = await opened();
-  expect(lineOf(popover.draw(), 0).at(-1)).toBe("RUNS OUT IN 45M AT THIS PACE");
-});
-
-test("Codex's limits go by the length it reports, and one with none gives no estimate", async () => {
-  codex(PRO, { rateLimits: bucket("codex", null, window_(80, 300, 1), window_(99, null, 72)) });
-  const { popover } = await opened();
-  expect(lineOf(popover.draw(), 0)).toEqual(["5 HOURS", "80%", "RESETS IN 1H 0M"]);
-  expect(lineOf(popover.draw(), 1)).toEqual(["LIMIT", "99%", "RESETS IN 3D 0H"]);
-
-  state.says["app-server"] = codexSays(PRO, { rateLimits: bucket("codex", null, window_(80, 10080, 72)) });
-  refresh(popover);
-  await settle();
-  expect(lineOf(popover.draw(), 0).at(-1)).toBe("RUNS OUT IN 1D 0H AT THIS PACE");
-});
-
-test("OpenCode's limits go by their windows' lengths", async () => {
-  opencode();
-  state.shared["usage.opencode"] = true;
-  state.answers[GO] = go({ usage: { weekly: { percent: 80, resetsAt: "2026-11-04T12:00:00Z" }, rolling: { percent: 80, resetInSec: 3600 }, monthly: { percent: 80, resetsAt: "2026-11-11T12:00:00Z" } } });
-  const { popover } = await opened();
-  expect(limits(popover.draw()).map((limit) => words(limit).at(-1))).toEqual(["RUNS OUT IN 1D 0H AT THIS PACE", "RESETS IN 1H 0M", "RUNS OUT IN 5D 0H AT THIS PACE"]);
-});
-
-test("a limit's estimate adds to its height, so a list that no longer fits scrolls", async () => {
-  const scrolls = (root: El) => byId(root, "usage-rows")!.calls.some(([name]) => name === "overflow_y_scrollbar");
-  const row = (used: number, who: string) => ({ agent: "claude", name: "Claude Code", icon: "icons/claude.svg", machine: null, who, checkedAt: NOW,
-    limits: ["a", "b", "c"].map((label) => ({ label, used, resetsAt: NOW + 3 * 86_400_000, minutes: 10080 })) });
+test("the standalone Usage button opens the roster at the right edge for the active machine", async () => {
   claude(WEEK);
-  const { popover } = await opened();
-  state.shared.usage = { checkedAt: NOW, entries: { one: row(10, "one"), two: row(10, "two") } };
-  expect(scrolls(popover.draw())).toBe(false);
-  const short = arg(limits(popover.draw())[0], "h");
+  claudeOn("vps", OTHER, AT(81));
+  await opened();
+  state.space = { id: "remote", active: true, machine: "vps" };
+  const view: any = new WorkspaceStatus();
+  state.props = { usage: true };
+  const status = view.render(cx).el as El;
+  expect(arg(status, "bg")).toBeUndefined();
+  expect(arg(status, "border_t")).toBeUndefined();
+  expect(status.calls.some(([name]) => name === "justify_end")).toBe(true);
+  expect(words(status)).toEqual(["Usage"]);
+  const strip = byId(status, "usage-status")!;
+  handler(strip, "on_mouse_down")({ bounds: BUTTON }, cx);
+  handler(strip, "on_click")({}, cx);
+  expect(state.overlays.at(-1)).toMatchObject({ mod: "usage", width: 400, props: { from: "usage-status", machine: "vps" } });
+  expect(state.overlays.at(-1).at).toEqual({ x: BUTTON.x + BUTTON.width - 400, y: BUTTON.y - (92 + 53 + 23) - 8 });
 
-  state.shared.usage = { checkedAt: NOW, entries: { one: row(80, "one"), two: row(80, "two") } };
-  expect(scrolls(popover.draw())).toBe(true);
-  expect(arg(limits(popover.draw())[0], "h")).toBeGreaterThan(short);
+  state.shared["usage.enabled"] = false;
+  expect(words(view.render(cx).el)).toEqual([]);
 });
 
 test("reaching 90% raises one toast saying which limit and when it resets", async () => {
@@ -1665,7 +1882,7 @@ test("under 90% raises none, and neither does the check after it that stays unde
 });
 
 test("a limit past 90 warns once, however many checks and however its reset time drifts", async () => {
-  claude(PACE(70));
+  claude(weekAt(70));
   const f = footer();
   await wait(5_000);
   expect(state.notes).toEqual([]);
@@ -1691,15 +1908,17 @@ test("a restart doesn't repeat it: what's been warned about is saved", async () 
   expect(state.notes.length).toBe(1);
 });
 
-test("after its reset, the next time it reaches 90% warns again", async () => {
-  claude(PACE(92));
+test("after a reset and a low reading, crossing 90% can warn again", async () => {
+  claude("Current session: 92% used · resets 12:04pm (UTC)");
   footer();
   await wait(5_000);
   expect(state.notes.length).toBe(1);
-  state.says["claude -p /usage"] = usageAnswer(PACE(3));
-  await wait(16 * 60_000);
+
+  state.says["claude -p /usage"] = usageAnswer("Current session: 3% used · resets 5pm (UTC)");
+  await wait(4 * 60_000);
   expect(state.shared["usage.warned"]).toEqual([]);
-  state.says["claude -p /usage"] = usageAnswer(PACE(90));
+
+  state.says["claude -p /usage"] = usageAnswer("Current session: 90% used · resets 5pm (UTC)");
   await wait(16 * 60_000);
   expect(state.notes.map((note) => note.title)).toEqual(["Claude Code limit at 92%", "Claude Code limit at 90%"]);
 });
@@ -1778,7 +1997,7 @@ test("a check cut off by turning it off raises nothing", async () => {
 
 test("OpenCode's limits warn too, as soon as Allow brings them", async () => {
   opencode();
-  state.answers[GO] = go({ usage: { weekly: { percent: 94, resetsAt: "2026-11-03T12:00:00Z" } } });
+  state.answers[GO] = go({ usage: { ...GO_SAYS.usage, weekly: { percent: 94, resetsAt: "2026-11-03T12:00:00Z" } } });
   const { popover } = await opened();
   expect(state.notes).toEqual([]);
   reply(popover, ALLOW);
@@ -1799,7 +2018,7 @@ const flip = () => handler(byId(settingsPage(), "st-usage")!, "on_click")({}, cx
 test("Settings has a Usage limits row in its Workspace group, on until turned off", () => {
   const root = settingsPage();
   expect(words(root)).toContain("Usage limits");
-  const card = all(root).filter((e) => byId(e, "st-tabs-On top") && byId(e, "st-usage")).at(-1)!;
+  const card = all(root).filter((e) => byId(e, "st-panel-files") && byId(e, "st-usage")).at(-1)!;
   expect(arg(card, "bg")).toBe(colors.card);
   expect(arg(byId(root, "st-usage-knob")!, "left")).toBe(18);
   flip();
@@ -1864,7 +2083,7 @@ test("turning it back on asks OpenCode's question again", async () => {
   state.shared["usage.opencode"] = false;
   footer();
   await wait(5_000);
-  expect(state.shared.usage.entries).toEqual({});
+  expect(state.shared.usage.entries["opencode|"]).toMatchObject({ ask: false, state: "unavailable", limits: [] });
 
   flip();
   flip();
@@ -1987,6 +2206,20 @@ test("a slow check still saves when a later one started beside it, so slow check
   expect(checks()).toBe(2);
 });
 
+test("an older check finishing late cannot replace a newer good reading", async () => {
+  const first = held();
+  claude(WEEK);
+  state.says["claude -p /usage"] = first.answer;
+  const { popover } = await opened();
+  claude(weekAt(25));
+  await wait(2 * 60_000);
+  expect(words(popover.draw())).toContain("25%");
+  first.release(usageAnswer(weekAt(90)));
+  await settle();
+  expect(words(popover.draw())).toContain("25%");
+  expect(state.notes).toEqual([]);
+});
+
 test("one check finishing doesn't stop another that's running", async () => {
   const first = held(), second = held();
   claude(WEEK);
@@ -2024,7 +2257,8 @@ test("with OpenCode installed and no answer yet, the popover asks, and nothing i
   opencode();
   const { popover } = await opened();
   const root = popover.draw();
-  expect(words(root)).toEqual(expect.arrayContaining(["OpenCode", ASKS, "Allow", "Not now"]));
+  expect(words(root)).toEqual(expect.arrayContaining(["OpenCode", "Connect usage"]));
+  expect(words(providerPopover(popover, "opencode").draw())).toEqual(expect.arrayContaining([ASKS, "Allow", "Not now"]));
   expect(paths(root)).toContain("icons/opencode.svg");
   expect(words(root)).not.toContain(NONE);
   expect(limits(root)).toEqual([]);
@@ -2036,11 +2270,17 @@ test("OpenCode not installed never asks", async () => {
   opencode();
   state.agents[""] = [{ ...OPENCODE, installed: false }];
   const { popover } = await opened();
-  expect(words(popover.draw())).not.toContain(ASKS);
+  expect(words(popover.draw())).not.toContain("Connect usage");
   expect(words(popover.draw())).toContain(NONE);
 });
 
-const reply = (popover: { draw: () => El }, id: string) => handler(byId(popover.draw(), id)!, "on_click")({}, cx);
+const reply = (popover: { draw: () => El }, id: string, provider = "opencode") => {
+  const detail = providerPopover(popover, provider);
+  const button = all(detail.draw()).find((node) => String(arg(node, "id")).startsWith(id + "-"));
+  if (!button) throw new Error("Usage consent button is missing: " + provider);
+  handler(button, "on_click")({}, cx);
+  handler(byId(detail.draw(), "usage-back")!, "on_click")({}, cx);
+};
 const NOT_NOW = "usage-not-now", ALLOW = "usage-allow";
 
 const GO_SAYS = { usage: {
@@ -2054,16 +2294,16 @@ test("Not now hides the card at once and for good, and no key is read, then or l
   opencode();
   const { popover } = await opened();
   reply(popover, NOT_NOW);
-  expect(words(popover.draw())).not.toContain(ASKS);
-  expect(words(popover.draw())).toContain(NONE);
+  expect(words(popover.draw())).toContain("Usage access declined");
+  expect(words(popover.draw())).not.toContain("Connect usage");
   expect(state.shared["usage.opencode"]).toBe(false);
 
   await wait(60_000);
   refresh(popover);
   await settle();
   await wait(2 * 3600_000);
-  expect(words(popover.draw())).not.toContain(ASKS);
-  expect(Object.keys(state.shared.usage.entries)).toEqual([]);
+  expect(words(popover.draw())).not.toContain("Connect usage");
+  expect(opencodeRow()).toMatchObject({ ask: false, state: "unavailable", limits: [] });
   expect(keysRead()).toBe(0);
   expect(state.fetched).toEqual([]);
 });
@@ -2076,15 +2316,13 @@ test("Allow shows Go's limits straight away, weekly first, with nothing else sta
   await settle();
   const root = popover.draw();
   expect(state.shared["usage.opencode"]).toBe(true);
-  expect(words(root)).not.toContain(ASKS);
-  expect(words(root)).toEqual(expect.arrayContaining(["OpenCode", "GO"]));
+  expect(words(root)).not.toContain("Connect usage");
+  expect(words(root)).toEqual(expect.arrayContaining(["OpenCode", "· Go"]));
   expect(limits(root).map((limit) => words(limit))).toEqual([
-    ["THIS WEEK", "12%", "RESETS IN 2D 0H"],
-    ["5 HOURS", "33%", "RESETS IN 3H 0M"],
-    ["THIS MONTH", "4%", "RESETS IN 19D 0H"],
+    ["wk", "12%"], ["5h", "33%"], ["30d", "4%"],
   ]);
   expect(state.fetched.length).toBe(1);
-  expect(words(root)).toContain("UPDATED JUST NOW");
+  expect(words(providerPopover(popover, "opencode").draw())).toContain("Updated just now");
 });
 
 // The card showing, and a later pass stopped at Claude's usage command.
@@ -2099,7 +2337,7 @@ async function allowDuringAPass() {
   refresh(popover);
   await settle();
   expect(checks()).toBe(2);
-  expect(words(popover.draw())).toContain(ASKS);
+  expect(words(popover.draw())).toContain("Connect usage");
   return { f, popover, usage };
 }
 const opencodeRow = () => state.shared.usage.entries["opencode|"];
@@ -2113,14 +2351,14 @@ test("Allow checks at once during a running check, starting no agent again, and 
   const { popover, usage } = await allowDuringAPass();
   reply(popover, ALLOW);
   await settle();
-  expect(limits(popover.draw()).map((limit) => words(limit)[0])).toContain("THIS MONTH");
-  expect(words(popover.draw())).toContain("CHECKING…");
+  expect(limits(popover.draw()).map((limit) => words(limit)[0])).toContain("30d");
+  expect(checkingShown(popover.draw())).toBe(true);
   expect(checks()).toBe(2);
 
   usage.release(usageAnswer(AT(50)));
   await settle();
-  expect(limits(popover.draw()).map((limit) => words(limit).slice(0, 2))).toEqual(expect.arrayContaining([["THIS MONTH", "4%"], ["THIS WEEK", "50%"]]));
-  expect(words(popover.draw())).not.toContain(ASKS);
+  expect(limits(popover.draw()).map((limit) => words(limit).slice(0, 2))).toEqual(expect.arrayContaining([["30d", "4%"], ["wk", "50%"]]));
+  expect(words(popover.draw())).not.toContain("Connect usage");
   expect(state.fetched.length).toBe(1);
 });
 
@@ -2132,7 +2370,7 @@ test("the running check finishing first leaves Allow's check to finish and save"
   usage.release(usageAnswer(AT(50)));
   await settle();
   expect(state.shared.usage.entries["claude|"].limits[0].used).toBe(50);
-  expect(words(popover.draw())).not.toContain(ASKS);
+  expect(words(popover.draw())).not.toContain("Connect usage");
   expect(words(popover.draw())).not.toContain(NONE);
 
   request.release(go()());
@@ -2142,8 +2380,8 @@ test("the running check finishing first leaves Allow's check to finish and save"
 });
 
 for (const [why, answerGo, row] of [
-  ["a refused key", go({}, 401), undefined],
-  ["no network", new Error("offline"), "COULD NOT CHECK"],
+  ["a refused key", go({}, 401), "not signed in"],
+  ["no network", new Error("offline"), "OpenCode Go usage is unavailable."],
 ] as const) {
   test(`${why} from Allow's check stands when the running check ends after it`, async () => {
     const { popover, usage } = await allowDuringAPass();
@@ -2153,9 +2391,8 @@ for (const [why, answerGo, row] of [
     usage.release(usageAnswer(AT(50)));
     await settle();
     const root = popover.draw();
-    expect(words(root)).not.toContain(ASKS);
-    if (row) expect(words(root)).toEqual(expect.arrayContaining(["OpenCode", row]));
-    else expect(words(root)).not.toContain("OpenCode");
+    expect(words(root)).not.toContain("Connect usage");
+    expect(words(root)).toEqual(expect.arrayContaining(["OpenCode", row]));
   });
 }
 
@@ -2164,13 +2401,14 @@ test("Not now during a running check stays answered when that check saves what i
   reply(popover, NOT_NOW);
   usage.release(ANSWER);
   await settle();
-  expect(words(popover.draw())).not.toContain(ASKS);
-  expect(words(popover.draw())).not.toContain("OpenCode");
+  expect(words(popover.draw())).not.toContain("Connect usage");
+  expect(words(popover.draw())).toContain("OpenCode");
+  expect(words(popover.draw())).not.toContain("Connect usage");
   expect(keysRead()).toBe(0);
   setSystemTime(Date.now() + 60_000);
   refresh(popover);
   await settle();
-  expect(opencodeRow()).toBeUndefined();
+  expect(opencodeRow()).toMatchObject({ ask: false, state: "unavailable", limits: [] });
 });
 
 test("while Allow's check runs the line says so and the numbers can't be mistaken for none, then checks go on as before", async () => {
@@ -2180,12 +2418,12 @@ test("while Allow's check runs the line says so and the numbers can't be mistake
   reply(popover, ALLOW);
   await settle();
   const root = popover.draw();
-  expect(words(root)).toContain("CHECKING…");
+  expect(checkingShown(root)).toBe(true);
   expect(words(root)).not.toContain(NONE);
 
   request.release(go()());
   await settle();
-  expect(words(popover.draw())).not.toContain("CHECKING…");
+  expect(checkingShown(popover.draw())).toBe(false);
   setSystemTime(NOW + 1);
   state.runs.length = 0;
   refresh(popover);
@@ -2228,7 +2466,7 @@ test("a failed check can't replace with \"Could not check\" the numbers a hung A
   later.release(new Error("offline"));
   await settle();
   expect(limits(popover.draw()).length).toBe(3);
-  expect(words(popover.draw())).not.toContain("COULD NOT CHECK");
+  expect(words(popover.draw())).not.toContain("Could not check");
 });
 
 test("nor can a hung Allow failing at last replace the numbers a later check found", async () => {
@@ -2241,7 +2479,7 @@ test("nor can a hung Allow failing at last replace the numbers a later check fou
   request.release(new Error("offline"));
   await settle();
   expect(limits(popover.draw()).length).toBe(3);
-  expect(words(popover.draw())).not.toContain("COULD NOT CHECK");
+  expect(words(popover.draw())).not.toContain("Could not check");
 });
 
 test("any agent's failed check keeps numbers saved since it began, marked with their age", async () => {
@@ -2260,7 +2498,7 @@ test("any agent's failed check keeps numbers saved since it began, marked with t
   await settle();
   const root = openedAfter().draw();
   expect(words(limits(root)[0])).toContain("12%");
-  expect(words(root)).toContain("LAST CHECKED JUST NOW");
+  expectCachedAge(0);
 });
 
 const { run: kavexDo } = await import("herdr");
@@ -2272,7 +2510,7 @@ test("Allow's press is the answer: saved at once, with the card gone and no fals
   reply(popover, ALLOW);
   expect(state.shared["usage.opencode"]).toBe(true);
   expect(state.ran).toContain("workspace-chrome.allow-opencode");
-  expect(words(popover.draw())).not.toContain(ASKS);
+  expect(words(popover.draw())).not.toContain("Connect usage");
   expect(words(popover.draw())).not.toContain(NONE);
   await settle();
   expect(limits(popover.draw()).length).toBe(3);
@@ -2287,7 +2525,7 @@ test("the footer's command alone is no consent: no answer saved, no key read, no
   expect(state.shared["usage.opencode"] ?? null).toBeNull();
   expect(keysRead()).toBe(0);
   expect(state.fetched).toEqual([]);
-  expect(words(popover.draw())).toContain(ASKS);
+  expect(words(popover.draw())).toContain("Connect usage");
 });
 
 test("nor does the command undo Not now", async () => {
@@ -2339,7 +2577,7 @@ test("nor can Allow's check bring its row back through off and on again", async 
   request.release(go()());
   await settle();
   expect(opencodeRow().ask).toBe(true);
-  expect(words(popover.draw())).toContain(ASKS);
+  expect(words(popover.draw())).toContain("Connect usage");
 });
 
 const allowed = async () => {
@@ -2361,7 +2599,7 @@ test("keys come from OpenCode's auth file and its database's credential table, a
   expect(database.length).toBe(1);
   expect(database[0].line).toContain("-readonly /home/person/.local/share/opencode/opencode.db");
   expect(database[0].line).toContain("FROM credential");
-  expect(state.runs.filter((run) => !/sqlite3|printenv PATH/.test(run.line))).toEqual([]);
+  expect(state.runs.filter((run) => !/sqlite3|printenv (?:PATH|XDG_DATA_HOME)|command -v/.test(run.line))).toEqual([]);
 });
 
 for (const written of ["$OPENCODE_API_KEY", "${OPENCODE_API_KEY}", "$(cat key)", "!pass show opencode", " !pass show opencode", "`cat key`", "{env:OPENCODE_API_KEY}", "{file:~/key}", "%OPENCODE_API_KEY%", "two words", "line\nbreak", ""]) {
@@ -2371,8 +2609,8 @@ for (const written of ["$OPENCODE_API_KEY", "${OPENCODE_API_KEY}", "$(cat key)",
     state.answers[GO] = go();
     const { popover } = await allowed();
     expect(state.fetched).toEqual([]);
-    expect(words(popover.draw())).not.toContain("COULD NOT CHECK");
-    expect(words(popover.draw())).not.toContain("OpenCode");
+    expect(words(popover.draw())).not.toContain("Could not check");
+    expect(words(popover.draw())).toContain("not signed in");
   });
 }
 
@@ -2413,15 +2651,15 @@ test("the key goes to opencode.ai over https and nowhere else, as a Bearer heade
 });
 
 for (const status of [401, 403]) {
-  test(`a ${status} gives no row and no error`, async () => {
+  test(`a ${status} leaves a signed-out OpenCode row with no quota`, async () => {
     opencode();
     state.answers[GO] = go({ error: "no" }, status);
     const { popover } = await allowed();
     const root = popover.draw();
-    expect(words(root)).not.toContain("OpenCode");
-    expect(words(root)).not.toContain("COULD NOT CHECK");
-    expect(words(root)).toContain(NONE);
-    expect(words(root)).not.toContain("CHECKING…");
+    expect(words(root)).toEqual(expect.arrayContaining(["OpenCode", "not signed in"]));
+    expect(limits(root)).toEqual([]);
+    expect(words(root)).not.toContain("Could not check");
+    expect(checkingShown(root)).toBe(false);
   });
 
   test(`a ${status} later takes the older row with it`, async () => {
@@ -2433,9 +2671,34 @@ for (const status of [401, 403]) {
     refresh(popover);
     await settle();
     expect(limits(popover.draw())).toEqual([]);
-    expect(words(popover.draw())).not.toContain("OpenCode");
+    expect(words(popover.draw())).toContain("not signed in");
   });
 }
+
+test("a locked OpenCode credential database keeps the last Go reading with its age", async () => {
+  opencode({});
+  state.says["sqlite3"] = JSON.stringify({ type: "key", key: KEY });
+  state.answers[GO] = go();
+  const { popover } = await allowed();
+  delete state.files[AUTH];
+  state.says["sqlite3"] = { code: 5, stderr: "Error: database is locked" };
+  setSystemTime(NOW + 8 * 60_000);
+  refresh(popover);
+  await settle();
+  expect(words(popover.draw())).toContain("12%");
+  expectCachedAge(8);
+});
+
+test("an OpenCode entitlement error from the migrated endpoint removes the old Go reading", async () => {
+  opencode();
+  state.answers[GO] = go();
+  const { popover } = await allowed();
+  state.answers[GO] = go({ error: { type: "EntitlementError" } }, 400);
+  refresh(popover);
+  await settle();
+  expect(words(popover.draw())).toContain("not signed in");
+  expect(limits(popover.draw())).toEqual([]);
+});
 
 test("a key without a Go plan doesn't stop the next one being asked", async () => {
   opencode({ opencode: { type: "api", key: "made-up-zen-key" }, "opencode-go": { type: "api", key: KEY } });
@@ -2455,8 +2718,8 @@ test("a network failure keeps the last numbers with their age", async () => {
   await settle();
   const root = popover.draw();
   expect(words(limits(root)[0])).toContain("12%");
-  expect(words(root)).toContain("LAST CHECKED 12M AGO");
-  expect(words(root)).toContain("UPDATED 12M AGO");
+  expectCachedAge(12);
+
 });
 
 for (const [why, reply_] of [
@@ -2467,11 +2730,11 @@ for (const [why, reply_] of [
   ["a percent that isn't one", go({ usage: { weekly: { percent: "most" } } })],
   ["a null answer", go("null")],
 ] as const) {
-  test(`${why} with no earlier numbers reads "COULD NOT CHECK"`, async () => {
+  test(`${why} with no earlier numbers shows an unavailable OpenCode reading`, async () => {
     opencode();
     state.answers[GO] = reply_;
     const { popover } = await allowed();
-    expect(words(popover.draw())).toEqual(expect.arrayContaining(["OpenCode", "COULD NOT CHECK"]));
+    expect(words(popover.draw())).toEqual(expect.arrayContaining(["OpenCode", "OpenCode Go usage is unavailable."]));
     expect(limits(popover.draw())).toEqual([]);
     expect(words(popover.draw())).not.toContain(NONE);
   });
@@ -2481,12 +2744,12 @@ test("the second spelling of Go's answer and a rate-limited window read too", as
   opencode();
   state.answers[GO] = go({ weeklyUsage: { usagePercent: 80, status: "rate-limited", resetInSec: 3600 } });
   const { popover } = await allowed();
-  expect(limits(popover.draw()).map((limit) => words(limit))).toEqual([["THIS WEEK", "100%", "RESETS IN 1H 0M"]]);
+  expect(cachedLimits()).toEqual([{ label: "This week", used: 100, resetsAt: NOW + 3600_000 }]);
 });
 
 test("Go at 90% lights the dot like any other limit", async () => {
   opencode();
-  state.answers[GO] = go({ usage: { weekly: { percent: 91, resetInSec: 3600 } } });
+  state.answers[GO] = go({ usage: { ...GO_SAYS.usage, weekly: { percent: 91, resetInSec: 3600 } } });
   const { f } = await allowed();
   expect(dotOn(f.draw())).toBeDefined();
 });
@@ -2496,27 +2759,23 @@ test("with the answer given, later checks ask opencode.ai by themselves, with no
   state.answers[GO] = go();
   state.shared["usage.opencode"] = true;
   const { popover } = await opened();
-  expect(words(popover.draw())).not.toContain(ASKS);
+  expect(words(popover.draw())).not.toContain("Connect usage");
   expect(limits(popover.draw()).length).toBe(3);
 });
 
-test("OpenCode is checked on this computer only: an added machine's is neither asked about nor read", async () => {
-  for (const consent of [undefined, true]) {
-    state.shared["usage.opencode"] = consent;
-    state.shared.usage = undefined;
-    state.machines = [{ name: null, layout: "ready" }, { name: "made-up-box", layout: "ready" }];
-    state.agents = { "made-up-box": [OPENCODE] };
-    state.says["printenv PATH"] = "/made/up/bin\n";
-    state.answers[GO] = go();
-    state.reads.length = 0;
-    const f = footer();
-    await wait(5_000);
-    f.close();
-    expect(Object.keys(state.shared.usage.entries)).toEqual([]);
-    expect(state.reads).toEqual([]);
-    expect(state.fetched).toEqual([]);
-    expect(state.runs.filter((run) => run.line.includes("sqlite3"))).toEqual([]);
-  }
+
+test("local OpenCode consent never grants access on an added machine", async () => {
+  state.shared["usage.opencode"] = true;
+  added("made-up-box");
+  state.agents = { "made-up-box": [OPENCODE] };
+  state.says["printenv PATH"] = "/made/up/bin\n";
+  state.answers[GO] = go();
+  const { popover } = await opened();
+  expect(words(popover.draw())).toContain("Connect usage");
+  expect(state.shared.usage.entries["opencode|made-up-box"]).toMatchObject({ ask: true, state: "setup", limits: [] });
+  expect(state.reads).toEqual([]);
+  expect(state.fetched).toEqual([]);
+  expect(state.runs.filter((run) => run.line.includes("sqlite3"))).toEqual([]);
 });
 
 for (const [why, reply_] of [
@@ -2591,7 +2850,7 @@ test("after Allow, turning it off and on asks again, and reads nothing until ans
   flip();
   state.reads.length = 0;
   await wait(2 * 3600_000);
-  expect(words(popover.draw())).toContain(ASKS);
+  expect(words(popover.draw())).toContain("Connect usage");
   expect(limits(popover.draw())).toEqual([]);
   expect(state.reads).toEqual([]);
   expect(state.fetched.length).toBe(1);
@@ -2602,11 +2861,149 @@ test("after Allow, turning it off and on asks again, and reads nothing until ans
   expect(state.fetched.length).toBe(2);
 });
 
-test("the card takes its colors from the theme, with Allow as the primary button", async () => {
+
+test("the consent detail uses theme colors and emphasizes Allow", async () => {
   opencode();
   const { popover } = await opened();
-  const root = popover.draw(), theirs = new Set(Object.values(colors));
-  for (const e of all(root)) for (const name of ["bg", "text_color", "border_color"]) if (arg(e, name)) expect(theirs.has(arg(e, name))).toBe(true);
-  expect(arg(byId(root, ALLOW)!, "bg")).toBe(colors.solid);
-  expect(arg(byId(root, ALLOW)!, "text_color")).toBe(colors.solid_foreground);
+  const root = providerPopover(popover, "opencode").draw();
+  expectThemeColors(root);
+  const allow = byId(root, ALLOW + "-opencode-local")!;
+  expect(arg(allow, "bg")).toBe(colors.solid);
+  expect(arg(allow, "text_color")).toBe(colors.solid_foreground);
+
+  handler(byId(root, "usage-accounts")!, "on_click")({}, cx);
+  const accounts = openPopover().draw();
+  const card = byId(accounts, "usage-account-opencode-local")!;
+  expect(arg(card, "rounded")).toBe(14);
+  expect(arg(card, "bg")).toBe(colors.card);
+  expect(words(card)).toEqual(expect.arrayContaining(["OpenCode", "Not now", "Allow"]));
+  const accountAllow = byId(card, ALLOW + "-opencode-local")!;
+  expect(arg(accountAllow, "h")).toBe(34);
+  expect(arg(accountAllow, "bg")).toBe(colors.solid);
+});
+
+const GROK = { ...CLAUDE, key: "grok", name: "Grok", icon: "icons/grok.svg", run: ["grok"] };
+const GROK_AUTH = "/home/person/.grok/auth.json";
+const GROK_USAGE = "https://cli-chat-proxy.grok.com/v1/billing?format=credits";
+const GROK_TOKEN = "grok-synthetic-session";
+
+function grok() {
+  state.agents[""] = [...(Array.isArray(state.agents[""]) ? state.agents[""] : []), GROK];
+  state.says["printenv PATH"] = "/made/up/bin:/usr/bin\n";
+  state.says["printenv GROK_"] = "";
+  state.files[GROK_AUTH] = JSON.stringify({ "https://auth.x.ai": { key: GROK_TOKEN, email: "grok@example.test" } });
+  state.answers[GROK_USAGE] = () => Response.json({
+    creditUsagePercent: 27, subscriptionTier: "SuperGrok", billingPeriodEnd: "2026-11-05T12:00:00Z",
+  });
+}
+
+test("Grok joins the roster and reads the existing login only after its own Allow", async () => {
+  claude(WEEK);
+  grok();
+  const { popover } = await opened();
+  const before = words(popover.draw());
+  expect(before).toEqual(expect.arrayContaining(["Claude Code", "12%", "Grok", "Connect usage"]));
+  expect(state.reads).toEqual([]);
+  expect(state.fetched).toEqual([]);
+
+  reply(popover, ALLOW, "grok");
+  await settle();
+  expect(state.shared["usage.consent"]).toEqual({ grok: true });
+  expect(words(popover.draw())).toEqual(expect.arrayContaining(["Grok", "· SuperGrok", "27%"]));
+  expect(state.reads).toEqual([GROK_AUTH]);
+  expect(state.fetched).toHaveLength(1);
+  expect(state.fetched[0].url).toBe(GROK_USAGE);
+  expect(new Headers(state.fetched[0].init?.headers).get("Authorization")).toBe("Bearer " + GROK_TOKEN);
+  expect(JSON.stringify(state.shared)).not.toMatch(/grok-synthetic-session|grok@example\.test/);
+});
+
+test("a provider's completed reading becomes visible while a sibling probe waits", async () => {
+  const usage = held();
+  claude(WEEK);
+  grok();
+  state.shared["usage.consent"] = { grok: true };
+  state.says["claude -p /usage"] = usage.answer;
+  const { popover } = await opened();
+
+  expect(checkingShown(popover.draw())).toBe(true);
+  expect(words(popover.draw())).toContain("27%");
+  expect(words(popover.draw())).not.toContain("12%");
+  usage.release(ANSWER);
+  await settle();
+  expect(checkingShown(popover.draw())).toBe(false);
+  expect(words(popover.draw())).toEqual(expect.arrayContaining(["27%", "12%"]));
+});
+
+test("per-provider Retry-After protects cached usage from automatic and explicit retries", async () => {
+  grok();
+  state.shared["usage.consent"] = { grok: true };
+  const { popover } = await opened();
+  expect(words(popover.draw())).toContain("27%");
+
+  state.answers[GROK_USAGE] = () => new Response(null, { status: 429, headers: { "Retry-After": "120" } });
+  await wait(60_000);
+  refresh(popover);
+  await settle();
+  expect(state.fetched).toHaveLength(2);
+  expect(words(popover.draw())).toContain("27%");
+  expect(state.shared.usage.entries["grok|"].retryAt).toBe(NOW + 180_000);
+
+  await wait(119_999);
+  expect(state.fetched).toHaveLength(2);
+  refresh(popover);
+  await settle();
+  expect(state.fetched).toHaveLength(2);
+  await wait(1);
+  expect(state.fetched).toHaveLength(3);
+});
+
+test("the workspace footer defers background polling while inactive and refreshes when activated", async () => {
+  state.active = false;
+  claude(WEEK);
+  const f = footer();
+  await wait(20 * 60_000);
+  expect(checks()).toBe(0);
+  state.active = true;
+  f.draw();
+  await settle();
+  expect(checks()).toBe(1);
+
+  state.active = false;
+  f.draw();
+  await wait(6 * 60_000);
+  expect(checks()).toBe(1);
+  state.active = true;
+  f.draw();
+  await settle();
+  expect(checks()).toBe(2);
+});
+
+test("consent for a remote OpenCode account runs the probe on its execution owner", async () => {
+  const machine = "owner";
+  added(machine);
+  state.agents[machine] = [OPENCODE];
+  const module = "provider-opencode.js";
+  state.files["/home/person/.config/kavex/mods/workspace-chrome/" + module] =
+    readFileSync(new URL("../defaults/mods/usage/" + module, import.meta.url), "utf8");
+  state.on[machine] = {
+    "printenv PATH": SHELL,
+    "exec node --input-type=module": "kavex-usage:" + JSON.stringify({
+      plan: "Go",
+      limits: [{ label: "This week", used: 26, minutes: 10_080, resetsAt: NOW + 6 * 3600_000 }],
+    }),
+  };
+  const { popover } = await opened();
+  expect(words(popover.draw())).toContain("Connect usage");
+  expect(state.reads).toEqual([]);
+  expect(state.fetched).toEqual([]);
+
+  reply(popover, ALLOW);
+  await settle();
+  expect(state.shared["usage.opencode"] ?? null).toBeNull();
+  expect(state.shared["usage.consent"]).toEqual({ "opencode|owner": true });
+  const worker = state.runs.find((run) => run.line.includes("exec node --input-type=module"));
+  expect(worker?.on).toBe(machine);
+  expect(words(popover.draw())).toEqual(expect.arrayContaining(["OpenCode", "owner", "26%"]));
+  expect(state.reads).toEqual(["/home/person/.config/kavex/mods/workspace-chrome/" + module]);
+  expect(state.fetched).toEqual([]);
 });

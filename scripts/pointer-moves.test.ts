@@ -30,7 +30,7 @@ const listening = (root: El) => all(root).filter((e) => handler(e, "on_mouse_mov
 const colors = JSON.parse(readFileSync(new URL("../defaults/themes/kavex.json", import.meta.url), "utf8")).colors;
 let state: { spaces: any[]; shared: Record<string, any>; ran: [string, any][]; overlays: any[]; props?: object };
 mock.module("gpui-kit", () => ({ View: class {}, div: make, image: make, svg: make }));
-mock.module("gpui-base", () => ({ h_flex: make, v_flex: make }));
+mock.module("gpui-base", () => ({ h_flex: make, v_flex: make, HoverCard: { new: make } }));
 mock.module("herdr", () => ({
   spaces: () => state.spaces,
   knownAgents: async () => [],

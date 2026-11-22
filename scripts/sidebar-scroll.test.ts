@@ -12,7 +12,7 @@ function make(): any {
     get: (_t, k: string) => {
       if (k === "el") return el;
       if (k === "when") return (on: unknown, f: (s: any) => any) => (on ? f(self) : self);
-      if (k === "child") return (kid: any) => (el.kids.push(kid), self);
+      if (k === "child" || k === "trigger") return (kid: any) => (el.kids.push(kid), self);
       if (k === "children") return (kids: any[]) => (el.kids.push(...kids), self);
       if (k === "hover") return (f: (s: any) => any) => (f(make()), self);
       return (...args: any[]) => (el.calls.push([k, args]), self);
@@ -29,7 +29,7 @@ const byId = (root: El, id: string) => all(root).find((e) => arg(e, "id") === id
 const colors = JSON.parse(readFileSync(new URL("../defaults/themes/kavex.json", import.meta.url), "utf8")).colors;
 let state: { spaces: any[]; agents: any[]; sidebar: number; notified: number };
 mock.module("gpui-kit", () => ({ View: class {}, div: make, image: make, svg: make }));
-mock.module("gpui-base", () => ({ h_flex: make, v_flex: make }));
+mock.module("gpui-base", () => ({ h_flex: make, v_flex: make, HoverCard: { new: (id: string) => make().id(id) } }));
 mock.module("herdr", () => ({
   appHome: () => "/kavex",
   notify: () => {},
@@ -113,4 +113,31 @@ test("agents: the rows sit in the scrolled list, with their gap", () => {
   const box = byId(draw(), "ag-rows");
   expect(arg(box, "gap")).toBe(2);
   expect(box.kids.map((k) => arg(mine(k)!, "id")).sort()).toEqual(state.agents.map((a) => `ag-${a.address}`).sort());
+});
+
+test("the rail shows workspace and agent avatars with names in right-side tooltips", () => {
+  state.sidebar = 44;
+  state.spaces = [{ ...space(0), name: "Workspace alpha" }];
+  state.agents = [{ ...agent(0), space_name: "Workspace alpha", focused: true, program: { name: "Claude Code", icon: "icons/claude.svg" } }];
+  const spaces = mount(Spaces);
+  spaces.view.shown.add("s0");
+  const side = spaces.draw(), agents = mount(Agents).draw();
+  const label = (node: El) => all(node).flatMap((el) => el.kids.filter((kid) => typeof kid === "string"));
+  expect(byId(side, "space-new")).toBeDefined();
+  expect(byId(side, "space-recent")).toBeUndefined();
+  expect(byId(agents, "collapse")).toBeUndefined();
+  expect(label(byId(side, "space-rail-label"))).toEqual(["SPACES"]);
+  expect(label(byId(agents, "agent-rail-label"))).toEqual(["AGENTS"]);
+  expect(label(byId(side, "space-s0"))).toEqual(["W"]);
+  expect(label(byId(agents, "ag-a0"))).toEqual([]);
+  for (const avatar of [byId(side, "space-s0"), byId(agents, "ag-a0")]) {
+    expect(arg(avatar, "size")).toBe(30);
+    expect(arg(avatar, "bg")).toBe(colors.chip_active);
+    expect(arg(avatar, "border_color")).toBe(colors.chip_active_ring);
+  }
+  for (const [root, id, name] of [[side, "tip-space-s0", "Workspace alpha"], [agents, "tip-agent-a0", "Claude Code · Workspace alpha"]] as const) {
+    const tip = byId(root, id);
+    expect(arg(tip, "anchor")).toBe("right_center");
+    expect(label(mine(arg(tip, "content"))!)).toEqual([name]);
+  }
 });

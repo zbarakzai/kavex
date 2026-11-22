@@ -10,7 +10,7 @@ function make(): any {
     get: (_t, k: string) => {
       if (k === "el") return el;
       if (k === "when") return (on: unknown, f: (s: any) => any) => (on ? f(self) : self);
-      if (k === "child") return (kid: any) => (el.kids.push(kid), self);
+      if (k === "child" || k === "trigger") return (kid: any) => (el.kids.push(kid), self);
       if (k === "children") return (kids: any[]) => (el.kids.push(...kids), self);
       if (k === "hover") return (f: (s: any) => any) => { const sheet = make(); f(sheet); el.hover = sheet.el; return self; };
       return (...args: any[]) => (el.calls.push([k, args]), self);
@@ -31,10 +31,10 @@ const shipped = readFileSync(new URL("../defaults/layouts/main.json", import.met
 const colors = JSON.parse(readFileSync(new URL("../defaults/themes/kavex.json", import.meta.url), "utf8")).colors;
 const WINDOWS = { platform: "windows", titlebar: "none", buttons: true, maximized: false, fullscreen: false, active: true };
 
-let state: { window: any; layout: any; shared: Record<string, any>; ran: string[] };
+let state: { window: any; layout: any; shared: Record<string, any>; ran: [string, unknown][] };
 const icon = (path: string) => { const s = make(); s.el.calls.push(["path", [path]]); return s; };
 mock.module("gpui-kit", () => ({ View: class {}, div: make, image: make, svg: icon }));
-mock.module("gpui-base", () => ({ h_flex: make, v_flex: make }));
+mock.module("gpui-base", () => ({ h_flex: make, v_flex: make, HoverCard: { new: make } }));
 mock.module("herdr", () => ({
   spaces: () => [{ id: "s", active: true, machine: null, tabs: [{ id: "a", name: "a", active: true, status: null }] }],
   knownAgents: async () => [],
@@ -43,7 +43,7 @@ mock.module("herdr", () => ({
   machines: () => [{ name: null, layout: "ready" }],
   theme: () => colors,
   layout: () => state.layout,
-  run: (name: string) => void state.ran.push(name),
+  run: (name: string, args: unknown) => void state.ran.push([name, args]),
   openOverlay: () => "overlay",
   closeOverlay: () => {},
   shared: (k: string) => state.shared[k],
@@ -66,10 +66,11 @@ const header = (panel: string) => panelHeader(look(colors), panel).el as El;
 const places = () => ({ tabs: draw(Tabs), column: draw(TabsColumn), files: header("files"), changes: header("changes") });
 const holders = () => Object.entries(places()).filter(([, root]) => byId(root, "close-window")).map(([name]) => name);
 
-function show(ids: { panel?: boolean; column?: boolean; width?: number }) {
+function show(ids: { panel?: boolean; column?: boolean; width?: number; active?: string }) {
   const root = JSON.parse(shipped), find = (id: string) => root.children.find((n: any) => n.id === id);
   find("panel").hidden = !ids.panel;
-  find("tabs-column").hidden = !ids.column;
+  if (ids.active) find("panel").children[0].active = ids.active;
+  if (ids.column) root.children.push({ id: "tabs-column", type: "block", content: { mod: "tabs-column" } });
   if (ids.width) find("panel").size.px = ids.width;
   state.layout = root;
   return root;
@@ -87,9 +88,31 @@ test("the tab bar draws them at its right end in every layout state, and nothing
     show(open);
     expect(holders(), name).toEqual(["tabs"]);
     const tabs = draw(Tabs);
-    expect(tabs.kids.map(mine).at(-1), name).toBe(byId(tabs, "window-buttons")!); // after the folder button
+    expect(tabs.kids.map(mine).at(-1), name).toBe(byId(tabs, "window-buttons")!);
     expect(arg(tabs, "pr"), name).toBe(6);
   }
+});
+
+test("the shipped layout keeps grouped tabs on top with a saved right placement", () => {
+  state.shared["tabs.placement"] = "right";
+  state.shared["tab.groups"] = { test: { name: "Test", color: "blue", tabs: ["a"] } };
+  const tabs = draw(Tabs);
+  expect(state.layout.children.some((node: any) => node.id === "tabs-column")).toBe(false);
+  expect(byId(tabs, "placement")).toBeUndefined();
+  expect(byId(tabs, "group-test")).toBeDefined();
+  expect(byId(tabs, "tab-scroll")).toBeDefined();
+  expect(state.ran.map(([name]) => name)).not.toContain("layout.show");
+});
+
+test("scrolling the tab bar or a custom Tabs column does not select a tab", () => {
+  for (const [name, root] of Object.entries(places())) {
+    if (name !== "tabs" && name !== "column") continue;
+    state.ran = [];
+    handler(root, "on_scroll_wheel")?.({ delta_lines: { x: 0, y: 1 } }, cx);
+    expect(state.ran.map(([command]) => command), name).not.toContain("tab.select");
+    expect(has(root, "on_scroll_wheel"), name).toBe(false);
+  }
+  expect(has(byId(draw(Tabs), "tab-scroll")!, "overflow_x_scroll")).toBe(true);
 });
 
 test("with the Tabs column shown the bar still draws, showing the current tab, with the buttons", () => {
@@ -101,13 +124,52 @@ test("with the Tabs column shown the bar still draws, showing the current tab, w
   expect(holders()).toEqual(["tabs"]);
 });
 
-test("the side panel and the Tabs column keep their headers as they were, at any width", () => {
+test("the folder and branch buttons each open, select, and close their own view", () => {
+  const actions = byId(draw(Tabs), "tab-actions")!;
+  expect(arg(actions, "gap")).toBe(2);
+  for (const id of ["tab-new", "panel-toggle-files", "panel-toggle-changes"]) {
+    expect(arg(byId(actions, id)!, "size")).toBe(28);
+  }
+  for (const [id, other, label, icon] of [["files", "changes", "Files", "folder"], ["changes", "files", "Changes", "branch"]]) {
+    show({ active: other });
+    const button = byId(draw(Tabs), `panel-toggle-${id}`)!;
+    expect(arg(button, "accessibility_label")).toBe(label);
+    expect(icons(button)).toEqual([`mods/workspace-chrome/icons/${icon}.svg`]);
+    handler(button, "on_click")({}, cx);
+    expect(state.ran.splice(0)).toEqual([["layout.select", { stack: "panel-body", child: id }], ["layout.show", { id: "panel" }]]);
+
+    show({ panel: true, active: other });
+    handler(byId(draw(Tabs), `panel-toggle-${id}`)!, "on_click")({}, cx);
+    expect(state.ran.splice(0)).toEqual([["layout.select", { stack: "panel-body", child: id }]]);
+
+    show({ panel: true, active: id });
+    const tabs = draw(Tabs);
+    expect(has(byId(tabs, `panel-toggle-${other}`)!, "bg")).toBe(false);
+    expect(has(byId(tabs, `panel-toggle-${id}`)!, "bg")).toBe(true);
+    handler(byId(tabs, `panel-toggle-${id}`)!, "on_click")({}, cx);
+    expect(state.ran.splice(0)).toEqual([["layout.hide", { id: "panel" }]]);
+  }
+});
+
+test("settings hide the toolbar button for a disabled view", () => {
+  state.shared["workspace.panels"] = ["files"];
+  const tabs = draw(Tabs);
+  expect(byId(tabs, "panel-toggle-files")).toBeDefined();
+  expect(byId(tabs, "panel-toggle-changes")).toBeUndefined();
+});
+
+test("the side panel header shows only the current view with its own close button at any width", () => {
   for (const width of [330, 370, 680, 900]) {
     show({ panel: true, column: true, width });
     for (const panel of ["files", "changes"]) {
       const h = header(panel);
       expect([arg(h, "h"), arg(h, "px"), byId(h, "window-buttons")], `${panel} ${width}`).toEqual([46, 6, undefined]);
       expect(byId(h, "panel-expand")).toBeDefined();
+      const other = panel === "files" ? "changes" : "files";
+      expect(byId(h, `panel-${other}`)).toBeUndefined();
+      const close = byId(h, `panel-close-${panel}`)!;
+      handler(close, "on_click")({}, cx);
+      expect(state.ran.pop()).toEqual(["layout.hide", { id: "panel" }]);
     }
   }
   const row = draw(TabsColumn).kids.map(mine).find((k) => arg(k!, "h") === 56)!;
@@ -117,7 +179,8 @@ test("the side panel and the Tabs column keep their headers as they were, at any
 
 test("a tab bar in a block with another name keeps them", () => {
   const root = show({ panel: true });
-  root.children.find((n: any) => n.id === "work").children[0].id = "my-bar";
+  const work = root.children.find((n: any) => n.id === "work-area").children.find((n: any) => n.id === "work");
+  work.children.find((n: any) => n.id === "tabs").id = "my-bar";
   expect(holders()).toEqual(["tabs"]);
 });
 
@@ -167,7 +230,7 @@ test("each button keeps its press from the draggable bar, whichever button, and 
       expect(stopped, side).toBe(1);
     }
     handler(button, "on_click")({}, cx);
-    expect(state.ran.at(-1)).toBe(commands[i]);
+    expect(state.ran.at(-1)?.[0]).toBe(commands[i]);
   });
 });
 
