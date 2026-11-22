@@ -495,6 +495,7 @@ pub struct AppWindow {
     checking_closed: bool,
     documents_watching: bool,
     draining: bool,
+    awake: crate::awake::Service,
     changing_terminals: HashSet<String>,
     /// Closed terminals stay excluded until kill completes and a listing drops them.
     closing_terminals: HashMap<String, bool>,
@@ -586,6 +587,7 @@ impl AppWindow {
             checking_closed: false,
             documents_watching: false,
             draining: false,
+            awake: crate::awake::Service::default(),
             changing_terminals: HashSet::new(),
             closing_terminals: HashMap::new(),
             pending_terminals: Default::default(),
@@ -649,6 +651,7 @@ impl AppWindow {
         let gone = name.as_deref().map(missing_mods).unwrap_or_default();
         w.load_layout(if gone.is_empty() { name.as_deref().unwrap_or("main") } else { "main" });
         w.apply_look(window, cx);
+        w.read_awake_mode(cx);
         w.show_layout_notes(window, cx);
         if let (Some(n), false) = (&name, gone.is_empty()) {
             let note = json!({ "title": format!("{n} needs mods that aren't here"), "body": format!("Showing Kavex instead. Missing: {}. Your {n} layout file is still there.", gone.join(", ")), "level": "info", "timeout": 12000 });
@@ -763,9 +766,14 @@ impl AppWindow {
                 let watching = sub.is_some();
                 subscription = sub;
                 event_lines = lines;
+                let working = watching && event_lines.local_agents_working(Instant::now());
                 if this.update_in(cx, |this, window, cx| {
                     if generation != this.core_generation { return; }
                     this.documents_watching = watching;
+                    if !this.draining {
+                        this.awake.set_working(working);
+                        if this.awake.changed() { cx.notify(); }
+                    }
                     if watching { this.documents.entry(String::new()).or_default().connection(true, None, None); }
                     let changed = this.documents_updated(machines, vec![], window, cx);
                     match listed {
@@ -878,6 +886,8 @@ impl AppWindow {
         tracing::info!("reconnected to the core");
         self.core_generation += 1;
         self.documents_watching = false;
+        self.awake.set_working(false);
+        if self.awake.changed() { cx.notify(); }
         for (machine, slot) in &mut self.documents {
             slot.available = false;
             slot.connected = machine.is_empty();
@@ -1661,6 +1671,13 @@ impl AppWindow {
         self.refresh_readers(u16::MAX, cx);
     }
 
+    fn read_awake_mode(&mut self, cx: &mut Context<Self>) {
+        if self.draining { return; }
+        let mode = mods::shared(crate::awake::MODE_KEY);
+        self.awake.set_mode(mode.as_ref().and_then(Value::as_str));
+        if self.awake.changed() { cx.notify(); }
+    }
+
     /// The copies that have read any of `parts` (`mods::part`) build again; the
     /// others can't show the change, and a build runs the copy's whole script.
     fn refresh_readers(&self, parts: u16, cx: &mut Context<Self>) {
@@ -1859,6 +1876,7 @@ impl AppWindow {
     /// Finish the accepted edit and any newer projection before the window goes.
     pub fn drain_documents(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.draining { return; }
+        self.awake.close();
         self.save();
         // The last view is on disk before the window goes (saves stop now).
         self.view_file.finish();
@@ -3813,7 +3831,10 @@ impl AppWindow {
                 let _ = reply.try_send(found);
             }
             Request::CloseOverlay { id } => self.close_overlay(&id, window, cx),
-            Request::Refresh => self.refresh_mods(cx),
+            Request::Refresh => {
+                self.read_awake_mode(cx);
+                self.refresh_mods(cx);
+            }
             Request::Control { cmd, reply } => match cmd.get("do").and_then(Value::as_str) {
                 Some(name) => {
                     let args = cmd.get("args").cloned().unwrap_or(Value::Null);
@@ -3920,6 +3941,7 @@ impl AppWindow {
     /// Says whether the mod folders are due a look (the caller reads them off this thread).
     fn poll(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
         let _span = crate::bench::span("ui:poll");
+        if self.awake.changed() { cx.notify(); }
         self.flush_documents(false, window, cx);
         let ready = Self::update_label();
         if ready != self.update_ready {
