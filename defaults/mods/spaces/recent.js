@@ -43,7 +43,7 @@ export function drawRecentSpaces(currentProjects, home) {
     .when(project.open, (el) => el.child(div().flex_none().text_size(11).text_color(k.muted).child("Open")));
 
   return v_flex().w_full().min_h(0).p(6).gap(3)
-    .child(h_flex().h(34).px(9).items_center().text_size(13).font_semibold().text_color(k.foreground).child("Recent spaces"))
+    .child(h_flex().h(34).px(9).items_center().text_size(13).font_semibold().text_color(k.foreground).child("Recent projects"))
     .child(projects.length
       ? v_flex().id("recent-project-list").w_full().h(height).min_h(0).flex_shrink(1).overflow_y_scrollbar()
         .gap(GAP).when(projects.length > VISIBLE, (el) => el.pr(16)).children(projects.map(row))

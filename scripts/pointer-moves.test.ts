@@ -108,13 +108,16 @@ test("spaces: a click without a move still switches", () => {
   expect(state.ran).toEqual([["space.select", { id: "s1" }]]);
 });
 
-test("spaces: the clock opens recent projects and choosing one switches or reopens", () => {
+test("spaces: Open recent project lists folders and choosing one switches or reopens", () => {
   const atlas = { ...space("atlas", true), name: "Atlas", folder: "/w/atlas" };
   const relay = { ...space("relay"), name: "Relay", folder: "/w/relay" };
   state.spaces = [atlas, relay];
   const { draw } = mount(Spaces);
   state.spaces = [atlas];
-  handler(byId(draw(), "space-recent"), "on_click")({}, cx);
+  const trigger = byId(draw(), "space-recent");
+  expect(arg(trigger, "accessibility_label")).toBe("Open recent project");
+  expect(arg(trigger, "tooltip")).toBe("Open recent project");
+  handler(trigger, "on_click")({}, cx);
   expect(state.overlays[0]).toMatchObject({ mod: "spaces", kind: "popup", props: { recent: true } });
   state.props = { ...state.overlays[0].props, overlay: "overlay-1" };
   const menu = mount(Spaces).draw();
