@@ -157,6 +157,7 @@ fn module(values: BTreeMap<String, Value>, calls: Rc<RefCell<Calls>>) -> HostMod
     module = module.async_function("feedbackPickImages", |_| Ok(async { Ok(HostValue::Array(vec![])) }));
     module = module.async_function("knownAgents", |_| Ok(async { Ok(HostValue::Array(vec![])) }));
     module = module.async_function("pickFolder", |_| Ok(async { Ok(HostValue::Null) }));
+    module = module.async_function("revealTerminalNote", |_| Ok(async { Ok(HostValue::Bool(false)) }));
     for name in ["nextCommand", "watchFolder"] {
         module = module.async_function(name, |_| Ok(std::future::pending::<gpui_shell::HostResult>()));
     }
@@ -166,6 +167,7 @@ fn module(values: BTreeMap<String, Value>, calls: Rc<RefCell<Calls>>) -> HostMod
             let first = a.get(0).map(from_host).unwrap_or(Value::Null);
             let reply = match name {
                 "readTextFile" if first == "/fixture/app/settings.json" || first == "/fixture/.ssh/config" => Some(Value::Null),
+                "readTextFile" if first.as_str().is_some_and(|p| p.starts_with("/fixture/app/terminal-notes/")) => Some(Value::Null),
                 // Customize's skills: their list, what's installed, Claude Code's plugins (skills.js).
                 "readTextFile"
                     if first.as_str().is_some_and(|p| p.starts_with("/fixture/app/skills") || p.ends_with("/.claude/plugins/installed_plugins.json")) =>
@@ -616,7 +618,7 @@ fn local_state_and_overlay_initial_descriptions(cx: &mut TestAppContext) {
             );
         }
     }
-    for query in ["settings", "no-such-command"] {
+    for query in ["settings", "%note", "no-such-command"] {
         let tree = describe(
             cx,
             &staged,
@@ -628,7 +630,11 @@ fn local_state_and_overlay_initial_descriptions(cx: &mut TestAppContext) {
         )
         .unwrap();
         // The query sits in a native text field; what the list shows tells it apart.
-        let expected = if query == "settings" { "Settings" } else { "Nothing matches" };
+        let expected = match query {
+            "settings" => "Settings",
+            "%note" => "Session notes",
+            _ => "Nothing matches",
+        };
         assert!(tree.contains(expected), "palette query {query}: {tree}");
     }
     // Reviewed overlay contract table, not extracted from arbitrary JS call sites.
@@ -653,6 +659,9 @@ fn local_state_and_overlay_initial_descriptions(cx: &mut TestAppContext) {
         ),
         ("mods/peek", json!({"terminal":"t1"})),
         ("mods/peek", json!({"terminal":"missing"})),
+        ("mods/agents", json!({"notes":"selection","text":"Selected output"})),
+        ("mods/agents", json!({"notes":"edit","text":"Selected output"})),
+        ("mods/agents", json!({"notes":"browse"})),
         ("mods/worktree", json!({"space":"s1","action":"new"})),
         ("mods/worktree", json!({"space":"s1","action":"remove"})),
     ];
@@ -663,7 +672,7 @@ fn local_state_and_overlay_initial_descriptions(cx: &mut TestAppContext) {
         p.as_object_mut().unwrap().extend(patch.as_object().unwrap().clone());
         describe(cx, &staged, entry, true, p, updates("current", "current"), None).unwrap();
     }
-    eprintln!("18 local-state/overlay cases, each twice: {:?}", start.elapsed());
+    eprintln!("Local-state/overlay cases, each twice: {:?}", start.elapsed());
 }
 
 #[gpui::test]

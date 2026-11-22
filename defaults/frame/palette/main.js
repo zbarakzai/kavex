@@ -47,6 +47,7 @@ const NAMED = [
   ["layout.clone", {}, "Layout", "Duplicate layout", "clone copy customize"],
   ["mod.clone", {}, "Layout", "Duplicate mod", "clone copy customize"],
   ["terminal.open", {}, "Terminal", "New terminal", "shell"],
+  ["mod.open", { name: "agents" }, "Terminal", "Session notes", "%note note bookmarks highlight"],
   ["terminal.copy", {}, "Terminal", "Copy", "clipboard"],
   ["terminal.paste", {}, "Terminal", "Paste", "clipboard"],
   ["agent.next", {}, "Agent", "Next agent", ""],
@@ -163,6 +164,8 @@ export default class Palette extends View {
         title: "Duplicate mod", hint: "Mod to copy; creates <name>-copy",
         command: { name: "mod.clone", args: {} },
       } });
+    } else if (e.name === "mod.open" && e.args.name === "agents") {
+      openOverlay({ mod: "agents", kind: "dialog", width: 520, props: { notes: "browse", terminal: props().terminal } });
     } else {
       run(e.name, e.name === "layout.clone" ? { name: shared("layout") ?? "main" } : e.args);
     }
