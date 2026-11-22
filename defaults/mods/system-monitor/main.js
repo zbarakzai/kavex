@@ -2,7 +2,7 @@ import { PathBuilder, View, div } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
 import { exec, props, setShared, settings, terminals, theme, window as appWindow } from "herdr";
 import { readSnapshot } from "./collect.js";
-import { measure } from "./measure.js";
+import { hasLocalAgentPid, measure } from "./measure.js";
 import { look, MONO, soft } from "./look.js";
 
 const INTERVAL = 2000, COLS = 36, ROWS = 8;
@@ -135,11 +135,14 @@ export default class SystemMonitor extends View {
     this.pending = true;
     cx.spawn(async (cx) => {
       try {
-        const snapshot = await readSnapshot(host.platform, exec);
+        const records = terminals();
+        // Without a local agent PID, only the desktop process needs measuring.
+        const processTree = host.platform === "windows" || hasLocalAgentPid(records);
+        const snapshot = await readSnapshot(host.platform, exec, processTree);
         if (this.closed || !window.is_window_active()) return;
         const at = Date.now();
         const previous = at - this.history.at(-1)?.at < INTERVAL * 3 ? this.previous : null;
-        this.current = measure(previous, snapshot, terminals(), this.bindings);
+        this.current = measure(previous, snapshot, records, this.bindings);
         this.previous = snapshot;
         this.history = this.history.filter((point) => at - point.at <= (COLS - 1) * INTERVAL);
         this.history.push({ at, memory: this.current.memory?.percent, cpu: this.current.cpu });

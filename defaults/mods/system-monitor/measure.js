@@ -7,12 +7,16 @@ function hostCpu(before, current) {
   return percent((current.busy - before.busy) / (current.total - before.total));
 }
 
+const isLocalAgent = (term) => typeof term.address === "string" && !term.address.includes("/")
+  && term.state === "live" && (term.report?.app || term.program?.agent);
+
+export const hasLocalAgentPid = (records) => records.some((term) => isLocalAgent(term) && term.pid > 0);
+
 function agentRoots(records) {
   const seen = new Set();
   const roots = [];
   for (const term of records) {
-    if (typeof term.address !== "string" || term.address.includes("/") || term.state !== "live") continue;
-    if (!term.report?.app && !term.program?.agent) continue;
+    if (!isLocalAgent(term)) continue;
     if (term.pid > 0 && seen.has(term.pid)) continue;
     if (term.pid > 0) seen.add(term.pid);
     const program = term.program?.name ?? term.report?.app ?? "Agent";

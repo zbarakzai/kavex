@@ -119,16 +119,17 @@ test("Windows reads raw CPU and working-set counters without rounding", () => {
 });
 
 const native = { linux: "linux", darwin: "macos", win32: "windows" }[process.platform];
+const execNative = async (file: string, args: string[]) => {
+  const child = Bun.spawn([file, ...args], { stdout: "pipe", stderr: "pipe" });
+  const [code, stdout, stderr] = await Promise.all([child.exited, child.stdout.text(), child.stderr.text()]);
+  if (code) throw new Error(stderr || `Collector exited ${code}`);
+  return { code, stdout, stderr };
+};
+
 test.skipIf(!native)("the native collector identifies its app parent and returns live host readings", async () => {
-  const exec = async (file: string, args: string[]) => {
-    const child = Bun.spawn([file, ...args], { stdout: "pipe", stderr: "pipe" });
-    const [code, stdout, stderr] = await Promise.all([child.exited, child.stdout.text(), child.stderr.text()]);
-    if (code) throw new Error(stderr || `Collector exited ${code}`);
-    return { code, stdout, stderr };
-  };
-  const before = await readSnapshot(native, exec);
+  const before = await readSnapshot(native, execNative);
   await Bun.sleep(110);
-  const after = await readSnapshot(native, exec);
+  const after = await readSnapshot(native, execNative);
   const current = measure(before, after, []);
   expect(after.appPid).toBe(process.pid);
   expect(after.cores).toBeGreaterThan(0);
@@ -137,4 +138,10 @@ test.skipIf(!native)("the native collector identifies its app parent and returns
   expect(current.cpu).toBeLessThanOrEqual(100);
   expect(current.desktop.memory).toBeGreaterThan(0);
   expect(current.desktop.cpu).toBeGreaterThanOrEqual(0);
+}, 20000);
+
+test.skipIf(native !== "macos" && native !== "linux")("the native collector can read only the desktop process", async () => {
+  const snapshot = await readSnapshot(native, execNative, false);
+  expect(snapshot.processes.map(({ pid }) => pid)).toEqual([process.pid]);
+  expect(snapshot.memory.total).toBeGreaterThan(0);
 }, 20000);

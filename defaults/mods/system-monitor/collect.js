@@ -7,7 +7,12 @@ set -e
 printf '%s %s %s\n' "$PPID" "$(getconf PAGESIZE)" "$(getconf _NPROCESSORS_ONLN)"
 cat /proc/stat /proc/meminfo
 printf '%s\n' --
-for path in /proc/[0-9]*/stat; do
+if [ "$1" = desktop ]; then
+  set -- "/proc/$PPID/stat"
+else
+  set -- /proc/[0-9]*/stat
+fi
+for path do
   if { IFS= read -r row < "$path"; } 2>/dev/null; then
     printf '%s\n' "$row"
   fi
@@ -21,7 +26,12 @@ printf '%s %s %s\n' "$PPID" "$(/usr/sbin/sysctl -n hw.memsize)" "$(/usr/sbin/sys
 /usr/sbin/iostat -d -C -n 0 -c 2 -w 1
 /usr/bin/vm_stat
 printf '%s\n' --
-/bin/ps -ax -o pid=,ppid=,rss=,time=,lstart=
+if [ "$1" = desktop ]; then
+  set -- -p "$PPID"
+else
+  set -- -ax
+fi
+/bin/ps "$@" -o pid=,ppid=,rss=,time=,lstart=
 `;
 
 // CIM class names and raw counters work regardless of the display language.
@@ -106,12 +116,13 @@ export function parseWindows(text) {
     memory: memory(total, available), processes };
 }
 
-export async function readSnapshot(platform, exec) {
+export async function readSnapshot(platform, exec, processTree = true) {
   if (platform === "windows") {
     const { code, stdout } = await exec("powershell", ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command", WINDOWS]);
     if (code === 0) return parseWindows(stdout);
   } else if (platform === "linux" || platform === "macos") {
-    const { code, stdout } = await exec("/bin/sh", ["-c", platform === "linux" ? LINUX : MACOS, PROBE]);
+    const { code, stdout } = await exec("/bin/sh", ["-c", platform === "linux" ? LINUX : MACOS, PROBE,
+      processTree ? "tree" : "desktop"]);
     if (code === 0) return platform === "linux" ? parseLinux(stdout) : parseMac(stdout, Date.now());
   }
   throw new Error("Could not sample this computer");
