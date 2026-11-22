@@ -387,7 +387,7 @@ export default class Spaces extends View {
       .child(h_flex().pt(14).pb(4).pl(collapsed ? 0 : 10).items_center().justify_between().when(collapsed, el => el.justify_center())
         .when(!collapsed, el => el.child(sectionLabel(k, "SPACES")))
         .child(h_flex().gap(2)
-          .child(control("space-recent", RECENT_LABEL, "mods/workspace-chrome/icons/folder-return.svg", () => this.openRecent())
+          .child(control("space-recent", RECENT_LABEL, "icons/folder-open.svg", () => this.openRecent())
             .tooltip(RECENT_LABEL))
           .child(control("space-new", "New space", "mods/workspace-chrome/icons/plus.svg", () => run("space.new")))))
       .child(v_flex().id("space-list").flex_1().min_h(0).overflow_y_scrollbar().mode("always")
