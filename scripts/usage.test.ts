@@ -4,7 +4,7 @@ import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSyn
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-// The real footer button, popover, Settings row and checks, with only the outside world faked: what `exec`,
+// The real footer menu, popover, Settings row and checks, with only the outside world faked: what `exec`,
 // `knownAgents` and `machines` answer, and what's in shared storage. All data here is made up.
 //
 // To teach it a new agent, add its commands to `state.says` (a piece of the command line, and what
@@ -58,7 +58,9 @@ let state: {
   agentsShown: number;
   space: any;
   overlays: any[];
+  closedOverlays: string[];
   ran: string[];
+  lastRun?: { name: string; args: unknown };
   commands: string[];
   waiting: ((command: string) => void) | null;
   notes: { title: string; body: string; level: string }[];
@@ -115,15 +117,16 @@ mock.module("herdr", () => ({
   telemetry: () => null,
   layouts: () => ["main"],
   playSound: () => {},
-  closeOverlay: () => {},
+  closeOverlay: (id: string) => void state.closedOverlays.push(id),
   notify: (note: any) => void state.notes.push(note),
   layout: () => ({ id: "root", children: [{ id: "sidebar", size: { px: state.sidebar } }] }),
   updates: () => ({ app: { ready: false, version: "0.4.0", updates: true }, core: { version: "0.1.15" }, checks: true }),
   agents: () => Array.from({ length: state.agentsShown }, () => ({})),
   spaces: () => (state.space ? [state.space] : []),
   openOverlay: (spec: any) => (state.overlays.push(spec), `overlay-${state.overlays.length}`),
-  run: (name: string) => {
+  run: (name: string, args: unknown) => {
     state.ran.push(name);
+    state.lastRun = { name, args };
     if (!name.startsWith("workspace-chrome.")) return;
     const command = name.slice("workspace-chrome.".length);
     if (state.waiting) { const answer = state.waiting; state.waiting = null; answer(command); } else state.commands.push(command);
@@ -146,6 +149,7 @@ function copyContext() {
   const context: any = {
     notify: () => { copy.notified += 1; },
     stop_propagation: () => {},
+    focus_handle: () => ({ focus: () => {} }),
     spawn: (f: (cx: any) => unknown) => void f(context),
     timer: { every: (ms: number, run: (cx: any) => void) => { copy.every.push(ms); start(ms, run, ms); }, after: (ms: number, run: (cx: any) => void) => start(ms, run) },
   };
@@ -208,6 +212,22 @@ function press(f: ReturnType<typeof footer>, id: string, between?: () => void) {
   handler(button, "on_click")({}, cx);
 }
 
+function footerMenu(spec = state.overlays.findLast((overlay) => overlay.props?.footerMenu)) {
+  const view: any = new WorkspaceChrome(), { context } = copyContext();
+  const own = { ...spec?.props, footerMenu: true, overlay: "footer-menu" };
+  state.props = own;
+  view.init(own, context);
+  return {
+    draw: () => { state.props = own; return view.render(context).el as El; },
+    close: () => { state.props = own; view.close(context); },
+  };
+}
+
+function chooseUsage(f: ReturnType<typeof footer>) {
+  press(f, "footer-more");
+  handler(byId(footerMenu().draw(), "footer-action-usage")!, "on_click")({}, cx);
+}
+
 // What the app does when an overlay opens: a new copy of its mod, with the spec's props.
 function openPopover() {
   const spec = state.overlays.at(-1), own = { ...spec.props, overlay: `overlay-${state.overlays.length}` };
@@ -231,7 +251,7 @@ function openedAfter() {
 // Opened the way a person opens it, with the footer running: `settled` waits for the check.
 async function opened(settled = true) {
   const f = footer();
-  press(f, "usage");
+  chooseUsage(f);
   const popover = openPopover();
   if (settled) await settle();
   return { f, popover };
@@ -258,6 +278,7 @@ beforeEach(() => {
     agentsShown: 2,
     space: null,
     overlays: [],
+    closedOverlays: [],
     ran: [],
     commands: [],
     waiting: null,
@@ -266,40 +287,68 @@ beforeEach(() => {
 });
 afterEach(() => { setSystemTime(); });
 
-test("the gauge sits beside Add machine and Settings, at the size of its neighbours", () => {
-  const root = footer().draw();
-  const ids = all(root).map((e) => arg(e, "id")).filter((id) => ["usage", "machine", "settings"].includes(id));
-  expect(ids).toEqual(["usage", "machine", "settings"]);
-  expect(paths(byId(root, "usage")!)).toEqual(["mods/workspace-chrome/icons/gauge.svg"]);
-  const glyph = all(byId(root, "usage")!).find((e) => arg(e, "path"))!;
-  expect(arg(glyph, "size")).toBe(16);
-  expect(arg(byId(root, "usage")!, "size")).toBe(arg(byId(root, "machine")!, "size"));
-  expect(words(root)).toContain("Usage limits");
-});
-
-test("the collapsed rail stays Settings only", () => {
-  state.sidebar = 76;
-  const root = footer().draw();
+test("the footer exposes More actions and Settings, with three short menu rows", () => {
+  const f = footer(), root = f.draw();
+  expect(byId(root, "footer-more")).toBeDefined();
+  expect(paths(byId(root, "footer-more")!)).toEqual(["mods/workspace-chrome/icons/more.svg"]);
   expect(byId(root, "settings")).toBeDefined();
   expect(byId(root, "usage")).toBeUndefined();
+  expect(byId(root, "machine")).toBeUndefined();
+  expect(byId(root, "customize")).toBeUndefined();
+  press(f, "footer-more");
+  expect(words(footerMenu().draw())).toEqual(["Usage limits", "Add machine", "Customize"]);
 });
 
-test("a press on the gauge opens the popover beside the footer's buttons, where it can't cover them", () => {
-  const f = footer();
-  press(f, "usage");
-  expect(state.overlays).toEqual([{ mod: "usage", kind: "popup", width: 400, height: 540, at: { x: BUTTON.x + 94, y: BUTTON.y }, props: { from: "usage" } }]);
+test("the narrow rail keeps both actions inside its available width", () => {
+  state.sidebar = 44;
+  const f = footer(), root = f.draw();
+  expect(arg(byId(root, "settings")!, "w") + arg(byId(root, "footer-more")!, "w")).toBeLessThanOrEqual(36);
+  press(f, "footer-more");
+  expect(words(footerMenu().draw())).toContain("Customize");
 });
 
-test("a second press on the gauge only closes the popover", () => {
+test("the dropdown opens above the footer and Usage limits opens beside the buttons", () => {
   const f = footer();
-  press(f, "usage");
-  const popover = openPopover();
-  press(f, "usage", () => popover.close());
+  chooseUsage(f);
+  const [menu, usage] = state.overlays;
+  expect(menu).toMatchObject({ mod: "workspace-chrome", kind: "popup", props: { footerMenu: true } });
+  expect(menu.at.y + menu.height).toBeLessThan(BUTTON.y);
+  expect(usage).toMatchObject({ mod: "usage", kind: "popup", width: 400, height: 540, props: { from: "usage" } });
+  expect(usage.at.x).toBeGreaterThan(BUTTON.x + BUTTON.width);
+  expect(state.closedOverlays).toEqual(["footer-menu"]);
+});
+
+test("a second press on More actions closes its menu", () => {
+  const f = footer();
+  press(f, "footer-more");
+  const menu = footerMenu();
+  press(f, "footer-more", () => menu.close());
   expect(state.overlays.length).toBe(1);
 
   setSystemTime(NOW + 5000);
-  press(f, "usage");
+  press(f, "footer-more");
   expect(state.overlays.length).toBe(2);
+});
+
+test("keyboard selection and clicks open the original footer actions", () => {
+  const f = footer();
+  press(f, "footer-more");
+  const panel = byId(footerMenu().draw(), "footer-actions")!;
+  handler(panel, "on_key_down")({ key: "down" }, cx);
+  handler(panel, "on_key_down")({ key: "enter" }, cx);
+  expect(state.lastRun).toEqual({ name: "mod.open", args: { name: "machine-add" } });
+  press(f, "footer-more");
+  handler(byId(footerMenu().draw(), "footer-action-customize")!, "on_click")({}, cx);
+  expect(state.lastRun).toEqual({ name: "mod.open", args: { name: "customize" } });
+});
+
+test("a Customize update keeps its mark in the menu and on the three-dot button", () => {
+  state.shared["skills.updates"] = [{ name: "example" }];
+  const f = footer();
+  expect(dotOn(f.draw())).toBeDefined();
+  press(f, "footer-more");
+  const row = byId(footerMenu().draw(), "footer-action-customize")!;
+  expect(all(row).some((e) => arg(e, "bg") === colors.accent)).toBe(true);
 });
 
 test("a Claude subscription shows its logo, name and tier, and each limit's percent, bar and time", async () => {
@@ -339,13 +388,13 @@ test("opening again within a minute reuses the last result, and after that check
   popover.close();
 
   setSystemTime(NOW + 59_000);
-  press(f, "usage");
+  chooseUsage(f);
   openPopover();
   await settle();
   expect(checks()).toBe(1);
 
   setSystemTime(NOW + 60_000);
-  press(f, "usage");
+  chooseUsage(f);
   openPopover();
   await settle();
   expect(checks()).toBe(2);
@@ -368,7 +417,7 @@ test("a check under way isn't started twice, by refresh or by opening", async ()
   const { f, popover } = await opened();
   refresh(popover);
   await settle();
-  press(f, "usage");
+  chooseUsage(f);
   openPopover();
   await settle();
   expect(checks()).toBe(1);
@@ -400,7 +449,7 @@ test("closing the popover midway leaves the check to finish, so its numbers stil
   usage.release(ANSWER);
   await settle();
 
-  press(f, "usage");
+  chooseUsage(f);
   expect(limits(openPopover().draw()).length).toBe(1);
   await settle();
   expect(checks()).toBe(1);
@@ -490,12 +539,12 @@ test("Claude not installed gives no row and runs nothing of Claude's", async () 
   expect(words(popover.draw())).toContain(NONE);
 });
 
-test("with no agents at all the popover reads as a result, and the gauge stays", async () => {
+test("with no agents at all the popover reads as a result, and Usage limits stays in the menu", async () => {
   state.says["printenv PATH"] = "/made/up/bin\n";
-  const { f, popover } = await opened();
+  const { popover } = await opened();
   expect(words(popover.draw())).toContain(NONE);
   expect(words(popover.draw())).toContain("UPDATED JUST NOW");
-  expect(byId(f.draw(), "usage")).toBeDefined();
+  expect(byId(footerMenu().draw(), "footer-action-usage")).toBeDefined();
 });
 
 test("before the first check ends, nothing claims there are no subscriptions", async () => {
@@ -689,11 +738,9 @@ test("a limit over 100% still fills its bar and no more", async () => {
   expect(filled(limit)).toBe(100);
 });
 
-test("the line beside the buttons gives up the gauge's width", () => {
+test("the footer has room for the machine name and agent count", () => {
   state.agentsShown = 12;
-  const letters = words(footer().draw()).find((word) => word.includes("AGENTS"));
-  // 21 letters fit beside three buttons: the gauge's 22 px more at 5.9 px a letter takes four.
-  expect(letters).toBe("THIS… · 12 AGENTS");
+  expect(words(footer().draw())).toEqual(expect.arrayContaining(["THIS COMPUTER", "· 12 AGENTS"]));
 });
 
 const CODEX = { ...CLAUDE, key: "codex", name: "Codex", icon: "icons/codex.svg", run: ["codex"] };
@@ -1358,7 +1405,7 @@ test("limits are checked every 15 minutes with the popover closed, and not soone
   claude(WEEK);
   const f = footer();
   await wait(5_000);
-  press(f, "usage");
+  chooseUsage(f);
   await settle();
   const popover = openPopover();
   await settle();
@@ -1439,9 +1486,9 @@ test("a footer cut off in the middle of a check doesn't stop the next footer che
 });
 
 const AT = (percent: number) => `Current week (all models): ${percent}% used · resets Nov 6 at 7:59pm (UTC)`;
-const dotOn = (root: El) => all(byId(root, "usage")!).find((e) => e.calls.some(([name]) => name === "rounded_full"));
+const dotOn = (root: El) => all(byId(root, "footer-more")!).find((e) => e.calls.some(([name]) => name === "rounded_full"));
 
-test("the gauge has no dot at 89% used and the orange one at 90%, with nothing opened", async () => {
+test("More actions gets an orange dot at 90% used, with the menu closed", async () => {
   claude(AT(89));
   const f = footer();
   await wait(5_000);
@@ -1760,28 +1807,24 @@ test("Settings has a Usage limits row in its Workspace group, on until turned of
   expect(arg(byId(settingsPage(), "st-usage-knob")!, "left")).toBe(2);
 });
 
-test("turned off, the gauge goes and the line takes back its room", () => {
-  state.agentsShown = 12;
+test("turning Usage limits off leaves Add machine and Customize in the menu", () => {
   flip();
-  const f = footer(), root = f.draw();
-  expect(byId(root, "usage")).toBeUndefined();
-  expect(byId(root, "machine")).toBeDefined();
-  expect(byId(root, "settings")).toBeDefined();
-  const letters = words(root).find((word) => word.includes("AGENTS"));
-  expect(letters).toBe("THIS COM… · 12 AGENTS");
+  press(footer(), "footer-more");
+  expect(words(footerMenu().draw())).toEqual(["Add machine", "Customize"]);
 });
 
 test("turned off, nothing runs: not at launch, not on the timer, not when asked", async () => {
   claude(WEEK);
   flip();
-  const f = footer(), popover = openedAfter();
+  footer();
+  const popover = openedAfter();
   await settle();
   refresh(popover);
   await settle();
   await wait(2 * 3600_000);
   expect(state.runs).toEqual([]);
   expect(state.fetched).toEqual([]);
-  expect(byId(f.draw(), "usage")).toBeUndefined();
+  expect(byId(footerMenu().draw(), "footer-action-usage")).toBeUndefined();
 });
 
 test("turning it off clears the saved numbers and the OpenCode answer, and with them the dot", async () => {
@@ -1794,10 +1837,11 @@ test("turning it off clears the saved numbers and the OpenCode answer, and with 
   flip();
   expect(state.shared.usage ?? null).toBeNull();
   expect(state.shared["usage.opencode"] ?? null).toBeNull();
-  expect(byId(f.draw(), "usage")).toBeUndefined();
+  expect(dotOn(f.draw())).toBeUndefined();
+  expect(byId(footerMenu().draw(), "footer-action-usage")).toBeUndefined();
 });
 
-test("turning it back on shows the gauge and checks again, with no old numbers", async () => {
+test("turning it back on restores Usage limits and checks again, with no old numbers", async () => {
   claude(AT(95));
   const f = footer();
   await wait(5_000);
@@ -1807,7 +1851,7 @@ test("turning it back on shows the gauge and checks again, with no old numbers",
 
   claude(AT(20));
   flip();
-  expect(byId(f.draw(), "usage")).toBeDefined();
+  expect(byId(footerMenu().draw(), "footer-action-usage")).toBeDefined();
   expect(dotOn(f.draw())).toBeUndefined();
   await wait(60_000);
   expect(checks()).toBe(2);

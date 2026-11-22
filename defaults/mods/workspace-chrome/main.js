@@ -1,8 +1,8 @@
 import { View, div, image, svg } from "gpui-kit";
-import { h_flex, HoverCard } from "gpui-base";
-import { theme, run, props, window, shared, setShared, updates, layout, agents, spaces, openOverlay, settings, nextCommand } from "herdr";
+import { h_flex, v_flex, HoverCard } from "gpui-base";
+import { theme, run, props, window, shared, setShared, updates, layout, agents, spaces, openOverlay, closeOverlay, settings, nextCommand } from "herdr";
 import { allowOpencode, checkUsage, EVERY, nearLimit, POPOVER_HEIGHT, POPOVER_WIDTH, usageOff } from "./checks.js";
-import { look, spaced } from "./look.js";
+import { look, MONO } from "./look.js";
 import { SETTLE_MS, snapTarget } from "./snap.js";
 import { checkSkills, EVERY as SKILLS_EVERY } from "./skills.js";
 
@@ -15,9 +15,14 @@ function find(node, id) {
   return null;
 }
 
-const LINE = 21; // letters that fit beside Add machine, Customize and Settings
-const GAUGE_LETTERS = 4;
-const PAST_BUTTONS = 94;
+const FOOTER_MENU = "workspace-actions";
+const MENU_WIDTH = 184, MENU_ROW = 30, MENU_PAD = 4;
+const FOOTER_ACTIONS = [
+  { id: "usage", label: "Usage limits", icon: "gauge" },
+  { id: "machine", label: "Add machine", icon: "machine", mod: "machine-add" },
+  { id: "customize", label: "Customize", icon: "layers", mod: "customize" },
+];
+const footerActions = () => usageOff() ? FOOTER_ACTIONS.slice(1) : FOOTER_ACTIONS;
 const FIRST_CHECK = 5000;
 const WATCH = 60_000;
 const FIRST_SKILLS_CHECK = 20_000;
@@ -26,6 +31,7 @@ const FIRST_SKILLS_CHECK = 20_000;
 const narrow = () => (find(layout(), "sidebar")?.size?.px ?? Infinity) < 160;
 
 const warning = () => nearLimit(shared("usage")?.entries, Date.now());
+const skillUpdates = () => Boolean(shared("skills.updates")?.length);
 
 const sidebarPx = () => find(layout(), "sidebar")?.size?.px;
 const railPx = () => (window()?.platform === "macos" ? 76 : 44);
@@ -49,6 +55,12 @@ export default class WorkspaceChrome extends View {
   // one script thread and `checkUsage` marks a pass as started with no wait after looking, so a
   // second footer always sees the mark.
   init(_props, cx) {
+    if (props()?.footerMenu) {
+      this.menuFocus = cx.focus_handle();
+      this.menuFocus.focus();
+      this.menuIndex = 0;
+      return;
+    }
     if (!props()?.footer) return;
     cx.timer.after(FIRST_CHECK, (cx) => cx.spawn(() => checkUsage()));
     // Skills follow the same rule: any footer may run a due check (skills.js).
@@ -72,49 +84,94 @@ export default class WorkspaceChrome extends View {
     });
   }
 
+  close() {
+    if (props()?.footerMenu) setShared("popup.closed", { from: FOOTER_MENU, at: Date.now() });
+  }
+
   button(id, label, action, t) {
     return div().id(id).size(30).flex_none().flex().items_center().justify_center().rounded(8).text_color(t.muted).hover(s => s.bg(t.raised).text_color(t.foreground))
       .on_mouse_down("left", (_e, cx) => cx.stop_propagation()).on_click(action).child(label);
   }
-  // One line: where this is and how many agents, then Add machine and Settings as icons. Their
-  // names show on hover, above the button: there's no room below the window's last line.
-  action(id, icon, name, run, k, mark = null) {
-    const button = div().id(id).relative().size(22).flex_none().flex().items_center().justify_center().rounded(7).text_color(k.muted).cursor_pointer()
-      .hover(s => s.bg(k.hover_strong).text_color(k.foreground)).on_mouse_down("left", (e) => { this.pressed = { at: Date.now(), bounds: e.bounds }; })
-      .on_click(run).child(svg(`mods/workspace-chrome/icons/${icon}.svg`).size(16))
+  action(id, icon, name, click, k, width, mark) {
+    const button = div().id(id).relative().w(width).h(24).flex_none().flex().items_center().justify_center().rounded(7)
+      .text_color(k.muted).accessibility_label(name).cursor_pointer().hover(s => s.bg(k.hover_strong).text_color(k.foreground))
+      .when(id === "footer-more", el => el.on_mouse_down("left", (e) => { this.pressed = { at: Date.now(), bounds: e.bounds }; }))
+      .on_click(click).child(svg(`mods/workspace-chrome/icons/${icon}.svg`).size(16))
       .when(Boolean(mark), el => el.child(div().absolute().top(2).right(2).size(6).rounded_full().bg(mark)));
     return HoverCard.new(`tip-${id}`).anchor("bottom_center").open_delay(300).close_delay(0).trigger(button)
       .content(div().mb(6).px(9).py(5).rounded(8).bg(k.raised).border_1().border_color(k.border).shadow_md().text_size(12).text_color(k.foreground).whitespace_nowrap().child(name));
   }
 
-  // A press outside a popup closes it and still lands here, so a popup shut by this press stays shut
-  // (`reopening` in tabs/groups.js). It opens beside the buttons, as over them the next press would
-  // miss the gauge; from there the window's edge pushes it up to fit.
-  usage() {
-    const shut = shared("popup.closed"), { at, bounds } = this.pressed;
-    if (shut?.from === "usage" && shut.at >= at - 100) return;
-    openOverlay({ mod: "usage", kind: "popup", width: POPOVER_WIDTH, height: POPOVER_HEIGHT, at: { x: bounds.x + PAST_BUTTONS * settings().zoom, y: bounds.y }, props: { from: "usage" } });
+  openActions() {
+    const press = this.pressed;
+    this.pressed = null;
+    const shut = shared("popup.closed");
+    // The press that dismissed the popup also reaches the trigger.
+    if (press && shut?.from === FOOTER_MENU && shut.at >= press.at - 100) return;
+    const height = footerActions().length * MENU_ROW + 2 * (MENU_PAD + 1);
+    const zoom = settings().zoom;
+    const bounds = press?.bounds;
+    const right = bounds && bounds.x + bounds.width;
+    openOverlay({
+      mod: "workspace-chrome", kind: "popup", width: MENU_WIDTH, height,
+      ...(bounds ? { at: { x: right - MENU_WIDTH * zoom, y: bounds.y - (height + 6) * zoom } } : {}),
+      props: {
+        footerMenu: true,
+        ...(bounds ? { usageAt: { x: right + 30 * zoom, y: bounds.y } } : {}),
+      },
+    });
+  }
+
+  chooseAction(action) {
+    const { overlay, usageAt } = props();
+    closeOverlay(overlay);
+    if (action.mod) run("mod.open", { name: action.mod });
+    else openOverlay({ mod: "usage", kind: "popup", width: POPOVER_WIDTH, height: POPOVER_HEIGHT,
+      ...(usageAt ? { at: usageAt } : {}), props: { from: "usage" } });
+  }
+
+  actionsMenu(k) {
+    const actions = footerActions(), selected = Math.min(this.menuIndex, actions.length - 1);
+    const marks = { usage: warning() ? k.blocked : null, customize: skillUpdates() ? k.accent : null };
+    return v_flex().id("footer-actions").w_full().min_h(0).p(MENU_PAD).track_focus(this.menuFocus)
+      .accessibility_label("More actions")
+      .on_key_down((e, cx) => {
+        const index = Math.min(this.menuIndex, actions.length - 1);
+        if (e.key === "escape") closeOverlay(props().overlay);
+        else if (e.key === "enter") this.chooseAction(actions[index]);
+        else if (e.key === "up" || e.key === "down") {
+          this.menuIndex = (index + actions.length + (e.key === "up" ? -1 : 1)) % actions.length;
+          cx.notify();
+        } else return;
+        cx.stop_propagation();
+      })
+      .children(actions.map((action, index) => h_flex().id(`footer-action-${action.id}`).h(MENU_ROW).w_full()
+        .px(8).gap(9).items_center().flex_none().rounded(6).cursor_pointer()
+        .when(index === selected, (el) => el.bg(k.selected))
+        .hover(s => s.bg(k.hover_strong))
+        .on_click(() => this.chooseAction(action))
+        .child(svg(`mods/workspace-chrome/icons/${action.icon}.svg`).size(16).flex_none().text_color(k.muted))
+        .child(div().flex_1().min_w(0).truncate().text_size(12.5).text_color(k.foreground).child(action.label))
+        .when(Boolean(marks[action.id]), el => el.child(div().size(6).flex_none().rounded_full().bg(marks[action.id])))));
   }
 
   footer(t) {
     const k = look(t), collapsed = narrow();
-    this.warned = warning();
-    const settings = this.action("settings", "settings", "Settings", () => run("app.settings"), k, updates().app.ready ? k.accent : null);
-    const customize = this.action("customize", "layers", "Customize", () => run("mod.open", { name: "customize" }), k, (shared("skills.updates") ?? []).length ? k.accent : null);
-    // The rail has room for one button: Customize waits for the wider sidebar (and its toast).
-    if (collapsed) return h_flex().size_full().pb(4).items_center().justify_center().child(settings);
-    const list = agents().length, tail = ` · ${list} ${list === 1 ? "AGENT" : "AGENTS"}`;
+    this.warned = !usageOff() && warning();
+    const tight = collapsed && sidebarPx() < 56, width = tight ? 18 : 24;
+    const mark = this.warned ? k.blocked : skillUpdates() ? k.accent : null;
+    const more = this.action("footer-more", "more", "More actions", () => this.openActions(), k, width, mark);
+    const settings = this.action("settings", "settings", "Settings", () => run("app.settings"), k, width, updates().app.ready ? k.accent : null);
+    const list = agents().length, tail = `· ${list} ${list === 1 ? "AGENT" : "AGENTS"}`;
     const machine = (spaces().find(s => s.active)?.machine ?? "This computer").toUpperCase();
-    const usage = !usageOff(), room = LINE - (usage ? GAUGE_LETTERS : 0) - tail.length;
-    const name = machine.length > room ? `${machine.slice(0, room - 1)}…` : machine;
-    return h_flex().size_full().pl(4).pb(4).items_center()
-      .child(h_flex().flex_1().min_w(0).gap(5).items_center().overflow_hidden()
-        .child(div().size(6).rounded(3).flex_none().bg(k.added))
-        .child(spaced(`${name}${tail}`, 9.5, 0.05).text_color(k.label)))
-      .when(usage, el => el.child(this.action("usage", "gauge", "Usage limits", () => this.usage(), k, this.warned ? k.blocked : null)))
-      .child(this.action("machine", "machine", "Add machine", () => run("mod.open", { name: "machine-add" }), k))
-      .child(customize)
-      .child(settings);
+    return h_flex().size_full().pb(4).items_center().gap(tight ? 0 : 2)
+      .when(collapsed, el => el.justify_center())
+      .when(!collapsed, el => el.pl(4).child(h_flex().flex_1().min_w(0).items_center()
+        .font_family(MONO).text_size(10).text_color(k.label)
+        .child(div().size(6).mr(5).rounded(3).flex_none().bg(k.added))
+        .child(div().min_w(0).truncate().child(machine))
+        .child(div().ml(4).flex_none().whitespace_nowrap().child(tail))))
+      .child(more).child(settings);
   }
   // A width left between the rail and the minimum goes to the nearer one once it holds still.
   settle(cx) {
@@ -133,6 +190,7 @@ export default class WorkspaceChrome extends View {
 
   render(cx) {
     const t = theme();
+    if (props()?.footerMenu) return this.actionsMenu(look(t));
     if (props()?.footer) return this.footer(t);
     this.settle(cx);
     const collapsed = narrow(), mac = window()?.platform === "macos";
