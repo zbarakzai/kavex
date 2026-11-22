@@ -337,9 +337,13 @@ be undone. Cmd-click (Ctrl-click) a line opens it in Cursor, VS Code or Zed,
 else the system's app. Commit takes what's staged, or everything if nothing is, by its
 button, Enter or `cmd-enter` (`ctrl-enter`).
 
-The gauge in the sidebar footer opens Usage limits (the `usage` popup mod): each Claude Code, Codex
+The three-dot **More actions** menu beside **Settings** in the sidebar footer offers
+**Usage limits**, **Add machine**, and **Customize**. Use ↑ or ↓ and Enter to choose an action.
+An orange dot on the menu button points to a usage warning or skill update inside.
+
+**Usage limits** (the `usage` popup mod) shows each Claude Code, Codex
 and OpenCode Go subscription, with its tier and each limit's percent used and time to reset, weekly
-first. A limit past its reset reads 0%. At 90% used its percent turns orange, the gauge gets a dot and
+first. A limit past its reset reads 0%. At 90% used its percent turns orange, the menu shows a dot and
 a toast says so, once until the limit falls below 90% again. A limit whose pace so far would use it up
 before it resets also says when, from 5% of the way through its window: a straight line, not a forecast.
 
@@ -359,7 +363,7 @@ before it resets also says when, from 5% of the way through its window: a straig
 - **Saved:** `shared("usage")` holds the numbers and an account fingerprint, never an email, login,
   key or anything made from a key. `shared("usage.warned")` names the limits already warned about.
 - **Off:** the Usage limits row in Settings > Look, under Workspace. `shared("usage.enabled")` is
-  `false` (anything else is on): the gauge goes, no check runs, one still running saves nothing, and
+  `false` (anything else is on): the menu hides Usage limits, no check runs, one still running saves nothing, and
   `shared("usage")`, `shared("usage.warned")` and `shared("usage.opencode")` are cleared. Back on, it
   checks within a minute.
 - **OpenCode** has no such command, so it's the one thing Usage sends itself, on this computer only.
@@ -370,7 +374,7 @@ before it resets also says when, from 5% of the way through its window: a straig
   table and go only to `opencode.ai`, as a Bearer header; one written as a variable or a command is
   never sent. A 401 or 403 means no Go plan: no row and no error.
 
-**Customize** (the footer's button beside Settings, the `customize` mod: `mod.open {name: "customize"}`)
+**Customize** (in **More actions**, the `customize` mod, `mod.open {name: "customize"}`)
 covers the window with its own sidebar: Skills, and Code review (empty for now). Back or Esc closes it.
 **Skills** there install agent skills (folders with a `SKILL.md`) for every agent at once, from a list,
 a GitHub link or a folder:
@@ -385,8 +389,8 @@ a GitHub link or a folder:
   the last one it read in `skills-catalog.json`.
 - **Updates:** 20 seconds after the footer starts, then every 6 hours, Kavex reads the list (one
   request, plus one per repo of skills added by link) and compares each installed skill's folder hash
-  (git tree SHA). A new version shows a toast once (click: Customize), a dot on the footer's Customize
-  button and an Update button;
+  (git tree SHA). A new version shows a toast once (click it to open Customize), a dot next to Customize
+  in the footer menu and an Update button;
   updating replaces the one copy, so every agent has it at once. A skill changed since it was
   installed is never replaced by itself: Replace or Keep mine (that version isn't offered again).
   `shared("skills.auto")` `true` updates unchanged skills by themselves; `shared("skills.checks")`
