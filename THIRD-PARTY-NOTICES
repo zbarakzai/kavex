@@ -15,6 +15,7 @@ Input-SHA256: 60e0b68c0f35c078eef3a5d29419d0b03ff84ec1df9c3f9d6e39a519a5ae7985 d
 Input-SHA256: add9d7531d1b21646317a8958e38fc727506fa39d24bdecb44154d943c82753a defaults/icons/LICENSE-LobeHub.txt
 Input-SHA256: b495047bd93a9b06913511076f504daba17d5bbeb3e0650f3bb53a4220329c57 defaults/icons/LICENSE-Lucide.txt
 Input-SHA256: 2eda41d133525e9598a6b0d41a6c1d6c79fcd46e6411ed19d9dfc10fa3939b58 defaults/icons/LICENSES.md
+Input-SHA256: ee1cf054fe6df76e77337e29116d3049b7e5d410601bb3f464dabc1a91b1d726 defaults/mods/files/symbols/LICENSE
 Input-SHA256: e7bae1721866dc0152e9e8f9fb8c0033a6f8ee98f63c4d64b0f06bf6f27a13e8 defaults/mods/win98/fonts/LICENSE-MSSansSerif.txt
 Input-SHA256: 9348ddfd44da5a127c59141981954746a860ec8e03e0412cf3af7134af0f97e2 defaults/mods/win98/fonts/LICENSE-PxPlus.txt
 Input-SHA256: 3f941b3b89cf7b8370ceb83cc76d2120d471b58735d8ca60238a751a48d7f72f licenses/CC-BY-SA-3.0.txt
@@ -29,7 +30,7 @@ Input-SHA256: f8ac2c75e7f629a87565c80d61ff9fe5aa15cdea0bda997d52a4dc13fdbd19cb l
 Input-SHA256: 5c537d6853e005298a285d508cff9ac7192cea23576c840d485b2b586a7ff177 licenses/Zig.txt
 Input-SHA256: d25e82e26acd42ca3ccc9993622631163425b869b9e16284226d534cff6470f2 licenses/highway-BSD3.txt
 Input-SHA256: 43070e2d4e532684de521b885f385d0841030efa2b1a20bafb76133a5e1379c1 licenses/highway.txt
-Input-SHA256: 2bac883258d8c4e43158950d51aeff92c462638dd49cfe9d1cb06973d62d2f5a licenses/inventory.json
+Input-SHA256: fa2b91aa063b43e3695bb7f2f7eaa2ba7fb52cff74f17a7dca9a29c4510b683b licenses/inventory.json
 Input-SHA256: f9bc4423732350eb0b3f7ed7e91d530298476f8fec0c6c427a1c04ade22655af licenses/musl.txt
 Input-SHA256: 204bbed08ddeeecb362b4da36d3479a0167b7356a9d6024a24f9833affbe228a licenses/simdutf-TH.txt
 Input-SHA256: fc8dbc04e03ad4efc08a647ffe7f995b811a95bc04c0e85a56d5277c6593fa5f licenses/simdutf.txt
@@ -20426,6 +20427,34 @@ express Statement of Purpose.
  d. Affirmer understands and acknowledges that Creative Commons is not a
     party to this document and has no duty or obligation with respect to
     this CC0 or use of the Work.
+
+
+----------------------------------------------------------------------
+Symbols file and folder icons
+https://github.com/miguelsolorio/vscode-symbols/tree/a405d32cca082d838ad7739b6d0044dea9dbbb79
+
+--- defaults/mods/files/symbols/LICENSE ---
+MIT License
+
+Copyright (c) 2020-22 Miguel Solorio
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 
 
 ----------------------------------------------------------------------

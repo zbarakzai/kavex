@@ -283,9 +283,9 @@ The + menu shows the last detected agents for the active machine while it checks
 On the first check for a machine, it shows “Checking installed agents…”. Each number keeps
 its agent for as long as the menu is open.
 
-The Files panel shows the same tree as Changes, without its counts:
-each file has its language logo in the theme's color, or a short type tag where there is none,
-and supports Windows folder paths with spaces, parentheses and apostrophes. Right-click a file,
+The Files and Changes trees show full-color Symbols icons for file names, extensions and folder
+names, with generic icons for unknown entries. Files supports Windows folder paths with spaces,
+parentheses and apostrophes. Right-click a file,
 a folder or the empty space under them (the `file-menu` mod, whose rows run `files.<id>`): New
 file (typed in the tree; `a/b.txt` makes the folder too), cd to directory (into the focused
 terminal, a shell only, clearing what's half typed), Open in new tab (a folder: a terminal there; a

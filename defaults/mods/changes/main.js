@@ -8,7 +8,7 @@ import * as fs from "fs/promises";
 import { MOST_ROWS, buttonAt, fileRows, hunkPatch, lineCount, newFile, parseDiff, signature, splitRows, stackedRows, stepped, wrapSpans } from "./diff.js";
 import { languageOf, painter } from "./tokens.js";
 import { look, spaced, MONO } from "./look.js";
-import { typeTag } from "./filetypes.js";
+import { fileIcon, folderIcon } from "./filetypes.js";
 import { panelHeader } from "./panel.js";
 import { buildTree, filtered, inTreeOrder, jumpList, middle, treeRows } from "./tree.js";
 import { DIFF, READ, SNAPSHOT, chooseBase, parseCounts, parseLog, parseNumstat, parseRefs, planAction, reviewMessage, untrackedPaths } from "./git.js";
@@ -921,10 +921,10 @@ export default class Changes extends View {
       .child(div().pl(14).child(`${commas(row.count)} unmodified ${row.count === 1 ? "line" : "lines"}`)));
   }
 
-  fileLabel(file, t, on = true) {
+  fileLabel(file, t) {
     const parts = file.path.split("/"), name = parts.pop();
     return h_flex().flex_1().min_w(0).gap(8).items_center().text_size(13)
-      .child(typeTag(file.path, on ? t.accent : t.label))
+      .child(fileIcon(file.path))
       .child(h_flex().flex_1().min_w(0).gap(4).items_center()
         .when(parts.length > 0, (el) => el.child(div().min_w(0).truncate().text_color(t.label).child(`${parts.join(" / ")} /`)))
         .child(div().flex_none().max_w_full().truncate().when(file.isDeleted, (el) => el.line_through()).child(name)));
@@ -955,7 +955,7 @@ export default class Changes extends View {
     const button = (name) => h_flex().size(FILE_BUTTON).flex_none().items_center().justify_center().rounded(7).text_color(t.muted).child(icon(name, 16));
     const options = h_flex().absolute().right(FILE_END + 2 * (FILE_BUTTON + FILE_GAP)).top(6).size(FILE_BUTTON).items_center().justify_center().rounded(7).bg(t.card).text_color(t.muted).child(icon(more.name, 16));
     return h_flex().id("file").relative().w_full().h_full().pl(18).pr(FILE_END).gap(8).items_center().when(!row.first, (el) => el.border_t(1).border_color(t.card_border).hover((s) => s.bg(t.hover)))
-      .child(this.fileLabel(file, t, file.path === this.open))
+      .child(this.fileLabel(file, t))
       .child(this.stats(file, t))
       .child(this.counter(file, t))
       .child(h_flex().flex_none().gap(FILE_GAP).child(button(back.name)).child(button(next.name)))
@@ -1259,10 +1259,10 @@ export default class Changes extends View {
 
   treeRow(row, t) {
     const shell = h_flex().id("row").w_full().h(TREE_ROW).flex_none().pr(8).items_center().rounded(7);
-    if (row.kind === "dir") return shell.pl(4 + row.depth * 14).gap(6).text_color(t.tile_text).hover((s) => s.bg(t.hover)).child(icon(row.open ? "chevron-down" : "chevron-right", 12).text_color(t.label)).child(div().flex_1().min_w(0).truncate().child(row.name));
+    if (row.kind === "dir") return shell.pl(4 + row.depth * 14).gap(6).text_color(t.tile_text).hover((s) => s.bg(t.hover)).child(icon(row.open ? "chevron-down" : "chevron-right", 12).text_color(t.label)).child(folderIcon(row.path)).child(div().flex_1().min_w(0).truncate().child(row.name));
     const file = row.file, active = file.path === this.open, tight = this.treeWidth() < TREE_STATS_AT;
-    return shell.pl(8 + row.depth * 14).gap(8).when(active, (el) => el.bg(t.hover_strong)).hover((s) => s.bg(active ? t.hover_strong : t.hover))
-      .child(typeTag(file.path, active ? t.accent : t.label))
+    return shell.pl(22 + row.depth * 14).gap(6).when(active, (el) => el.bg(t.hover_strong)).hover((s) => s.bg(active ? t.hover_strong : t.hover))
+      .child(fileIcon(file.path))
       .child(div().flex_1().min_w(0).truncate().text_color(active ? t.foreground : t.text_secondary).when(this.isViewed(file), (el) => el.text_color(t.label)).when(file.isDeleted, (el) => el.line_through()).child(row.name))
       .when(!tight, (el) => el.child(this.stats(file, t, false, 11)));
   }

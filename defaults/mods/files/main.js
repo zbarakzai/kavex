@@ -7,7 +7,7 @@ import { v_flex, h_flex, Editor, InputState, Input } from "gpui-base";
 import { spaces, panes, focused, terminals, exec, readTextFile, watchFolder, theme, window, props, run, notify, openOverlay, nextCommand, shared, setShared } from "herdr";
 import * as fs from "fs/promises";
 import { look, MONO } from "./look.js";
-import { typeTag } from "./filetypes.js";
+import { fileIcon, folderIcon } from "./filetypes.js";
 import { panelHeader } from "./panel.js";
 import { baseName, parentOf, native, quoted, badName, create, move, trash, reveal, cd, WASTE } from "./ops.js";
 import { isMarkdown, isAbsolute, forwardSlashes, tidy, linkTarget } from "./markdown.js";
@@ -367,12 +367,12 @@ export default class Files extends View {
   }
 
   draft(depth, icon, out, t) {
-    out.push(h_flex().id("files-edit").h(28).flex_none().pl(8 + depth * 14).pr(2).gap(8).items_center()
+    out.push(h_flex().id("files-edit").h(28).flex_none().pl(22 + depth * 14).pr(2).gap(6).items_center()
       .on_key_down((e, cx) => { if (e.key === "escape") { cx.stop_propagation(); this.finish(cx); } })
       .on_mouse_down_out((_e, cx) => this.finish(cx, false))
       .child(icon)
       .child(Input.new(this.input).flex_1().min_w(0).h(24).px(6).rounded(6).border_1().border_color(this.editError ? (t.failed ?? t.blocked) : t.input).bg(t.well).text_size(12.5).text_color(t.foreground)));
-    if (this.editError) out.push(div().flex_none().pl(34 + depth * 14).pr(8).py(2).text_size(11).text_color(t.failed ?? t.blocked).child(this.editError));
+    if (this.editError) out.push(div().flex_none().pl(44 + depth * 14).pr(8).py(2).text_size(11).text_color(t.failed ?? t.blocked).child(this.editError));
   }
 
   rows(prefix, depth, out, t) {
@@ -391,7 +391,7 @@ export default class Files extends View {
       }
       const shown = entry.dir ? last : path, chevron = () => svg(`mods/workspace-chrome/icons/chevron-${open ? "down" : "right"}.svg`).size(12).flex_none().text_color(t.label);
       if (this.edit?.path === shown) {
-        this.draft(depth, entry.dir ? chevron() : typeTag(entry.name, t.label), out, t);
+        this.draft(depth, entry.dir ? folderIcon(shown) : fileIcon(entry.name), out, t);
         if (entry.dir && open) this.rows(last, depth + 1, out, t);
         continue;
       }
@@ -402,8 +402,8 @@ export default class Files extends View {
         .on_mouse_down("right", (_e, cx) => { cx.stop_propagation(); this.menu(shown, entry.dir, cx); })
         .when(!this.on, el => el.drag_paths(`${this.root}/${path}`));
       out.push(entry.dir
-        ? row.pl(4 + depth * 14).gap(6).text_color(t.tile_text).child(chevron()).child(div().flex_1().min_w(0).truncate().child(label))
-        : row.pl(8 + depth * 14).gap(8).text_color(t.text_secondary).child(typeTag(entry.name, t.label)).child(div().flex_1().min_w(0).truncate().child(entry.name))
+        ? row.pl(4 + depth * 14).gap(6).text_color(t.tile_text).child(chevron()).child(folderIcon(shown)).child(div().flex_1().min_w(0).truncate().child(label))
+        : row.pl(22 + depth * 14).gap(6).text_color(t.text_secondary).child(fileIcon(entry.name)).child(div().flex_1().min_w(0).truncate().child(entry.name))
           .when(Boolean(mark), el => el.child(div().font_family(MONO).text_size(11).text_color(mark === "A" ? t.added : mark === "D" || mark === "U" ? t.removed : t.muted).child(mark))));
       if (entry.dir && open) {
         if (chain.includes(this.edit?.folder)) this.newFile(depth + 1, out, t);
@@ -414,7 +414,7 @@ export default class Files extends View {
   }
 
   newFile(depth, out, t) {
-    this.draft(depth, h_flex().w(18).flex_none().child(svg("mods/workspace-chrome/icons/file-new.svg").size(16).text_color(t.label)), out, t);
+    this.draft(depth, svg("mods/workspace-chrome/icons/file-new.svg").size(16).flex_none().text_color(t.label), out, t);
   }
 
   title(t) {
@@ -439,7 +439,7 @@ export default class Files extends View {
       .when(Boolean(this.reader), el => el.on_key_down((e, cx) => this.reader?.key(e, cx)))
       .when(Boolean(this.file), el => el.child(h_flex().h(46).flex_none().pl(this.pinned && !this.trail.length ? 16 : 10).pr(10).gap(8).items_center()
         .when(!this.pinned || this.trail.length > 0, el => el.child(iconButton("files-back", "chevron-left", t, { size: 28, radius: 7 }).on_click((_e, cx) => this.back(cx))))
-        .child(typeTag(this.file ?? "", t.accent))
+        .child(fileIcon(this.file ?? ""))
         .child(this.title(t))
         .when(Boolean(this.reader), el => el.child(this.reader.tools(t)))))
       .when(!this.file, el => el.child(v_flex().id("files-tree").flex_1().min_h(0).overflow_y_scrollbar().px(8).py(8)
