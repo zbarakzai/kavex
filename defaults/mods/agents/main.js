@@ -9,6 +9,7 @@ import { loader } from "./loader.js";
 import { fitRow } from "./fit.js";
 import { dropdown } from "./dropdown.js";
 import { Sessions, hasSession } from "./sessions.js";
+import { TerminalNotes } from "./notes.js";
 
 function find(node, id) {
   if (node?.id === id) return node;
@@ -39,10 +40,9 @@ const RANK = { failed: 4, blocked: 4, done: 3, working: 2, idle: 1 };
 const percentText = (context) => (typeof context === "number" ? `${context}%` : context);
 // agents() folds a program's own "error" into blocked; terminals() still has the word.
 const failed = (a, words) => (words.get(a.address) === "error" ? "failed" : a.status);
-// A sub-agent without a pane isn't in agents(): its raw word. It's never done: it reports
-// to its parent, and the parent's done is the news.
-const kidStatus = (k, listed) => {
-  const s = listed.get(k.address) ?? k.status;
+// A nested sub-agent uses its raw word. It reports to its parent, whose done is the news.
+const kidStatus = (k) => {
+  const s = k.status;
   return s === "error" ? "failed" : s === "done" ? "idle" : s;
 };
 const SORTS = [
@@ -59,6 +59,10 @@ function icon(p, size, color) {
 
 export default class Agents extends View {
   init(_props, cx) {
+    if (props()?.notes) {
+      this.notes = new TerminalNotes(props(), cx);
+      return;
+    }
     if (props()?.sortMenu) return;
     if (props()?.session) return this.initDropdown(cx);
     this.folded = new Set();
@@ -190,21 +194,21 @@ export default class Agents extends View {
     run("terminal.peek", { terminal: addr });
   }
 
-  // Live sub-agents of `addr`, depth first, each with the tree lines in front of it.
-  tree(all, addr, lead = []) {
-    const kids = all.filter((k) => k.parent === addr && k.state === "live");
+  // Nested sub-agents of `addr`, depth first, each with the tree lines in front of it.
+  tree(nested, addr, lead = []) {
+    const kids = nested.filter((k) => k.parent === addr);
     return kids.flatMap((k, i) => {
       const last = i === kids.length - 1;
       return [
         { t: k, lines: [...lead, last ? "└" : "├"] },
-        ...this.tree(all, k.address, [...lead, last ? "" : "│"]),
+        ...this.tree(nested, k.address, [...lead, last ? "" : "│"]),
       ];
     });
   }
 
   subRow(t, s, shown) {
     const k = s.t;
-    const st = kidStatus(k, this.listed);
+    const st = kidStatus(k);
     const on = k.address === shown;
     return h_flex()
       .id(`sub-${k.address}`)
@@ -236,20 +240,23 @@ export default class Agents extends View {
   }
 
   render(cx) {
+    if (this.notes) return this.notes.render();
     const t = theme();
     if (props()?.sortMenu) return this.sortMenu(t);
     if (props()?.session) return this.drawDropdown(t);
     const collapsed = narrow();
     const sort = sortOf();
     let list = agents();
-    this.listed = new Map(list.map((a) => [a.address, a.status]));
     const all = terminals(), words = new Map(all.map((x) => [x.address, x.status])), k = look(t);
+    // An agent with its own row also roots its own subtree.
+    const listed = new Set(list.map((a) => a.address));
+    const nested = all.filter((t) => t.parent && t.state === "live" && !listed.has(t.address));
     const shown = focused()?.agent;
     const now = Date.now();
     this.track(list, now);
     this.hold(list);
     const byPriority = sort.id === "priority";
-    const urgency = new Map(list.map((a) => [a.address, Math.max(this.rank(a), ...this.tree(all, a.address).map((s) => RANK[kidStatus(s.t, this.listed)] ?? 0))]));
+    const urgency = new Map(list.map((a) => [a.address, Math.max(this.rank(a), ...this.tree(nested, a.address).map((s) => RANK[kidStatus(s.t)] ?? 0))]));
     const rankOf = (a) => urgency.get(a.address);
     if (byPriority) list = [...list].sort((x, y) => rankOf(y) - rankOf(x) || this.since(y) - this.since(x) || y.seq - x.seq);
     this.prunePins(all);
@@ -259,7 +266,7 @@ export default class Agents extends View {
     setAgentOrder(list.map((a) => a.address));
 
     const withKids = (a, i) => {
-      const subs = collapsed ? [] : this.tree(all, a.address);
+      const subs = collapsed ? [] : this.tree(nested, a.address);
       const r = row(a, i, subs);
       if (this.folded.has(a.address)) return [r];
       return [r, ...subs.map((s) => this.subRow(t, s, shown))];
@@ -267,7 +274,7 @@ export default class Agents extends View {
 
     // The fold chevron; folded, the count too, colored by the most urgent one.
     const fold = (a, subs) => {
-      const sts = subs.map((s) => kidStatus(s.t, this.listed));
+      const sts = subs.map((s) => kidStatus(s.t));
       const top = sts.reduce((m, s) => ((RANK[s] ?? 0) > (RANK[m] ?? 0) ? s : m), null);
       const open = !this.folded.has(a.address);
       return div()

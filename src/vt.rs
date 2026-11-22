@@ -1,6 +1,8 @@
 //! Kavex's view of a core terminal: libghostty-vt fed with the relayed bytes,
 //! read back as frames to draw, and asked to encode keys and mouse input.
 
+mod note_marks;
+
 use ghostty_sys::*;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -481,6 +483,7 @@ pub struct Vt {
     press: GhosttySelectionGestureEvent,
     drag: GhosttySelectionGestureEvent,
     release: GhosttySelectionGestureEvent,
+    note_marks: note_marks::Marks,
     /// The cursor, the kitty images and the colors as last drawn: changes to
     /// them don't mark the render state dirty.
     drawn: (CursorKey, u64, u64),
@@ -630,6 +633,7 @@ impl Vt {
                 press,
                 drag,
                 release,
+                note_marks: Default::default(),
                 drawn: Default::default(),
                 seen: HashMap::new(),
                 agent: false,
@@ -917,26 +921,19 @@ impl Vt {
 
     /// The selected text, if anything is selected.
     pub fn selection_text(&self) -> Option<String> {
-        unsafe {
-            let opts = GhosttyTerminalSelectionFormatOptions {
-                size: std::mem::size_of::<GhosttyTerminalSelectionFormatOptions>(),
-                emit: GHOSTTY_FORMATTER_FORMAT_PLAIN,
-                unwrap: true,
-                trim: true,
-                ..Default::default()
-            };
-            let mut ptr: *mut u8 = std::ptr::null_mut();
-            let mut len = 0usize;
-            if ghostty_terminal_selection_format_alloc(self.term, std::ptr::null(), opts, &mut ptr, &mut len) != GHOSTTY_SUCCESS {
-                return None;
-            }
-            if ptr.is_null() {
-                return None;
-            }
-            let text = String::from_utf8_lossy(std::slice::from_raw_parts(ptr, len)).into_owned();
-            ghostty_free(std::ptr::null(), ptr, len);
-            (!text.is_empty()).then_some(text)
+        selection_text(self.term, None)
+    }
+
+    pub fn note_anchor(&mut self) -> Option<String> {
+        self.note_marks.keep(self.term)
+    }
+
+    pub fn reveal_note(&mut self, anchor: Option<&str>, text: &str) -> bool {
+        if !self.note_marks.reveal(self.term, anchor, text) {
+            return false;
         }
+        self.placements_cache.get_mut().take();
+        true
     }
 
     fn grid_ref(&self, tag: GhosttyPointTag, x: u16, y: u32) -> Option<GhosttyGridRef> {
@@ -1434,6 +1431,29 @@ impl Vt {
             self.last_mouse_report.extend_from_slice(&buf[..len]);
             buf[..len].to_vec()
         }
+    }
+}
+
+fn selection_text(term: GhosttyTerminal, saved: Option<&GhosttySelection>) -> Option<String> {
+    unsafe {
+        let opts = GhosttyTerminalSelectionFormatOptions {
+            size: std::mem::size_of::<GhosttyTerminalSelectionFormatOptions>(),
+            emit: GHOSTTY_FORMATTER_FORMAT_PLAIN,
+            unwrap: true,
+            trim: true,
+            selection: saved.map_or(std::ptr::null(), |range| range),
+        };
+        let mut ptr: *mut u8 = std::ptr::null_mut();
+        let mut len = 0usize;
+        if ghostty_terminal_selection_format_alloc(term, std::ptr::null(), opts, &mut ptr, &mut len) != GHOSTTY_SUCCESS {
+            return None;
+        }
+        if ptr.is_null() {
+            return None;
+        }
+        let text = String::from_utf8_lossy(std::slice::from_raw_parts(ptr, len)).into_owned();
+        ghostty_free(std::ptr::null(), ptr, len);
+        (!text.is_empty()).then_some(text)
     }
 }
 
@@ -2007,5 +2027,63 @@ mod tests {
         vt.write(b"\x1b]2;hello\x07");
         assert_eq!(vt.take_title().as_deref(), Some("hello"));
         assert_eq!(vt.take_title(), None);
+    }
+}
+
+#[cfg(test)]
+mod note_tests {
+    use super::*;
+
+    #[test]
+    fn a_note_reveals_its_exact_occurrence_even_when_the_quote_is_repeated() {
+        let mut vt = Vt::new(24, 4);
+        vt.write(b"first quote\r\n");
+        let first = vt.grid_ref(GHOSTTY_POINT_TAG_SCREEN, 0, 0).unwrap();
+        let end = vt.grid_ref(GHOSTTY_POINT_TAG_SCREEN, 10, 0).unwrap();
+        let selection = GhosttySelection {
+            size: std::mem::size_of::<GhosttySelection>(),
+            start: first,
+            end,
+            ..Default::default()
+        };
+        unsafe { ghostty_terminal_set(vt.term, GHOSTTY_TERMINAL_OPT_SELECTION, (&selection as *const GhosttySelection).cast()) };
+        let anchor = vt.note_anchor().unwrap();
+        vt.clear_selection();
+        vt.write(b"line two\r\nline three\r\nline four\r\nfirst quote\r\nend\r\n");
+
+        assert!(!vt.reveal_note(None, "first quote"));
+        assert!(vt.reveal_note(Some(&anchor), "first quote"));
+        assert_eq!(vt.selection_text().as_deref(), Some("first quote"));
+        let top = vt.grid_ref(GHOSTTY_POINT_TAG_VIEWPORT, 0, 0).unwrap();
+        let mut point = GhosttyPointCoordinate::default();
+        assert_eq!(unsafe { ghostty_terminal_point_from_grid_ref(vt.term, &top, GHOSTTY_POINT_TAG_SCREEN, &mut point) }, GHOSTTY_SUCCESS);
+        assert_eq!(point.y, 0);
+    }
+
+    #[test]
+    fn losing_a_known_mark_does_not_jump_to_another_occurrence() {
+        let mut vt = Vt::new(24, 4);
+        vt.write(b"same quote");
+        let selection = GhosttySelection {
+            size: std::mem::size_of::<GhosttySelection>(),
+            start: vt.grid_ref(GHOSTTY_POINT_TAG_SCREEN, 0, 0).unwrap(),
+            end: vt.grid_ref(GHOSTTY_POINT_TAG_SCREEN, 9, 0).unwrap(),
+            ..Default::default()
+        };
+        unsafe { ghostty_terminal_set(vt.term, GHOSTTY_TERMINAL_OPT_SELECTION, (&selection as *const GhosttySelection).cast()) };
+        let anchor = vt.note_anchor().unwrap();
+        vt.clear_selection();
+        vt.write(b"\x1b[1;1Hother text\r\nsame quote");
+        assert!(!vt.reveal_note(Some(&anchor), "same quote"));
+        assert!(vt.reveal_note(None, "same quote"));
+    }
+
+    #[test]
+    fn a_unique_retained_quote_can_be_revealed_without_a_saved_marker() {
+        let mut vt = Vt::new(24, 4);
+        vt.write(b"the original line\r\nline two\r\nline three\r\nline four\r\nline five\r\n");
+        assert!(!vt.reveal_note(None, "a line that isn't there"));
+        assert!(vt.reveal_note(None, "the original line"));
+        assert_eq!(vt.selection_text().as_deref(), Some("the original line"));
     }
 }

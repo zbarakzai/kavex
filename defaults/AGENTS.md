@@ -102,6 +102,10 @@ Mod pane props are stored as given, never machine-qualified. Space order is loca
 machine first, then machines by name; `space.move` stays inside its machine's block.
 In the expanded Spaces sidebar, drag a space to reorder it within its machine;
 the highlighted line shows where it will land.
+**Open recent project** beside **+** in Spaces lists recent project folders. Choose an open
+project to switch to its space, or a closed project to start a new space in that
+folder on its original machine. The Spaces mod keeps the most recent 12 folders
+on this screen in `shared("spaces.recent")`.
 
 - A **space** is a place to work, on one machine: this one, or another
   from `hc machine ls` (`spaces()[i].machine`). Kavex leaves out machines
@@ -172,6 +176,17 @@ the highlighted line shows where it will land.
   with the same address; its original command is never run again. Splits
   and mod panes stay. An exited or killed terminal is closed, not restarted.
   Focus, zoom, recent spaces, settled tabs and seen attention stay on this screen.
+- **Terminal notes:** Select text and release the mouse for **Add note** and **Copy**.
+  A note saves the selected text with an optional comment. Cmd+Enter on macOS or
+  Ctrl+Enter elsewhere saves from the editor. Open the command palette
+  (Cmd+Shift+P on macOS, Ctrl+Shift+P elsewhere), type `%note`, and press Enter to
+  browse the focused terminal's notes. Search by text or comment, then use the
+  arrow keys and Enter or click a note to highlight its original
+  output. Use the copy icon on a note row to copy its saved text. When the location is
+  unavailable, Kavex shows the saved excerpt and comment.
+  Notes follow known Claude Code, Codex, and Pi sessions when resumed. Other notes
+  belong to the terminal where they were saved. Notes are local versioned JSON
+  under `terminal-notes/` in the app's home, including notes on remote terminals.
 - Every terminal is a core terminal. Kavex labels the ones it starts with
   `kavex.space=<id>` and `kavex.tab=<id>`. **A terminal with those
   labels shows up there**, even one you start yourself:
@@ -193,9 +208,10 @@ the highlighted line shows where it will land.
   looking (it becomes `idle` once they look). A space's and a tab's
   status is the most urgent of its agents: blocked > done > working > idle.
 - **Sub-agents** are terminals an agent started with `hc run`: the core
-  records the starter as `parent` (see `terminals()`). They belong to their
-  parent's tab without a pane; the `agents` mod shows them,
-  `terminal.peek` opens one, `terminal.keep` gives one a pane.
+  records the starter as `parent` (see `terminals()`). The Agents list nests
+  them under their parent. `terminal.peek` opens one, and `terminal.keep`
+  gives one a pane. A kept agent that reports status gets its own row and
+  carries its workers with it. `terminal.park` puts it back under its parent.
   Ctrl-click (Cmd-click on macOS) a live terminal address in terminal text to
   peek at it. The same click on a Markdown file opens it in the Files panel; any other
   file or URL goes to the system (on Windows a program or script is shown in Explorer, not run). Bare addresses refer to the machine of the terminal showing them;

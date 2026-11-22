@@ -138,6 +138,9 @@ chmodSync(join(fakeBin, "hc"), 0o755);
 mock.module("gpui-kit", () => ({ View: class {}, div: make, svg: make, image: make }));
 mock.module("gpui-base", () => ({ h_flex: make, v_flex: make }));
 mock.module("herdr", () => ({
+  appHome: () => "/kavex",
+  notify: () => {},
+  revealTerminalNote: async () => false,
   agents: () => state.agents,
   terminals: () => state.terminals,
   focused: () => null,
@@ -438,6 +441,35 @@ test("a sub-agent's row shows its own percent, and its logo opens its own dropdo
   expect(state.ran).toEqual([]);
   expect(state.opened.at(-1).props.session).toBe("t1b");
   expect(words((await dropdown()).draw())).toContain("250k / 1M");
+});
+
+test("keeping a sub-agent moves its row and its workers out of the parent's tree", async () => {
+  const parent = running("t1", null, OPENCODE);
+  const kid = running("t2", null, OPENCODE, { parent: "t1" });
+  const worker = running("t3", null, OPENCODE, { parent: "t2" });
+  const sibling = running("t4", null, OPENCODE, { parent: "t1" });
+  state.terminals = [parent, kid, worker, sibling];
+  state.agents = [listed(parent)];
+  const { draw } = await open();
+  const ids = () => byId(draw(), "ag-rows")!.kids.map((k) => arg(mine(k)!, "id"));
+  expect(ids().filter((id) => id === "sub-t2")).toHaveLength(1);
+
+  state.agents.push({ ...listed(kid), tab: "tb2", tab_index: 2 });
+  for (const sort of ["priority", "grouped"]) {
+    state.shared["agents.sort"] = sort;
+    const rowIds = ids();
+    expect(rowIds).toContain("ag-t2");
+    expect(rowIds).not.toContain("sub-t2");
+    expect(rowIds.filter((id) => id === "sub-t3")).toHaveLength(1);
+    expect(rowIds.filter((id) => id === "sub-t4")).toHaveLength(1);
+    expect(rowIds.indexOf("ag-t2")).toBeLessThan(rowIds.indexOf("sub-t3"));
+  }
+
+  state.agents.pop();
+  const parked = ids();
+  expect(parked).not.toContain("ag-t2");
+  expect(parked.filter((id) => id === "sub-t2")).toHaveLength(1);
+  expect(parked.filter((id) => id === "sub-t3")).toHaveLength(1);
 });
 
 const realReads = () => state.execs.filter(([cmd, , script]: string[]) => cmd === "sh" && script.includes("dd if=")).length;

@@ -58,6 +58,8 @@ kavex do space.new --name "remote api" --machine vps --folder /srv/api
 ```
 
 The folder is on that machine; tabs and splits in the space stay there.
+In the Spaces sidebar, **Open recent project** beside **+** opens recent projects. Choose
+one to switch to its open space or create a new space in the saved folder.
 `terminal.open --folder /path --place down` starts the split in that folder,
 including when `--argv` supplies a program. Without `--folder`, it follows the
 focused terminal's folder.
@@ -82,10 +84,18 @@ the exit code and last output lines.
 
 A terminal started with hc opts into the window with `kavex.space=<id>`. Add `kavex.group=<name>` to land its tab in that tab group, made if it's new.
 `kavex.tab=<id>` chooses its tab; without it, Kavex creates a tab in that space.
-Unlabeled workers stay hidden. Do not add labels just to run a background
-worker. Use app commands when the
-user wants to see a new tab or split, hc for orchestration that need not change
-the screen.
+Use unlabeled `hc run` for a background worker. Live sub-agents appear under
+their parent in the Agents sidebar. A worker with a pane that reports status
+gets its own row. Use app commands when the user wants a new tab or split.
+
+## Terminal notes
+
+Select output for Add note or Copy. Save with Cmd+Enter on macOS or Ctrl+Enter
+elsewhere. In Kavex's command palette, enter `%note` to browse the focused
+terminal's notes. Search by text or comment, then click a note or use the
+arrow keys and Enter. The copy icon copies the saved text. Choosing a note
+highlights the retained output or shows the saved excerpt. Notes are local to Kavex and
+use the current agent session when Kavex can identify it.
 
 ## Customize layouts, keys, or mods
 
