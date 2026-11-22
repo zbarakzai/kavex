@@ -23,25 +23,19 @@ function agentRoots(records) {
 }
 
 export function measure(before, current, records, bindings = new Map()) {
-  const processes = new Map(current.processes.map((row) => [row.pid, row]));
-  const previous = new Map(before?.processes.map((row) => [row.pid, row]));
+  const roots = agentRoots(records);
+  const hasAgentPids = roots.some(({ pid }) => pid > 0 && pid !== current.appPid);
   const capacity = current.capacity - before?.capacity;
-  const children = new Map();
-  for (const row of processes.values()) {
-    const parent = processes.get(row.parent);
-    // On Windows the parent PID can outlive the original parent in the child record.
-    if (!parent || (typeof row.start === "number" && parent.start > row.start)) continue;
-    if (!children.has(row.parent)) children.set(row.parent, []);
-    children.get(row.parent).push(row);
-  }
+  const processes = hasAgentPids ? new Map(current.processes.map((row) => [row.pid, row])) : null;
+  const previous = hasAgentPids && capacity > 0 ? new Map(before.processes.map((row) => [row.pid, row])) : null;
 
   const processCpu = (row) => {
-    const old = previous.get(row.pid);
+    if (!(capacity > 0)) return 0;
+    const old = previous ? previous.get(row.pid) : before.processes.find(({ pid }) => pid === row.pid);
     return old && old.start === row.start ? Math.max(0, row.cpu - old.cpu) : 0;
   };
   const cpuShare = (ticks) => capacity > 0 ? percent(ticks / capacity) : null;
-  const desktop = processes.get(current.appPid);
-  const roots = agentRoots(records);
+  const desktop = processes ? processes.get(current.appPid) : current.processes.find(({ pid }) => pid === current.appPid);
   const live = new Set(roots.map((root) => root.address));
   for (const address of bindings.keys()) {
     if (!live.has(address)) bindings.delete(address);
@@ -49,12 +43,22 @@ export function measure(before, current, records, bindings = new Map()) {
 
   const attributed = new Map();
   for (const { address, pid, created } of roots) {
-    const row = processes.get(pid);
+    const row = processes?.get(pid);
     if (!row || pid === current.appPid) continue;
     const bound = bindings.get(address);
     if (bound?.pid === pid && bound.created === created && bound.start !== row.start) continue;
     bindings.set(address, { pid, created, start: row.start });
     attributed.set(address, row);
+  }
+  const children = new Map();
+  if (attributed.size) {
+    for (const row of processes.values()) {
+      const parent = processes.get(row.parent);
+      // On Windows the parent PID can outlive the original parent in the child record.
+      if (!parent || (typeof row.start === "number" && parent.start > row.start)) continue;
+      if (!children.has(row.parent)) children.set(row.parent, []);
+      children.get(row.parent).push(row);
+    }
   }
   const claimed = new Set([current.appPid, ...Array.from(attributed.values(), (row) => row.pid)]);
   let agentMemory = 0, agentTicks = 0, measured = 0;

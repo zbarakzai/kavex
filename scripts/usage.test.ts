@@ -58,6 +58,7 @@ let state: {
   shared: Record<string, any>;
   props: any;
   sidebar: number;
+  historyScroll?: number;
   useShippedLayout?: boolean;
   agentsShown: number;
   space: any;
@@ -96,9 +97,19 @@ globalThis.fetch = (async (url: string, init?: RequestInit) => {
   return answer;
 }) as typeof fetch;
 
-mock.module("gpui-kit", () => ({ View: class {}, div: make, image: icon, svg: icon }));
+mock.module("gpui-kit", () => ({
+  View: class {}, div: make, image: icon, svg: icon,
+  list: (id: string, count: number, _key: unknown, draw: (index: number) => unknown) => {
+    const start = state.historyScroll ?? 0;
+    const visible = Math.min(count - start, 8);
+    return make().id(id).children(Array.from({ length: visible }, (_, i) => draw(start + i)));
+  },
+}));
 const input = { on: () => {}, value: () => "", focus: () => {}, set_value: () => {}, set_selected_range: () => {} };
-mock.module("gpui-base", () => ({ h_flex: make, v_flex: make, HoverCard: { new: make }, InputState: { new: () => input }, Input: { new: make } }));
+mock.module("gpui-base", () => ({
+  h_flex: make, v_flex: make, HoverCard: { new: make }, InputState: { new: () => input }, Input: { new: make },
+  Scrollbar: { vertical: make },
+}));
 mock.module("herdr", () => ({
   exec,
   knownAgents: async ({ on }: { on?: string | null } = {}) => {
@@ -1839,6 +1850,23 @@ test("the roster links to provider details, refresh history and account manageme
   }
 });
 
+test("an established history builds only its visible readings and can reach the oldest", () => {
+  const interval = 15 * 60_000;
+  state.shared["usage.history"] = {
+    "claude|": Array.from({ length: 240 }, (_, i) => ({
+      at: NOW - (239 - i) * interval,
+      limits: [{ label: "This week", used: i === 0 ? 7 : 12 }],
+    })),
+  };
+  const { draw } = openPopover({ props: { page: "history" } });
+  const rows = (root: El) => all(root).filter((e) => String(arg(e, "id")).startsWith("usage-history-claude|"));
+  expect(rows(draw())).toHaveLength(8);
+  state.historyScroll = 239;
+  const oldest = rows(draw());
+  expect(oldest).toHaveLength(1);
+  expect(words(oldest[0])).toContain("7%");
+});
+
 test("saved provider readings without a window length still render", async () => {
   claude(WEEK);
   const { popover } = await opened();
@@ -3028,9 +3056,17 @@ test("per-provider Retry-After protects cached usage from automatic and explicit
 
   await wait(119_999);
   expect(state.fetched).toHaveLength(2);
+  const history = state.shared["usage.history"];
+  let historyReads = 0;
+  Object.defineProperty(state.shared, "usage.history", {
+    configurable: true,
+    get: () => { historyReads++; return history; },
+  });
   refresh(popover);
   await settle();
   expect(state.fetched).toHaveLength(2);
+  expect(historyReads).toBe(1);
+  Object.defineProperty(state.shared, "usage.history", { value: history, writable: true });
   await wait(1);
   expect(state.fetched).toHaveLength(3);
 });

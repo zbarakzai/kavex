@@ -130,7 +130,7 @@ async function checkMachine(on, last, cycle, publish) {
       return publish(id, { ...base, ask: answer !== false, state: answer === false ? "unavailable" : "setup",
         error: answer === false ? "Usage access is off." : undefined, consentDomain: provider.consentDomain, limits: [] });
     }
-    if (!probeDue(saved, cycle)) return publish(id, saved);
+    if (!probeDue(saved, cycle)) return publish(id, saved, false);
     const allowed = () => cycle.active() && (!provider.needsConsent || usageConsent(key, on) === true);
     const target = { ...where, program: agent.program };
     const source = provider.usesHost ? hostFor(target, provider, allowed) : target;
@@ -232,7 +232,7 @@ export async function checkUsage({ force = false, within = REUSE, activate = fal
     return !usageOff() && current?.era === era && (current.completedGeneration ?? 0) < generation;
   };
   const answer = usageConsent("opencode");
-  const publish = (id, report) => {
+  const publish = (id, report, updateHistory = true) => {
     if (!active() || (id === OPENCODE && usageConsent("opencode") !== answer)) return;
     const current = shared("usage");
     const index = current.sourceGenerations ?? {};
@@ -248,7 +248,7 @@ export async function checkUsage({ force = false, within = REUSE, activate = fal
       entries: next,
       sourceGenerations: { ...index, [id]: generation },
     });
-    recordHistory(id, previous, entry);
+    if (updateHistory) recordHistory(id, previous, entry);
   };
   const cycle = { force: force || last.refreshPending, activate, within, now, active };
   await Promise.allSettled([...names].map((on) => checkMachine(on, roster, cycle, publish)));
@@ -258,16 +258,15 @@ export async function checkUsage({ force = false, within = REUSE, activate = fal
 }
 
 function recordHistory(id, previous, next) {
-  const history = shared(HISTORY_KEY) ?? {};
   // Account switches start a new timeline. No credential or provider identity
   // is copied into a time series.
   const switched = previous && next && (
     (previous.who && next.who && previous.who !== next.who) ||
     (previous.source !== next.source && (!previous.who || !next.who))
   );
-  const points = switched ? [] : history[id] ?? [];
   if (!next || !next.checkedAt || next.failed || !next.limits.length) {
     if (!switched && next && !["signed-out", "setup"].includes(next.state)) return;
+    const history = shared(HISTORY_KEY) ?? {};
     if (!(id in history)) return;
     const cleared = { ...history };
     delete cleared[id];
@@ -275,6 +274,8 @@ function recordHistory(id, previous, next) {
     return;
   }
   const at = next.checkedAt;
+  const history = shared(HISTORY_KEY) ?? {};
+  const points = switched ? [] : history[id] ?? [];
   const recent = points.filter((point) => point.at > at - HISTORY_SPAN);
   const last = recent.at(-1);
   if (last && Math.floor(last.at / HISTORY_STEP) === Math.floor(at / HISTORY_STEP)) recent.pop();

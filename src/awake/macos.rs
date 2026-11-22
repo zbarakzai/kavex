@@ -37,6 +37,14 @@ impl Assertion {
         self.fallback.is_some()
     }
 
+    pub fn poll(&self) -> super::Poll {
+        if self.caffeinate.is_some() {
+            super::Poll::Check
+        } else {
+            super::Poll::Retry
+        }
+    }
+
     fn stop_helper(&mut self) {
         if let Some(mut child) = self.caffeinate.take() {
             let _ = child.kill();

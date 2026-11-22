@@ -115,6 +115,22 @@ test("agents: the rows sit in the scrolled list, with their gap", () => {
   expect(box.kids.map((k) => arg(mine(k)!, "id")).sort()).toEqual(state.agents.map((a) => `ag-${a.address}`).sort());
 });
 
+test("recent projects read pane locations once, in pane order", () => {
+  const { view } = mount(Spaces);
+  const spaces = state.spaces.map((s) => ({ ...s, folder: "/home/me" }));
+  spaces[0].tabs = [{ id: "later" }, ...spaces[0].tabs];
+  let tabReads = 0;
+  const panes = [
+    ...spaces.map((_, i) => ({
+      get tab() { tabReads++; return `t${i}`; },
+      cwd: `/work/${i}`,
+    })),
+    { tab: "later", cwd: "/work/later" },
+  ];
+  expect(view.projects(spaces, panes).map((p: any) => p.folder)).toEqual(spaces.map((_, i) => `/work/${i}`));
+  expect(tabReads).toBe(spaces.length);
+});
+
 test("the rail shows workspace and agent avatars with names in right-side tooltips", () => {
   state.sidebar = 44;
   state.spaces = [{ ...space(0), name: "Workspace alpha" }];

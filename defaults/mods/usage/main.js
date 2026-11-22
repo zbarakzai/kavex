@@ -1,5 +1,5 @@
-import { View, div, svg } from "gpui-kit";
-import { h_flex, v_flex } from "gpui-base";
+import { View, div, list, svg } from "gpui-kit";
+import { h_flex, Scrollbar, v_flex } from "gpui-base";
 import { closeOverlay, openOverlay, props, run, setShared, shared, theme } from "herdr";
 import { checking, NEAR, POPOVER_HEIGHT, POPOVER_WIDTH, subscriptions } from "./checks.js";
 import { look, MONO, sectionLabel, tile } from "./look.js";
@@ -128,6 +128,7 @@ function value(used, display, size, k) {
 
 const dialogCard = (k) => v_flex().w_full().flex_none().rounded(14)
   .border_1().border_color(k.card_border).bg(k.card);
+const historyDay = (date) => `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
 
 function consentDescription(row) {
   if (row.agent === "opencode") {
@@ -417,7 +418,7 @@ export default class Usage extends View {
       .child(this.footer(pending, k));
   }
 
-  dialog(page, title, content, k, tools = null) {
+  dialog(page, title, body, k, tools = null) {
     const close = control("usage-close", "Close", () => closeOverlay(this.overlay), k)
       .size(28).rounded(7).border_1().border_color(this.selected === "usage-close" ? k.accent : k.clear)
       .child(icon("close", 16, k.muted));
@@ -426,8 +427,7 @@ export default class Usage extends View {
         .child(div().flex_1().min_w(0).truncate().text_size(15).font_semibold().child(title))
         .when(Boolean(tools), (el) => el.child(tools))
         .child(close))
-      .child(v_flex().id(`usage-${page}-list`).flex_1().min_h(0).overflow_y_scrollbar()
-        .px(18).pb(16).gap(12).children(content));
+      .child(body);
   }
 
   history(rows, usage, display, k) {
@@ -439,29 +439,37 @@ export default class Usage extends View {
         .map((sample) => ({ ...sample, provider, machine, id }));
     }).sort((a, b) => b.at - a.at);
 
-    const days = new Map();
-    for (const reading of readings) {
-      const day = new Date(reading.at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
-      if (!days.has(day)) days.set(day, []);
-      days.get(day).push(reading);
-    }
-    const content = [...days].map(([day, samples]) =>
-      v_flex().w_full().flex_none().gap(8)
-        .child(div().px(2).child(sectionLabel(k, day.toUpperCase())))
-        .child(dialogCard(k).px(14).py(3).children(samples.map(({ at, limits, provider, machine, id }) =>
-          h_flex().id(`usage-history-${id}-${at}`).w_full().min_h(52).py(8).gap(12).items_center()
-            .child(tile(provider, PROVIDER_TILE, k))
-            .child(v_flex().flex_1().min_w(0).gap(4)
-              .child(div().truncate().text_size(13.5).font_medium()
-                .child(machine ? `${provider.name} · ${machine}` : provider.name))
-              .child(h_flex().flex_wrap().gap(12).children(limits.map((limit) => detailMetric(provider, limit, display, k)))))
-            .child(div().flex_none().font_family(MONO).text_size(11).text_color(k.label)
-              .child(new Date(at).toLocaleTimeString()))))));
-    if (!content.length) {
-      content.push(dialogCard(k).p(14).text_size(13).text_color(k.muted).child("No usage history yet"));
+    const scrollId = "usage-history-readings";
+    const renderReading = (index) => {
+      const { at, limits, provider, machine, id } = readings[index];
+      const date = new Date(at), day = historyDay(date);
+      const first = index === 0 || historyDay(new Date(readings[index - 1].at)) !== day;
+      const last = index === readings.length - 1 || historyDay(new Date(readings[index + 1].at)) !== day;
+      const row = h_flex().id(`usage-history-${id}-${at}`).w_full().min_h(52).px(14).py(8).gap(12)
+        .items_center().bg(k.card).border_x(1).border_color(k.card_border)
+        .when(first, (el) => el.border_t(1).rounded_t(14).pt(11))
+        .when(last, (el) => el.border_b(1).rounded_b(14).pb(11))
+        .child(tile(provider, PROVIDER_TILE, k))
+        .child(v_flex().flex_1().min_w(0).gap(4)
+          .child(div().truncate().text_size(13.5).font_medium()
+            .child(machine ? `${provider.name} · ${machine}` : provider.name))
+          .child(h_flex().flex_wrap().gap(12).children(limits.map((limit) => detailMetric(provider, limit, display, k)))))
+        .child(div().flex_none().font_family(MONO).text_size(11).text_color(k.label)
+          .child(date.toLocaleTimeString()));
+      return v_flex().w_full().px(18)
+        .when(first, (el) => el.gap(8).child(div().px(2)
+          .child(sectionLabel(k, date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }).toUpperCase()))))
+        .when(last, (el) => el.pb(12)).child(row);
+    };
+    const body = v_flex().id("usage-history-list").relative().flex_1().min_h(0).pb(4);
+    if (readings.length) {
+      body.child(list(scrollId, readings.length, (i) => `${readings[i].id}-${readings[i].at}`, renderReading))
+        .child(Scrollbar.vertical(scrollId).viewport_from_layout().absolute().inset_0());
+    } else {
+      body.px(18).child(dialogCard(k).p(14).text_size(13).text_color(k.muted).child("No usage history yet"));
     }
     this.actions = [...this.displayActions(), ["usage-close", () => closeOverlay(this.overlay)]];
-    return this.dialog("history", "Usage history", content, k, this.displayPicker(display, k));
+    return this.dialog("history", "Usage history", body, k, this.displayPicker(display, k));
   }
 
   accounts(rows, usage, k, now) {
@@ -488,7 +496,9 @@ export default class Usage extends View {
     if (!content.length) {
       content.push(dialogCard(k).p(14).text_size(13).text_color(k.muted).child("No usage accounts configured"));
     }
-    return this.dialog("accounts", "Manage accounts", content, k);
+    const body = v_flex().id("usage-accounts-list").flex_1().min_h(0).overflow_y_scrollbar()
+      .px(18).pb(16).gap(12).children(content);
+    return this.dialog("accounts", "Manage accounts", body, k);
   }
 
   keyDown(event, cx) {

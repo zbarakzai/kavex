@@ -44,6 +44,22 @@ test("initial and reused PID readings do not invent process CPU", () => {
   expect(measure(before, after, records).sessions[1]).toMatchObject({ memory: null, cpu: null });
 });
 
+test("with no local agents the monitor does not index process ancestry", () => {
+  let parentReads = 0;
+  const others = Array.from({ length: 100 }, (_, i) => ({
+    ...unrelated, pid: i + 100,
+    get parent() { parentReads++; return 1; },
+  }));
+  const before = snapshot([app, ...others], 1000, 500);
+  const after = snapshot([{ ...app, cpu: 240 }, ...others], 1400, 700);
+  expect(measure(before, after, [])).toMatchObject({
+    desktop: { memory: 80, cpu: 10 },
+    agents: { memory: 0, cpu: 0 },
+    sessions: [],
+  });
+  expect(parentReads).toBe(0);
+});
+
 test("a recycled live terminal PID stays unavailable until the core reports a new owner", () => {
   const bindings = new Map();
   const first = snapshot([app, shell, agent], 1000, 500);

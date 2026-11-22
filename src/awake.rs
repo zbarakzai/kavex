@@ -164,9 +164,35 @@ impl Worker {
     }
 }
 
+const RETRY: Duration = Duration::from_secs(30);
+const MAX_RETRY: Duration = Duration::from_secs(8 * 60);
+
+#[allow(dead_code)] // The operating systems differ in which checks they need.
+enum Poll {
+    Never,
+    Check,
+    Retry,
+}
+
+fn next_check(poll: Poll, retry: &mut Duration) -> Option<Duration> {
+    match poll {
+        Poll::Never => {
+            *retry = RETRY;
+            None
+        }
+        Poll::Check => {
+            *retry = RETRY;
+            Some(RETRY)
+        }
+        Poll::Retry => {
+            let delay = *retry;
+            *retry = (delay * 2).min(MAX_RETRY);
+            Some(delay)
+        }
+    }
+}
+
 fn hold(rx: mpsc::Receiver<bool>, active: Arc<AtomicBool>) {
-    const RETRY: Duration = Duration::from_secs(30);
-    const MAX_RETRY: Duration = Duration::from_secs(8 * 60);
     let mut assertion: Option<platform::Assertion> = None;
     let mut retry = RETRY;
     let mut wait = None;
@@ -196,9 +222,7 @@ fn hold(rx: mpsc::Receiver<bool>, active: Arc<AtomicBool>) {
                 wait = None;
             }
             true => {
-                if assertion.as_mut().is_some_and(platform::Assertion::held) {
-                    retry = RETRY;
-                } else {
+                if !assertion.as_mut().is_some_and(platform::Assertion::held) {
                     drop(assertion.take());
                     assertion = match platform::Assertion::take() {
                         Ok(assertion) => Some(assertion),
@@ -209,12 +233,10 @@ fn hold(rx: mpsc::Receiver<bool>, active: Arc<AtomicBool>) {
                     };
                 }
                 active.store(assertion.is_some(), Ordering::Release);
-                if assertion.is_some() {
-                    wait = Some(RETRY);
-                } else {
-                    wait = Some(retry);
-                    retry = (retry * 2).min(MAX_RETRY);
-                }
+                let poll = assertion
+                    .as_ref()
+                    .map_or(Poll::Retry, platform::Assertion::poll);
+                wait = next_check(poll, &mut retry);
             }
         }
     }
@@ -225,6 +247,21 @@ fn hold(rx: mpsc::Receiver<bool>, active: Arc<AtomicBool>) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_missing_assertion_backs_off_until_it_is_healthy() {
+        let mut retry = RETRY;
+        for seconds in [30, 60, 120, 240, 480, 480] {
+            assert_eq!(
+                next_check(Poll::Retry, &mut retry),
+                Some(Duration::from_secs(seconds))
+            );
+        }
+        assert_eq!(next_check(Poll::Check, &mut retry), Some(RETRY));
+        assert_eq!(next_check(Poll::Retry, &mut retry), Some(RETRY));
+        assert_eq!(next_check(Poll::Never, &mut retry), None);
+        assert_eq!(retry, RETRY);
+    }
 
     #[test]
     fn three_modes_follow_orcas_power_policy() {

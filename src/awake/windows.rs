@@ -19,6 +19,11 @@ impl Assertion {
     pub fn held(&mut self) -> bool {
         true
     }
+
+    // ES_CONTINUOUS lasts until this thread changes its policy or exits.
+    pub fn poll(&self) -> super::Poll {
+        super::Poll::Never
+    }
 }
 
 impl Drop for Assertion {

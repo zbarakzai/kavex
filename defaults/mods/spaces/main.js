@@ -91,7 +91,18 @@ export default class Spaces extends View {
   }
 
   projects(sp, ps) {
-    return sp.map((space) => projectOf(space, place(space, ps), this.home));
+    const firstPaneByTab = new Map();
+    for (const [index, { tab, cwd }] of ps.entries()) {
+      if (cwd && !firstPaneByTab.has(tab)) firstPaneByTab.set(tab, { index, cwd });
+    }
+    return sp.map((space) => {
+      let first;
+      for (const tab of space.tabs ?? []) {
+        const pane = firstPaneByTab.get(tab.id);
+        if (pane && (!first || pane.index < first.index)) first = pane;
+      }
+      return projectOf(space, first?.cwd, this.home);
+    });
   }
 
   remember(sp, ps) {

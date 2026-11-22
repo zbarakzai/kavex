@@ -37,6 +37,14 @@ impl Assertion {
         }
         self.system.is_some() || self.desktop.is_some()
     }
+
+    pub fn poll(&self) -> super::Poll {
+        if self.system.is_some() && self.desktop.is_some() {
+            super::Poll::Never
+        } else {
+            super::Poll::Retry
+        }
+    }
 }
 
 fn inhibit_system() -> zbus::Result<OwnedFd> {
