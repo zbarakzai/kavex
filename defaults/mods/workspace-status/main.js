@@ -6,27 +6,37 @@ const ROSTER_WIDTH = 400;
 const ROSTER_HEIGHT = 540;
 const SOURCE = "usage-status";
 const AWAKE_SOURCE = "keep-awake";
-const AWAKE_WIDTH = 264;
-const AWAKE_ROW = 42;
-const AWAKE_HEADER = 34;
-const AWAKE_PAD = 5;
-const AWAKE_HEIGHT = AWAKE_HEADER + 3 * AWAKE_ROW + 2 * (AWAKE_PAD + 1);
+const AWAKE_WIDTH = 288;
+const AWAKE_ROW = 44;
+const AWAKE_HEADER = 38;
+const AWAKE_PAD = 6;
+const AWAKE_INSET = 10;
+const ROW_GAP = 2;
+const DIVIDER_SPACE = 5;
+const STATUS_HEIGHT = 24;
+const STATUS_ICON = 16;
+const CLEAR = "#00000000";
 const AWAKE_MODE = "awake.mode";
 const TITLE = "Keep computer awake";
 const MODES = [
-  { mode: "on", label: "On", detail: "Stay awake whenever Kavex is open" },
+  { mode: "on", label: "On", detail: "Stay awake while Kavex is open" },
   { mode: "auto", label: "Agent", detail: "Stay awake while local agents work" },
   { mode: "off", label: "Off", detail: "Follow your normal sleep settings" },
 ];
+const AWAKE_HEIGHT = AWAKE_HEADER + DIVIDER_SPACE + MODES.length * AWAKE_ROW
+  + (MODES.length - 1) * ROW_GAP + 2 * (AWAKE_PAD + 1);
 const ICONS = "mods/workspace-chrome/icons";
 const CUP = "mods/workspace-status/coffee.svg";
 
 const selectedMode = () => MODES.find(({ mode }) => mode === shared(AWAKE_MODE)) ?? MODES[2];
 
-function activity(mode) {
+function isActive(mode) {
   const status = appWindow()?.awake;
-  return status?.mode === mode && status.active ? "Active" : "Inactive";
+  return status?.mode === mode && status.active === true;
 }
+
+const activityLabel = (active) => active ? "Active" : "Inactive";
+const activityDot = (t, active) => div().size(6).flex_none().rounded_full().bg(active ? (t.added ?? t.accent) : t.dim);
 
 function lidNote() {
   const platform = appWindow()?.platform;
@@ -71,47 +81,55 @@ export default class WorkspaceStatus extends View {
 
   awakeMenu(t) {
     const current = selectedMode();
-    return v_flex().id("awake-menu").p(AWAKE_PAD).track_focus(this.menuFocus)
+    const active = isActive(current.mode);
+    return v_flex().id("awake-menu").w_full().p(AWAKE_PAD).track_focus(this.menuFocus)
       .role("list_box").accessibility_label(TITLE)
       .on_key_down((e, cx) => {
         if (e.key === "enter" || e.key === "space") this.choose(MODES[this.menuIndex].mode);
         else if (e.key === "escape") closeOverlay(props().overlay);
         else if (e.key === "up" || e.key === "down") {
+          this.navigatedByKey = true;
           this.menuIndex = (this.menuIndex + MODES.length + (e.key === "up" ? -1 : 1)) % MODES.length;
           cx.notify();
         } else return;
         cx.stop_propagation();
       })
-      .child(h_flex().h(AWAKE_HEADER).px(8).gap(8).items_center().justify_between()
-        .child(div().text_size(12).font_semibold().text_color(t.foreground).child(TITLE))
-        .child(div().text_size(11).text_color(t.muted).child(activity(current.mode))))
-      .children(MODES.map(({ mode, label, detail }, index) => {
+      .child(h_flex().h(AWAKE_HEADER).px(AWAKE_INSET).gap(12).items_center()
+        .child(div().flex_1().min_w(0).truncate().text_size(14).font_medium().text_color(t.foreground).child(TITLE))
+        .child(h_flex().gap(5).flex_none().items_center().text_size(11.5).text_color(t.muted)
+          .child(activityDot(t, active)).child(activityLabel(active))))
+      .child(div().h(1).mb(DIVIDER_SPACE - 1).mx(AWAKE_INSET).flex_none().bg(t.row_ring ?? t.border))
+      .child(v_flex().gap(ROW_GAP).children(MODES.map(({ mode, label, detail }, index) => {
         const selected = mode === current.mode;
-        return h_flex().id(`awake-${mode}`).h(AWAKE_ROW).px(8).gap(8).rounded(7).items_center().cursor_pointer()
+        const highlighted = index === this.menuIndex;
+        return h_flex().id(`awake-${mode}`).h(AWAKE_ROW).px(AWAKE_INSET - 1).gap(12).items_center()
+          .rounded(8).border_1().border_color(highlighted && this.navigatedByKey ? t.accent : CLEAR).cursor_pointer()
           .role("list_box_option").aria_selected(selected).accessibility_label(`${label}. ${detail}`)
-          .when(index === this.menuIndex, (el) => el.bg(t.selected).aria_active_descendant())
+          .when(selected, (el) => el.bg(t.selected))
+          .when(highlighted, (el) => el.aria_active_descendant())
           .hover((el) => el.bg(t.hover_strong ?? t.hover))
           .on_click(() => this.choose(mode))
-          .child(div().size(14).flex_none()
-            .when(selected, (el) => el.child(svg(`${ICONS}/check.svg`).size(14).text_color(t.accent))))
-          .child(v_flex().min_w(0).gap(2)
-            .child(div().text_size(12).text_color(t.foreground).child(label))
-            .child(div().text_size(11).text_color(t.muted).child(detail)));
-      }));
+          .child(v_flex().flex_1().min_w(0).gap(2)
+            .child(div().text_size(13.5).line_height("16px").font_medium().text_color(t.foreground).child(label))
+            .child(div().truncate().text_size(12).line_height("16px").text_color(t.muted).child(detail)))
+          .when(selected, (el) => el.child(svg(`${ICONS}/check.svg`).size(14).flex_none().text_color(t.accent)));
+      })));
   }
 
   awakeButton(t) {
     const { mode, label } = selectedMode();
-    const state = activity(mode);
-    const name = `${TITLE}, ${label} · ${state}`;
-    const button = h_flex().id("keep-awake").h(24).px(7).gap(5).items_center().flex_none()
-      .rounded(7).role("button").accessibility_label(name).tab_index(0).cursor_pointer()
+    const active = isActive(mode);
+    const name = `${TITLE}, ${label} · ${activityLabel(active)}`;
+    const button = h_flex().id("keep-awake").w(84).h(STATUS_HEIGHT).px(6).gap(6).items_center().justify_center().flex_none()
+      .rounded(7).border_1().border_color(CLEAR).role("button").accessibility_label(name).tab_index(0).cursor_pointer()
+      .text_color(active ? t.foreground : t.muted)
+      .focus((el) => el.border_color(t.accent).text_color(t.foreground))
       .hover((el) => el.bg(t.hover_strong ?? t.hover).text_color(t.foreground))
       .on_mouse_down("left", (e) => { this.awakePress = { at: Date.now(), bounds: e.bounds }; })
       .on_click((_e, cx) => this.openAwake(cx))
-      .child(svg(CUP).size(15).flex_none().text_color(state === "Active" ? t.foreground : t.muted))
-      .child(label)
-      .child(div().size(5).rounded_full().bg(state === "Active" ? t.accent : t.dim));
+      .child(svg(CUP).size(STATUS_ICON).flex_none())
+      .child(div().min_w(0).max_w(36).truncate().child(label))
+      .child(activityDot(t, active));
     const closed = shared("popup.closed");
     if (this.awakeOpenedAt && closed?.from === AWAKE_SOURCE && closed.at >= this.awakeOpenedAt) {
       this.awakeOpenedAt = null;
@@ -120,10 +138,10 @@ export default class WorkspaceStatus extends View {
     if (this.awakeOpenedAt) return button;
     return HoverCard.new("keep-awake-tip").anchor("bottom_center").open_delay(300).close_delay(0)
       .trigger(button)
-      .content(v_flex().w(232).mb(6).px(9).py(5).gap(3).rounded(8).bg(t.raised)
+      .content(v_flex().w(236).mb(6).px(10).py(7).gap(3).rounded(8).bg(t.raised)
         .border_1().border_color(t.border).shadow_md()
-        .child(div().text_size(12).text_color(t.foreground).child(name))
-        .child(div().text_size(11).text_color(t.muted).child(lidNote())));
+        .child(div().text_size(12).font_medium().text_color(t.foreground).child(TITLE))
+        .child(div().text_size(11.5).line_height("15px").text_color(t.muted).child(lidNote())));
   }
 
   open(machine) {
@@ -166,13 +184,13 @@ export default class WorkspaceStatus extends View {
     const space = spaces().find((space) => space.active);
     if (!p?.usage) return this.legacy(t, space);
 
-    return h_flex().size_full().px(9).gap(3).items_center().justify_end().text_size(11.8).text_color(t.muted)
-      .when(shared("usage.enabled") !== false, (el) => el.child(h_flex().id("usage-status").h(24).px(7).gap(6).items_center().flex_none()
+    return h_flex().size_full().px(9).gap(4).items_center().justify_end().text_size(11.8).text_color(t.muted)
+      .when(shared("usage.enabled") !== false, (el) => el.child(h_flex().id("usage-status").h(STATUS_HEIGHT).px(7).gap(6).items_center().flex_none()
         .rounded(7).accessibility_label("Usage limits").cursor_pointer()
         .hover((el) => el.bg(t.hover_strong ?? t.hover).text_color(t.foreground))
         .on_mouse_down("left", (e) => { this.pressed = { at: Date.now(), bounds: e.bounds }; })
         .on_click(() => this.open(space?.machine ?? null))
-        .child(svg("mods/workspace-chrome/icons/gauge.svg").size(16).flex_none())
+        .child(svg("mods/workspace-chrome/icons/gauge.svg").size(STATUS_ICON).flex_none())
         .child("Usage")))
       .child(this.awakeButton(t));
   }

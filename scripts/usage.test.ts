@@ -1911,6 +1911,10 @@ test("the awake menu opens upward, picks a mode with the keyboard, and toggles c
   expect(arg(byId(tree, "awake-off")!, "aria_selected")).toBe(true);
   const key = handler(byId(tree, "awake-menu")!, "on_key_down");
   key({ key: "up" }, cx);
+  const focused = menu.render().el;
+  expect(arg(byId(focused, "awake-auto")!, "border_color")).toBe(colors.accent);
+  expect(arg(byId(focused, "awake-auto")!, "aria_selected")).toBe(false);
+  expect(arg(byId(focused, "awake-off")!, "aria_selected")).toBe(true);
   key({ key: "enter" }, cx);
   expect(state.shared["awake.mode"]).toBe("auto");
   expect(state.closedOverlays).toEqual(["awake-popup"]);
