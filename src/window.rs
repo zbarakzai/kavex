@@ -651,7 +651,7 @@ impl AppWindow {
         let gone = name.as_deref().map(missing_mods).unwrap_or_default();
         w.load_layout(if gone.is_empty() { name.as_deref().unwrap_or("main") } else { "main" });
         w.apply_look(window, cx);
-        w.read_awake_mode(cx);
+        w.read_awake_mode(window, cx);
         w.show_layout_notes(window, cx);
         if let (Some(n), false) = (&name, gone.is_empty()) {
             let note = json!({ "title": format!("{n} needs mods that aren't here"), "body": format!("Showing Kavex instead. Missing: {}. Your {n} layout file is still there.", gone.join(", ")), "level": "info", "timeout": 12000 });
@@ -772,7 +772,7 @@ impl AppWindow {
                     this.documents_watching = watching;
                     if !this.draining {
                         this.awake.set_working(working);
-                        if this.awake.changed() { cx.notify(); }
+                        this.publish_awake_change(window, cx);
                     }
                     if watching { this.documents.entry(String::new()).or_default().connection(true, None, None); }
                     let changed = this.documents_updated(machines, vec![], window, cx);
@@ -887,7 +887,6 @@ impl AppWindow {
         self.core_generation += 1;
         self.documents_watching = false;
         self.awake.set_working(false);
-        if self.awake.changed() { cx.notify(); }
         for (machine, slot) in &mut self.documents {
             slot.available = false;
             slot.connected = machine.is_empty();
@@ -1671,11 +1670,19 @@ impl AppWindow {
         self.refresh_readers(u16::MAX, cx);
     }
 
-    fn read_awake_mode(&mut self, cx: &mut Context<Self>) {
+    fn read_awake_mode(&mut self, window: &Window, cx: &mut Context<Self>) {
         if self.draining { return; }
         let mode = mods::shared(crate::awake::MODE_KEY);
         self.awake.set_mode(mode.as_ref().and_then(Value::as_str));
-        if self.awake.changed() { cx.notify(); }
+        self.publish_awake_change(window, cx);
+    }
+
+    fn publish_awake_change(&mut self, window: &Window, cx: &mut Context<Self>) {
+        // Power state changes even when the window is hidden and GPUI is not drawing.
+        if self.awake.changed() && mods::publish_window(self.window_json(window)) {
+            self.refresh_readers(mods::part::WINDOW, cx);
+            cx.notify();
+        }
     }
 
     /// The copies that have read any of `parts` (`mods::part`) build again; the
@@ -3832,7 +3839,7 @@ impl AppWindow {
             }
             Request::CloseOverlay { id } => self.close_overlay(&id, window, cx),
             Request::Refresh => {
-                self.read_awake_mode(cx);
+                self.read_awake_mode(window, cx);
                 self.refresh_mods(cx);
             }
             Request::Control { cmd, reply } => match cmd.get("do").and_then(Value::as_str) {
@@ -3941,7 +3948,7 @@ impl AppWindow {
     /// Says whether the mod folders are due a look (the caller reads them off this thread).
     fn poll(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
         let _span = crate::bench::span("ui:poll");
-        if self.awake.changed() { cx.notify(); }
+        self.publish_awake_change(window, cx);
         self.flush_documents(false, window, cx);
         let ready = Self::update_label();
         if ready != self.update_ready {
