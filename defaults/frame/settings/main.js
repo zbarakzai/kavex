@@ -364,7 +364,7 @@ export default class Settings extends View {
     return this.segments(t, "st-ap", APPEARANCES, this.person.appearance ?? null, pick);
   }
 
-  // The tab bar's folder button and the panel's header follow this; the tabs mod shuts one left open.
+  // The toolbar's Files and Changes buttons follow this. The tabs mod closes disabled views.
   panels() {
     return shared("workspace.panels") ?? PANELS.map(([id]) => id);
   }

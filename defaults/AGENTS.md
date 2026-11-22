@@ -264,16 +264,20 @@ on this screen in `shared("spaces.recent")`.
 Each file is one whole window. `layout.switch` (`ctrl-shift-l`) cycles
 through them, `layout.switch {name}` picks one; `shared("layout")` is the
 shown one's name. Kavex ships `main` ("Kavex": three regions on `canvas`, a
-sidebar of spaces by machine, the agents list and `workspace-chrome`; the
-terminals with their tabs on one rounded surface, with a + menu
-that starts a terminal or any installed agent, `new-menu`; a pane gets a frame
-and header once its tab is split; Files and Changes panels on the right, `files` and
-`changes`, opened from the tab bar's folder button, shown or hidden with `cmd-shift-b` (`ctrl-shift-j`)
-and remembered per space (which ones:
-shared `"workspace.panels"`, set by the welcome and the switches in Settings > Look; one left out
-has no button or tab and can't stay open)), and as examples `terminals` ("Terminals": tabs in
-the title bar, panes as cards, a space picker) and `win98`
-("Kavex 98": a whole desktop in one mod, `win98`). Add a layout by writing a new file.
+sidebar, a terminal area, and a right panel). The sidebar groups spaces by machine
+and includes the agents list and `workspace-chrome`. The terminals share one
+rounded surface with their tabs and a + menu (`new-menu`) that starts a terminal
+or any installed agent. A split pane gets its own frame and header.
+
+The right panel shows Files (`files`) or Changes (`changes`).
+The top-right folder opens Files and the branch opens Changes. Click the active icon again
+or use the panel's close button to hide it. `cmd-shift-b` (`ctrl-shift-j`) toggles the last view,
+and each space remembers its panel state. The welcome and the switches in Settings > Look set
+shared `"workspace.panels"`. A disabled view's toolbar button is hidden.
+
+Kavex also ships `terminals` ("Terminals" with tabs in the title bar, panes as cards,
+and a space picker) and `win98` ("Kavex 98" with a whole desktop in one mod).
+Add a layout by writing a new file.
 
 The + menu shows the last detected agents for the active machine while it checks for changes.
 On the first check for a machine, it shows “Checking installed agents…”. Each number keeps

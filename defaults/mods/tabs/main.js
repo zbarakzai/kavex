@@ -1,5 +1,5 @@
 import { View, div, svg, image } from "gpui-kit";
-import { h_flex } from "gpui-base";
+import { h_flex, HoverCard } from "gpui-base";
 import { spaces, panes, terminals, machines, knownAgents, run, openOverlay, closeOverlay, theme, window, shared, setShared, layout, settings, nextCommand, home as homeFolder } from "herdr";
 import { GAP, HUES, INNER, away, clicked, columnOrder, failed, gathered, groupOf, home, labeled, landed, moves, nearest, nextColor, pruned, reopening, runs, shows, slotKey, slots } from "./groups.js";
 import { look, groupHue, tabHue, spaced, MONO } from "./look.js";
@@ -22,6 +22,8 @@ const tabState = () => ({ groups: shared("tab.groups") ?? {}, colors: shared("ta
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const machineOf = (id) => (id.includes("/") ? id.split("/")[0] : null);
 const TOP = 5, CHIP = 34; // the bar's top padding, which levels it with the window buttons, and a chip's height
+const TOOL_BUTTON = 28;
+const PANELS = [["files", "Files", "folder"], ["changes", "Changes", "branch"]];
 // How a dragged tab moves. Native springs: `response` in ms, 1 `damping` has no overshoot.
 const SLIDE = { response: 150, damping: 1 }; // room opening and shutting: slower, and rooms pile up on a quick back and forth
 const HELD = { response: 0 }; // stuck to the pointer: any spring here trails it, by 47 px on a fast whip
@@ -407,20 +409,29 @@ export default class Tabs extends View {
       ? Math.max(6, (root.traffic_lights[0] + 64) / settings().zoom - (sidebar?.hidden ? 0 : sidebar?.size?.px ?? 0))
       : 6;
     this.padding = lightsPadding;
-    const enabled = shared("workspace.panels") ?? ["files", "changes"];
+    const available = PANELS.filter(([id]) => panel && body?.children?.some((child) => child.id === id && !child.hidden));
+    const chosen = shared("workspace.panels");
+    const panels = chosen ? available.filter(([id]) => chosen.includes(id)) : available;
+    const enabled = panels.map(([id]) => id);
     this.syncPanel(space, panel, body, enabled);
     this.syncColumn(column, panel, right);
     const open = panel && !panel.hidden;
     // A panel turned off (Settings) doesn't stay open, or come back by its key.
     if (open && body && !enabled.includes(body.active)) run(...(enabled.length ? ["layout.select", { stack: "panel-body", child: enabled[0] }] : ["layout.hide", { id: "panel" }]));
-    const folder = h_flex().id("panel-toggle").size(CHIP).flex_none().items_center().justify_center().rounded(10)
-      .text_color(open ? k.foreground : k.muted).when(open, (el) => el.bg(k.card_border)).when(!open, (el) => el.hover((s) => s.bg(k.hover_strong).text_color(k.foreground)))
-      .on_mouse_down("left", stop)
-      .on_click(() => {
-        if (open) return run("layout.hide", { id: "panel" });
-        if (!enabled.includes(body?.active)) run("layout.select", { stack: "panel-body", child: enabled[0] });
-        run("layout.show", { id: "panel" });
-      }).child(svg("mods/workspace-chrome/icons/folder.svg").size(16));
+    const panelButtons = panels.map(([id, label, icon]) => {
+      const active = open && body.active === id;
+      const button = h_flex().id(`panel-toggle-${id}`).size(TOOL_BUTTON).flex_none().items_center().justify_center().rounded(8).cursor_pointer().accessibility_label(label)
+        .text_color(active ? k.foreground : k.muted).when(active, (el) => el.bg(k.card_border))
+        .when(!active, (el) => el.hover((s) => s.bg(k.hover_strong).text_color(k.foreground)))
+        .on_mouse_down("left", stop)
+        .on_click(() => {
+          if (active) return run("layout.hide", { id: "panel" });
+          if (body.active !== id) run("layout.select", { stack: "panel-body", child: id });
+          if (!open) run("layout.show", { id: "panel" });
+        }).child(svg(`mods/workspace-chrome/icons/${icon}.svg`).size(16));
+      return HoverCard.new(`tip-panel-${id}`).anchor("bottom_center").open_delay(300).close_delay(0).trigger(button)
+        .content(div().mt(6).px(9).py(5).rounded(8).bg(k.raised).border_1().border_color(k.border).shadow_md().text_size(12).text_color(k.foreground).whitespace_nowrap().child(label));
+    });
     const strip = h_flex().id("tab-scroll").flex_1().min_w(0).h_full().items_center().gap(GAP).overflow_x_scroll()
       .on_size_change((size) => { this.stripW = size.width / settings().zoom; })
       .children(bar.map((r, i) => this.roomed(r.group ? this.tray(r, v) : this.pill(r.tab, v), r.group ? slotKey.before(r.group) : r.tab.id, i === bar.length - 1 ? "end" : null)));
@@ -433,9 +444,10 @@ export default class Tabs extends View {
       .when(!right && v.picked.length > 1, el => el.child(h_flex().id("group-picked").h(CHIP).px(10).flex_none().items_center().rounded(11)
         .border(1).border_color(k.foreground).text_size(13.5).text_color(k.foreground).hover(s => s.bg(k.hover))
         .on_mouse_down("left", (e, cx) => this.armed(e, cx)).on_click(this.unlessShut("group-picked", () => this.group(v.picked))).child(`Group ${v.picked.length} tabs`)))
-      .when(!right, (el) => el.child(h_flex().id("tab-new").size(28).flex_none().items_center().justify_center().rounded(8).text_color(k.muted).hover(s => s.bg(k.hover_strong).text_color(k.foreground))
-        .on_mouse_down("left", (e, cx) => this.armed(e, cx)).on_click(this.unlessShut("tab-new", () => openOverlay({ mod: "new-menu", kind: "popup", width: 250, height: 512, props: { from: "tab-new" } }))).child(svg("mods/workspace-chrome/icons/plus.svg").size(16))))
-      .when(enabled.length > 0, (el) => el.child(folder))
+      .when(!right || panelButtons.length > 0, (el) => el.child(h_flex().id("tab-actions").flex_none().items_center().gap(2)
+        .when(!right, (row) => row.child(h_flex().id("tab-new").size(TOOL_BUTTON).flex_none().items_center().justify_center().rounded(8).text_color(k.muted).hover(s => s.bg(k.hover_strong).text_color(k.foreground))
+          .on_mouse_down("left", (e, cx) => this.armed(e, cx)).on_click(this.unlessShut("tab-new", () => openOverlay({ mod: "new-menu", kind: "popup", width: 250, height: 512, props: { from: "tab-new" } }))).child(svg("mods/workspace-chrome/icons/plus.svg").size(16))))
+        .children(panelButtons)))
       .when(Boolean(w?.buttons), (el) => el.child(windowButtons(k)))
       .when(Boolean(d), el => el.child(this.ghost(v)));
   }

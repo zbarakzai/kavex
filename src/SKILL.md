@@ -38,7 +38,8 @@ kavex do agent.focus --terminal t7
 ```
 
 To show the person a Markdown file (a plan, a report), open it in the Files panel
-when asked. It renders there and follows the file as you save it:
+when asked. The folder icon at the top right opens Files, and the branch icon opens Changes.
+The Markdown renders in Files and follows the file as you save it:
 
 ```sh
 kavex do file.preview --file plan.md
