@@ -58,7 +58,7 @@ kavex do space.new --name "remote api" --machine vps --folder /srv/api
 ```
 
 The folder is on that machine; tabs and splits in the space stay there.
-In the Spaces sidebar, the clock beside **+** opens recent projects. Choose
+In the Spaces sidebar, **Open recent project** beside **+** opens recent projects. Choose
 one to switch to its open space or create a new space in the saved folder.
 `terminal.open --folder /path --place down` starts the split in that folder,
 including when `--argv` supplies a program. Without `--folder`, it follows the

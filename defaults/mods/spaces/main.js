@@ -30,6 +30,7 @@ function place(s, ps) {
 }
 const rowHeight = ({ tree }) => (tree ? 28 : 36);
 const HEADER = 44, TALLEST = 340;
+const RECENT_LABEL = "Open recent project";
 // The scrollbar's lane (gpui-kit's 16 px track) at the list's right edge. The rows always stop
 // short of it, so the bar never covers their right end; the narrow rail keeps the whole width.
 const BAR = 16;
@@ -386,7 +387,8 @@ export default class Spaces extends View {
       .child(h_flex().pt(14).pb(4).pl(collapsed ? 0 : 10).items_center().justify_between().when(collapsed, el => el.justify_center())
         .when(!collapsed, el => el.child(sectionLabel(k, "SPACES")))
         .child(h_flex().gap(2)
-          .child(control("space-recent", "Recent spaces", "mods/workspace-chrome/clock.svg", () => this.openRecent()))
+          .child(control("space-recent", RECENT_LABEL, "mods/workspace-chrome/icons/folder-return.svg", () => this.openRecent())
+            .tooltip(RECENT_LABEL))
           .child(control("space-new", "New space", "mods/workspace-chrome/icons/plus.svg", () => run("space.new")))))
       .child(v_flex().id("space-list").flex_1().min_h(0).overflow_y_scrollbar().mode("always")
         .on_mouse_up("left", (_e, cx) => { this.pressed = null; cx.notify(); })
