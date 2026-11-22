@@ -144,7 +144,7 @@
           "id": "workspace-status",
           "type": "block",
           "size": { "px": 24 },
-          "content": { "mod": "workspace-status", "props": { "usage": true } }
+          "content": { "mod": "workspace-status", "props": { "usage": true, "monitor": true } }
         }
       ]
     },

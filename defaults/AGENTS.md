@@ -373,6 +373,17 @@ the **Used** and **Left** setting. **Accounts** shows provider status and access
 - **Off** in **Settings → Look → Usage limits** hides the Usage button, stops checks, and clears readings,
   usage history, warnings and consent. Display preferences are kept in `shared("usage.presentation")`.
 
+The activity icon next to **Usage** opens **System monitor**. It shows this
+computer's current CPU and memory, a short live history, and resident memory
+and CPU for Kavex's desktop process and local agent sessions. CPU percentages
+are shares of all logical cores. A session includes its terminal process tree;
+shared pages can appear in more than one resident memory figure. The monitor
+samples locally while its popup is open and the window is active.
+
+Use `mod.open {name: "system-monitor"}` to open it from any layout. Personal
+layouts can set `monitor: true` in the `workspace-status` mod's props to show
+the icon, independently of `usage`.
+
 **Customize** (in **More actions**, the `customize` mod, `mod.open {name: "customize"}`)
 covers the window with its own sidebar: Skills, and Code review (empty for now). Back or Esc closes it.
 **Skills** there install agent skills (folders with a `SKILL.md`) for every agent at once, from a list,
@@ -997,7 +1008,7 @@ has 120 programs (agents, editors, runtimes, tools, databases, infra);
   Icon paths from before that folder still work for this release only, and so does the
   `workspace-status` mod, for layouts cloned before the status bar went.
 - The defaults are mods too, read them as examples: `spaces`, `agents`,
-  `tabs` (the tab bar), `tab-menu`, `file-menu`, `tab-drag`, `menu`, `prompt`, `confirm`, `help`, `toast`, `usage`, `customize`,
+  `tabs` (the tab bar), `tab-menu`, `file-menu`, `tab-drag`, `menu`, `prompt`, `confirm`, `help`, `toast`, `usage`, `system-monitor`, `customize`,
   `start` (the main layout's screen with no space open: the ram draws itself once, then a light runs its outlines, with a wake of code behind the pointer),
   Terminals' `picker`, `peek`, and `pane` (an
   example pane header, not used by the default layouts), and `worktree`
