@@ -45,6 +45,7 @@ let state: {
   says: Record<string, Reply>;
   on: Record<string, Record<string, Reply>>;
   platform: string;
+  zoom?: number;
   active: boolean;
   agents: Record<string, any[] | Error>;
   machines: { name: string | null; layout: string }[];
@@ -109,7 +110,7 @@ mock.module("herdr", () => ({
   setShared: (k: string, v: any) => { state.shared[k] = v === undefined ? v : JSON.parse(JSON.stringify(v)); },
   props: () => state.props,
   theme: () => colors,
-  settings: () => ({ zoom: 1, font_family: "Geist Mono", font_size: 13, ui_font_family: "Geist", theme_dark: "kavex", theme_light: "paper" }),
+  settings: () => ({ zoom: state.zoom ?? 1, font_family: "Geist Mono", font_size: 13, ui_font_family: "Geist", theme_dark: "kavex", theme_light: "paper" }),
   window: () => ({ platform: state.platform, active: state.active }),
   home: () => "/home/person",
   appHome: () => "/home/person/.config/kavex",
@@ -3006,4 +3007,57 @@ test("consent for a remote OpenCode account runs the probe on its execution owne
   expect(words(popover.draw())).toEqual(expect.arrayContaining(["OpenCode", "owner", "26%"]));
   expect(state.reads).toEqual(["/home/person/.config/kavex/mods/workspace-chrome/" + module]);
   expect(state.fetched).toEqual([]);
+});
+
+test("the main status strip opens a local monitor alongside independent Usage limits", () => {
+  const status = shippedLayout.children.find((node: any) => node.id === "work-area")
+    .children.find((node: any) => node.id === "workspace-status");
+  state.props = status.content.props;
+  state.space = { id: "remote", active: true, machine: "vps" };
+  const view: any = new WorkspaceStatus();
+  const root = view.render(cx).el as El;
+  const monitor = byId(root, "system-monitor-status")!;
+  expect(arg(monitor, "accessibility_label")).toBe("System monitor");
+  expect(paths(monitor)).toEqual(["mods/workspace-chrome/icons/memory.svg"]);
+  expect(words(root)).toEqual(["Usage"]);
+  handler(monitor, "on_mouse_down")({ bounds: BUTTON }, cx);
+  handler(monitor, "on_click")({}, cx);
+  expect(state.overlays.at(-1)).toMatchObject({
+    mod: "system-monitor", kind: "popup", at: { x: BUTTON.x + BUTTON.width - 442, y: BUTTON.y - 344 },
+    props: { from: "system-monitor-status" },
+  });
+
+  state.shared["usage.enabled"] = false;
+  const withoutUsage = view.render(cx).el as El;
+  expect(byId(withoutUsage, "system-monitor-status")).toBeDefined();
+  expect(byId(withoutUsage, "usage-status")).toBeUndefined();
+});
+
+test("the system monitor anchor fits a small window at high zoom", () => {
+  const prior = globalThis.window;
+  globalThis.window = { viewport_size: () => ({ width: 400, height: 280 }) } as any;
+  try {
+    state.props = { monitor: true };
+    state.zoom = 2;
+    const root = new WorkspaceStatus().render(cx).el as El;
+    const monitor = byId(root, "system-monitor-status")!;
+    handler(monitor, "on_mouse_down")({ bounds: BUTTON }, cx);
+    handler(monitor, "on_click")({}, cx);
+    expect(state.overlays.at(-1)).toMatchObject({ width: 192, height: 132 });
+  } finally {
+    globalThis.window = prior;
+  }
+});
+
+test("the monitor button has a keyboard focus ring and opens with Enter", () => {
+  state.props = { monitor: true };
+  const view = new WorkspaceStatus();
+  view.init(null, cx);
+  const button = byId(view.render(cx).el, "system-monitor-status")!;
+  expect(arg(button, "tab_stop")).toBe(true);
+  const focusStyle = make();
+  handler(button, "focus")(focusStyle);
+  expect(arg(focusStyle.el, "border_color")).toBe(colors.accent);
+  handler(button, "on_key_down")({ key: "enter" }, cx);
+  expect(state.overlays.at(-1)).toMatchObject({ mod: "system-monitor" });
 });

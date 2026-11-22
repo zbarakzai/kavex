@@ -5,8 +5,15 @@ import { agents, openOverlay, props, run, settings, shared, spaces, theme, windo
 const ROSTER_WIDTH = 400;
 const ROSTER_HEIGHT = 540;
 const SOURCE = "usage-status";
+const MONITOR = "system-monitor-status";
+const MONITOR_WIDTH = 442;
+const MONITOR_HEIGHT = 336;
 
 export default class WorkspaceStatus extends View {
+  init(_props, cx) {
+    if (props()?.monitor) this.monitorFocus = cx.focus_handle();
+  }
+
   open(machine) {
     const press = this.pressed, closed = shared("popup.closed");
     this.pressed = null;
@@ -27,6 +34,24 @@ export default class WorkspaceStatus extends View {
     });
   }
 
+  openMonitor() {
+    const press = this.monitorPressed, closed = shared("popup.closed");
+    this.monitorPressed = null;
+    if (press && closed?.from === MONITOR && closed.at >= press.at - 100) return;
+    const bounds = press?.bounds, zoom = settings().zoom || 1;
+    const viewport = globalThis.window?.viewport_size();
+    const width = viewport?.width > 16 ? Math.min(MONITOR_WIDTH, (viewport.width - 16) / zoom) : MONITOR_WIDTH;
+    const height = viewport?.height > 16 ? Math.min(MONITOR_HEIGHT, (viewport.height - 16) / zoom) : MONITOR_HEIGHT;
+    const at = bounds
+      ? { x: bounds.x + bounds.width - width * zoom, y: bounds.y - height * zoom - 8 }
+      : viewport && { x: viewport.width - width * zoom - 12, y: viewport.height - (height + 24) * zoom - 14 };
+    openOverlay({
+      mod: "system-monitor", kind: "popup", width, height,
+      ...(at ? { at } : {}),
+      props: { from: MONITOR },
+    });
+  }
+
   legacy(t, space) {
     const list = agents(), needs = list.filter((agent) => agent.status === "blocked").length;
     const label = (icon, text) => h_flex().gap(6).items_center()
@@ -42,17 +67,28 @@ export default class WorkspaceStatus extends View {
   }
 
   render() {
-    const t = theme(), space = spaces().find((space) => space.active);
-    if (!props()?.usage) return this.legacy(t, space);
-    if (shared("usage.enabled") === false) return div();
+    const t = theme(), space = spaces().find((space) => space.active), config = props();
+    if (!config?.usage && !config?.monitor) return this.legacy(t, space);
+    const button = (id, label) => h_flex().id(id).h(24).px(7).gap(6).items_center().flex_none()
+      .rounded(7).role("button").accessibility_label(label).cursor_pointer()
+      .hover((el) => el.bg(t.hover_strong ?? t.hover).text_color(t.foreground));
 
-    return h_flex().size_full().px(9).items_center().justify_end().text_size(11.8).text_color(t.muted)
-      .child(h_flex().id("usage-status").h(24).px(7).gap(6).items_center().flex_none()
-        .rounded(7).accessibility_label("Usage limits").cursor_pointer()
-        .hover((el) => el.bg(t.hover_strong ?? t.hover).text_color(t.foreground))
+    return h_flex().size_full().px(9).gap(3).items_center().justify_end().text_size(11.8).text_color(t.muted)
+      .when(config.monitor, (el) => el.child(button(MONITOR, "System monitor").tooltip("System monitor")
+        .when(Boolean(this.monitorFocus), (el) => el.track_focus(this.monitorFocus).tab_stop(true)
+          .border_1().border_color(`${t.surface.slice(0, 7)}00`).focus((el) => el.border_color(t.accent)))
+        .on_key_down((event, cx) => {
+          if (event.key !== "enter" && event.key !== "space") return;
+          cx.stop_propagation();
+          this.openMonitor();
+        })
+        .on_mouse_down("left", (e) => { this.monitorPressed = { at: Date.now(), bounds: e.bounds }; })
+        .on_click(() => this.openMonitor())
+        .child(svg("mods/workspace-chrome/icons/memory.svg").size(16).flex_none())))
+      .when(config.usage && shared("usage.enabled") !== false, (el) => el.child(button(SOURCE, "Usage limits")
         .on_mouse_down("left", (e) => { this.pressed = { at: Date.now(), bounds: e.bounds }; })
         .on_click(() => this.open(space?.machine ?? null))
         .child(svg("mods/workspace-chrome/icons/gauge.svg").size(16).flex_none())
-        .child("Usage"));
+        .child("Usage")));
   }
 }
