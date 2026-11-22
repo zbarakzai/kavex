@@ -2,7 +2,14 @@
 import { image } from "gpui-kit";
 import theme from "./symbols-theme.js";
 
-const { fileNames, fileExtensions, folderNames, iconDefinitions } = theme;
+function lowercaseKeys(associations) {
+  return Object.fromEntries(Object.entries(associations).map(([name, icon]) => [name.toLowerCase(), icon]));
+}
+
+const { iconDefinitions } = theme;
+const fileNames = lowercaseKeys(theme.fileNames);
+const fileExtensions = lowercaseKeys(theme.fileExtensions);
+const folderNames = lowercaseKeys(theme.folderNames);
 
 function leaf(path) {
   return path.slice(path.lastIndexOf("/") + 1).toLowerCase();

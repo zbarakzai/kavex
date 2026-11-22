@@ -107,6 +107,14 @@ test("Symbols uses the last folder in a compact folder row", () => {
   expect(paths.map(folderIconPath)).toEqual(icons.map(name => `mods/files/symbols/icons/folders/${name}.svg`));
 });
 
+test("Symbols matches mixed-case keys from the upstream theme", () => {
+  expect(fileIconPath("docs/readme.md")).toBe("mods/files/symbols/icons/files/readme.svg");
+  expect(fileIconPath("CLAUDE.md")).toBe("mods/files/symbols/icons/files/claude.svg");
+  expect(fileIconPath("Caddyfile")).toBe("mods/files/symbols/icons/files/caddy.svg");
+  expect(fileIconPath("syntax.TMLANGUAGE")).toBe("mods/files/symbols/icons/files/xml.svg");
+  expect(folderIconPath("app/src/androidTest")).toBe("mods/files/symbols/icons/folders/folder-red-code.svg");
+});
+
 test("every icon in the Symbols theme is shipped", async () => {
   const { default: theme } = await import("../defaults/mods/files/symbols-theme.js");
   for (const [name, icon] of Object.entries(theme.iconDefinitions)) {
