@@ -1,16 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200" shape-rendering="crispEdges">
   <rect width="320" height="200" fill="#008080"/>
-  <!-- desktop icons -->
-  <g fill="#ffffff">
-    <rect x="10" y="10" width="14" height="11" fill="#c0c0c0"/><rect x="12" y="12" width="10" height="7" fill="#000080"/>
-    <rect x="8" y="24" width="18" height="2"/>
-    <rect x="11" y="34" width="12" height="9" fill="#ffff00"/><rect x="11" y="32" width="6" height="3" fill="#ffff00"/>
-    <rect x="8" y="46" width="18" height="2"/>
-    <rect x="11" y="56" width="12" height="9" fill="#ffff00"/><rect x="11" y="54" width="6" height="3" fill="#ffff00"/>
-    <rect x="8" y="68" width="18" height="2"/>
-    <circle cx="17" cy="83" r="5" fill="#000000"/>
-    <rect x="8" y="91" width="18" height="2"/>
+  <!-- Desktop glyphs from Heroicons v2.2.0, 24/outline. -->
+  <g fill="none" stroke="#ffffff" stroke-width="1.5" shape-rendering="geometricPrecision">
+    <g transform="translate(9 7) scale(0.66)"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17.25v1.007a3 3 0 0 1-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0 1 15 18.257V17.25m6-12V15a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 15V5.25m18 0A2.25 2.25 0 0 0 18.75 3H5.25A2.25 2.25 0 0 0 3 5.25m18 0V12a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 12V5.25"/></g>
+    <g transform="translate(9 29) scale(0.66)"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z"/></g>
+    <g transform="translate(9 51) scale(0.66)"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9.776c.112-.017.227-.026.344-.026h15.812c.117 0 .232.009.344.026m-16.5 0a2.25 2.25 0 0 0-1.883 2.542l.857 6a2.25 2.25 0 0 0 2.227 1.932H19.05a2.25 2.25 0 0 0 2.227-1.932l.857-6a2.25 2.25 0 0 0-1.883-2.542m-16.5 0V6A2.25 2.25 0 0 1 6 3.75h3.879a1.5 1.5 0 0 1 1.06.44l2.122 2.12a1.5 1.5 0 0 0 1.06.44H18A2.25 2.25 0 0 1 20.25 9v.776"/></g>
+    <g transform="translate(9 74) scale(0.66)"><path stroke-linecap="round" stroke-linejoin="round" d="M3 3v1.5M3 21v-6m0 0 2.77-.693a9 9 0 0 1 6.208.682l.108.054a9 9 0 0 0 6.086.71l3.114-.732a48.524 48.524 0 0 1-.005-10.499l-3.11.732a9 9 0 0 1-6.085-.711l-.108-.054a9 9 0 0 0-6.208-.682L3 4.5M3 15V4.5"/></g>
   </g>
+  <path d="M8 25h18M8 47h18M8 69h18M8 92h18" stroke="#ffffff" stroke-width="2"/>
   <!-- window -->
   <rect x="38" y="8" width="274" height="168" fill="#c0c0c0"/>
   <rect x="38" y="8" width="274" height="1" fill="#ffffff"/><rect x="38" y="8" width="1" height="168" fill="#ffffff"/>
@@ -19,6 +16,11 @@
   <rect x="41" y="11" width="268" height="10" fill="url(#t)"/>
   <rect x="44" y="14" width="60" height="4" fill="#ffffff"/>
   <rect x="283" y="13" width="7" height="6" fill="#c0c0c0"/><rect x="291" y="13" width="7" height="6" fill="#c0c0c0"/><rect x="300" y="13" width="7" height="6" fill="#c0c0c0"/>
+  <g fill="none" stroke="#000000" stroke-width="1.5" shape-rendering="geometricPrecision">
+    <g transform="translate(283 12.5) scale(0.29)"><path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14"/></g>
+    <g transform="translate(291 12.5) scale(0.29)"><path stroke-linecap="round" stroke-linejoin="round" d="M5.25 7.5A2.25 2.25 0 0 1 7.5 5.25h9a2.25 2.25 0 0 1 2.25 2.25v9a2.25 2.25 0 0 1-2.25 2.25h-9a2.25 2.25 0 0 1-2.25-2.25v-9Z"/></g>
+    <g transform="translate(300 12.5) scale(0.29)"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></g>
+  </g>
   <rect x="41" y="23" width="268" height="150" fill="#000000"/>
   <rect x="45" y="28" width="70" height="3" fill="#5555ff"/>
   <rect x="45" y="34" width="110" height="3" fill="#aaaaaa"/>
@@ -27,7 +29,10 @@
   <!-- minesweeper -->
   <rect x="226" y="40" width="74" height="84" fill="#c0c0c0"/>
   <rect x="228" y="42" width="70" height="8" fill="url(#t)"/>
-  <rect x="231" y="53" width="64" height="12" fill="#808080"/><rect x="258" y="55" width="10" height="8" fill="#ffff00"/>
+  <rect x="231" y="53" width="64" height="12" fill="#808080"/><rect x="258" y="55" width="10" height="8" fill="#c0c0c0"/>
+  <g fill="none" stroke="#000000" stroke-width="1.5" shape-rendering="geometricPrecision">
+    <g transform="translate(259 55) scale(0.333)"><path stroke-linecap="round" stroke-linejoin="round" d="M15.182 15.182a4.5 4.5 0 0 1-6.364 0M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0ZM9.75 9.75c0 .414-.168.75-.375.75S9 10.164 9 9.75 9.168 9 9.375 9s.375.336.375.75Zm-.375 0h.008v.015h-.008V9.75Zm5.625 0c0 .414-.168.75-.375.75s-.375-.336-.375-.75.168-.75.375-.75.375.336.375.75Zm-.375 0h.008v.015h-.008V9.75Z"/></g>
+  </g>
   <rect x="233" y="56" width="14" height="6" fill="#000000"/><rect x="279" y="56" width="14" height="6" fill="#000000"/>
   <rect x="231" y="68" width="64" height="52" fill="#808080"/>
   <rect x="233" y="70" width="60" height="48" fill="#c0c0c0"/>
@@ -36,8 +41,10 @@
   <rect x="0" y="184" width="320" height="16" fill="#c0c0c0"/>
   <rect x="0" y="184" width="320" height="1" fill="#ffffff"/>
   <rect x="2" y="187" width="30" height="11" fill="#c0c0c0" stroke="#000000" stroke-width="0.5"/>
-  <rect x="5" y="189" width="3" height="3" fill="#ff0000"/><rect x="8" y="189" width="3" height="3" fill="#00ff00"/>
-  <rect x="5" y="192" width="3" height="3" fill="#0000ff"/><rect x="8" y="192" width="3" height="3" fill="#ffff00"/>
+
+  <g fill="none" stroke="#000000" stroke-width="1.5" shape-rendering="geometricPrecision">
+    <g transform="translate(4 188) scale(0.375)"><path stroke-linecap="round" stroke-linejoin="round" d="m6.75 7.5 3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0 0 21 18V6a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 6v12a2.25 2.25 0 0 0 2.25 2.25Z"/></g>
+  </g>
   <rect x="13" y="191" width="16" height="3" fill="#000000"/>
   <rect x="38" y="187" width="70" height="11" fill="#dfdfdf" stroke="#808080" stroke-width="0.5"/>
   <rect x="112" y="187" width="70" height="11" fill="#c0c0c0" stroke="#000000" stroke-width="0.5"/>

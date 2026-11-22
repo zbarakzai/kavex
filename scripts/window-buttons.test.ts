@@ -208,12 +208,12 @@ test("where the system draws the buttons (macOS), no block draws any", () => {
   expect(arg(draw(Tabs), "pr")).toBe(6);
 });
 
-test("Linux with client decorations gets them in the tab bar too, with its own glyphs", () => {
+test("Linux with client decorations gets the same outline icons in the tab bar", () => {
   state.window = { ...WINDOWS, platform: "linux" };
   show({ column: true });
   expect(holders()).toEqual(["tabs"]);
   const buttons = byId(draw(Tabs), "window-buttons")!;
-  expect(icons(buttons)).toEqual(["mods/workspace-chrome/icons/close.svg"]);
+  expect(icons(buttons)).toEqual(["win-minimize", "win-maximize", "win-close"].map(name => `mods/workspace-chrome/icons/${name}.svg`));
   expect(arg(byId(buttons, "close-window")!, "size")).toBe(26);
 });
 

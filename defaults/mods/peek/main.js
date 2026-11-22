@@ -6,13 +6,14 @@
 import { View, div, image, svg } from "gpui-kit";
 import { h_flex } from "gpui-base";
 import { agents, terminals, panes, run, theme, props, closeOverlay } from "herdr";
-import { loader } from "./loader.js";
+import { loader, statusIcon } from "./loader.js";
 
 // The icon from the app's program table: a one-color glyph or a picture.
 function icon(p, size, color) {
   if (!p?.icon) return null;
   return p.tint ? svg(p.icon).size(size).flex_none().text_color(color) : image(p.icon).w(size).h(size).flex_none();
 }
+const I = (name) => `mods/workspace-chrome/icons/${name}.svg`;
 const WORDS = { working: "working", blocked: "needs you", done: "finished", idle: "idle" };
 
 export default class Peek extends View {
@@ -49,7 +50,6 @@ export default class Peek extends View {
     const pic = icon(k?.program, 14, t.foreground);
     const parent = k?.parent ? terminals().find((p) => p.address === k.parent) : null;
     const home = panes().some((p) => p.terminal === terminal);
-    const glyph = st === "idle" ? "○" : st ? "●" : "·";
     return h_flex()
       .size_full()
       .px(12)
@@ -59,14 +59,16 @@ export default class Peek extends View {
       .border_b(1)
       .border_color(t.border)
       .text_size(12)
-      .child(st === "working" ? loader(t.accent) : div().w(12).flex_none().text_color(t[st] ?? t.dim).child(glyph))
+      .when(st === "working", (el) => el.child(loader(t.accent)))
+      .when(Boolean(st) && st !== "working", (el) => el.child(statusIcon(st, t[st] ?? t.dim, 16)))
       .when(Boolean(pic), (el) => el.child(pic))
       .child(div().truncate().font_semibold().text_color(t.foreground).child(k?.name || k?.template || k?.program?.name || terminal || ""))
       .when(Boolean(st), (el) => el.child(div().flex_none().text_color(t[st] ?? t.dim).child(WORDS[st] ?? st)))
       .when(Boolean(parent), (el) => el.child(div().truncate().text_color(t.dim).child(`from ${parent.name || parent.address}`)))
       .child(div().flex_1())
       .child(
-        this.button(t, "keep", home ? "↗ go to" : "↗ keep", () => {
+        this.button(t, "keep", h_flex().gap(4).items_center()
+          .child(svg(I(home ? "go-to" : "pin")).size(16)).child(home ? "go to" : "keep"), () => {
           run(home ? "pane.focus" : "terminal.keep", { terminal });
           closeOverlay(overlay);
         }),

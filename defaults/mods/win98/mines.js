@@ -1,4 +1,4 @@
-import { div, image } from "gpui-kit";
+import { div, svg } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
 import { shared, setShared } from "herdr";
 import { unit, root, C, bevel, button, win, icon, label, own, apps, setApp, openMenu, openDialog, sfx, ASSETS } from "./kit.js";
@@ -9,7 +9,7 @@ const SEGMENTS = ["abcdef", "bc", "abdeg", "abcdg", "bcfg", "acdfg", "acdefg", "
 const SEG_RECTS = [[2, 1, 7, 2], [9, 3, 2, 7], [9, 12, 2, 7], [2, 19, 7, 2], [0, 12, 2, 7], [0, 3, 2, 7], [2, 10, 7, 2]];
 
 function art(u, name, size = 16) {
-  return image(`${ASSETS}/icons/mines-${name}.svg`).w(u(size)).h(u(size)).flex_none();
+  return svg(`${ASSETS}/icons/mines-${name}.svg`).size(u(size)).flex_none().text_color(C.text);
 }
 
 function counter(u, value) {
@@ -153,7 +153,7 @@ export default class Mines {
     if (lost && c.mark === 1 && !c.mine) content = art(u, "wrong");
     else if (c.mark === 1) content = art(u, "flag");
     else if (exposed && c.mine) content = art(u, "mine");
-    else if (!exposed && c.mark === 2) content = div().font_weight(700).child("?");
+    else if (!exposed && c.mark === 2) content = art(u, "question");
     else if (c.open && c.n) content = div().font_family("Arial").font_weight(700).text_size(u(14)).line_height(`${u(14)}px`).text_color(this.options.color ? COLORS[c.n] : C.text).child(String(c.n));
     const down = this.held === i && c.mark !== 1 && !exposed;
     let cell = div().flex_none().w(u(16)).h(u(16)).flex().items_center().justify_center().bg(i === this.boom ? "#ff0000" : C.face);

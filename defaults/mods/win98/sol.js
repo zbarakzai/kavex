@@ -1,7 +1,7 @@
-import { div, image } from "gpui-kit";
+import { div, image, svg } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
 import { shared, setShared, props, openOverlay, closeOverlay } from "herdr";
-import { unit, scale, root, win, icon, own, button, label, bevel, well, apps, setApp, openMenu, openDialog, sfx } from "./kit.js";
+import { unit, scale, root, win, icon, own, button, label, bevel, well, apps, setApp, openMenu, openDialog, sfx, ASSETS } from "./kit.js";
 
 const W = 596, H = 355, CW = 71, CH = 96;
 const rank = c => c % 13 + 1;
@@ -144,7 +144,9 @@ export default class Solitaire {
   }
   dialogView(u, cx) {
     const kind = this.dialog, p = props();
-    const choice = (text, selected, fn) => own(div().id(`sol-opt-${text}`).py(u(5)).child(`${selected ? "◉" : "○"}  ${text}`).on_click(fn));
+    const choice = (text, selected, fn) => own(h_flex().id(`sol-opt-${text}`).py(u(5)).gap(u(5)).items_center()
+      .child(svg(`${ASSETS}/icons/radio-${selected ? "on" : "off"}.svg`).size(u(12)).text_color(C.text))
+      .child(text).on_click(fn));
     let body = v_flex().p(u(15)).gap(u(4));
     if (kind === "options") {
       body.child(div().font_weight(700).child("Draw"));
@@ -198,7 +200,8 @@ export default class Solitaire {
         this.press = this.drag = null; cx.notify();
       });
     const spot = (x, y) => div().absolute().left(u(x)).top(u(y)).w(u(CW)).h(u(CH)).border(u(1)).border_color("#004000").rounded(u(3));
-    table.child(spot(12, 10).id("sol-stock").when(this.g.stock.length > 0, el => el.child(this.card(u, 0, false))).when(!this.g.stock.length, el => el.flex().items_center().justify_center().text_size(u(32)).text_color("#004000").child("↻")).on_mouse_down("left", (_e, cx) => { cx.stop_propagation(); this.stock(cx); }));
+    table.child(spot(12, 10).id("sol-stock").when(this.g.stock.length > 0, el => el.child(this.card(u, 0, false))).when(!this.g.stock.length, el => el.flex().items_center().justify_center()
+      .child(svg(`${ASSETS}/icons/sol-redeal.svg`).size(u(32)).text_color("#004000"))).on_mouse_down("left", (_e, cx) => { cx.stop_propagation(); this.stock(cx); }));
     const add = (loc, c, x, y, up = true) => {
       if (this.drag && this.press && this.press.loc.type === loc.type && this.press.loc.i === loc.i && loc.n >= this.press.loc.n) return;
       const selected = this.pick && this.pick.type === loc.type && this.pick.i === loc.i && loc.n >= this.pick.n;

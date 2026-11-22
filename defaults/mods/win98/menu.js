@@ -1,6 +1,6 @@
 // A Win98 popup menu: props { items, parents, start }. Hover opens
 // submenus to the right; a choice closes the whole chain and acts.
-// The Start menu (start: true) has big rows and the Kavex98 banner.
+// The Start menu (start: true) has big rows and the Zaki98 banner.
 
 import { div, svg, image } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
@@ -146,9 +146,9 @@ export default class Menu {
           .flex()
           .items_center()
           .justify_center()
-          .when(Boolean(it.checked), (el) => el.child(svg(`${ASSETS}/icons/check.svg`).w(u(7)).h(u(7)).text_color(fg)))
-          .when(Boolean(it.radio), (el) => el.child(div().w(u(6)).h(u(6)).rounded(u(3)).bg(fg)))
-          .when(Boolean(it.icon) && !it.checked && !it.radio, (el) => el.child(icon(u, it.icon, 16)))
+          .when(Boolean(it.checked), (el) => el.child(svg(`${ASSETS}/icons/check.svg`).size(u(10)).text_color(fg)))
+          .when(Boolean(it.radio), (el) => el.child(svg(`${ASSETS}/icons/radio-on.svg`).size(u(10)).text_color(fg)))
+          .when(Boolean(it.icon) && !it.checked && !it.radio, (el) => el.child(icon(u, it.icon, 16, fg)))
           .when(Boolean(it.img) && !it.icon, (el) => el.child(image(it.img).w(u(16)).h(u(16))));
     return h_flex()
       .id(`mi-${i}`)
@@ -179,7 +179,7 @@ export default class Menu {
           .flex()
           .items_center()
           .justify_center()
-          .when(Boolean(it.sub), (el) => el.child(svg(`${ASSETS}/icons/arrow-right.svg`).w(u(4)).h(u(7)).text_color(fg))),
+          .when(Boolean(it.sub), (el) => el.child(svg(`${ASSETS}/icons/arrow-right.svg`).size(u(10)).text_color(fg))),
       );
   }
 

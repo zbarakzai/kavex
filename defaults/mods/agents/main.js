@@ -6,7 +6,7 @@ import { v_flex, h_flex } from "gpui-base";
 import { agents, terminals, focused, spaces, run, theme, shared, setShared, setAgentOrder, openOverlay, closeOverlay, props, layout } from "herdr";
 import { look, badge, duration, sectionLabel, tile, MONO } from "./look.js";
 import { railTooltip } from "./tooltip.js";
-import { loader } from "./loader.js";
+import { loader, statusIcon } from "./loader.js";
 import { fitRow } from "./fit.js";
 import { dropdown } from "./dropdown.js";
 import { Sessions, hasSession } from "./sessions.js";
@@ -226,7 +226,7 @@ export default class Agents extends View {
 
   status(t, a, compact = false, spinner = true) {
     const k = look(t);
-    if (compact) return a.status === "working" ? loader(t.accent, 2) : div().size(6).mx(1).flex_none().rounded(3).bg((k.status[a.status] ?? k.status.idle).dot);
+    if (compact) return a.status === "working" ? loader(t.accent, 2) : statusIcon(a.status, (k.status[a.status] ?? k.status.idle).dot);
     if (a.status === "working" && spinner) return h_flex().flex_none().gap(6).items_center().child(loader(t.accent)).child(badge(k, a.status));
     return badge(k, a.status);
   }

@@ -2,16 +2,23 @@
 // level, icon, action }); replace this mod to restyle them all. Click to
 // run its action (e.g. go to the agent) and dismiss it.
 
-import { View, div, image } from "gpui-kit";
+import { View, div, image, svg } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
 import { props, closeOverlay, run, theme } from "herdr";
 
-const DOT = { error: "blocked", warning: "working", success: "done", info: "accent" };
+const LEVEL = {
+  __proto__: null,
+  error: ["error", "blocked"],
+  warning: ["warning", "working"],
+  success: ["success", "done"],
+  info: ["info", "accent"],
+};
 
 export default class Toast extends View {
   render(cx) {
     const t = theme();
     const p = props() ?? {};
+    const [icon, color] = LEVEL[p.level] ?? LEVEL.info;
     return h_flex()
       .id("toast")
       .size_full()
@@ -24,7 +31,7 @@ export default class Toast extends View {
         if (p.action?.name) run(p.action.name, p.action.args ?? {});
         closeOverlay(p.overlay);
       })
-      .child(p.icon ? image(p.icon).w(18).h(18).flex_none() : div().size(8).rounded(4).flex_none().bg(t[DOT[p.level] ?? "accent"]))
+      .child(p.icon ? image(p.icon).w(18).h(18).flex_none() : svg(`mods/workspace-chrome/icons/${icon}.svg`).size(16).flex_none().text_color(t[color]))
       .child(
         v_flex()
           .flex_1()

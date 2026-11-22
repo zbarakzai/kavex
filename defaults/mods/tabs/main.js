@@ -3,7 +3,7 @@ import { h_flex, HoverCard } from "gpui-base";
 import { spaces, panes, terminals, machines, knownAgents, run, openOverlay, closeOverlay, theme, window, shared, setShared, layout, settings, nextCommand, home as homeFolder } from "herdr";
 import { GAP, HUES, INNER, away, clicked, columnOrder, failed, gathered, groupOf, home, labeled, landed, moves, nearest, nextColor, pruned, reopening, runs, shows, slotKey, slots } from "./groups.js";
 import { look, groupHue, tabHue, spaced, MONO } from "./look.js";
-import { loader } from "./loader.js";
+import { loader, statusIcon } from "./loader.js";
 import { windowButtons } from "./window-buttons.js";
 
 // The first node with each of these ids, from one walk of the layout (a walk per id cost as much again).
@@ -308,7 +308,7 @@ export default class Tabs extends View {
       })
       .child(this.glyph(program, k, c.active))
       .child(div().max_w(170).truncate().child(c.zoomed ? `${name} Z` : name))
-      .when(Boolean(dot), (el) => el.child(status === "working" ? loader(k.accent, 2) : div().size(6).rounded(3).flex_none().bg(dot)))
+      .when(Boolean(dot), (el) => el.child(status === "working" ? loader(k.accent, 2) : statusIcon(status, dot)))
       .when(c.active, (el) => el.child(h_flex().id(`close-${c.id}`).size(20).flex_none().items_center().justify_center().rounded(6).text_color(k.label).hover((s) => s.bg(k.hover_strong).text_color(k.foreground))
         .on_mouse_down("left", stop).on_click((_e, cx) => { cx.stop_propagation(); run("tab.close", { id: c.id }); }).child(svg("mods/workspace-chrome/icons/close.svg").size(16))));
   }
@@ -325,7 +325,7 @@ export default class Tabs extends View {
       .on_mouse_up("left", (_e, cx) => this.up(cx, () => this.fold(id, s.groups)))
       .child(div().max_w(150).truncate().child(g.name || String(tabs.length)))
       .when(Boolean(g.folded), (el) => el.child(div().font_family(MONO).text_size(11).font_normal().text_color(k.text_faint).child(String(tabs.length)))
-        .when(needs, (el) => el.child(div().size(7).rounded(4).flex_none().bg(k.accent))));
+        .when(needs, (el) => el.child(statusIcon("blocked", k.accent))));
   }
 
   tray({ group: id, tabs }, v) {

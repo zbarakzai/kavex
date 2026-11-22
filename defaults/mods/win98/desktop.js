@@ -44,7 +44,7 @@ export default class Desktop {
       .child(
         div()
           .relative()
-          .child(icon(u, ico, 32))
+          .child(icon(u, ico, 32, C.white))
           .when(on, (el) => el.child(div().absolute().top(0).left(0).size_full().bg("#00008060")))
           .when(Boolean(badge), (el) =>
             el.child(
@@ -52,7 +52,7 @@ export default class Desktop {
                 .absolute()
                 .left(u(-2))
                 .bottom(u(-2))
-                .child(icon(u, badge, 16))
+                .bg(C.navy).child(icon(u, badge, 16, C.white))
                 .when(badge === "warn-badge", (b) => b.loop("opacity", { from: 0, to: 1, period: 900 })),
             ),
           ),

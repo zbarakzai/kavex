@@ -2924,8 +2924,8 @@ pub(crate) fn forget_spins(view: gpui::EntityId) {
 /// Materializes `view`; `may_host`: its spinners may be left to its ShellRoot's
 /// [`spin_layer`]. True when it must be built again at once: something that
 /// may cover a spinner appeared, so they go back inline.
-// HERDR: dots are hosted as spinners are, and also go back inline while
-// anything in the view moves (`dots_inline`, `dots_missed`).
+// HERDR: both loading animations stay inline while a moving element,
+// such as a tab being dragged, may pass in front of them.
 pub(crate) fn build_view<T>(view: gpui::EntityId, may_host: bool, build: impl FnOnce() -> T) -> (T, bool) {
     let hosted = may_host
         && SHOWN.with(|s| s.borrow().contains(&view))
@@ -2941,11 +2941,10 @@ pub(crate) fn build_view<T>(view: gpui::EntityId, may_host: bool, build: impl Fn
     let built = build();
     HOSTED.with(|h| h.set(false));
     DOTS_HOSTED.with(|h| h.set(false));
-    let inline = KEEP_INLINE.with(|o| o.get());
-    let dots_inline = inline || MOVING.with(|o| o.get());
+    let inline = KEEP_INLINE.with(|o| o.get()) || MOVING.with(|o| o.get());
     INLINE.with(|s| if inline { s.borrow_mut().insert(view) } else { s.borrow_mut().remove(&view) });
-    DOTS_INLINE.with(|s| if dots_inline { s.borrow_mut().insert(view) } else { s.borrow_mut().remove(&view) });
-    let dots_missed = dots_hosted && dots_inline && DOT_BUILT.with(|o| o.get());
+    DOTS_INLINE.with(|s| if inline { s.borrow_mut().insert(view) } else { s.borrow_mut().remove(&view) });
+    let dots_missed = dots_hosted && inline && DOT_BUILT.with(|o| o.get());
     (built, (hosted && inline) || dots_missed)
 }
 

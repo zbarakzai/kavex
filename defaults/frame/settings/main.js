@@ -642,7 +642,7 @@ export default class Settings extends View {
 
   machineLine(t, color, name, facts) {
     return h_flex().flex_1().min_w(0).gap(10).items_center()
-      .child(div().size(6).flex_none().rounded(3).bg(color))
+      .child(svg(I("machine")).w(12).h(12).flex_none().text_color(color))
       .child(v_flex().flex_1().min_w(0).gap(2)
         .child(div().text_size(13.5).text_color(t.foreground).child(name))
         .child(div().truncate().font_family(MONO).text_size(10.5).text_color(t.label).child(facts)));
@@ -749,7 +749,8 @@ export default class Settings extends View {
         : u.checking && this.asked
           ? div().px(12).text_size(13).text_color(t.label).child("Checking\u2026")
           : asked
-            ? div().px(12).text_size(13).text_color(t.added).child("\u2713 Up to date")
+            ? h_flex().px(12).gap(6).items_center().text_size(13).text_color(t.added)
+                .child(svg(I("check")).size(16).flex_none()).child("Up to date")
             : this.button(t, id, "Check now", (_e, cx) => {
                 this.asked = Date.now();
                 run("app.check_updates");
@@ -870,7 +871,7 @@ export default class Settings extends View {
       .on_click(onClick)
       .child(svg(I(icon)).size(16).flex_none().text_color(on ? t.accent : t.label))
       .child(div().flex_1().min_w(0).truncate().text_size(13.5).text_color(on ? t.foreground : t.muted).child(title))
-      .when(Boolean(mark), (el) => el.child(div().size(6).flex_none().rounded(3).bg(t.accent)));
+      .when(Boolean(mark), (el) => el.child(svg(I("updates")).w(12).h(12).flex_none().text_color(t.accent)));
   }
 
   render(cx) {

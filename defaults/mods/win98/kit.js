@@ -201,10 +201,11 @@ export function dither(u, color = C.hi) {
 
 // ---- icons
 
-/** A pixel-art icon: 32 px art (name.svg) for big sizes, 16 px (name-sm.svg), 9 px badges (name-xs.svg). */
-export function icon(u, name, size = 16) {
+/** An outline icon at the layout's current scale, including legacy size aliases. */
+export function icon(u, name, size = 16, color) {
   const file = size >= 24 ? name : size >= 12 ? `${name}-sm` : `${name}-xs`;
-  return image(`${ASSETS}/icons/${file}.svg`).flex_none().w(u(size)).h(u(size));
+  return svg(`${ASSETS}/icons/${file}.svg`).flex_none().size(u(size))
+    .when(color !== undefined, (el) => el.text_color(color));
 }
 
 /** A program's icon (the app's table), small: shells are MS-DOS. */
@@ -230,7 +231,7 @@ const GLYPH = { min: "ctl-min", max: "ctl-max", restore: "ctl-restore", close: "
 
 /** One of a title bar's little buttons: min, max, restore, close, help. */
 export function control(u, id, kind, onClick, tooltip) {
-  return button(u, id, svg(`${ASSETS}/icons/${GLYPH[kind]}.svg`).w(u(8)).h(u(7)).text_color(C.text), onClick, {
+  return button(u, id, svg(`${ASSETS}/icons/${GLYPH[kind]}.svg`).size(u(11)).text_color(C.text), onClick, {
     w: 16,
     h: 14,
     pad: [0, 0],
@@ -263,7 +264,8 @@ export function titleBar(u, o) {
     .pr(u(2))
     .gap(u(3))
     .child(active ? gradient(C.navy, C.blue) : gradient(C.inactive, C.inactive2))
-    .when(Boolean(o.icon), (el) => el.child(div().relative().flex_none().child(o.icon)))
+    .when(Boolean(o.icon), (el) => el.child(div().relative().flex_none()
+      .text_color(active ? C.title : C.inactiveText).child(o.icon)))
     .child(
       div()
         .relative()

@@ -566,6 +566,47 @@ fn marker() -> PathBuf {
     crate::mods::app_dir().join(".updated")
 }
 
+/// The Linux installer also registers a copy in the desktop icon theme.
+#[cfg(any(target_os = "linux", test))]
+fn refresh_launcher_icon(root: &Path, data: &Path) -> std::io::Result<bool> {
+    if data.join("kavex").canonicalize().ok().as_deref() != Some(root) {
+        return Ok(false);
+    }
+    let installed = data.join("icons/hicolor/scalable/apps/kavex.svg");
+    if !std::fs::symlink_metadata(&installed).is_ok_and(|meta| meta.is_file()) {
+        return Ok(false);
+    }
+    let previous = beside(root, ".old").join("kavex.svg");
+    let Ok(old) = std::fs::read(previous) else { return Ok(false) };
+    let next = std::fs::read(root.join("kavex.svg"))?;
+    if old == next || std::fs::read(&installed)? != old {
+        return Ok(false);
+    }
+    crate::persist::write_atomic(&installed, next)?;
+    Ok(true)
+}
+
+#[cfg(target_os = "linux")]
+fn refresh_linux_launcher() {
+    let Some(root) = root() else { return };
+    let data = std::env::var_os("XDG_DATA_HOME")
+        .filter(|path| !path.is_empty())
+        .map(PathBuf::from)
+        .unwrap_or_else(|| crate::mods::home().join(".local/share"));
+    match refresh_launcher_icon(&root, &data) {
+        Ok(true) if data.join("icons/hicolor/icon-theme.cache").is_file() => {
+            let _ = std::process::Command::new("gtk-update-icon-cache")
+                .args(["-f", "-t"])
+                .arg(data.join("icons/hicolor"))
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null())
+                .status();
+        }
+        Err(err) => tracing::warn!("update: cannot refresh the launcher icon: {err}"),
+        _ => {}
+    }
+}
+
 /// The first start after an app update brings the core to the latest release
 /// of this app's generation (`hc update --version`, terminals kept). If the
 /// release check fails or offers another generation, keep the minimum pin.
@@ -576,6 +617,8 @@ pub fn after_update() {
         return;
     }
     std::thread::spawn(|| {
+        #[cfg(target_os = "linux")]
+        refresh_linux_launcher();
         let have = crate::core_bin::version(&crate::core_bin::path()).unwrap_or_default();
         CORE.lock().unwrap().updating = true;
         let latest = latest_core().map_err(|e| tracing::warn!("core release check after app update: {e}")).ok();
@@ -603,6 +646,26 @@ pub fn after_update() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn replacing_an_installer_icon_preserves_user_overrides() {
+        let data = std::env::temp_dir().canonicalize().unwrap().join(format!("kavex-icon-test-{}", std::process::id()));
+        let root = data.join("kavex");
+        let previous = beside(&root, ".old");
+        let installed = data.join("icons/hicolor/scalable/apps/kavex.svg");
+        for dir in [&root, &previous, installed.parent().unwrap()] {
+            std::fs::create_dir_all(dir).unwrap();
+        }
+        std::fs::write(previous.join("kavex.svg"), "old outline").unwrap();
+        std::fs::write(root.join("kavex.svg"), "new outline").unwrap();
+        std::fs::write(&installed, "old outline").unwrap();
+        assert!(refresh_launcher_icon(&root, &data).unwrap());
+        assert_eq!(std::fs::read_to_string(&installed).unwrap(), "new outline");
+        std::fs::write(&installed, "personal").unwrap();
+        assert!(!refresh_launcher_icon(&root, &data).unwrap());
+        assert_eq!(std::fs::read_to_string(&installed).unwrap(), "personal");
+        std::fs::remove_dir_all(data).unwrap();
+    }
 
     #[test]
     fn startup_applies_only_a_newer_version_and_never_relaunches_twice() {

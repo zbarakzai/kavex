@@ -285,7 +285,7 @@ export default class TabsColumn extends View {
       .child(div().min_w(0).truncate().text_size(13.5).font_semibold().text_color(hue.text).child(g.name || "Group"))
       .child(div().flex_none().font_family(MONO).text_size(11).child(String(tabs.length)))
       .child(div().flex_1())
-      .when(needs, (el) => el.child(div().size(7).flex_none().rounded(999).bg(k.status.blocked.dot)))
+      .when(needs, (el) => el.child(svg("mods/workspace-chrome/icons/warning.svg").w(10).h(10).flex_none().text_color(k.status.blocked.dot)))
       .child(div().flex_none().font_family(MONO).text_size(10.5).child(`${done}/${tabs.length}`))
       .when(this.cursor === groupStop(id), (el) => el.child(ring(k.accent, 2, 9)));
   }

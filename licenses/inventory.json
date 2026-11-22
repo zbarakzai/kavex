@@ -129,35 +129,14 @@
       ]
     },
     {
-      "name": "Lucide / Feather icons (defaults/icons)",
-      "source": "https://github.com/lucide-icons/lucide",
-      "files": [
-        "defaults/icons/LICENSE-Lucide.txt"
-      ]
-    },
-    {
-      "name": "Heroicons Folder Open",
-      "source": "https://github.com/tailwindlabs/heroicons/blob/v2.2.0/optimized/16/solid/folder-open.svg",
+      "name": "Heroicons v2.2.0 (24px Outline)",
+      "source": "https://github.com/tailwindlabs/heroicons/tree/v2.2.0/optimized/24/outline",
       "files": [
         "defaults/icons/LICENSE-Heroicons.txt"
       ]
     },
     {
-      "name": "LobeHub icons",
-      "source": "https://github.com/lobehub/lobe-icons",
-      "files": [
-        "defaults/icons/LICENSE-LobeHub.txt"
-      ]
-    },
-    {
-      "name": "Simple Icons brand icons",
-      "source": "https://simpleicons.org; brands remain their owners' trademarks.",
-      "files": [
-        "licenses/CC0-1.0.txt"
-      ]
-    },
-    {
-      "name": "Symbols file and folder icons",
+      "name": "Symbols file and folder associations",
       "source": "https://github.com/miguelsolorio/vscode-symbols/tree/a405d32cca082d838ad7739b6d0044dea9dbbb79",
       "files": [
         "defaults/mods/files/symbols/LICENSE"

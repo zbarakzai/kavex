@@ -4578,15 +4578,17 @@ impl AppWindow {
             .child(
                 div()
                     .id("update-dismiss")
+                    .group("update-dismiss")
                     .size(settings::z(24.0))
                     .flex()
                     .items_center()
                     .justify_center()
                     .rounded_full()
                     .cursor_pointer()
-                    .text_color(c("dim"))
-                    .hover(|s| s.bg(c("raised")).text_color(c("foreground")))
-                    .child("×")
+                    .hover(|s| s.bg(c("raised")))
+                    .child(svg().data(include_bytes!("../defaults/mods/workspace-chrome/icons/close.svg"))
+                        .size(settings::z(16.0)).text_color(c("dim"))
+                        .group_hover("update-dismiss", |s| s.text_color(c("foreground"))))
                     .on_click(cx.listener(move |this, _, _, cx| {
                         this.update_dismissed = Some(dismissal.clone());
                         cx.notify();

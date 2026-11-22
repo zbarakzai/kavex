@@ -1,3 +1,4 @@
-<svg width="25" height="24" viewBox="0 0 25 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-<path d="M18.9222 20H4.33643V4H18.9222L11.6293 11.2929L10.9222 12L11.6293 12.7071L18.9222 20Z" stroke="#A855F7" stroke-width="2"/>
+<!-- Heroicons v2.2.0 · 24/outline/code-bracket.svg -->
+<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true" data-slot="icon">
+  <path stroke-linecap="round" stroke-linejoin="round" d="M17.25 6.75 22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3-4.5 16.5"/>
 </svg>

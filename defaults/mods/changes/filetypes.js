@@ -1,5 +1,5 @@
 // Files and Changes keep identical helpers so each mod can load within its own folder.
-import { image } from "gpui-kit";
+import { svg } from "gpui-kit";
 import theme from "./symbols-theme.js";
 
 function lowercaseKeys(associations) {
@@ -37,9 +37,9 @@ export function folderIconPath(path) {
 }
 
 export function fileIcon(path) {
-  return image(fileIconPath(path)).size(16).flex_none();
+  return svg(fileIconPath(path)).size(16).flex_none();
 }
 
 export function folderIcon(path) {
-  return image(folderIconPath(path)).size(16).flex_none();
+  return svg(folderIconPath(path)).size(16).flex_none();
 }
