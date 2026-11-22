@@ -388,25 +388,25 @@ struct Drag {
 }
 
 const SIDEBAR_EXPANDED: f32 = 200.0;
+const SIDEBAR_RAIL: f32 = 48.0;
 const SIDEBAR_PULL: f32 = 12.0;
 
 struct SidebarResize {
-    rail: f32,
     offset: f32,
 }
 
 impl SidebarResize {
-    fn new(width: f32, rail: f32) -> Self {
+    fn new(width: f32) -> Self {
         // From the rail, a short outward pull opens the labeled sidebar at
         // its smallest width. Further motion resizes from that starting point.
-        let offset = if width <= rail { SIDEBAR_EXPANDED - rail - SIDEBAR_PULL } else { 0.0 };
-        Self { rail, offset }
+        let offset = if width <= SIDEBAR_RAIL { SIDEBAR_EXPANDED - SIDEBAR_RAIL - SIDEBAR_PULL } else { 0.0 };
+        Self { offset }
     }
 
     fn width(&self, requested: f32, available: f32) -> f32 {
         let width = requested + self.offset;
         if width < SIDEBAR_EXPANDED || available < SIDEBAR_EXPANDED {
-            self.rail.min(available)
+            SIDEBAR_RAIL.min(available)
         } else {
             width.min(available)
         }
@@ -4388,12 +4388,11 @@ impl AppWindow {
         let sidebar = self.layout_name == "main" && container == self.chrome.id && axis == Axis::Row && a_id == "sidebar";
         let mut sidebar_mode_changed = false;
         if sidebar {
-            let rail = if cfg!(target_os = "macos") { 76.0 } else { 44.0 };
             let old_width = match sa { Some(Span::Px { px }) => px, _ => la };
             let available = (total - 24.0).min(a.max.unwrap_or(f32::INFINITY));
             if let Some(drag) = &mut self.drag {
-                new_a = drag.sidebar.get_or_insert_with(|| SidebarResize::new(old_width, rail)).width(new_a, available);
-                sidebar_mode_changed = (old_width <= rail) != (new_a <= rail);
+                new_a = drag.sidebar.get_or_insert_with(|| SidebarResize::new(old_width)).width(new_a, available);
+                sidebar_mode_changed = (old_width <= SIDEBAR_RAIL) != (new_a <= SIDEBAR_RAIL);
             }
         }
         let Some(parent) = self.find_node_mut(&container) else { return };
@@ -5142,19 +5141,18 @@ mod tests {
 
     #[test]
     fn sidebar_drag_snaps_between_the_rail_and_the_labeled_sidebar() {
-        for rail in [44.0, 76.0] {
-            let inward = super::SidebarResize::new(230.0, rail);
-            assert_eq!(inward.width(200.0, 480.0), 200.0);
-            assert_eq!(inward.width(199.0, 480.0), rail);
-            assert_eq!(inward.width(160.0, 480.0), rail);
+        let rail = super::SIDEBAR_RAIL;
+        let inward = super::SidebarResize::new(230.0);
+        assert_eq!(inward.width(200.0, 480.0), 200.0);
+        assert_eq!(inward.width(199.0, 480.0), rail);
+        assert_eq!(inward.width(160.0, 480.0), rail);
 
-            let outward = super::SidebarResize::new(rail, rail);
-            assert_eq!(outward.width(rail + 11.0, 480.0), rail);
-            assert_eq!(outward.width(rail + 12.0, 480.0), 200.0);
-            assert_eq!(outward.width(rail + 42.0, 480.0), 230.0);
-            assert_eq!(outward.width(rail + 11.0, 480.0), rail);
-            assert_eq!(outward.width(300.0, 190.0), rail);
-        }
+        let outward = super::SidebarResize::new(rail);
+        assert_eq!(outward.width(rail + 11.0, 480.0), rail);
+        assert_eq!(outward.width(rail + 12.0, 480.0), 200.0);
+        assert_eq!(outward.width(rail + 42.0, 480.0), 230.0);
+        assert_eq!(outward.width(rail + 11.0, 480.0), rail);
+        assert_eq!(outward.width(300.0, 190.0), rail);
     }
 
     #[gpui::test]

@@ -3,7 +3,7 @@
 
 import { View, div, image, svg } from "gpui-kit";
 import { v_flex, h_flex, HoverCard } from "gpui-base";
-import { agents, terminals, focused, spaces, run, theme, shared, setShared, setAgentOrder, openOverlay, closeOverlay, props, window, layout } from "herdr";
+import { agents, terminals, focused, spaces, run, theme, shared, setShared, setAgentOrder, openOverlay, closeOverlay, props, layout } from "herdr";
 import { look, badge, duration, sectionLabel, tile, MONO } from "./look.js";
 import { loader } from "./loader.js";
 import { fitRow } from "./fit.js";
@@ -22,15 +22,6 @@ function find(node, id) {
 
 // The sidebar's rail goes by its width, not a flag: dragging its edge narrows it too.
 const narrow = () => (find(layout(), "sidebar")?.size?.px ?? Infinity) < 160;
-
-// To the rail (on macOS wide enough for the traffic lights), or back to the width it had.
-function toggleSidebar() {
-  const width = find(layout(), "sidebar")?.size?.px;
-  if (!narrow()) setShared("sidebar.width", width);
-  // Mods edited before the rail went by width still read the flag.
-  setShared("sidebar.collapsed", !narrow());
-  run("layout.resize", { id: "sidebar", px: narrow() ? (shared("sidebar.width") ?? 230) : window()?.platform === "macos" ? 76 : 44 });
-}
 
 // The scrollbar's lane (gpui-kit's 16 px track) at the list's right edge. The rows always stop
 // short of it, so the bar never covers their percent, time and badge; the narrow rail keeps the whole width.
@@ -311,12 +302,13 @@ export default class Agents extends View {
       if (collapsed) {
         const name = a.program?.name || a.tab_name || "Agent";
         const label = [...new Set([name, a.space_name, machine].filter(Boolean))].join(" · ");
-        const button = h_flex().id(`ag-${a.address}`).h(32).w_full().flex_none()
-          .items_center().justify_center().rounded(8).accessibility_label(label).cursor_pointer()
-          .when(a.focused, (el) => el.bg(t.selected))
-          .hover((el) => el.bg(t.hover))
+        const button = h_flex().id(`ag-${a.address}`).size(30).flex_none()
+          .items_center().justify_center().rounded(6).accessibility_label(label).cursor_pointer()
+          .border_1().border_color(a.focused ? k.chip_active_ring : k.clear)
+          .when(a.focused, (el) => el.bg(k.chip_active))
+          .hover((el) => el.bg(k.hover_strong))
           .on_click(() => run("pane.focus", { pane: a.pane }))
-          .child(tile(a.program, 26, k));
+          .child(icon(a.program, 16, a.focused ? k.foreground : k.muted));
         return this.railTip(`agent-${a.address}`, label, button, k);
       }
       const when = this.since(a);
@@ -420,6 +412,8 @@ export default class Agents extends View {
       .size_full()
       .min_h(0)
       .text_size(13)
+      .when(collapsed, (el) => el.child(h_flex().h(14).mt(12).mb(4).flex_none().justify_center().items_center()
+        .child(div().id("agent-rail-label").font_family(MONO).text_size(9).text_color(k.label).child("AGENTS"))))
       .when(!collapsed, (el) =>
         el.child(
           h_flex()
@@ -446,20 +440,17 @@ export default class Agents extends View {
       .when(list.length === 0 && !collapsed, (el) =>
         el.child(div().px(10).text_size(12).text_color(k.label).child("No agent status yet. Agents show up here when they report their status. Older versions and agents inside tmux may not.")),
       )
-      .child(v_flex().id("ag-list").flex_1().min_h(0).overflow_y_scrollbar().mode("always")
+      .child(v_flex().id("ag-list").flex_1().min_h(0)
+        .when(collapsed, (el) => el.overflow_y_scroll())
+        .when(!collapsed, (el) => el.overflow_y_scrollbar().mode("always"))
         .on_size_change((size, cx) => {
           if (Math.round(size.width) === this.listWidth) return;
           this.listWidth = Math.round(size.width);
           cx.notify();
         })
-        .child(v_flex().id("ag-rows").flex_none().gap(2).when(!collapsed, (el) => el.pr(BAR)).children(rows)))
-      .when(collapsed, (el) =>
-        el.child(h_flex().h(28).items_center().justify_center()
-          .child(this.railTip("collapse", "Expand sidebar",
-            h_flex().id("collapse").size(26).items_center().justify_center().rounded(7)
-              .accessibility_label("Expand sidebar").cursor_pointer().text_color(k.muted)
-              .hover((s) => s.bg(k.hover).text_color(k.foreground)).on_click(toggleSidebar)
-              .child(svg("mods/workspace-chrome/icons/sidebar.svg").size(16)), k))),
-      );
+        .child(v_flex().id("ag-rows").flex_none().gap(2)
+          .when(collapsed, (el) => el.items_center())
+          .when(!collapsed, (el) => el.pr(BAR))
+          .children(rows)));
   }
 }

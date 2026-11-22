@@ -334,7 +334,7 @@ be undone. Cmd-click (Ctrl-click) a line opens it in Cursor, VS Code or Zed,
 else the system's app. Commit takes what's staged, or everything if nothing is, by its
 button, Enter or `cmd-enter` (`ctrl-enter`).
 
-The three-dot **More actions** menu beside **Settings** in the sidebar footer offers
+In the expanded sidebar footer, the three-dot **More actions** menu beside **Settings** offers
 **Add machine** and **Customize**. Use ↑ or ↓ and Enter to choose an action.
 An orange dot on the menu button points to a skill update inside.
 
@@ -639,9 +639,9 @@ Sidebar on the right: move `sidebar` to the end of `root`'s children. No sidebar
 `"hidden": true` on `sidebar` (the user can toggle it: `ctrl-shift-b`).
 In the Kavex layout, drag the sidebar divider inward past 200px to snap to the
 icon rail. Pull it outward to reopen at 200px, then keep dragging to resize.
-Hover a workspace or agent avatar to see its name. The rail is 44px wide
-(76px on macOS, to fit the traffic lights). A saved or programmatic width
-between the rail and 200px settles to the nearer one once it holds still.
+The 48px rail separates **Spaces** and **Agents**. Hover an avatar to see its
+name. Use **+** to add a space and the bottom gear for **Settings**. A saved
+or programmatic width below 200px settles to the rail or 200px once it holds still.
 
 ### Layouts and mods other people made
 

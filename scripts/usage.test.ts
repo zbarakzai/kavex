@@ -338,12 +338,12 @@ test("More actions offers only Add machine and Customize when Usage has a dedica
   expect(words(footerMenu().draw())).toEqual(["Add machine", "Customize"]);
 });
 
-test("the narrow rail keeps both actions inside its available width", () => {
+test("the collapsed sidebar footer shows only Settings", () => {
   state.sidebar = 44;
-  const f = footer(), root = f.draw();
-  expect(arg(byId(root, "settings")!, "w") + arg(byId(root, "footer-more")!, "w")).toBeLessThanOrEqual(36);
-  press(f, "footer-more");
-  expect(words(footerMenu().draw())).toContain("Customize");
+  const root = footer().draw();
+  expect(byId(root, "footer-more")).toBeUndefined();
+  const settings = byId(root, "settings")!;
+  expect([arg(settings, "w"), arg(settings, "h")]).toEqual([30, 30]);
 });
 
 test("the dropdown opens above the footer and Usage limits opens beside the buttons", () => {
