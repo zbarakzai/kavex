@@ -377,7 +377,7 @@ fn tabs_leave_room_for_macos_traffic_lights(cx: &mut TestAppContext) {
 }
 
 #[gpui::test]
-fn app_drawn_tab_buttons_use_matching_vector_icons(cx: &mut TestAppContext) {
+fn windows_tab_buttons_use_matching_vector_icons(cx: &mut TestAppContext) {
     cx.update(gpui_shell::init);
     let staged = Staged::new();
     for platform in ["windows", "linux"] {
@@ -385,8 +385,13 @@ fn app_drawn_tab_buttons_use_matching_vector_icons(cx: &mut TestAppContext) {
             let mut values = fixture(true, props(), updates("current", "current"));
             values.insert("window".into(), json!({"platform":platform,"buttons":true,"maximized":maximized}));
             let tree = describe_with_values(cx, &staged, "mods/tabs", values, None).unwrap();
-            for icon in ["win-minimize.svg", if maximized { "win-restore.svg" } else { "win-maximize.svg" }, "win-close.svg"] {
-                assert!(tree.contains(icon), "missing {icon}: {tree}");
+            if platform == "windows" {
+                for icon in ["win-minimize.svg", if maximized { "win-restore.svg" } else { "win-maximize.svg" }, "win-close.svg"] {
+                    assert!(tree.contains(icon), "missing {icon}: {tree}");
+                }
+            } else {
+                assert!(!tree.contains("mods/workspace-chrome/icons/win-"), "{tree}");
+                assert!(tree.contains("mods/workspace-chrome/icons/close.svg"), "{tree}");
             }
         }
     }

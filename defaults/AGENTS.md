@@ -80,7 +80,7 @@ first frame or during GPU recovery it reports an error instead of a PNG.
 | `settings.json` | the person: zoom, sounds, fonts for every layout | live |
 | `mods/<name>/` | panels: small JavaScript programs | live (hot reload) |
 | `programs.json` | how programs show (name, icon, tile), on top of the built-in table | live |
-| `icons/` | the shipped program and file type icons | written by Kavex (put your own elsewhere) |
+| `icons/` | the shipped program and file type logos | written by Kavex (put your own elsewhere) |
 | `frame/` | the app's own screens (welcome, ...) | rewritten by Kavex on every start: don't edit, it won't stick |
 | `skills/`, `skills.json` | skills installed from Customize → Skills: one copy each, and where each came from | written by Kavex (see Skills) |
 | `view.json` | this screen's selected space/tab/pane, zoom, settled tabs, recent spaces and seen attention | written by Kavex |
@@ -285,7 +285,7 @@ The + menu shows the last detected agents for the active machine while it checks
 On the first check for a machine, it shows “Checking installed agents…”. Each number keeps
 its agent for as long as the menu is open.
 
-The Files and Changes trees show Heroicons outlines for file names, extensions and folder
+The Files and Changes trees show full-color Symbols icons for file names, extensions and folder
 names, with generic icons for unknown entries. Files supports Windows folder paths with spaces,
 parentheses and apostrophes. Right-click a file,
 a folder or the empty space under them (the `file-menu` mod, whose rows run `files.<id>`): New
@@ -1003,10 +1003,11 @@ has 120 programs (agents, editors, runtimes, tools, databases, infra);
   last copy left them, so keep per-copy state on the View (`this`).
 - Images and SVGs are referenced from `~/.config/kavex`:
   `image("mods/<name>/logo.svg")` (full color), `svg("mods/<name>/icon.svg")`
-  (tinted with the text color). Kavex ships Heroicons 24px outline SVGs for every mod:
-  `svg("mods/workspace-chrome/icons/plus.svg")`, in any layout, shown or not. Use 16 for
-  controls, 12 for small chevrons and status indicators, and 20 for larger tiles such as the
-  welcome screen's. Program and file type icons under `icons/` use the same outline set.
+  (tinted with the text color). Kavex's interface icons are for every mod:
+  `svg("mods/workspace-chrome/icons/plus.svg")`, in any layout, shown or not. They come in
+  three sizes, each a fixed step: 16 everywhere, 12 for the small arrows on pills and folders,
+  and 20 only inside a big tile, like the welcome screen's. Their art leaves a margin, so a logo
+  with none, from `icons/`, stays at 14 to look the same.
   Icon paths from before that folder still work for this release only, and so does the
   `workspace-status` mod, for layouts cloned before the status bar went.
 - The defaults are mods too, read them as examples: `spaces`, `agents`,
@@ -1102,15 +1103,15 @@ Rules:
   the whole window, so `cx.timer.every(90, () => cx.notify())` for a
   spinner costs real battery. Use `.frames(["⠋", "⠙", …], 90)` (shows
   each string in turn as the element's text), `svg(arc).spin(900)` (turns
-  an icon once every 900 ms: a loading icon, e.g.
+  an icon once every 900 ms: a ring spinner, e.g.
   `mods/workspace-chrome/icons/spinner.svg`), or `.loop("opacity", { from:
   0.4, to: 1, period: 1200 })` (also width, height, left, top; `{ values:
   [0.1, 1, 0.4], period: 2400 }` runs through stops instead, in straight
   lines back to the first), and `.transition(...)` for changes: they run
   without your script and stop when not shown. Timers are for data (a clock,
   a fetch), and only as often as what they show changes. Kavex's own loading
-  look is `loader(color)` in `mods/agents/loader.js`, a spinning
-  Heroicons outline. Copy the helper into your mod to use it.
+  look is `loader(color)` in `mods/agents/loader.js`, ten dots built from
+  `.loop`: copy the file into your mod to show the same.
 
 ### UI
 

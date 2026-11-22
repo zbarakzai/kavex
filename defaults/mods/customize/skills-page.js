@@ -271,7 +271,7 @@ export class SkillsPage {
     const doing = this.doing(t, item.name);
     if (doing && (item.kind === "kavex" || (item.kind === "catalog" && this.standing(item.e).is === "free"))) return doing;
     if (item.kind === "kavex") {
-      if (item.update) return svg(I("updates")).w(12).h(12).mr(4).flex_none().text_color(t.accent);
+      if (item.update) return div().size(7).mr(4).rounded(4).bg(t.accent);
       return svg(I("check")).size(16).flex_none().text_color(item.s.enabled === false ? t.dim : t.label);
     }
     if (item.kind === "catalog") {

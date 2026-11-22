@@ -1,6 +1,6 @@
 // First-run welcome over the live app; records finished/skipped in frame.welcomed.
 
-import { View, div, svg } from "gpui-kit";
+import { View, div, svg, image } from "gpui-kit";
 import { v_flex, h_flex, Scrollbar } from "gpui-base";
 import { spaces, run, theme, props, closeOverlay, setShared, shared, hc, appHome, readTextFile, writeTextFile, settings, layout, keys } from "herdr";
 
@@ -184,7 +184,7 @@ export default class Welcome extends View {
   }
 
   sizeControl(t) {
-    const step = (id, icon, cmd) =>
+    const step = (id, label, cmd) =>
       div()
         .id(id)
         .w(28)
@@ -199,7 +199,7 @@ export default class Welcome extends View {
         .hover((s) => s.bg(t.hover).text_color(t.foreground))
         .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
         .on_click(() => run(cmd))
-        .child(svg(I(icon)).size(16));
+        .child(label);
     return h_flex()
       .p(2)
       .gap(2)
@@ -208,9 +208,9 @@ export default class Welcome extends View {
       .border_1()
       .border_color(t.border)
       .bg(t.chrome)
-      .child(step("w-zoom-out", "minus", "app.zoom_out"))
+      .child(step("w-zoom-out", "\u2212", "app.zoom_out"))
       .child(div().w(44).text_size(12.5).text_color(t.foreground).flex().justify_center().child(`${Math.round((settings().zoom ?? 1) * 100)}%`))
-      .child(step("w-zoom-in", "plus", "app.zoom_in"));
+      .child(step("w-zoom-in", "+", "app.zoom_in"));
   }
 
   feature(t, icon, title, body) {
@@ -493,7 +493,7 @@ export default class Welcome extends View {
           .items_center()
           .border_b(1)
           .border_color(t.border)
-          .child(svg(I("logo")).size(20).flex_none().text_color(t.accent))
+          .child(image("frame/welcome/kavex.png").w(24).h(24).rounded(6).flex_none())
           .child(div().text_size(14).font_semibold().text_color(t.foreground).child("Welcome to Kavex"))
           .child(div().px(6).py(0.5).rounded(5).border_1().border_color(t.input).text_color(t.muted).text_size(10.5).font_semibold().child("BETA"))
           .child(div().flex_1())

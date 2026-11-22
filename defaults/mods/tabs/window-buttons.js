@@ -14,14 +14,14 @@ const stop = (_e, cx) => cx.stop_propagation();
 
 // The three buttons in a row, for the end of the tab bar.
 export function windowButtons(k) {
-  const w = window();
+  const w = window(), native = w.platform === "windows";
   const icon = (name) => svg(`mods/workspace-chrome/icons/${name}.svg`).size(16);
   // A press is the button's, not the draggable bar's: a right one there opens the system's window menu.
   const button = (id, glyph, command) => div().id(id).size(SIZE).flex_none().flex().items_center().justify_center().rounded(8).text_color(k.muted)
     .on_mouse_down("left", stop).on_mouse_down("right", stop).on_click(() => run(command)).child(glyph);
   const quiet = (s) => s.bg(k.hover_strong).text_color(k.foreground);
   return h_flex().id("window-buttons").flex_none().gap(GAP).items_center()
-    .child(button("minimize", icon("win-minimize"), "window.minimize").hover(quiet))
-    .child(button("maximize", icon(w.maximized ? "win-restore" : "win-maximize"), "window.maximize").hover(quiet))
-    .child(button("close-window", icon("win-close"), "window.close").hover((s) => s.bg(CLOSE).text_color(CLOSE_TEXT)));
+    .child(button("minimize", native ? icon("win-minimize") : "−", "window.minimize").hover(quiet))
+    .child(button("maximize", native ? icon(w.maximized ? "win-restore" : "win-maximize") : "□", "window.maximize").hover(quiet))
+    .child(button("close-window", icon(native ? "win-close" : "close"), "window.close").hover((s) => s.bg(CLOSE).text_color(CLOSE_TEXT)));
 }

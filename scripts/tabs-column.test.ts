@@ -176,15 +176,14 @@ test("a tab with several agents shows the fullest", () => {
 
 test("a working tab shows the loader in the theme's accent, played natively, beside its badge", () => {
   state.tabs = [tab("a", { active: true }), tab("w", { status: "working" })];
-  const root = column().draw();
-  const animated = all(byId(root, "column-w")!).filter((e) => has(e, "spin"));
-  expect(animated).toHaveLength(1);
-  const [loader] = animated;
-  expect(arg(loader, "path")).toBe("mods/workspace-chrome/icons/spinner.svg");
-  expect(arg(loader, "text_color")).toBe(colors.accent);
-  expect(arg(loader, "spin")).toBe(900);
+  const root = column().draw(), dots = all(byId(root, "column-w")!).filter((e) => has(e, "loop"));
+  expect(dots.length).toBe(10);
+  for (const dot of dots) {
+    expect(arg(dot, "bg")).toBe(colors.accent);
+    expect(dot.calls.find(([k]) => k === "loop")![1][1].values.length).toBe(9);
+  }
   expect(all(byId(root, "column-w")!).some((e) => e.kids.some((k) => mine(k) && text(mine(k)!) === "W"))).toBe(true);
-  expect(all(byId(root, "column-a")!).some((e) => has(e, "spin"))).toBe(false);
+  expect(all(byId(root, "column-a")!).some((e) => has(e, "loop"))).toBe(false);
 });
 
 test("backgrounds ease over 120ms", () => {
@@ -192,21 +191,21 @@ test("backgrounds ease over 120ms", () => {
   expect(sheet.calls.find(([k]) => k === "transition")![1]).toEqual(["opacity", 120]);
 });
 
-test("a group's header: name in its color, hover, and the warning icon when one needs you", () => {
+test("a group's header: name in its color, hover, and the orange dot when one needs you", () => {
   const root = column().draw(), head = byId(root, "column-fold-blue")!;
   expect([arg(head, "h"), arg(head, "pl"), arg(head, "pr"), arg(head, "gap"), arg(head, "rounded")]).toEqual([30, 8, 10, 8, 9]);
   expect(has(head, "bg")).toBe(false);
   expect([arg(head, "text_color"), arg(head.hover!, "bg"), arg(head.hover!, "text_color")]).toEqual(["#8E8E8E", "#1C1C1C", "#CFCFCF"]);
   expect(arg(nameOf(head), "text_color")).toBe("#8C9CF5");
   expect([arg(nameOf(head), "text_size"), has(nameOf(head), "font_semibold")]).toEqual([13.5, true]);
-  const warning = (e: El) => all(e).find((x) => arg(x, "path") === "mods/workspace-chrome/icons/warning.svg");
-  expect(arg(warning(head)!, "text_color")).toBe("#EC6F3E");
-  expect(warning(byId(root, "column-fold-shut")!)).toBeUndefined();
+  const dot = (e: El) => all(e).find((x) => arg(x, "size") === 7);
+  expect(arg(dot(head)!, "bg")).toBe("#EC6F3E");
+  expect(dot(byId(root, "column-fold-shut")!)).toBeUndefined();
 });
 
-test("a failed tab doesn't show the needs-you warning", () => {
+test("a failed tab doesn't light the dot: failed isn't needs you", () => {
   state.terminals = [{ address: "t-d", status: "error" }];
-  expect(all(byId(column().draw(), "column-fold-blue")!).find((x) => arg(x, "path") === "mods/workspace-chrome/icons/warning.svg")).toBeUndefined();
+  expect(all(byId(column().draw(), "column-fold-blue")!).find((x) => arg(x, "size") === 7)).toBeUndefined();
 });
 
 test("a picked row's ring isn't orange: that color means you", () => {

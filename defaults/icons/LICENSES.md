@@ -1,14 +1,10 @@
 # Icons
 
-Kavex's built-in interface, program and file type icons use the
-[Heroicons v2.2.0 24px outline SVGs](https://github.com/tailwindlabs/heroicons/tree/v2.2.0/optimized/24/outline)
-under the [MIT License](LICENSE-Heroicons.txt).
+- Brand icons: Simple Icons (https://simpleicons.org), CC0 1.0. Brands are their owners' trademarks.
+- Glyphs (terminal, bot, search, activity, ...): Lucide (https://lucide.dev), ISC, with MIT-licensed Feather-derived icons. Full notices: [LICENSE-Lucide.txt](LICENSE-Lucide.txt).
+- Open recent project (`folder-open.svg`): Heroicons 2.2.0, MIT. Full notice in [LICENSE-Heroicons.txt](LICENSE-Heroicons.txt).
+- Agent icons: from LobeHub icons (MIT) and the agents' own marks. Full notice: [LICENSE-LobeHub.txt](LICENSE-LobeHub.txt).
 
-Each SVG names its upstream icon in a comment. Existing asset paths are kept
-for layouts and mods. Some glyphs are rotated to match the direction of a
-panel, and launcher assets use the same outline on a platform icon tile.
+The interface icons in defaults/mods/workspace-chrome/icons/ are original artwork made for Kavex and are licensed under the Apache License 2.0, the same as the rest of this repository. They are not derived from Lucide, Heroicons or any other icon set.
 
-Files and Changes use the Symbols project’s MIT-licensed file and folder
-name associations to pick the appropriate outline.
-
-The release's THIRD-PARTY-NOTICES includes the full license.
+The release's THIRD-PARTY-NOTICES includes these notices and the full CC0 text. Trademark rights are not granted by these licenses.

@@ -285,7 +285,7 @@ export default class Dialog {
   }
 
   radio(u, id, text, on, fn) {
-    const dot = svg(`${ASSETS}/icons/radio-${on ? "on" : "off"}.svg`).flex_none().size(u(12)).text_color(C.text);
+    const dot = image(`${ASSETS}/icons/radio-${on ? "on" : "off"}.svg`).flex_none().w(u(12)).h(u(12));
     return h_flex()
       .id(`radio-${id}`)
       .gap(u(6))
@@ -299,7 +299,7 @@ export default class Dialog {
   }
 
   check(u, id, text, on, fn) {
-    const box = bevel(u, "field", div().size_full().flex().items_center().justify_center().when(on, (el) => el.child(svg(`${ASSETS}/icons/check.svg`).size(u(10)).text_color(C.text))), { bg: C.white })
+    const box = bevel(u, "field", div().size_full().flex().items_center().justify_center().when(on, (el) => el.child(svg(`${ASSETS}/icons/check.svg`).w(u(7)).h(u(7)).text_color(C.text))), { bg: C.white })
       .w(u(13))
       .h(u(13))
       .flex_none();
@@ -405,7 +405,7 @@ export default class Dialog {
             h_flex()
               .flex_1()
               .child(div().flex_1().child(this.input(u, this.text)))
-              .child(button(u, "dlg-hist", svg(`${ASSETS}/icons/arrow-down.svg`).size(u(10)).text_color(C.text), () => {
+              .child(button(u, "dlg-hist", svg(`${ASSETS}/icons/arrow-down.svg`).w(u(7)).h(u(4)).text_color(C.text), () => {
                 const hist = shared("win98.run") ?? [];
                 const i = hist.indexOf(this.text);
                 this.text = hist[(i + 1) % Math.max(1, hist.length)] ?? "";

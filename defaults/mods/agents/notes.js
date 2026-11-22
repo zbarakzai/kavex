@@ -229,7 +229,7 @@ export class TerminalNotes {
       .cursor_pointer().hover((el) => el.bg(t.row_active_hover ?? t.hover))
       .child(ui.h_flex().w(22).h_full().flex_none().items_center().gap(5)
         .child(div().w(2).h(note.comment ? 26 : 17).rounded(1).when(active, (el) => el.bg(t.accent)))
-        .child(svg("mods/workspace-chrome/icons/chevron-right.svg").size(12).flex_none().text_color(active ? accent : t.muted)))
+        .child(div().font_family(MONO).text_size(16).text_color(active ? accent : t.muted).child("›")))
       .child(ui.v_flex().flex_1().min_w(0).gap(3)
         .when(Boolean(note.comment), (el) => el.child(div().truncate().text_size(13).font_medium()
           .line_height("18px").child(firstLine(note.comment))))

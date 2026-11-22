@@ -7,6 +7,7 @@ mock.module("gpui-kit", () => ({ div: element, image: element, svg: element }));
 mock.module("gpui-base", () => ({ h_flex: element, v_flex: element }));
 mock.module("herdr", () => ({ layout: () => null, run: () => {}, shared: () => null }));
 const { look, groupHue } = await import("../defaults/mods/spaces/look.js");
+const { DOTS } = await import("../defaults/mods/agents/loader.js");
 const { fileIconPath, folderIconPath } = await import("../defaults/mods/files/filetypes.js");
 
 const root = new URL("../defaults/", import.meta.url).pathname;
@@ -32,17 +33,26 @@ test("Customize and the footer keep the same skills.js", () => {
   expect(readFileSync(join(root, "mods/customize/skills.js"), "utf8")).toBe(readFileSync(join(root, "mods/workspace-chrome/skills.js"), "utf8"));
 });
 
-test("every mod uses the same animated loading icon", () => {
+test("every copy of the loader is the same file, and nothing still spins", () => {
   const mods = readdirSync(join(root, "mods")).map((mod) => join(root, "mods", mod));
   const screens = [...mods, join(root, "frame/settings")];
   const copies = screens.map((dir) => join(dir, "loader.js")).filter(existsSync);
   expect(copies.length).toBe(12);
   expect(new Set(copies.map((path) => readFileSync(path, "utf8"))).size).toBe(1);
   for (const dir of screens) {
-    for (const file of readdirSync(dir).filter((name) => name.endsWith(".js") && name !== "loader.js")) {
-      expect(readFileSync(join(dir, file), "utf8"), `${dir}/${file}`).not.toContain(".spin(");
-    }
+    for (const file of readdirSync(dir).filter((name) => name.endsWith(".js"))) expect(readFileSync(join(dir, file), "utf8"), `${dir}/${file}`).not.toContain(".spin(");
   }
+});
+
+test("the loader's bright dot steps around the edge, the rest stay readable, in the theme's color", () => {
+  expect(DOTS.map((row: number[][]) => row.length)).toEqual([1, 2, 3, 4]);
+  const dots = DOTS.flat() as number[][], middle = DOTS[2][1] as number[], edge = dots.filter((values) => values !== middle);
+  expect(edge.length).toBe(9);
+  expect(new Set(middle).size).toBe(1);
+  expect(dots.flat().every((value) => value >= 0.26 && value <= 1)).toBe(true);
+  for (const values of edge) expect(Math.max(...values)).toBe(1);
+  for (let stop = 0; stop < middle.length; stop += 1) expect(edge.filter((values) => values[stop] === 1).length).toBe(1);
+  expect(readFileSync(join(root, "mods/agents/loader.js"), "utf8")).not.toMatch(/#[0-9a-f]{3,8}\b/i);
 });
 
 test("the kavex theme's values come through untouched", () => {
@@ -136,16 +146,4 @@ test("interface icons come in three sizes", async () => {
   }
   expect(bad).toEqual([]);
   expect(Object.keys(steps).sort()).toEqual(["12", "16", "20"]);
-});
-
-test("shipped UI glyphs use Heroicons 24px outlines", async () => {
-  const artwork = /^(mods\/(start\/|win98\/(img|art)\/)|mods\/changes\/icons\/stripes\.svg$)/;
-  const assets = new Bun.Glob("{icons,frame,mods}/**/*.svg");
-  const icons = [...assets.scanSync({ cwd: root })].filter((path) => !artwork.test(path));
-  expect(icons.length).toBeGreaterThan(0);
-  for (const path of icons) {
-    const svg = await Bun.file(join(root, path)).text();
-    expect(svg, path).toMatch(/^<!-- Heroicons v2\.2\.0 · 24\/outline\/[a-z0-9-]+\.svg -->/);
-    expect(svg, path).toContain('fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"');
-  }
 });

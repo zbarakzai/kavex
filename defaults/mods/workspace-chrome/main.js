@@ -1,4 +1,4 @@
-import { View, div, svg } from "gpui-kit";
+import { View, div, image, svg } from "gpui-kit";
 import { h_flex, v_flex, HoverCard } from "gpui-base";
 import { theme, run, props, window, shared, setShared, updates, layout, agents, spaces, openOverlay, closeOverlay, settings, nextCommand } from "herdr";
 import { allowOpencode, checkUsage, EVERY, nearLimit, POPOVER_HEIGHT, POPOVER_WIDTH, usageOff } from "./checks.js";
@@ -102,7 +102,7 @@ export default class WorkspaceChrome extends View {
       .text_color(k.muted).accessibility_label(name).cursor_pointer().hover(s => s.bg(k.hover_strong).text_color(k.foreground))
       .when(id === "footer-more", el => el.on_mouse_down("left", (e) => { this.pressed = { at: Date.now(), bounds: e.bounds }; }))
       .on_click(click).child(svg(`mods/workspace-chrome/icons/${icon}.svg`).size(16))
-      .when(Boolean(mark), el => el.child(svg("mods/workspace-chrome/icons/warning.svg").absolute().top(0).right(0).w(9).h(9).text_color(mark)));
+      .when(Boolean(mark), el => el.child(div().absolute().top(2).right(2).size(6).rounded_full().bg(mark)));
     if (collapsed) return railTooltip(id, name, button, k);
     return HoverCard.new(`tip-${id}`).anchor("bottom_center").open_delay(300).close_delay(0).trigger(button)
       .content(div().mb(6).px(9).py(5).rounded(8).bg(k.raised).border_1().border_color(k.border).shadow_md().text_size(12).text_color(k.foreground).whitespace_nowrap().child(name));
@@ -158,8 +158,7 @@ export default class WorkspaceChrome extends View {
         .on_click(() => this.chooseAction(action))
         .child(svg(`mods/workspace-chrome/icons/${action.icon}.svg`).size(16).flex_none().text_color(k.muted))
         .child(div().flex_1().min_w(0).truncate().text_size(12.5).text_color(k.foreground).child(action.label))
-        .when(Boolean(marks[action.id]), el => el.child(svg(`mods/workspace-chrome/icons/${action.id === "usage" ? "warning" : "updates"}.svg`)
-          .w(12).h(12).flex_none().text_color(marks[action.id])))));
+        .when(Boolean(marks[action.id]), el => el.child(div().size(6).flex_none().rounded_full().bg(marks[action.id])))));
   }
 
   footer(t) {
@@ -175,7 +174,7 @@ export default class WorkspaceChrome extends View {
     const machine = (spaces().find(s => s.active)?.machine ?? "This computer").toUpperCase();
     return bar.gap(2).pl(4).child(h_flex().flex_1().min_w(0).items_center()
       .font_family(MONO).text_size(10).text_color(k.label)
-      .child(svg("mods/workspace-chrome/icons/connected.svg").w(10).h(10).mr(5).flex_none().text_color(k.added))
+      .child(div().size(6).mr(5).rounded(3).flex_none().bg(k.added))
       .child(div().min_w(0).truncate().child(machine))
       .child(div().ml(4).flex_none().whitespace_nowrap().child(tail)))
       .child(more).child(settings);
@@ -212,7 +211,7 @@ export default class WorkspaceChrome extends View {
     this.settle(cx);
     const collapsed = narrow(), mac = window()?.platform === "macos";
     return h_flex().size_full().pl(mac && !collapsed ? 76 : 8).gap(8).items_center()
-      .when(!collapsed, el => el.child(svg("mods/workspace-chrome/icons/logo.svg").size(16).flex_none().text_color(t.foreground))
+      .when(!collapsed, el => el.child(image("mods/workspace-chrome/logo.png").size(22).flex_none())
         .child(div().flex_1().min_w(0).truncate().text_size(16).font_medium().text_color(t.foreground).child("Kavex"))
         .child(this.button("search", svg("mods/workspace-chrome/icons/search.svg").size(16), () => run("mod.open", { name: "picker" }), t)));
   }
