@@ -348,23 +348,26 @@ An orange dot on the menu button points to a usage warning or skill update insid
 
 **Usage limits** (the `usage` popup mod) shows each Claude Code, Codex
 and OpenCode Go subscription, with its tier and each limit's percent used and time to reset, weekly
-first. A limit past its reset reads 0%. At 90% used its percent turns orange, the menu shows a dot and
+first. A window disappears at reset and reappears when the provider reports its new usage.
+At 90% used its percent turns orange, the menu shows a dot and
 a toast says so, once until the limit falls below 90% again. A limit whose pace so far would use it up
 before it resets also says when, from 5% of the way through its window: a straight line, not a forecast.
 
 - **Numbers:** each agent's own commands on its machine, in that machine's shell PATH: `claude auth
-  status`, `claude -p /usage` (no hooks, plugins, MCP or saved session), and `codex app-server`'s
-  `account/read` and `account/rateLimits/read` (read-only). No tokens spent, no login read, no request
+  status`, `claude -p /usage` (its JSON stream, with no hooks, plugins, MCP or saved session), and
+  `codex app-server` (read-only, with plugins disabled), which answers `account/read` and
+  `account/rateLimits/read` after initializing. No tokens spent, no login read, no request
   sent. From programs.json's `run` they take only a path to the agent's own program, never flags;
   a program of another name means the plain agent.
 - **Rows:** none for an agent signed out, on an API key or not installed. One account on several
   machines is one row, with the newest numbers. A removed machine's rows go at the next check. Only
   the login in an agent's default config counts: a second account through `CLAUDE_CONFIG_DIR` has no row.
-- **Checks:** on opening (a result under a minute old is reused), on the refresh button, and 5 seconds
-  after the footer starts and every 15 minutes, so only in a layout with that footer: not Terminals
-  or Kavex 98. `workspace-chrome.check-usage` and `workspace-chrome.refresh-usage` run one.
-- **Failure:** a failed check or an unreachable machine keeps the last numbers with their age, or
-  reads "Could not check" with none.
+- **Checks** run on opening, on Refresh, 5 seconds after the footer starts, and every 15 minutes
+  in layouts with that footer. A window reset brings the next check forward. Opening again within
+  a minute usually reuses the last result. Pressing Refresh during a check queues one follow-up.
+  `workspace-chrome.check-usage` and `workspace-chrome.refresh-usage` run checks.
+- **Failure** keeps recent numbers with their age for up to 30 minutes after the last successful
+  check. A failed check with no current windows reads "Could not check".
 - **Saved:** `shared("usage")` holds the numbers and an account fingerprint, never an email, login,
   key or anything made from a key. `shared("usage.warned")` names the limits already warned about.
 - **Off:** the Usage limits row in Settings > Look, under Workspace. `shared("usage.enabled")` is

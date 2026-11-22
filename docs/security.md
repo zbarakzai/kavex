@@ -52,14 +52,14 @@ Do not assume every download is notarized or signed.
 
 ## Usage limits
 
-The gauge in the sidebar footer shows your subscriptions' limits. It checks 5 seconds after the footer starts, every 15 minutes, and when you open it. **Settings → Look → Usage limits** turns it off: checks stop and everything below is cleared, including your OpenCode answer.
+Open **More actions → Usage limits** in the sidebar footer to see your subscriptions' limits. Checks run 5 seconds after the footer starts, every 15 minutes, after a known reset, and when you open the popover. **Settings → Look → Usage limits** stops checks and clears the saved readings and your OpenCode answer.
 
 **What it runs.** On this computer and on each added machine:
 
 - Your shell, once per check, to learn its `PATH`: `$SHELL -ic 'printenv PATH'`. Your shell's startup files run when it does. Windows skips this step.
 - `command -v` (`Get-Command` on Windows), to look for an agent Kavex didn't find by itself.
-- Claude Code: `claude auth status`, then `claude -p /usage`, with no hooks, plugins, MCP servers or saved session. It spends no tokens.
-- Codex: `codex app-server` in read-only mode, asked for your account and your limits.
+- Claude Code runs `claude auth status`, then `claude -p /usage` with its JSON stream enabled and no hooks, plugins, MCP servers or saved session. It spends no tokens.
+- Codex starts `codex app-server` in read-only mode with plugins disabled, initializes the connection, and asks for your account and limits.
 
 If `programs.json`'s `run` points to the agent's own program at another path, that path is used. Flags in `run` are left out of these checks, and a program of another name isn't started: the plain agent is.
 

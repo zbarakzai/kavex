@@ -148,6 +148,15 @@ jobs:
           ~/.bun/bin/bun test scripts/start.test.ts
           ~/.bun/bin/bun test scripts/sessions.test.ts
           ~/.bun/bin/bun test scripts/terminal-notes.test.ts
+          ~/.bun/bin/bun test scripts/usage.test.ts
+      - name: Test the Windows Codex usage probe
+        if: ${{ !cancelled() && steps.tests.outcome != 'skipped' && runner.os == 'Windows' }}
+        shell: pwsh
+        run: |
+          $zip = Join-Path $env:RUNNER_TEMP 'bun.zip'
+          Invoke-WebRequest -Uri 'https://github.com/oven-sh/bun/releases/download/bun-v1.4.4/bun-windows-x64.zip' -OutFile $zip
+          Expand-Archive -Path $zip -DestinationPath $env:RUNNER_TEMP
+          & "$env:RUNNER_TEMP\bun-windows-x64\bun.exe" test scripts/usage.test.ts -t 'native Windows Codex probe'
 
   # Keep the required check name stable while requiring every platform.
   test:

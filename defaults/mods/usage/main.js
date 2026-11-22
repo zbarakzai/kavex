@@ -1,7 +1,7 @@
 import { View, div, svg } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
 import { props, run, setShared, shared, theme } from "herdr";
-import { checking, NEAR, POPOVER_HEIGHT, POPOVER_WIDTH, runsOut, subscriptions, timeText, usedNow } from "./checks.js";
+import { checking, NEAR, POPOVER_HEIGHT, POPOVER_WIDTH, runsOut, subscriptions, timeText } from "./checks.js";
 import { loader } from "./loader.js";
 import { look, spaced, tile } from "./look.js";
 
@@ -28,20 +28,26 @@ const hueOf = (agent, k) => ({ claude: k.accent, codex: k.groups.blue.text, open
 const ASK_TALL = 148;
 const ASKS = "Kavex reads your OpenCode key and sends it only to opencode.ai, to ask for your Go plan's limits.";
 
-const limitTall = (limit, row, now) => LIMIT_TALL + (runsOut(limit, row.checkedAt, now) ? ESTIMATE_TALL : 0);
+const estimate = (limit, row, now) => row.failed ? null : runsOut(limit, row.checkedAt, now);
+const limitTall = (limit, row, now) => LIMIT_TALL + (estimate(limit, row, now) ? ESTIMATE_TALL : 0);
 
 // A popup is as tall as its content, and a scroller adds nothing to that: it collapses to no height.
 // So the list only becomes a scroller, at the full room, when this rough height says it won't fit.
+const rowNote = (row, now) => {
+  if (row.failed) return row.limits.length ? `Last checked ${ago(now - row.checkedAt)}` : "Could not check";
+  return row.expired ? "Refresh needed" : null;
+};
+
 function tall(row, now) {
   const count = row.limits.length, limits = row.limits.reduce((sum, limit) => sum + limitTall(limit, row, now), (count - 1) * LIMIT_GAP);
-  return (PAD + FRAME) * 2 + (row.place ? 38 : 26) + (count ? CARD_GAP + limits : 0) + (row.failed ? CARD_GAP + 14 : 0);
+  return (PAD + FRAME) * 2 + (row.place ? 38 : 26) + (count ? CARD_GAP + limits : 0) + (rowNote(row, now) ? CARD_GAP + 14 : 0);
 }
 
 const ago = (ms) => (ms < 60_000 ? "just now" : `${timeText(ms)} ago`);
 
 function freshness(usage, rows, now) {
   if (checking(usage, now)) return "Checking…";
-  const when = rows.length ? Math.max(...rows.map((row) => row.checkedAt ?? 0)) : usage.checkedAt;
+  const when = rows.length ? Math.max(0, ...rows.filter((row) => row.limits.length).map((row) => row.checkedAt ?? 0)) : usage.checkedAt;
   return when ? `Updated ${ago(now - when)}` : "";
 }
 
@@ -72,7 +78,7 @@ export default class Usage extends View {
   }
 
   limit(id, limit, row, hue, k, now) {
-    const used = usedNow(limit, now), left = limit.resetsAt ? limit.resetsAt - now : 0, near = used >= NEAR, out = runsOut(limit, row.checkedAt, now);
+    const used = limit.used, left = limit.resetsAt ? limit.resetsAt - now : 0, near = used >= NEAR, out = estimate(limit, row, now);
     return v_flex().id(`limit-${id}`).h(limitTall(limit, row, now)).flex_none().gap(8)
       .child(this.bar(id, used, near ? k.blocked : hue, k))
       .child(v_flex()
@@ -86,7 +92,7 @@ export default class Usage extends View {
 
   row(row, k, now) {
     const id = row.who ?? `${row.agent}-${row.machines[0]}`, hue = hueOf(row.agent, k);
-    const note = !row.failed ? null : row.limits.length ? `Last checked ${ago(now - row.checkedAt)}` : "Could not check";
+    const note = rowNote(row, now);
     return card(k)
       .child(h_flex().gap(10).items_center()
         .child(tile(row, 26, k))
@@ -96,7 +102,7 @@ export default class Usage extends View {
         .when(Boolean(row.plan), (el) => el.child(h_flex().h(22).px(8).flex_none().items_center().rounded_full().border_1().border_color(k.pill_ring).child(caption(row.plan, k.muted)))))
       .when(row.limits.length > 0, (el) => el.child(v_flex().gap(LIMIT_GAP)
         .children(row.limits.map((limit) => this.limit(`${id}-${limit.label}`, limit, row, hue, k, now)))))
-      .when(Boolean(note), (el) => el.child(caption(note, row.limits.length ? k.text_faint : k.failed_text)));
+      .when(Boolean(note), (el) => el.child(caption(note, row.failed && !row.limits.length ? k.failed_text : k.text_faint)));
   }
 
   // Only a press answers. The footer runs the check, as one started here would stop with the popover.
@@ -116,7 +122,7 @@ export default class Usage extends View {
   }
 
   render() {
-    const k = look(theme()), usage = shared("usage") ?? {}, now = Date.now(), found = subscriptions(usage.entries);
+    const k = look(theme()), usage = shared("usage") ?? {}, now = Date.now(), found = subscriptions(usage.entries, now);
     const answer = shared("usage.opencode"), rows = found.filter((row) => !row.ask), waiting = answer === false ? null : found.find((row) => row.ask);
     const asking = answer == null ? waiting : null;
     const needs = rows.reduce((sum, row) => sum + tall(row, now) + GUTTER, (asking ? ASK_TALL : 0) + GUTTER);

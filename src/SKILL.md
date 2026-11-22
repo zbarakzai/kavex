@@ -100,7 +100,9 @@ use the current agent session when Kavex can identify it.
 ## Customize layouts, keys, or mods
 
 Open the three-dot **More actions** menu beside **Settings** in the sidebar
-footer for Usage limits, Add machine, or Customize.
+footer for Usage limits, Add machine, or Customize. Usage limits hides a window
+when it resets and asks the provider for a new reading. If a check fails, recent
+readings show their age for up to 30 minutes after the last successful check.
 
 First read `~/.config/kavex/AGENTS.md` (or `$HERDR_APP_HOME/AGENTS.md` if
 set). It is the installed guide to settings, layouts, commands and mods.

@@ -4,6 +4,7 @@
 
 import { createHash } from "crypto";
 import { exec as execute, home, knownAgents, machines, notify, readTextFile, setShared, shared, window } from "herdr";
+import { codexPosix, codexPowershell } from "./codex-probe.js";
 
 export const EVERY = 15 * 60_000;
 export const NEAR = 90;
@@ -12,7 +13,7 @@ export const POPOVER_HEIGHT = 540;
 
 const REUSE = 60_000;
 const BUSY = 60_000;
-const DAY = 24 * 3600_000;
+const STALE = 30 * 60_000;
 const SESSION_MINUTES = 300;
 const WEEK_MINUTES = 7 * 1440;
 const MONTH_MINUTES = 30 * 1440;
@@ -51,27 +52,37 @@ async function exec(...call) {
 // answer doesn't depend on the machine. Windows ignores that and names its own zone, which is only
 // ever this computer's, so any other zone is read as local time.
 function resetTime(text, now) {
-  const m = /^(?:([A-Z][a-z]{2}) (\d{1,2})(?: at|,) )?(\d{1,2})(?::(\d{2}))?(am|pm)(?: \((.+)\))?$/.exec(text.trim());
-  if (!m) return null;
-  const hour = (Number(m[3]) % 12) + (m[5] === "pm" ? 12 : 0), minute = Number(m[4] ?? 0), utc = m[6] === "UTC";
-  const at = (year, month, day) => (utc ? Date.UTC(year, month, day, hour, minute) : new Date(year, month, day, hour, minute).getTime());
-  const today = new Date(now), year = utc ? today.getUTCFullYear() : today.getFullYear();
-  if (m[1]) {
-    const month = MONTHS.indexOf(m[1]), day = Number(m[2]);
-    if (month < 0) return null;
-    const when = at(year, month, day);
-    return when < now - DAY ? at(year + 1, month, day) : when;
+  const clock = /^(?:([A-Z][a-z]{2})\s+(\d{1,2})(?:\s+at|,)\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)(?:\s+\((.+)\))?$/i.exec(text.trim());
+  if (!clock) return null;
+  const [, monthName, dayText, hourText, minuteText, meridiem, zone] = clock;
+  const hour12 = Number(hourText), minute = Number(minuteText ?? 0), utc = zone?.toUpperCase() === "UTC";
+  if (hour12 < 1 || hour12 > 12 || minute >= 60) return null;
+  const hour = (hour12 % 12) + (meridiem.toLowerCase() === "pm" ? 12 : 0);
+  const today = new Date(now);
+  const year = utc ? today.getUTCFullYear() : today.getFullYear();
+  const month = utc ? today.getUTCMonth() : today.getMonth();
+  const day = utc ? today.getUTCDate() : today.getDate();
+  const at = (y, m, d) => (utc ? new Date(Date.UTC(y, m, d, hour, minute)) : new Date(y, m, d, hour, minute));
+  if (monthName) {
+    const namedMonth = MONTHS.findIndex((name) => name.toLowerCase() === monthName.toLowerCase()), namedDay = Number(dayText);
+    if (namedMonth < 0 || namedDay < 1) return null;
+    // A weekly limit can cross New Year in either direction.
+    const offset = month === 11 && namedMonth === 0 ? 1 : month === 0 && namedMonth === 11 ? -1 : 0;
+    const reset = at(year + offset, namedMonth, namedDay);
+    if ((utc ? reset.getUTCMonth() : reset.getMonth()) !== namedMonth) return null;
+    return reset.getTime();
   }
-  const when = utc ? at(year, today.getUTCMonth(), today.getUTCDate()) : at(year, today.getMonth(), today.getDate());
-  return when <= now ? when + DAY : when;
+  const when = at(year, month, day).getTime();
+  const tomorrow = at(year, month, day + 1).getTime();
+  return when < now && tomorrow - now <= SESSION_MINUTES * 60_000 ? tomorrow : when;
 }
 
 function claudeLimits(text, now) {
   const week = [], other = [], session = [];
   for (const line of text.split("\n")) {
-    const m = /^Current (session|week \((.+?)\)): (\d+)% used(?:\W+resets (.+))?$/.exec(line.trim());
+    const m = /^Current (session|week \((.+?)\)): (\d+(?:\.\d+)?)\s*%\s+used(?:\W+resets (.+))?$/.exec(line.trim());
     if (!m) continue;
-    const scope = m[2], minutes = m[1] === "session" ? SESSION_MINUTES : WEEK_MINUTES, limit = { used: Number(m[3]), resetsAt: m[4] ? resetTime(m[4], now) : null, minutes };
+    const scope = m[2], minutes = m[1] === "session" ? SESSION_MINUTES : WEEK_MINUTES, limit = { used: Math.round(Number(m[3])), resetsAt: m[4] ? resetTime(m[4], now) : null, minutes };
     if (m[4] && limit.resetsAt === null) continue;
     if (m[1] === "session") session.push({ label: "5 hours", ...limit });
     else if (scope === "all models") week.push({ label: "This week", ...limit });
@@ -89,13 +100,16 @@ function periodName(minutes) {
 const rank = ({ minutes, model }) => (minutes === WEEK_MINUTES ? (model ? 1 : 0) : 2);
 
 function codexLimits(rates) {
-  const buckets = Object.entries(rates?.rateLimitsByLimitId ?? {});
-  const limits = (buckets.length ? buckets : [["codex", rates?.rateLimits]]).flatMap(([id, bucket]) => {
-    const model = id === "codex" ? null : bucket?.limitName ?? titled(id);
-    return [bucket?.primary, bucket?.secondary].filter(Boolean).map((period) => {
-      const minutes = period.windowDurationMins ?? 0, name = minutes ? periodName(minutes) : null;
+  const buckets = { ...rates?.rateLimitsByLimitId };
+  if (!buckets.codex && rates?.rateLimits) buckets.codex = rates.rateLimits;
+  const limits = Object.entries(buckets).flatMap(([id, bucket]) => {
+    const name = typeof bucket?.limitName === "string" && bucket.limitName.trim();
+    const model = id === "codex" ? null : name || titled(id);
+    return [bucket?.primary, bucket?.secondary].filter((period) => Number.isFinite(period?.usedPercent) && period.usedPercent >= 0).map((period) => {
+      const minutes = Number.isInteger(period.windowDurationMins) && period.windowDurationMins > 0 ? period.windowDurationMins : 0;
+      const name = minutes ? periodName(minutes) : null;
       const label = !model ? name ?? "Limit" : !name || minutes === WEEK_MINUTES ? model : `${model} · ${name}`;
-      return { minutes, model, label, used: Math.round(period.usedPercent ?? 0), resetsAt: period.resetsAt ? period.resetsAt * 1000 : null };
+      return { minutes, model, label, used: Math.round(period.usedPercent), resetsAt: Number.isFinite(period.resetsAt) && period.resetsAt > 0 ? period.resetsAt * 1000 : null };
     });
   });
   limits.sort((a, b) => rank(a) - rank(b) || b.minutes - a.minutes || Boolean(a.model) - Boolean(b.model));
@@ -107,28 +121,34 @@ function codexReport(output) {
   for (const line of output.split("\n")) {
     try {
       const message = JSON.parse(line);
-      if (message.id && !message.method) answers[message.id] = message.result;
+      if (Number.isInteger(message?.id) && !("method" in message) && "result" in message) answers[message.id] = message.result;
     } catch {}
   }
-  const account = answers[2]?.account, limits = codexLimits(answers[3]);
-  if (!answers[2]) throw new Error("no answer from codex");
-  // An empty account beside real limits isn't signed out.
-  if (!account && limits.length) throw new Error("no account from codex");
-  if (account?.type !== "chatgpt") return null;
-  if (!limits.length) throw new Error("no limits from codex");
-  return { plan: CODEX_PLANS[account.planType] ?? titled(account.planType ?? ""), who: fingerprint(account.email, account.planType), limits };
+  if (!answers[1] || !answers[2] || !("account" in answers[2])) throw new Error("no account answer from codex");
+  const { account } = answers[2], limits = codexLimits(answers[3]);
+  // A signed-out reply and real limits together do not identify an account.
+  if (account === null && !limits.length) return null;
+  if (account?.type === "apiKey" || account?.type === "amazonBedrock") return null;
+  if (account?.type !== "chatgpt") throw new Error("no account usage from codex");
+  const tier = typeof account.planType === "string" ? account.planType : "";
+  const plan = Object.hasOwn(CODEX_PLANS, tier) ? CODEX_PLANS[tier] : titled(tier);
+  return { plan, who: fingerprint(account.email, tier), limits, ...(!limits.length && { failed: true }) };
 }
 
 // Go's answer nests the windows under "usage"; another deployment spells them "<window>Usage".
 function goLimits(answer) {
   const usage = answer?.usage ?? answer ?? {};
-  return GO_WINDOWS.flatMap(([name, label, minutes]) => {
+  const limits = GO_WINDOWS.flatMap(([name, label, minutes]) => {
     const window = usage[name] ?? answer?.[`${name}Usage`];
     const percent = window?.percent ?? window?.usagePercent;
-    if (!Number.isFinite(percent)) return [];
-    const resetsAt = window.resetsAt ? Date.parse(window.resetsAt) : window.resetInSec ? Date.now() + window.resetInSec * 1000 : null;
+    if (!Number.isFinite(percent) || percent < 0) return [];
+    const delay = window.resetInSec;
+    const resetsAt = window.resetsAt ? Date.parse(window.resetsAt) : Number.isFinite(delay) && delay >= 0 ? Date.now() + delay * 1000 : null;
     return [{ label, used: window.status === "rate-limited" ? 100 : Math.round(percent), resetsAt: Number.isFinite(resetsAt) ? resetsAt : null, minutes }];
   });
+  // A partial keyed response is a failed read. Older flat replies can contain individual windows.
+  if (answer?.usage && ![WEEK_MINUTES, SESSION_MINUTES].every((duration) => limits.some((limit) => limit.minutes === duration))) return [];
+  return limits;
 }
 
 // Dock-started apps miss what shell startup files add (nvm, most of all), so each machine's PATH
@@ -183,41 +203,41 @@ async function shellFinds(where, programs) {
 }
 
 // `--setting-sources=` keeps the person's hooks and plugins out of a check that runs every 15 minutes.
-const CLAUDE_USAGE = "-p /usage --output-format json --no-session-persistence --strict-mcp-config --setting-sources=";
+const CLAUDE_USAGE = "-p /usage --output-format stream-json --verbose --no-session-persistence --strict-mcp-config --setting-sources=";
 
-async function claude(where, now) {
-  const posix = posixWords([where.program]), powershell = powershellCall(where.program);
-  const auth = JSON.parse((await inShell(where, `${posix} auth status`, `${powershell} auth status`)).stdout);
-  if (!auth.loggedIn || auth.authMethod !== "claude.ai") return null;
-  const usage = await inShell(where, `env TZ=UTC ${posix} ${CLAUDE_USAGE}`, `$env:TZ='UTC'; ${powershell} ${CLAUDE_USAGE}`);
-  const limits = claudeLimits(JSON.parse(usage.stdout).result ?? "", now);
-  if (!limits.length) throw new Error("no limits from claude");
-  return { plan: titled(auth.subscriptionType ?? ""), who: fingerprint(auth.email, auth.orgId), limits };
+function claudeResult(output) {
+  // System, assistant and rate-limit events can surround the command result.
+  let result;
+  for (const line of output.split("\n")) {
+    try {
+      const message = JSON.parse(line);
+      if (message?.type === "result") result = message;
+    } catch {}
+  }
+  return result;
 }
 
-const CODEX_REQUESTS = [
-  { id: 1, method: "initialize", params: { clientInfo: { name: "kavex", version: "1" } } },
-  { method: "initialized", params: {} },
-  { id: 2, method: "account/read", params: {} },
-  { id: 3, method: "account/rateLimits/read" },
-].map((request) => JSON.stringify(request));
-
-// The server stops answering once its input ends, so the input stays open until both answers are in.
-// They can come in either order.
-const codexPosix = (program) => `out=$(mktemp) || exit 1
-{ printf '%s\\n' ${CODEX_REQUESTS.map((line) => `'${line}'`).join(" ")}
-  i=0; while [ $i -lt 75 ] && ! { grep -q '"id":2' "$out" && grep -q '"id":3' "$out"; }; do sleep 0.2; i=$((i+1)); done
-} | ${posixWords([program])} -s read-only -a never app-server >"$out" 2>/dev/null
-cat "$out"; rm -f "$out"`;
-// Windows PowerShell gives a pipe's input to a program only once the pipe has ended, so no pipe can
-// hold it open. A process of its own can, for as long as `sh` waits above. `cmd` finds an npm
-// `codex.cmd` as well as a `codex.exe`, and the outer quotes are the ones it takes off. The blank line
-// is for the byte order mark .NET writes first where the console's input is UTF-8: on the first
-// request, it would lose that, and the server would answer the others "Not initialized".
-const codexPowershell = (program) => `$go = New-Object Diagnostics.ProcessStartInfo; $go.FileName = $env:ComSpec; $go.Arguments = '/d /c ""' + ${powershellWord(program)} + '" -s read-only -a never app-server 2>nul"'; $go.UseShellExecute = $false; $go.CreateNoWindow = $true; $go.RedirectStandardInput = $true; $go.RedirectStandardOutput = $true; $go.StandardOutputEncoding = New-Object Text.UTF8Encoding $false; $server = [Diagnostics.Process]::Start($go); $server.StandardInput.NewLine = [string][char]10; $server.StandardInput.WriteLine(''); ${CODEX_REQUESTS.map((line) => `$server.StandardInput.WriteLine('${line}')`).join("; ")}; $server.StandardInput.Flush(); $by = (Get-Date).AddSeconds(15); $account = $false; $limits = $false; while (-not ($account -and $limits)) { $left = [int]($by - (Get-Date)).TotalMilliseconds; if ($left -le 0) { break }; $next = $server.StandardOutput.ReadLineAsync(); if (-not $next.Wait($left) -or $null -eq $next.Result) { break }; [Console]::Out.WriteLine($next.Result); if ($next.Result -match '"id":2[,}]') { $account = $true }; if ($next.Result -match '"id":3[,}]') { $limits = $true } }; $server.StandardInput.Close()`;
+async function claude(where) {
+  const posix = posixWords([where.program]), powershell = powershellCall(where.program);
+  const auth = JSON.parse((await inShell(where, `${posix} auth status`, `${powershell} auth status`)).stdout);
+  if (auth.loggedIn === false) return null;
+  if (auth.loggedIn !== true || typeof auth.authMethod !== "string") throw new Error("no sign-in status from claude");
+  if (auth.authMethod !== "claude.ai") return null;
+  const account = { plan: titled(auth.subscriptionType ?? ""), who: fingerprint(auth.email, auth.orgId) };
+  try {
+    const usage = await inShell(where, `env TZ=UTC ${posix} ${CLAUDE_USAGE}`, `$env:TZ='UTC'; ${powershell} ${CLAUDE_USAGE}`);
+    const report = claudeResult(usage.stdout);
+    if (usage.code === 0 && report?.is_error === false && typeof report.result === "string") {
+      const limits = claudeLimits(report.result, Date.now());
+      if (limits.length) return { ...account, limits };
+    }
+  } catch {}
+  return { ...account, limits: [], failed: true };
+}
 
 async function codex(where) {
-  return codexReport((await inShell(where, codexPosix(where.program), codexPowershell(where.program))).stdout);
+  const result = await inShell(where, codexPosix(posixWords([where.program])), codexPowershell(powershellWord(where.program)));
+  return codexReport(result.stdout);
 }
 
 const opencodeAllowed = () => !usageOff() && shared("usage.opencode") === true;
@@ -230,16 +250,29 @@ async function opencodeKeys() {
     // resolve, and are never sent. Going by what a key is leaves no such spelling to miss.
     if (/^[A-Za-z0-9][\w.~+/=-]*$/.test(key) && !keys.includes(key)) keys.push(key);
   };
+  let databaseFailed = false;
   try {
-    const rows = await exec("sqlite3", ["-readonly", `${data}/opencode.db`, "SELECT value FROM credential WHERE active = 1 AND integration_id IN ('opencode-go', 'opencode') ORDER BY integration_id = 'opencode-go' DESC"]);
-    for (const row of rows.stdout.split("\n").filter(Boolean)) add(JSON.parse(row));
-  } catch {}
+    const query = "SELECT value FROM credential WHERE active = 1 AND integration_id IN ('opencode-go', 'opencode') ORDER BY integration_id = 'opencode-go' DESC";
+    const rows = await exec("sqlite3", ["-cmd", ".timeout 1000", "-readonly", `${data}/opencode.db`, query]);
+    if (rows.code === 0) {
+      for (const row of rows.stdout.split("\n").filter(Boolean)) add(JSON.parse(row));
+    } else {
+      // Old installs may have only auth.json, or a database from before the credential table.
+      databaseFailed = !/unable to open database file|no such table: credential/i.test(rows.stderr);
+    }
+  } catch (error) {
+    databaseFailed = error instanceof SyntaxError;
+  }
   if (!opencodeAllowed()) return [];
   try {
     const auth = JSON.parse((await readTextFile(`${data}/auth.json`)) ?? "{}");
+    if (!auth || typeof auth !== "object" || Array.isArray(auth)) throw new Error("invalid OpenCode auth file");
     add(auth["opencode-go"]);
     add(auth.opencode);
-  } catch {}
+  } catch (error) {
+    if (!keys.length) throw error;
+  }
+  if (databaseFailed && !keys.length) throw new Error("could not read OpenCode credentials");
   return keys;
 }
 
@@ -250,7 +283,9 @@ async function opencode() {
     try {
       const answer = await fetch("https://opencode.ai/zen/go/v1/usage", { headers: { Authorization: `Bearer ${key}`, Accept: "application/json", "User-Agent": "kavex-usage/1.0" } });
       if (answer.status === 401 || answer.status === 403) continue;
-      const limits = answer.ok ? goLimits(await answer.json()) : [];
+      const body = await answer.json();
+      if (!answer.ok && ["AuthError", "EntitlementError"].includes(body?.error?.type)) continue;
+      const limits = answer.ok ? goLimits(body) : [];
       if (limits.length) return { plan: "Go", limits };
       unreachable = true;
     } catch {
@@ -270,13 +305,13 @@ const CHECKS = {
 async function checked(base, read) {
   try {
     const report = await read();
-    return report && { ...base, ...report, checkedAt: Date.now() };
+    return report && { ...base, ...report, ...(!report.failed && { checkedAt: Date.now() }) };
   } catch {
     return { ...base, limits: [], failed: true };
   }
 }
 
-async function checkMachine(on, last, now) {
+async function checkMachine(on, last) {
   const kept = (id) => last[id] && [id, { ...last[id], failed: true }];
   const keepAll = () => Object.fromEntries(Object.keys(last).filter((id) => last[id].machine === on).map(kept));
   if (on && machines().find((machine) => machine.name === on)?.layout === "unavailable") return keepAll();
@@ -291,8 +326,8 @@ async function checkMachine(on, last, now) {
     const id = entryId(agent.key, on), base = { agent: agent.key, name: agent.name, icon: agent.icon, tint: agent.tint, machine: on };
     if (!sure(agent) && !finds?.has(agent.program)) return finds ? null : kept(id);
     if (needsConsent && answer !== true) return answer === false ? null : [id, { ...base, ask: true, limits: [] }];
-    const entry = await checked(base, () => read({ on, path, program: agent.program }, now));
-    return entry?.failed ? kept(id) ?? [id, entry] : entry && [id, entry];
+    const entry = await checked(base, () => read({ on, path, program: agent.program }));
+    return entry && [id, entry];
   }));
   return Object.fromEntries(found.filter(Boolean));
 }
@@ -304,17 +339,19 @@ function withOpencode(entries, entry) {
   return entry ? { ...others, [OPENCODE]: entry } : others;
 }
 
-// A failure knows only what was saved when its check began. A check hung past a minute has another
-// beside it, which may have saved numbers since, and those mustn't turn into "Could not check".
-const orSaved = (entry, saved) => (entry?.failed && saved?.limits.length ? { ...saved, failed: true } : entry);
+// A failed check can keep the latest reading unless the agent identifies a different account.
+function orSaved(entry, saved) {
+  if (entry?.failed && saved?.limits.length && (!entry.who || entry.who === saved.who)) return { ...saved, failed: true };
+  return entry;
+}
 
 // A limit warns once on reaching NEAR, and can again only after falling below it. Going by that and
 // not by the reset time means no window to track: resets drift by seconds between checks.
 function warnNear() {
   const now = Date.now(), warned = shared("usage.warned") ?? [], near = [];
-  for (const row of subscriptions(shared("usage")?.entries)) {
+  for (const row of subscriptions(shared("usage")?.entries, now)) {
     for (const limit of row.limits) {
-      const used = usedNow(limit, now), id = `${row.who ?? entryId(row.agent, row.machine)}|${limit.label}`;
+      const used = limit.used, id = `${row.who ?? entryId(row.agent, row.machine)}|${limit.label}`;
       if (used < NEAR) continue;
       near.push(id);
       if (warned.includes(id)) continue;
@@ -332,17 +369,26 @@ function warnNear() {
 export async function checkUsage({ force = false, within = REUSE } = {}) {
   const last = shared("usage") ?? {}, now = Date.now(), era = last.era ?? Math.random(), answer = shared("usage.opencode");
   if (usageOff()) return;
-  if (checking(last, now)) return;
-  if (!force && last.checkedAt && now - last.checkedAt < within) return;
-  setShared("usage", { ...last, era, startedAt: now });
+  if (checking(last, now)) {
+    if (force && !last.refreshPending) setShared("usage", { ...last, refreshPending: true });
+    return;
+  }
+  const reset = Object.values(last.entries ?? {}).some((entry) => entry.limits.some((limit) =>
+    limit.resetsAt > last.checkedAt && limit.resetsAt <= now));
+  if (!force && !last.refreshPending && !reset && last.checkedAt && now - last.checkedAt < within) return;
+  setShared("usage", { ...last, era, startedAt: now, refreshPending: false });
   const names = [...new Set([null, ...machines().map((machine) => machine.name)])];
-  const results = await Promise.all(names.map((on) => checkMachine(on, last.entries ?? {}, now)));
-  if (usageOff() || shared("usage")?.era !== era) return;
-  const saved = shared("usage").entries ?? {}, found = Object.assign({}, ...results);
+  const results = await Promise.all(names.map((on) => checkMachine(on, last.entries ?? {})));
+  const current = shared("usage");
+  if (usageOff() || current?.era !== era || current.checkedAt > now) return;
+  const saved = current.entries ?? {}, found = Object.assign({}, ...results);
   for (const id in found) found[id] = orSaved(found[id], saved[id]);
   // Answered midway, OpenCode's entry is no longer this pass's to save: Allow runs its own check.
-  setShared("usage", { era, checkedAt: now, entries: shared("usage.opencode") === answer ? found : withOpencode(found, saved[OPENCODE]) });
-  warnNear();
+  return saveUsage(current, now, {
+    era,
+    checkedAt: now,
+    entries: shared("usage.opencode") === answer ? found : withOpencode(found, saved[OPENCODE]),
+  });
 }
 
 // Consent is the person's press, saved by the popover. Any agent can run this command, so it only
@@ -356,12 +402,18 @@ export async function allowOpencode() {
   setShared("usage", { ...usage, startedAt: mine ?? usage.startedAt, entries: { ...usage.entries, [OPENCODE]: base } });
   const found = await checked(base, opencode);
   const current = shared("usage");
-  if (usageOff() || current?.era !== usage.era) return;
-  setShared("usage", { ...current, startedAt: current.startedAt === mine ? null : current.startedAt, entries: withOpencode(current.entries, orSaved(found, current.entries?.[OPENCODE])) });
-  warnNear();
+  if (usageOff() || current?.era !== usage.era || current.checkedAt > now) return;
+  return saveUsage(current, mine, {
+    ...current, entries: withOpencode(current.entries, orSaved(found, current.entries?.[OPENCODE])),
+  });
 }
 
-export const usedNow = (limit, now) => (limit.resetsAt && limit.resetsAt <= now ? 0 : limit.used);
+function saveUsage(current, started, next) {
+  const startedAt = current.startedAt === started ? null : current.startedAt;
+  setShared("usage", { ...next, startedAt, refreshPending: current.refreshPending });
+  warnNear();
+  if (current.refreshPending && !checking({ startedAt }, Date.now())) return checkUsage({ force: true });
+}
 
 // The pace so far, carried straight on. It's taken at the check, as `used` dates from then, so the
 // answer stands still while the clock moves. Early in a window that pace says little, so there's none.
@@ -373,18 +425,24 @@ export function runsOut(limit, checkedAt, now) {
   return at > now && at < limit.resetsAt ? at : null;
 }
 
-export function subscriptions(entries) {
+export function subscriptions(entries, now) {
   const rows = new Map();
   for (const entry of Object.values(entries ?? {})) {
     const key = entry.who ?? entryId(entry.agent, entry.machine), place = entry.machine ?? HERE, had = rows.get(key);
     if (!had) rows.set(key, { ...entry, machines: [place] });
-    else rows.set(key, { ...((entry.checkedAt ?? 0) > (had.checkedAt ?? 0) ? entry : had), machines: [...had.machines, place] });
+    else {
+      const age = (entry.checkedAt ?? 0) - (had.checkedAt ?? 0);
+      const latest = age > 0 || (age === 0 && had.failed && !entry.failed) ? entry : had;
+      rows.set(key, { ...latest, machines: [...had.machines, place] });
+    }
   }
   const all = [...rows.values()];
   return all.map((row) => {
     const named = row.machines.length > 1 || row.machines[0] !== HERE || all.some((other) => other !== row && other.agent === row.agent);
-    return { ...row, place: named ? row.machines.join(", ") : null };
+    const recent = !row.failed || now - row.checkedAt < STALE;
+    const limits = recent ? row.limits.filter((limit) => !limit.resetsAt || limit.resetsAt > now) : [];
+    return { ...row, limits, expired: limits.length < row.limits.length, place: named ? row.machines.join(", ") : null };
   });
 }
 
-export const nearLimit = (entries, now) => subscriptions(entries).some((row) => row.limits.some((limit) => usedNow(limit, now) >= NEAR));
+export const nearLimit = (entries, now) => subscriptions(entries, now).some((row) => row.limits.some((limit) => limit.used >= NEAR));

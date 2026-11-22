@@ -10,3 +10,7 @@ OpenCode is the one exception, because it has no such command: the mod reads its
 
 - **Status line wrapper:** official and structured, but it edits the person's Claude settings, and a status line hides Claude's footer hints. It also only updates while Claude runs.
 - **Private endpoints with consent:** still makes the mod send a request with someone's login, which the rule forbids.
+
+## Reliability follow-up
+
+The probes and cache adopt the lifecycle documented in the [Orca comparison](../../.scratch/usage-limits/orca-research.md). Claude's JSON stream identifies the command result among other CLI events. Codex completes the initialization handshake before querying account usage. Expired windows disappear, and failed checks can show readings from the previous 30 minutes. The privacy decision above governs both probes.
