@@ -28,7 +28,7 @@ const handler = (e: El, name: string, button?: string) => e.calls.find(([k, a]) 
 const listening = (root: El) => all(root).filter((e) => handler(e, "on_mouse_move")).map((e) => arg(e, "id"));
 
 const colors = JSON.parse(readFileSync(new URL("../defaults/themes/kavex.json", import.meta.url), "utf8")).colors;
-let state: { spaces: any[]; shared: Record<string, any>; ran: [string, any][]; overlays: any[] };
+let state: { spaces: any[]; shared: Record<string, any>; ran: [string, any][]; overlays: any[]; props?: object };
 mock.module("gpui-kit", () => ({ View: class {}, div: make, image: make, svg: make }));
 mock.module("gpui-base", () => ({ h_flex: make, v_flex: make }));
 mock.module("herdr", () => ({
@@ -40,6 +40,7 @@ mock.module("herdr", () => ({
   layout: () => null,
   window: () => ({ platform: "windows", active: false }),
   settings: () => ({ zoom: 1 }),
+  props: () => state.props ?? {},
   shared: (k: string) => state.shared[k],
   setShared: (k: string, v: any) => { state.shared[k] = v; },
   run: (name: string, args: any) => void state.ran.push([name, args]),
@@ -105,6 +106,24 @@ test("spaces: a click without a move still switches", () => {
   handler(byId(draw(), "space-s1"), "on_mouse_down", "left")(at(10, 50), cx);
   handler(byId(draw(), "space-s1"), "on_mouse_up", "left")(at(10, 50), cx);
   expect(state.ran).toEqual([["space.select", { id: "s1" }]]);
+});
+
+test("spaces: the clock opens recent projects and choosing one switches or reopens", () => {
+  const atlas = { ...space("atlas", true), name: "Atlas", folder: "/w/atlas" };
+  const relay = { ...space("relay"), name: "Relay", folder: "/w/relay" };
+  state.spaces = [atlas, relay];
+  const { draw } = mount(Spaces);
+  state.spaces = [atlas];
+  handler(byId(draw(), "space-recent"), "on_click")({}, cx);
+  expect(state.overlays[0]).toMatchObject({ mod: "spaces", kind: "popup", props: { recent: true } });
+  state.props = { ...state.overlays[0].props, overlay: "overlay-1" };
+  const menu = mount(Spaces).draw();
+  handler(byId(menu, "recent-space-atlas-/w/atlas"), "on_click")({}, cx);
+  handler(byId(menu, "recent-space-relay-/w/relay"), "on_click")({}, cx);
+  expect(state.ran).toEqual([
+    ["space.select", { id: "atlas" }],
+    ["space.new", { folder: "/w/relay", name: "Relay" }],
+  ]);
 });
 
 function bar() {

@@ -4,9 +4,11 @@
 
 import { View, div, svg } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
-import { spaces, machines, panes, run, openOverlay, exec, hc, theme, settings, shared, setShared, watchFolder, window, layout } from "herdr";
+import { spaces, machines, panes, run, openOverlay, exec, hc, home, props, theme, settings, shared, setShared, watchFolder, window, layout } from "herdr";
 import { look, sectionLabel, MONO } from "./look.js";
 import { loader } from "./loader.js";
+import { projectOf, rememberProjects, RECENT_PROJECTS } from "./history.js";
+import { drawRecentSpaces, recentHistory } from "./recent.js";
 
 function find(node, id) {
   if (node?.id === id) return node;
@@ -48,6 +50,9 @@ export function tone(t, status) {
 
 export default class Spaces extends View {
   init(_props, cx) {
+    this.home = home();
+    this.recentMenu = props()?.recent === true;
+    if (this.recentMenu) return;
     this.git = {}; // where() -> { name, branch, ahead, behind, repo, linked }, null: not a repo
     this.checked = {}; // where() -> when it was last looked at
     this.unsure = new Set(); // where()s git couldn't answer for (a machine away)
@@ -64,6 +69,7 @@ export default class Spaces extends View {
     this.over = null;
     this.machines = [];
     this.folded = new Set(JSON.parse(localStorage.getItem("machines.folded") ?? "[]"));
+    this.remember(spaces(), panes());
     this.refreshMachines(cx);
     cx.timer.every(15000, cx => this.refreshMachines(cx));
     // `git status` walks the whole tree, on another machine a process there:
@@ -74,10 +80,30 @@ export default class Spaces extends View {
   checkNew(cx) {
     const now = Date.now();
     const sp = spaces();
+    const ps = panes();
+    this.remember(sp, ps);
     for (const s of sp) if (!this.shown.has(s.id)) this.born[s.id] ??= now;
-    const due = this.due(now, sp, panes());
+    const due = this.due(now, sp, ps);
     if (due.size) this.refreshGit(due, cx);
     if (sp.some((s) => !this.shown.has(s.id))) cx.notify();
+  }
+
+  projects(sp, ps) {
+    return sp.map((space) => projectOf(space, place(space, ps), this.home));
+  }
+
+  remember(sp, ps) {
+    if (!sp.length && !this.lastProjects) return;
+    const history = recentHistory();
+    const current = this.projects(sp, ps);
+    const next = rememberProjects(history, this.lastProjects, current);
+    this.lastProjects = current;
+    if (next !== history) setShared(RECENT_PROJECTS, next);
+  }
+
+  openRecent() {
+    this.remember(spaces(), panes());
+    openOverlay({ mod: "spaces", kind: "popup", width: 330, height: 385, props: { recent: true } });
   }
 
   // Places whose git could have changed: new ones (a new space, a cd), where a
@@ -336,8 +362,13 @@ export default class Spaces extends View {
   }
 
   render() {
+    if (this.recentMenu) return drawRecentSpaces(() => this.projects(spaces(), panes()), this.home);
     const t = theme();
     const collapsed = narrow();
+    const controlSize = collapsed ? 21 : 26;
+    const control = (id, label, glyph, click) => div().id(id).size(controlSize).flex_none().flex().items_center()
+      .justify_center().rounded(7).text_color(t.muted).accessibility_label(label).cursor_pointer()
+      .hover((el) => el.bg(t.raised).text_color(t.foreground)).on_click(click).child(svg(glyph).size(16));
     const palette = ["ansi6", "ansi3", "ansi4", "ansi5", "ansi2", "ansi1"];
     const sp = spaces();
     const ids = new Set(sp.map(p => p.id));
@@ -354,8 +385,9 @@ export default class Spaces extends View {
     return v_flex().size_full().min_h(0).text_size(13)
       .child(h_flex().pt(14).pb(4).pl(collapsed ? 0 : 10).items_center().justify_between().when(collapsed, el => el.justify_center())
         .when(!collapsed, el => el.child(sectionLabel(k, "SPACES")))
-        .child(div().id("space-new").size(26).flex_none().flex().items_center().justify_center().rounded(7).text_color(t.muted).hover(s => s.bg(t.raised).text_color(t.foreground))
-          .on_click(() => run("space.new")).child(svg("mods/workspace-chrome/icons/plus.svg").size(16))))
+        .child(h_flex().gap(2)
+          .child(control("space-recent", "Recent spaces", "mods/workspace-chrome/clock.svg", () => this.openRecent()))
+          .child(control("space-new", "New space", "mods/workspace-chrome/icons/plus.svg", () => run("space.new")))))
       .child(v_flex().id("space-list").flex_1().min_h(0).overflow_y_scrollbar().mode("always")
         .on_mouse_up("left", (_e, cx) => { this.pressed = null; cx.notify(); })
         .child(v_flex().id("space-rows").flex_none().gap(2).when(!collapsed, (el) => el.pr(BAR))

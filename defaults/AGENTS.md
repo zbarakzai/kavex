@@ -102,6 +102,10 @@ Mod pane props are stored as given, never machine-qualified. Space order is loca
 machine first, then machines by name; `space.move` stays inside its machine's block.
 In the expanded Spaces sidebar, drag a space to reorder it within its machine;
 the highlighted line shows where it will land.
+The clock beside **+** in Spaces lists recent project folders. Choose an open
+project to switch to its space, or a closed project to start a new space in that
+folder on its original machine. The Spaces mod keeps the most recent 12 folders
+on this screen in `shared("spaces.recent")`.
 
 - A **space** is a place to work, on one machine: this one, or another
   from `hc machine ls` (`spaces()[i].machine`). Kavex leaves out machines
