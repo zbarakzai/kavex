@@ -408,7 +408,7 @@ export default class extends View {
 fn a_visible_tooltip_lets_the_user_click_its_trigger(cx: &mut TestAppContext) {
     use gpui::{point, px};
     cx.update(gpui_shell::init);
-    let fixture = Fixture::new(r#"
+    let fixture = Fixture::new(r##"
 import { View, div } from "gpui-kit";
 import { HoverCard } from "gpui-base";
 import { note } from "fixture";
@@ -421,7 +421,7 @@ export default class extends View {
       .content(div().role("tooltip").w(80).h(50).child("Open files")))
       .child(div().size(4).rounded(4).bg("#ffffff").loop("opacity", { values: [0.2, 1], period: 333 }));
   }
-}"#);
+}"##);
     let events = Rc::new(RefCell::new(Vec::new()));
     let calls = events.clone();
     gpui_shell::policy::set_default(Policy::new().with_host_module(
