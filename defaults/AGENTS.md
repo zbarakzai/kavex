@@ -281,8 +281,13 @@ and remembered per space (which ones:
 shared `"workspace.panels"`, set by the welcome and the switches in Settings > Look; one left out
 has no button or tab and can't stay open)), and as examples `terminals` ("Terminals": tabs in
 the title bar, panes as cards, a space picker) and `win98`
-("Kavex 98": a whole desktop in one mod, `win98`). Add a layout by
-writing a new file. The Files panel shows the same tree as Changes, without its counts:
+("Kavex 98": a whole desktop in one mod, `win98`). Add a layout by writing a new file.
+
+The + menu shows the last detected agents for the active machine while it checks for changes.
+On the first check for a machine, it shows “Checking installed agents…”. Each number keeps
+its agent for as long as the menu is open.
+
+The Files panel shows the same tree as Changes, without its counts:
 each file has its language logo in the theme's color, or a short type tag where there is none,
 and supports Windows folder paths with spaces, parentheses and apostrophes. Right-click a file,
 a folder or the empty space under them (the `file-menu` mod, whose rows run `files.<id>`): New

@@ -141,6 +141,7 @@ jobs:
           ~/.bun/bin/bun test scripts/recent-spaces.test.ts
           ~/.bun/bin/bun test scripts/window-buttons.test.ts
           ~/.bun/bin/bun test scripts/tab-menu.test.ts
+          ~/.bun/bin/bun test scripts/new-menu.test.ts
           ~/.bun/bin/bun test scripts/settings.test.ts
           ~/.bun/bin/bun test scripts/file-menu.test.ts
           ~/.bun/bin/bun test scripts/reader.test.ts

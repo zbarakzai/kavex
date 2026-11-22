@@ -33,6 +33,7 @@ mock.module("gpui-kit", () => ({ View: class {}, div: make, image: make, svg: ma
 mock.module("gpui-base", () => ({ h_flex: make, v_flex: make }));
 mock.module("herdr", () => ({
   spaces: () => state.spaces,
+  knownAgents: async () => [],
   machines: () => [],
   panes: () => [],
   terminals: () => [],
