@@ -45,6 +45,7 @@ let state: {
   says: Record<string, Reply>;
   on: Record<string, Record<string, Reply>>;
   platform: string;
+  zoom?: number;
   active: boolean;
   awake?: { mode: string; active: boolean };
   agents: Record<string, any[] | Error>;
@@ -110,7 +111,7 @@ mock.module("herdr", () => ({
   setShared: (k: string, v: any) => { state.shared[k] = v === undefined ? v : JSON.parse(JSON.stringify(v)); },
   props: () => state.props,
   theme: () => colors,
-  settings: () => ({ zoom: 1, font_family: "Geist Mono", font_size: 13, ui_font_family: "Geist", theme_dark: "kavex", theme_light: "paper" }),
+  settings: () => ({ zoom: state.zoom ?? 1, font_family: "Geist Mono", font_size: 13, ui_font_family: "Geist", theme_dark: "kavex", theme_light: "paper" }),
   window: () => ({ platform: state.platform, active: state.active, awake: state.awake }),
   home: () => "/home/person",
   appHome: () => "/home/person/.config/kavex",
@@ -1924,6 +1925,25 @@ test("the awake menu opens upward, picks a mode with the keyboard, and toggles c
   expect(arg(byId(view.render().el, "keep-awake")!, "accessibility_label")).toBe("Keep computer awake, Agent · Active");
 });
 
+test("hover emphasizes a single spaced row and leaves the saved mode checked", () => {
+  state.props = { awakeMenu: true, overlay: "awake-popup" };
+  const menu = new WorkspaceStatus();
+  menu.init({}, cx);
+  const resting = menu.render().el;
+  expect(arg(byId(resting, "awake-options")!, "gap")).toBe(4);
+  expect(words(byId(resting, "awake-auto")!)).toEqual(["Agent", "While local agents work"]);
+  const hover = handler(byId(resting, "awake-on")!, "on_hover");
+  hover(true, cx);
+  const pointed = menu.render().el;
+  const on = byId(pointed, "awake-on")!, off = byId(pointed, "awake-off")!;
+  expect(arg(on, "bg")).toBe(`${colors.foreground.slice(0, 7)}24`);
+  expect(arg(off, "bg")).toBeUndefined();
+  expect(arg(off, "aria_selected")).toBe(true);
+  expect(paths(off)).toEqual(["mods/workspace-chrome/icons/check.svg"]);
+  hover(false, cx);
+  expect(arg(byId(menu.render().el, "awake-off")!, "bg")).toBe(colors.selected);
+});
+
 test("reaching 90% raises one toast saying which limit and when it resets", async () => {
   claude(AT(92));
   footer();
@@ -3064,4 +3084,60 @@ test("consent for a remote OpenCode account runs the probe on its execution owne
   expect(words(popover.draw())).toEqual(expect.arrayContaining(["OpenCode", "owner", "26%"]));
   expect(state.reads).toEqual(["/home/person/.config/kavex/mods/workspace-chrome/" + module]);
   expect(state.fetched).toEqual([]);
+});
+
+test("the main footer keeps System monitor, Usage and Keep computer awake together", () => {
+  const status = shippedLayout.children.find((node: any) => node.id === "work-area")
+    .children.find((node: any) => node.id === "workspace-status");
+  state.props = status.content.props;
+  state.space = { id: "remote", active: true, machine: "vps" };
+  const view: any = new WorkspaceStatus();
+  const root = view.render(cx).el as El;
+  const monitor = byId(root, "system-monitor-status")!;
+  expect(arg(monitor, "accessibility_label")).toBe("System monitor");
+  expect(paths(monitor)).toEqual(["mods/workspace-chrome/icons/memory.svg"]);
+  const buttons = all(root).map((el) => arg(el, "id"))
+    .filter((id) => ["system-monitor-status", "usage-status", "keep-awake"].includes(id));
+  expect(buttons).toEqual(["system-monitor-status", "usage-status", "keep-awake"]);
+  handler(monitor, "on_mouse_down")({ bounds: BUTTON }, cx);
+  handler(monitor, "on_click")({}, cx);
+  expect(state.overlays.at(-1)).toMatchObject({
+    mod: "system-monitor", kind: "popup", at: { x: BUTTON.x + BUTTON.width - 442, y: BUTTON.y - 344 },
+    props: { from: "system-monitor-status" },
+  });
+
+  state.shared["usage.enabled"] = false;
+  const withoutUsage = view.render(cx).el as El;
+  expect(byId(withoutUsage, "system-monitor-status")).toBeDefined();
+  expect(byId(withoutUsage, "keep-awake")).toBeDefined();
+  expect(byId(withoutUsage, "usage-status")).toBeUndefined();
+});
+
+test("the system monitor anchor fits a small window at high zoom", () => {
+  const prior = globalThis.window;
+  globalThis.window = { viewport_size: () => ({ width: 400, height: 280 }) } as any;
+  try {
+    state.props = { monitor: true };
+    state.zoom = 2;
+    const root = new WorkspaceStatus().render(cx).el as El;
+    const monitor = byId(root, "system-monitor-status")!;
+    handler(monitor, "on_mouse_down")({ bounds: BUTTON }, cx);
+    handler(monitor, "on_click")({}, cx);
+    expect(state.overlays.at(-1)).toMatchObject({ width: 192, height: 132 });
+  } finally {
+    globalThis.window = prior;
+  }
+});
+
+test("the monitor button has a keyboard focus ring and opens with Enter", () => {
+  state.props = { monitor: true };
+  const view = new WorkspaceStatus();
+  view.init(null, cx);
+  const button = byId(view.render(cx).el, "system-monitor-status")!;
+  expect(arg(button, "tab_stop")).toBe(true);
+  const focusStyle = make();
+  handler(button, "focus")(focusStyle);
+  expect(arg(focusStyle.el, "border_color")).toBe(colors.accent);
+  handler(button, "on_key_down")({ key: "enter" }, cx);
+  expect(state.overlays.at(-1)).toMatchObject({ mod: "system-monitor" });
 });

@@ -24,6 +24,16 @@ const machineOf = (id) => (id.includes("/") ? id.split("/")[0] : null);
 const TOP = 5, CHIP = 34; // the bar's top padding, which levels it with the window buttons, and a chip's height
 const TOOL_BUTTON = 28;
 const PANELS = [["files", "Files", "folder"], ["changes", "Changes", "branch"]];
+
+function toolbarTooltip(id, label, button, k) {
+  // Align the right edges so a label in the corner can extend inward while its arrow stays centered.
+  return HoverCard.new(`kavex-chrome-tooltip-${id}`).anchor("top_right").open_delay(300).close_delay(0).trigger(button)
+    .content(div().role("tooltip").mt(4).flex().flex_col().items_end()
+      .child(svg("mods/workspace-chrome/icons/tooltip-up.svg").w(10).h(5).mr((TOOL_BUTTON - 10) / 2)
+        .flex_none().text_color(k.input))
+      .child(div().px(8).py(4).rounded(6).bg(k.canvas).border_1().border_color(k.input)
+        .text_color(k.foreground).text_size(12).whitespace_nowrap().child(label)));
+}
 // How a dragged tab moves. Native springs: `response` in ms, 1 `damping` has no overshoot.
 const SLIDE = { response: 150, damping: 1 }; // room opening and shutting: slower, and rooms pile up on a quick back and forth
 const HELD = { response: 0 }; // stuck to the pointer: any spring here trails it, by 47 px on a fast whip
@@ -429,9 +439,14 @@ export default class Tabs extends View {
           if (body.active !== id) run("layout.select", { stack: "panel-body", child: id });
           if (!open) run("layout.show", { id: "panel" });
         }).child(svg(`mods/workspace-chrome/icons/${icon}.svg`).size(16));
-      return HoverCard.new(`tip-panel-${id}`).anchor("bottom_center").open_delay(300).close_delay(0).trigger(button)
-        .content(div().mt(6).px(9).py(5).rounded(8).bg(k.raised).border_1().border_color(k.border).shadow_md().text_size(12).text_color(k.foreground).whitespace_nowrap().child(label));
+      return toolbarTooltip(`panel-${id}`, label, button, k);
     });
+    const newTab = () => toolbarTooltip("tab-new", "New tab", h_flex().id("tab-new").size(TOOL_BUTTON).flex_none()
+      .items_center().justify_center().rounded(8).cursor_pointer().accessibility_label("New tab")
+      .text_color(k.muted).hover(s => s.bg(k.hover_strong).text_color(k.foreground))
+      .on_mouse_down("left", (e, cx) => this.armed(e, cx))
+      .on_click(this.unlessShut("tab-new", () => openOverlay({ mod: "new-menu", kind: "popup", width: 250, height: 512, props: { from: "tab-new" } })))
+      .child(svg("mods/workspace-chrome/icons/plus.svg").size(16)), k);
     const strip = h_flex().id("tab-scroll").flex_1().min_w(0).h_full().items_center().gap(GAP).overflow_x_scroll()
       .on_size_change((size) => { this.stripW = size.width / settings().zoom; })
       .children(bar.map((r, i) => this.roomed(r.group ? this.tray(r, v) : this.pill(r.tab, v), r.group ? slotKey.before(r.group) : r.tab.id, i === bar.length - 1 ? "end" : null)));
@@ -445,8 +460,7 @@ export default class Tabs extends View {
         .border(1).border_color(k.foreground).text_size(13.5).text_color(k.foreground).hover(s => s.bg(k.hover))
         .on_mouse_down("left", (e, cx) => this.armed(e, cx)).on_click(this.unlessShut("group-picked", () => this.group(v.picked))).child(`Group ${v.picked.length} tabs`)))
       .when(!right || panelButtons.length > 0, (el) => el.child(h_flex().id("tab-actions").flex_none().items_center().gap(2)
-        .when(!right, (row) => row.child(h_flex().id("tab-new").size(TOOL_BUTTON).flex_none().items_center().justify_center().rounded(8).text_color(k.muted).hover(s => s.bg(k.hover_strong).text_color(k.foreground))
-          .on_mouse_down("left", (e, cx) => this.armed(e, cx)).on_click(this.unlessShut("tab-new", () => openOverlay({ mod: "new-menu", kind: "popup", width: 250, height: 512, props: { from: "tab-new" } }))).child(svg("mods/workspace-chrome/icons/plus.svg").size(16))))
+        .when(!right, (row) => row.child(newTab()))
         .children(panelButtons)))
       .when(Boolean(w?.buttons), (el) => el.child(windowButtons(k)))
       .when(Boolean(d), el => el.child(this.ghost(v)));

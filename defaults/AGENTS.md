@@ -274,6 +274,8 @@ The top-right folder opens Files and the branch opens Changes. Click the active 
 or use the panel's close button to hide it. `cmd-shift-b` (`ctrl-shift-j`) toggles the last view,
 and each space remembers its panel state. The welcome and the switches in Settings > Look set
 shared `"workspace.panels"`. A disabled view's toolbar button is hidden.
+Hover over a toolbar icon for its label below the button. In the collapsed sidebar, labels
+appear to the right of the rail.
 
 Kavex also ships `terminals` ("Terminals" with tabs in the title bar, panes as cards,
 and a space picker) and `win98` ("Kavex 98" with a whole desktop in one mod).
@@ -381,6 +383,18 @@ the dot marks an active hold. The hold works across layouts and ends when Kavex
 quits. On macOS the display can sleep and closing the lid still allows sleep.
 Windows follows the device's lid settings. On Linux the hold depends on which
 power and desktop services are available.
+
+The memory icon next to **Usage** opens **System monitor**. When focused,
+Enter or Space also opens it. It shows this computer's CPU and memory, a short
+live history, and the CPU and resident memory of Kavex's desktop process and
+local agent sessions. CPU percentages
+are shares of all logical cores. A session includes its terminal process tree;
+shared pages can appear in more than one resident memory figure. The monitor
+samples locally while its popup is open and the window is active.
+
+Use `mod.open {name: "system-monitor"}` to open it from any layout. Personal
+layouts can set `monitor: true` in the `workspace-status` mod's props to show
+the icon, independently of `usage`.
 
 **Customize** (in **More actions**, the `customize` mod, `mod.open {name: "customize"}`)
 covers the window with its own sidebar: Skills, and Code review (empty for now). Back or Esc closes it.
@@ -1006,7 +1020,7 @@ has 120 programs (agents, editors, runtimes, tools, databases, infra);
   Icon paths from before that folder still work for this release only, and so does the
   `workspace-status` mod, for layouts cloned before the status bar went.
 - The defaults are mods too, read them as examples: `spaces`, `agents`,
-  `tabs` (the tab bar), `tab-menu`, `file-menu`, `tab-drag`, `menu`, `prompt`, `confirm`, `help`, `toast`, `usage`, `customize`,
+  `tabs` (the tab bar), `tab-menu`, `file-menu`, `tab-drag`, `menu`, `prompt`, `confirm`, `help`, `toast`, `usage`, `system-monitor`, `customize`,
   `start` (the main layout's screen with no space open: the ram draws itself once, then a light runs its outlines, with a wake of code behind the pointer),
   Terminals' `picker`, `peek`, and `pane` (an
   example pane header, not used by the default layouts), and `worktree`

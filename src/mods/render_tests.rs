@@ -186,6 +186,9 @@ fn module(values: BTreeMap<String, Value>, calls: Rc<RefCell<Calls>>) -> HostMod
                 "hc" if first.as_array().and_then(|a| a.first()).and_then(Value::as_str) == Some("run") => {
                     Some(json!({"code":0,"stdout":"{\"address\":\"t-setup\"}","stderr":""}))
                 }
+                "exec" if first == "/bin/sh" && a.get(1).map(from_host).and_then(|v| v.get(2).cloned()) == Some(json!("kavex-system-monitor")) => {
+                    Some(json!({"code":0,"stdout":"10 4096 8\ncpu 40 1 10 100 9 2 2 6\nMemTotal: 16000 kB\nMemAvailable: 6300 kB\n--\n","stderr":""}))
+                }
                 // Skills tidy, scan and link with sh scripts named kavex-skills (skills.js): none found.
                 "exec" if first == "sh" && a.get(1).map(from_host).and_then(|v| v.get(2).cloned()) == Some(json!("kavex-skills")) => {
                     Some(json!({"code":0,"stdout":"","stderr":""}))

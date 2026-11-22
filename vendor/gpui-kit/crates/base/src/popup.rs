@@ -3,7 +3,7 @@ use std::{cell::Cell, rc::Rc};
 use gpui::{
     Anchor, AnyElement, App, Bounds, Div, ElementId, InteractiveElement, Interactivity,
     IntoElement, ParentElement, Pixels, Point, RenderOnce, StatefulInteractiveElement,
-    StyleRefinement, Styled, Window, canvas, deferred, div, point, px,
+    StyleRefinement, Styled, Window, canvas, deferred, div, point, prelude::FluentBuilder as _, px,
 };
 
 use crate::{Positioner, ResolvedPosition, StyledExt as _};
@@ -32,6 +32,7 @@ pub struct Popup {
     style: StyleRefinement,
     anchor: Anchor,
     offset: Pixels,
+    occlude: bool,
     on_position: Option<Box<dyn Fn(ResolvedPosition, Bounds<Pixels>)>>,
     trigger: AnyElement,
     content: Option<AnyElement>,
@@ -46,6 +47,7 @@ impl Popup {
             style: StyleRefinement::default(),
             anchor: Anchor::TopLeft,
             offset: px(0.),
+            occlude: true,
             on_position: None,
             trigger: trigger.into_any_element(),
             content: None,
@@ -60,6 +62,12 @@ impl Popup {
     /// Gap from the trigger along the anchor's outward direction, zero by default.
     pub fn offset(mut self, offset: Pixels) -> Self {
         self.offset = offset;
+        self
+    }
+
+    /// Use the popup's layout for a passive label.
+    pub(crate) fn passive(mut self) -> Self {
+        self.occlude = false;
         self
     }
 
@@ -190,9 +198,8 @@ impl RenderOnce for Popup {
             deferred(
                 positioner
                     .margin(WINDOW_MARGIN)
-                    // The host blocks the mouse, so no caller has to remember:
-                    // what a popup covers belongs to the popup.
-                    .occlude()
+                    // Interactive popup surfaces own the area they cover.
+                    .when(self.occlude, Positioner::occlude)
                     .child(content),
             )
             .with_priority(POPUP_PRIORITY),

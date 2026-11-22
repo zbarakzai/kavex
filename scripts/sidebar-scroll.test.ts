@@ -135,9 +135,15 @@ test("the rail shows workspace and agent avatars with names in right-side toolti
     expect(arg(avatar, "bg")).toBe(colors.chip_active);
     expect(arg(avatar, "border_color")).toBe(colors.chip_active_ring);
   }
-  for (const [root, id, name] of [[side, "tip-space-s0", "Workspace alpha"], [agents, "tip-agent-a0", "Claude Code · Workspace alpha"]] as const) {
+  for (const [root, id, name] of [
+    [side, "kavex-chrome-tooltip-space-new", "New space"],
+    [side, "kavex-chrome-tooltip-space-s0", "Workspace alpha"],
+    [agents, "kavex-chrome-tooltip-agent-a0", "Claude Code · Workspace alpha"],
+  ] as const) {
     const tip = byId(root, id);
-    expect(arg(tip, "anchor")).toBe("right_center");
-    expect(label(mine(arg(tip, "content"))!)).toEqual([name]);
+    expect(arg(tip, "anchor")).toBe("left_center");
+    const content = mine(arg(tip, "content"))!;
+    expect(arg(content, "role")).toBe("tooltip");
+    expect(all(content).flatMap(label)).toContain(name);
   }
 });
