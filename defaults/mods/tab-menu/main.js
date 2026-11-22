@@ -8,13 +8,16 @@
 
 import { View, div, svg } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input } from "gpui-base";
-import { run, props, closeOverlay, openOverlay, theme, keys, spaces, shared, setShared } from "herdr";
+import { run, props, closeOverlay, openOverlay, theme, keys, spaces, shared, setShared, layout } from "herdr";
 import { look, groupHue, tabHue } from "./look.js";
 import { HUES, firstAmongGroups, leastUsed, moves } from "./groups.js";
 
 const groups = () => shared("tab.groups") ?? {};
 const edit = (id, change) => setShared("tab.groups", { ...groups(), [id]: { ...groups()[id], ...change } });
 const painted = () => shared("tab.colors") ?? {};
+
+const hasTabsColumn = (node) => node?.id === "tabs-column" && node.content?.mod === "tabs-column"
+  || Boolean(node?.children?.some(hasTabsColumn));
 
 const home = (tab) => Object.values(groups()).find((g) => g.tabs.includes(tab));
 
@@ -67,7 +70,8 @@ export default class TabMenu extends View {
   create() {
     const { tabs, color, fill } = this.making, id = `g${Date.now().toString(36)}`, left = without(tabs);
     const order = (spaces().find((s) => s.id === props().space)?.tabs ?? []).map((c) => c.id);
-    const steps = shared("tabs.placement") === "right" ? moves(order, firstAmongGroups(order, left, tabs)) : [];
+    const right = shared("tabs.placement") === "right" && hasTabsColumn(layout());
+    const steps = right ? moves(order, firstAmongGroups(order, left, tabs)) : [];
     if (steps.length) setShared("tabs.hold", Date.now() + 1000);
     setShared("tab.groups", { ...left, [id]: { name: this.input.value().trim(), color, fill, folded: false, tabs } });
     setShared("tabs.picked", []);

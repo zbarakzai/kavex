@@ -58,7 +58,10 @@ fn traffic_light_divider_inset(n: &Node, axis: Axis, index: usize, macos: bool, 
     }
     // Keep the toolbar continuous above the rail; the divider starts with the content.
     shown.iter().skip(index).take(2).filter_map(|column| {
-        let header = column.children().iter().find(|child| !child.hidden)?;
+        let mut header = column.children().iter().find(|child| !child.hidden)?;
+        while header.axis() == Some(Axis::Column) && !matches!(header.size, Some(Span::Px { .. })) {
+            header = header.children().iter().find(|child| !child.hidden)?;
+        }
         match header.size {
             Some(Span::Px { px }) if header.window_drag => Some(px),
             _ => None,
@@ -381,6 +384,33 @@ struct Drag {
     container: String,
     index: usize,
     axis: Axis,
+    sidebar: Option<SidebarResize>,
+}
+
+const SIDEBAR_EXPANDED: f32 = 200.0;
+const SIDEBAR_RAIL: f32 = 48.0;
+const SIDEBAR_PULL: f32 = 12.0;
+
+struct SidebarResize {
+    offset: f32,
+}
+
+impl SidebarResize {
+    fn new(width: f32) -> Self {
+        // From the rail, a short outward pull opens the labeled sidebar at
+        // its smallest width. Further motion resizes from that starting point.
+        let offset = if width <= SIDEBAR_RAIL { SIDEBAR_EXPANDED - SIDEBAR_RAIL - SIDEBAR_PULL } else { 0.0 };
+        Self { offset }
+    }
+
+    fn width(&self, requested: f32, available: f32) -> f32 {
+        let width = requested + self.offset;
+        if width < SIDEBAR_EXPANDED || available < SIDEBAR_EXPANDED {
+            SIDEBAR_RAIL.min(available)
+        } else {
+            width.min(available)
+        }
+    }
 }
 
 #[derive(Default)]
@@ -4315,7 +4345,7 @@ impl AppWindow {
                         cx.listener(move |this, _: &MouseDownEvent, _, cx| {
                             if let Some(space) = this.model.space_of(&container)
                                 && this.require_document(space.machine.as_deref()).is_err() { return; }
-                            this.drag = Some(Drag { container: container.clone(), index, axis });
+                            this.drag = Some(Drag { container: container.clone(), index, axis, sidebar: None });
                             cx.stop_propagation();
                         }),
                     ),
@@ -4324,7 +4354,7 @@ impl AppWindow {
         sep.into_any_element()
     }
 
-    fn drag_to(&mut self, pos: Point<Pixels>) {
+    fn drag_to(&mut self, pos: Point<Pixels>, cx: &mut Context<Self>) {
         let Some(d) = &self.drag else { return };
         let (container, index, axis) = (d.container.clone(), d.index, d.axis);
         let Some(node) = self.find_node_mut(&container).map(|n| n.clone()) else { return };
@@ -4352,9 +4382,19 @@ impl AppWindow {
         if let Some(max) = a.max {
             new_a = new_a.min(max);
         }
-        let new_a = new_a.min(total - 24.0);
+        new_a = new_a.min(total - 24.0);
         let (a_id, b_id) = (a.id.clone(), b.id.clone());
         let (sa, sb) = (a.size, b.size);
+        let sidebar = self.layout_name == "main" && container == self.chrome.id && axis == Axis::Row && a_id == "sidebar";
+        let mut sidebar_mode_changed = false;
+        if sidebar {
+            let old_width = match sa { Some(Span::Px { px }) => px, _ => la };
+            let available = (total - 24.0).min(a.max.unwrap_or(f32::INFINITY));
+            if let Some(drag) = &mut self.drag {
+                new_a = drag.sidebar.get_or_insert_with(|| SidebarResize::new(old_width)).width(new_a, available);
+                sidebar_mode_changed = (old_width <= SIDEBAR_RAIL) != (new_a <= SIDEBAR_RAIL);
+            }
+        }
         let Some(parent) = self.find_node_mut(&container) else { return };
         let Some(children) = parent.children_mut() else { return };
         let set = |children: &mut Vec<Node>, id: &str, s: Span| {
@@ -4372,6 +4412,10 @@ impl AppWindow {
                 set(children, &a_id, Span::Weight { weight: sum * new_a / total });
                 set(children, &b_id, Span::Weight { weight: sum * (total - new_a) / total });
             }
+        }
+        // Rebuild the sidebar's mods at the snap. Ordinary drags publish on release.
+        if sidebar_mode_changed && mods::publish_layout(&self.chrome) {
+            self.refresh_readers(mods::part::LAYOUT, cx);
         }
     }
 
@@ -4986,7 +5030,7 @@ impl Render for AppWindow {
                     this.publish(cx);
                     return;
                 }
-                this.drag_to(ev.position);
+                this.drag_to(ev.position, cx);
                 cx.notify();
             }))
             .on_mouse_up(MouseButton::Left, cx.listener(|this, _, window, cx| {
@@ -5093,6 +5137,22 @@ mod tests {
         record["reason"] = "killed".into();
         assert!(super::launch_failure(&record, "").is_none());
         assert!(super::launch_failure(&serde_json::Value::Null, "").is_none());
+    }
+
+    #[test]
+    fn sidebar_drag_snaps_between_the_rail_and_the_labeled_sidebar() {
+        let rail = super::SIDEBAR_RAIL;
+        let inward = super::SidebarResize::new(230.0);
+        assert_eq!(inward.width(200.0, 480.0), 200.0);
+        assert_eq!(inward.width(199.0, 480.0), rail);
+        assert_eq!(inward.width(160.0, 480.0), rail);
+
+        let outward = super::SidebarResize::new(rail);
+        assert_eq!(outward.width(rail + 11.0, 480.0), rail);
+        assert_eq!(outward.width(rail + 12.0, 480.0), 200.0);
+        assert_eq!(outward.width(rail + 42.0, 480.0), 230.0);
+        assert_eq!(outward.width(rail + 11.0, 480.0), rail);
+        assert_eq!(outward.width(300.0, 190.0), rail);
     }
 
     #[gpui::test]

@@ -1,6 +1,6 @@
 import { test, expect } from "bun:test";
 import { fitRow } from "../defaults/mods/agents/fit.js";
-import { SIDEBAR_MIN, snapTarget } from "../defaults/mods/workspace-chrome/snap.js";
+import { SIDEBAR_MIN, SIDEBAR_RAIL, snapTarget } from "../defaults/mods/workspace-chrome/snap.js";
 
 // The shipped sidebar is 230px: a row gets 206 after the sidebar's padding and the scrollbar's room.
 const DEFAULT = 206;
@@ -45,17 +45,13 @@ test("a row with nothing extra to show drops nothing it doesn't have", () => {
 });
 
 test("the sidebar is the rail or at least the minimum", () => {
-  for (const rail of [44, 76]) {
-    expect(snapTarget(rail, rail)).toBeNull();
-    expect(snapTarget(230, rail)).toBeNull();
-    expect(snapTarget(SIDEBAR_MIN, rail)).toBeNull();
-    expect(snapTarget(rail + 10, rail)).toBe(rail);
-    expect(snapTarget(SIDEBAR_MIN - 10, rail)).toBe(SIDEBAR_MIN);
-  }
-  // Dragged most of the way in, it goes to the rail; opened partway from it, to the minimum.
-  expect(snapTarget(120, 76)).toBe(76);
-  expect(snapTarget(150, 76)).toBe(SIDEBAR_MIN);
-  expect(snapTarget(undefined, 76)).toBeNull();
+  expect(snapTarget(SIDEBAR_RAIL)).toBeNull();
+  expect(snapTarget(230)).toBeNull();
+  expect(snapTarget(SIDEBAR_MIN)).toBeNull();
+  expect(snapTarget(SIDEBAR_MIN - 10)).toBe(SIDEBAR_MIN);
+  expect(snapTarget(44)).toBe(SIDEBAR_RAIL);
+  expect(snapTarget(76)).toBe(SIDEBAR_RAIL);
+  expect(snapTarget(undefined)).toBeNull();
 });
 
 test("at the minimum, a working row still shows its name and its badge", () => {

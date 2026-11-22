@@ -53,9 +53,12 @@ test:
     bun test scripts/sessions.test.ts
     bun test scripts/terminal-notes.test.ts
     bun test scripts/usage.test.ts
+    bun test scripts/usage-provider-cli.test.ts scripts/usage-provider-network.test.ts scripts/usage-provider-plans.test.ts
+    bun test scripts/usage-provider-owner.test.ts
     bun test scripts/skills.test.ts
     bun test scripts/skills-page.test.ts
     bun test scripts/sidebar-fit.test.ts
+    bun test scripts/sidebar-scroll.test.ts
     bun test scripts/recent-spaces.test.ts
     cargo test --locked
 

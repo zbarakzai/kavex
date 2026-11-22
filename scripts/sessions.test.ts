@@ -136,7 +136,7 @@ mkdir -p "$(dirname "$5")" && cat > "$5.new" && mv -f "$5.new" "$5"
 chmodSync(join(fakeBin, "hc"), 0o755);
 
 mock.module("gpui-kit", () => ({ View: class {}, div: make, svg: make, image: make }));
-mock.module("gpui-base", () => ({ h_flex: make, v_flex: make }));
+mock.module("gpui-base", () => ({ h_flex: make, v_flex: make, HoverCard: { new: make } }));
 mock.module("herdr", () => ({
   appHome: () => "/kavex",
   notify: () => {},

@@ -103,13 +103,6 @@ export function pruned(groups, kept) {
   return Object.fromEntries(left.filter(([, g]) => g.tabs.length));
 }
 
-// The next tab a mouse wheel steps to, or null at either end: stepping round from
-// the last tab to the first sent the whole bar flying.
-export function stepped(tabs, forward) {
-  const list = tabs.filter((c) => !c.settled);
-  return list[list.findIndex((c) => c.active) + (forward ? 1 : -1)] ?? null;
-}
-
 // The bar's spacing, as it draws it.
 export const GAP = 4;
 export const INNER = 2; // between what's in a tray

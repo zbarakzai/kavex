@@ -3,7 +3,7 @@ import { h_flex, v_flex, HoverCard } from "gpui-base";
 import { theme, run, props, window, shared, setShared, updates, layout, agents, spaces, openOverlay, closeOverlay, settings, nextCommand } from "herdr";
 import { allowOpencode, checkUsage, EVERY, nearLimit, POPOVER_HEIGHT, POPOVER_WIDTH, usageOff } from "./checks.js";
 import { look, MONO } from "./look.js";
-import { SETTLE_MS, snapTarget } from "./snap.js";
+import { SETTLE_MS, SIDEBAR_MIN, SIDEBAR_RAIL, snapTarget } from "./snap.js";
 import { checkSkills, EVERY as SKILLS_EVERY } from "./skills.js";
 
 function find(node, id) {
@@ -22,9 +22,21 @@ const FOOTER_ACTIONS = [
   { id: "machine", label: "Add machine", icon: "machine", mod: "machine-add" },
   { id: "customize", label: "Customize", icon: "layers", mod: "customize" },
 ];
-const footerActions = () => usageOff() ? FOOTER_ACTIONS.slice(1) : FOOTER_ACTIONS;
-const FIRST_CHECK = 5000;
-const WATCH = 60_000;
+function hasUsageButton(node) {
+  if (!node || node.hidden) return false;
+  if (node.content?.mod === "workspace-status" && node.content.props?.usage) return true;
+  const children = node.children ?? [];
+  if (node.type === "stack") {
+    const visible = children.filter((child) => !child.hidden);
+    return hasUsageButton(visible.find((child) => child.id === node.active) ?? visible[0]);
+  }
+  return children.some(hasUsageButton);
+}
+
+const menuShowsUsage = () => !usageOff() && !hasUsageButton(layout());
+const footerActions = () => menuShowsUsage() ? FOOTER_ACTIONS : FOOTER_ACTIONS.slice(1);
+const FIRST_CHECK = 1000;
+const WATCH = 30_000;
 const FIRST_SKILLS_CHECK = 20_000;
 
 // The sidebar's rail goes by its width, not a flag: dragging its edge narrows it too.
@@ -34,17 +46,6 @@ const warning = () => nearLimit(shared("usage")?.entries, Date.now());
 const skillUpdates = () => Boolean(shared("skills.updates")?.length);
 
 const sidebarPx = () => find(layout(), "sidebar")?.size?.px;
-const railPx = () => (window()?.platform === "macos" ? 76 : 44);
-
-// To the rail (on macOS wide enough for the traffic lights), or back to the width it had.
-function toggleSidebar() {
-  const width = find(layout(), "sidebar")?.size?.px;
-  if (!narrow()) setShared("sidebar.width", width);
-  // Mods edited before the rail went by width still read the flag.
-  setShared("sidebar.collapsed", !narrow());
-  run("layout.resize", { id: "sidebar", px: narrow() ? (shared("sidebar.width") ?? 230) : railPx() });
-}
-
 export default class WorkspaceChrome extends View {
   // Usage checks run here and not in the popover, which stops when it closes: one closed midway
   // would leave its check cut off, and keep the next from starting.
@@ -62,15 +63,18 @@ export default class WorkspaceChrome extends View {
       return;
     }
     if (!props()?.footer) return;
-    cx.timer.after(FIRST_CHECK, (cx) => cx.spawn(() => checkUsage()));
+    this.wasActive = window()?.active !== false;
+    cx.timer.after(FIRST_CHECK, (cx) => {
+      if (window()?.active !== false) cx.spawn(() => checkUsage({ activate: true }));
+    });
     // Skills follow the same rule: any footer may run a due check (skills.js).
     cx.timer.after(FIRST_SKILLS_CHECK, (cx) => cx.spawn(() => checkSkills({ within: SKILLS_EVERY })));
     cx.timer.every(WATCH, (cx) => {
-      cx.spawn(() => checkUsage({ within: EVERY }));
+      if (window()?.active !== false) cx.spawn(() => checkUsage({ within: EVERY }));
       cx.spawn(() => checkSkills({ within: SKILLS_EVERY }));
       // A limit passing its reset time changes no data, so nothing else would redraw the dot.
       const warned = this.warned;
-      this.warned = warning();
+      this.warned = menuShowsUsage() && warning();
       if (this.warned !== warned) cx.notify();
     });
     cx.spawn(async (cx) => {
@@ -93,7 +97,7 @@ export default class WorkspaceChrome extends View {
       .on_mouse_down("left", (_e, cx) => cx.stop_propagation()).on_click(action).child(label);
   }
   action(id, icon, name, click, k, width, mark) {
-    const button = div().id(id).relative().w(width).h(24).flex_none().flex().items_center().justify_center().rounded(7)
+    const button = div().id(id).relative().w(width).h(width).flex_none().flex().items_center().justify_center().rounded(7)
       .text_color(k.muted).accessibility_label(name).cursor_pointer().hover(s => s.bg(k.hover_strong).text_color(k.foreground))
       .when(id === "footer-more", el => el.on_mouse_down("left", (e) => { this.pressed = { at: Date.now(), bounds: e.bounds }; }))
       .on_click(click).child(svg(`mods/workspace-chrome/icons/${icon}.svg`).size(16))
@@ -157,33 +161,38 @@ export default class WorkspaceChrome extends View {
 
   footer(t) {
     const k = look(t), collapsed = narrow();
-    this.warned = !usageOff() && warning();
-    const tight = collapsed && sidebarPx() < 56, width = tight ? 18 : 24;
+    this.warned = menuShowsUsage() && warning();
+    const settings = this.action("settings", "settings", "Settings", () => run("app.settings"), k, collapsed ? 30 : 24, updates().app.ready ? k.accent : null);
+    const bar = h_flex().size_full().pb(4).items_center();
+    if (collapsed) return bar.justify_center().child(settings);
+
     const mark = this.warned ? k.blocked : skillUpdates() ? k.accent : null;
-    const more = this.action("footer-more", "more", "More actions", () => this.openActions(), k, width, mark);
-    const settings = this.action("settings", "settings", "Settings", () => run("app.settings"), k, width, updates().app.ready ? k.accent : null);
+    const more = this.action("footer-more", "more", "More actions", () => this.openActions(), k, 24, mark);
     const list = agents().length, tail = `· ${list} ${list === 1 ? "AGENT" : "AGENTS"}`;
     const machine = (spaces().find(s => s.active)?.machine ?? "This computer").toUpperCase();
-    return h_flex().size_full().pb(4).items_center().gap(tight ? 0 : 2)
-      .when(collapsed, el => el.justify_center())
-      .when(!collapsed, el => el.pl(4).child(h_flex().flex_1().min_w(0).items_center()
-        .font_family(MONO).text_size(10).text_color(k.label)
-        .child(div().size(6).mr(5).rounded(3).flex_none().bg(k.added))
-        .child(div().min_w(0).truncate().child(machine))
-        .child(div().ml(4).flex_none().whitespace_nowrap().child(tail))))
+    return bar.gap(2).pl(4).child(h_flex().flex_1().min_w(0).items_center()
+      .font_family(MONO).text_size(10).text_color(k.label)
+      .child(div().size(6).mr(5).rounded(3).flex_none().bg(k.added))
+      .child(div().min_w(0).truncate().child(machine))
+      .child(div().ml(4).flex_none().whitespace_nowrap().child(tail)))
       .child(more).child(settings);
   }
-  // A width left between the rail and the minimum goes to the nearer one once it holds still.
+  // Saved widths or resize commands can still land between the rail and the labeled sidebar.
   settle(cx) {
     const px = sidebarPx();
-    if (snapTarget(px, railPx()) === null || this.settling === px) return;
+    if (px === SIDEBAR_RAIL || px >= SIDEBAR_MIN) {
+      const collapsed = px === SIDEBAR_RAIL;
+      if (Boolean(shared("sidebar.collapsed")) !== collapsed) setShared("sidebar.collapsed", collapsed);
+      return;
+    }
+    if (snapTarget(px) === null || this.settling === px) return;
     this.settling = px;
     cx.timer.after(SETTLE_MS, () => {
       if (this.settling !== px) return;
       this.settling = null;
-      const to = sidebarPx() === px ? snapTarget(px, railPx()) : null;
+      const to = sidebarPx() === px ? snapTarget(px) : null;
       if (to === null) return;
-      setShared("sidebar.collapsed", to === railPx());
+      setShared("sidebar.collapsed", to === SIDEBAR_RAIL);
       run("layout.resize", { id: "sidebar", px: to });
     });
   }
@@ -191,14 +200,17 @@ export default class WorkspaceChrome extends View {
   render(cx) {
     const t = theme();
     if (props()?.footerMenu) return this.actionsMenu(look(t));
-    if (props()?.footer) return this.footer(t);
+    if (props()?.footer) {
+      const active = window()?.active !== false;
+      if (active && this.wasActive === false) cx.spawn(() => checkUsage({ activate: true }));
+      this.wasActive = active;
+      return this.footer(t);
+    }
     this.settle(cx);
     const collapsed = narrow(), mac = window()?.platform === "macos";
     return h_flex().size_full().pl(mac && !collapsed ? 76 : 8).gap(8).items_center()
       .when(!collapsed, el => el.child(image("mods/workspace-chrome/logo.png").size(22).flex_none())
         .child(div().flex_1().min_w(0).truncate().text_size(16).font_medium().text_color(t.foreground).child("Kavex"))
-        .child(this.button("search", svg("mods/workspace-chrome/icons/search.svg").size(16), () => run("mod.open", { name: "picker" }), t)))
-      // On the macOS rail the traffic lights fill the row; the agents list's » unfolds it.
-      .when(collapsed && !mac, el => el.child(this.button("sidebar-toggle", svg("mods/workspace-chrome/icons/sidebar.svg").size(16), toggleSidebar, t)));
+        .child(this.button("search", svg("mods/workspace-chrome/icons/search.svg").size(16), () => run("mod.open", { name: "picker" }), t)));
   }
 }

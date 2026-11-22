@@ -38,7 +38,8 @@ kavex do agent.focus --terminal t7
 ```
 
 To show the person a Markdown file (a plan, a report), open it in the Files panel
-when asked. It renders there and follows the file as you save it:
+when asked. The folder icon at the top right opens Files, and the branch icon opens Changes.
+The Markdown renders in Files and follows the file as you save it:
 
 ```sh
 kavex do file.preview --file plan.md
@@ -47,7 +48,8 @@ kavex do file.preview --file plan.md
 A relative path starts at your own folder. Add `--on vps` for a file on another machine. Cmd-click (Ctrl-click) on a Markdown file's name in terminal text does the
 same, so naming a file that exists in your output lets the person open it themselves.
 
-Tab groups and colors belong to the person. `kavex do tabs.group`, `tabs.fold`,
+In the main layout, tabs and groups sit above the terminals. Tab groups and
+colors belong to the person. `kavex do tabs.group`, `tabs.fold`,
 `tabs.ungroup` and `tabs.color` act on the shown tab, in layouts with the tab
 bar: use them only when asked. Folded tabs show `settled` in `ls`.
 
@@ -99,8 +101,18 @@ use the current agent session when Kavex can identify it.
 
 ## Customize layouts, keys, or mods
 
-Open the three-dot **More actions** menu beside **Settings** in the sidebar
-footer for Usage limits, Add machine, or Customize.
+Drag the sidebar divider inward to snap to the icon rail. **Spaces** and
+**Agents** label the two groups. Hover an avatar to see its name. Pull the
+divider outward to reopen the full sidebar.
+
+Open **Usage** at the bottom right for the active machine. A custom layout with just the
+sidebar footer offers **More actions → Usage limits** for all machines. Choose
+**Used** or **Left** to show the percentage consumed or remaining for every
+reported window. Select a provider for its reading, reset and account status in
+the same dropdown.
+Use the back button to return to the list. **History** groups saved readings by
+date. **Accounts** shows provider status and access controls. Use **More actions**
+for Add machine and Customize.
 
 First read `~/.config/kavex/AGENTS.md` (or `$HERDR_APP_HOME/AGENTS.md` if
 set). It is the installed guide to settings, layouts, commands and mods.

@@ -24,7 +24,7 @@ test("every mod's look.js is the same file", () => {
 });
 
 test("mods that share a file keep the same copy", () => {
-  for (const [file, mods] of [["groups.js", ["tabs", "tabs-column", "tab-menu"]], ["filetypes.js", ["files", "changes"]], ["symbols-theme.js", ["files", "changes"]], ["panel.js", ["files", "changes"]], ["checks.js", ["usage", "workspace-chrome"]]] as const) {
+  for (const [file, mods] of [["groups.js", ["tabs", "tabs-column", "tab-menu"]], ["filetypes.js", ["files", "changes"]], ["symbols-theme.js", ["files", "changes"]], ["panel.js", ["files", "changes"]], ["checks.js", ["usage", "workspace-chrome"]], ["codex-probe.js", ["usage", "workspace-chrome"]], ["provider-cli.js", ["usage", "workspace-chrome"]], ["provider-network.js", ["usage", "workspace-chrome"]], ["provider-plans.js", ["usage", "workspace-chrome"]], ["provider-readers.js", ["usage", "workspace-chrome"]], ["provider-host.js", ["usage", "workspace-chrome"]], ["provider-owner.js", ["usage", "workspace-chrome"]], ["provider-opencode.js", ["usage", "workspace-chrome"]], ["copilot-probe.js", ["usage", "workspace-chrome"]]] as const) {
     expect(new Set(mods.map((mod) => readFileSync(join(root, "mods", mod, file), "utf8"))).size, file).toBe(1);
   }
 });
@@ -69,10 +69,10 @@ test("no color is missing under a theme without the design's names", () => {
   for (const [name, value] of colors) expect(value, name).toMatch(/^#[0-9a-f]{6}([0-9a-f]{2})?$/i);
 });
 
-test("the Tabs column's focus key sits beside the panel key, on a key nothing else uses", () => {
+test("the main layout omits the old Tabs column shortcut", () => {
   for (const [file, key] of [["keys.macos.json", "cmd-shift-r"], ["keys.json", "ctrl-shift-r"]] as const) {
     const keys = JSON.parse(readFileSync(join(root, file), "utf8"));
-    expect(keys["layout:main"][key]).toBe("tabs-column.focus");
+    expect(keys["layout:main"][key]).toBeUndefined();
     for (const section of ["global", "terminal"]) expect(keys[section][key], section).toBeUndefined();
   }
 });
