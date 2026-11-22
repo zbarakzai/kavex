@@ -130,7 +130,7 @@ test("the folder and branch buttons each open, select, and close their own view"
   for (const id of ["tab-new", "panel-toggle-files", "panel-toggle-changes"]) {
     expect(arg(byId(actions, id)!, "size")).toBe(28);
   }
-  for (const [id, other, label, icon] of [["files", "changes", "Files", "folder"], ["changes", "files", "Changes", "branch"]]) {
+  for (const [id, other, label, icon] of [["files", "changes", "Files", "heroicons/folder"], ["changes", "files", "Changes", "heroicons/share"]]) {
     show({ active: other });
     const button = byId(draw(Tabs), `panel-toggle-${id}`)!;
     expect(arg(button, "accessibility_label")).toBe(label);

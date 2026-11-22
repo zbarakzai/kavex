@@ -239,7 +239,7 @@ export default class WorkspaceStatus extends View {
         })
         .on_mouse_down("left", (e) => { this.monitorPressed = { at: Date.now(), bounds: e.bounds }; })
         .on_click(() => this.openMonitor())
-        .child(svg(`${ICONS}/memory.svg`).size(STATUS_ICON).flex_none())))
+        .child(svg(`${ICONS}/heroicons/cpu-chip.svg`).size(STATUS_ICON).flex_none())))
       .when(config.usage && shared("usage.enabled") !== false, (el) => el.child(footerButton(SOURCE, "Usage limits", t)
         .on_mouse_down("left", (e) => { this.pressed = { at: Date.now(), bounds: e.bounds }; })
         .on_click(() => this.open(space?.machine ?? null))

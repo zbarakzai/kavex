@@ -23,7 +23,7 @@ const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const machineOf = (id) => (id.includes("/") ? id.split("/")[0] : null);
 const TOP = 5, CHIP = 34; // the bar's top padding, which levels it with the window buttons, and a chip's height
 const TOOL_BUTTON = 28;
-const PANELS = [["files", "Files", "folder"], ["changes", "Changes", "branch"]];
+const PANELS = [["files", "Files", "heroicons/folder"], ["changes", "Changes", "heroicons/share"]];
 
 function toolbarTooltip(id, label, button, k) {
   // Align the right edges so a label in the corner can extend inward while its arrow stays centered.
@@ -446,7 +446,7 @@ export default class Tabs extends View {
       .text_color(k.muted).hover(s => s.bg(k.hover_strong).text_color(k.foreground))
       .on_mouse_down("left", (e, cx) => this.armed(e, cx))
       .on_click(this.unlessShut("tab-new", () => openOverlay({ mod: "new-menu", kind: "popup", width: 250, height: 512, props: { from: "tab-new" } })))
-      .child(svg("mods/workspace-chrome/icons/plus.svg").size(16)), k);
+      .child(svg("mods/workspace-chrome/icons/heroicons/plus.svg").size(16)), k);
     const strip = h_flex().id("tab-scroll").flex_1().min_w(0).h_full().items_center().gap(GAP).overflow_x_scroll()
       .on_size_change((size) => { this.stripW = size.width / settings().zoom; })
       .children(bar.map((r, i) => this.roomed(r.group ? this.tray(r, v) : this.pill(r.tab, v), r.group ? slotKey.before(r.group) : r.tab.id, i === bar.length - 1 ? "end" : null)));

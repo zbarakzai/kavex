@@ -95,9 +95,9 @@ test("the panel: surface, radius 14, no border, a 56px header and 32px buttons",
   expect([arg(button.hover!, "bg"), arg(button.hover!, "text_color")]).toEqual(["#222222", "#F2F2F2"]);
 });
 
-test("the header's two buttons don't look alike: New group is the menu's layers icon", () => {
+test("the header uses distinct outline icons for grouping and adding tabs", () => {
   const root = column().draw(), icon = (id: string) => arg(all(byId(root, id)!).find((e) => has(e, "path"))!, "path");
-  expect([icon("column-group"), icon("column-new")]).toEqual(["mods/workspace-chrome/icons/layers.svg", "mods/workspace-chrome/icons/plus.svg"]);
+  expect([icon("column-group"), icon("column-new")]).toEqual(["mods/workspace-chrome/icons/heroicons/square-3-stack-3d.svg", "mods/workspace-chrome/icons/heroicons/plus.svg"]);
 });
 
 test("the list has no cards, and sections and rows keep their gaps", () => {
