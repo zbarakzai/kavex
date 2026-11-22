@@ -3,7 +3,7 @@
 // in the Changes panel, not here. Click to switch, right-click for its menu, drag to reorder.
 
 import { View, div, svg } from "gpui-kit";
-import { v_flex, h_flex } from "gpui-base";
+import { v_flex, h_flex, HoverCard } from "gpui-base";
 import { spaces, machines, panes, run, openOverlay, exec, hc, home, props, theme, settings, shared, setShared, watchFolder, window, layout } from "herdr";
 import { look, sectionLabel, MONO } from "./look.js";
 import { loader } from "./loader.js";
@@ -291,7 +291,10 @@ export default class Spaces extends View {
         .text_size(12).text_color(t.dim).hover(s => s.bg(t.hover).text_color(t.foreground))
         .on_click(() => run("space.new", m ? { machine: m } : {}))
         .child(svg("mods/workspace-chrome/icons/plus.svg").size(16)).when(!collapsed, el => el.child("New space there"));
-      return [head, ...(folded ? [] : mine.length ? mine.map(draw) : [loading(m) ? loadingRow(m) : empty])];
+      const machineName = m ?? "This computer";
+      const header = collapsed ? this.railTip(`machine-${m ?? "local"}`, machineName, head, look(t)) : head;
+      const create = collapsed ? this.railTip(`machine-new-${m ?? "local"}`, `New space on ${machineName}`, empty, look(t)) : empty;
+      return [header, ...(folded ? [] : mine.length ? mine.map(draw) : [loading(m) ? loadingRow(m) : create])];
     });
   }
 
@@ -342,24 +345,33 @@ export default class Spaces extends View {
           .gap(10)
           .items_center()
           .when(Boolean(tree), el => el.pl(22).child(svg("mods/workspace-chrome/icons/branch.svg").size(16).text_color(t.dim)))
-          .when(!tree, el => el.child(h_flex().size(26).flex_none().rounded(7).bg(on ? t.accent : k.tile).items_center().justify_center().font_family(MONO).text_size(11.5)
-            .text_color(on ? t.accent_foreground : k.tile_text).when(on, el => el.font_semibold()).child([...w.name][0]?.toUpperCase() ?? "?")))
+          .when(!tree, el => el.child(this.avatar(w, k)))
           .child(div().flex_1().min_w(0).truncate().text_size(13.5).text_color(t.foreground).child(w.name)),
       );
   }
 
-  compact({ w, i }, t) {
-    return h_flex()
-      .id(`space-${w.id}`)
-      .h(26)
-      .flex_none()
-      .justify_center()
-      .gap(4)
-      .when(w.active, (el) => el.bg(t.raised))
-      .hover((s) => s.bg(t.hover))
+  railTip(id, label, button, k) {
+    return HoverCard.new(`tip-${id}`).anchor("right_center").open_delay(300).close_delay(0).trigger(button)
+      .content(div().ml(6).px(9).py(5).rounded(8).bg(k.raised).border_1().border_color(k.border)
+        .shadow_md().text_size(12).text_color(k.foreground).whitespace_nowrap().child(label));
+  }
+
+  avatar(w, k) {
+    return h_flex().size(26).flex_none().rounded(7).bg(w.active ? k.accent : k.tile)
+      .items_center().justify_center().font_family(MONO).text_size(11.5)
+      .text_color(w.active ? k.accent_foreground : k.tile_text)
+      .when(w.active, (el) => el.font_semibold()).child([...w.name][0]?.toUpperCase() ?? "?");
+  }
+
+  compact({ w }, t) {
+    const k = look(t), id = `space-${w.id}`, name = w.name;
+    const button = h_flex().id(id).h(32).w_full().flex_none().items_center().justify_center().rounded(8)
+      .accessibility_label(name).cursor_pointer()
+      .hover((el) => el.bg(k.hover))
       .on_click(() => run("space.select", { id: w.id }))
-      .child(div().text_color(w.active ? t.foreground : t.muted).child(String(i + 1)))
-      .child(w.status === "working" ? h_flex().items_center().child(loader(t.accent, 2)) : div().text_color(tone(t, w.status)).child(glyph(w.status)));
+      .on_mouse_down("right", () => this.menu(w))
+      .child(this.avatar(w, k));
+    return this.railTip(id, name, button, k);
   }
 
   render() {
@@ -367,9 +379,12 @@ export default class Spaces extends View {
     const t = theme();
     const collapsed = narrow();
     const controlSize = collapsed ? 21 : 26;
-    const control = (id, label, glyph, click) => div().id(id).size(controlSize).flex_none().flex().items_center()
-      .justify_center().rounded(7).text_color(t.muted).accessibility_label(label).cursor_pointer()
-      .hover((el) => el.bg(t.raised).text_color(t.foreground)).on_click(click).child(svg(glyph).size(16));
+    const control = (id, label, glyph, click) => {
+      const button = div().id(id).size(controlSize).flex_none().flex().items_center()
+        .justify_center().rounded(7).text_color(t.muted).accessibility_label(label).cursor_pointer()
+        .hover((el) => el.bg(t.raised).text_color(t.foreground)).on_click(click).child(svg(glyph).size(16));
+      return collapsed ? this.railTip(id, label, button, look(t)) : button.tooltip(label);
+    };
     const palette = ["ansi6", "ansi3", "ansi4", "ansi5", "ansi2", "ansi1"];
     const sp = spaces();
     const ids = new Set(sp.map(p => p.id));
@@ -387,8 +402,7 @@ export default class Spaces extends View {
       .child(h_flex().pt(14).pb(4).pl(collapsed ? 0 : 10).items_center().justify_between().when(collapsed, el => el.justify_center())
         .when(!collapsed, el => el.child(sectionLabel(k, "SPACES")))
         .child(h_flex().gap(2)
-          .child(control("space-recent", RECENT_LABEL, "icons/folder-open.svg", () => this.openRecent())
-            .tooltip(RECENT_LABEL))
+          .child(control("space-recent", RECENT_LABEL, "icons/folder-open.svg", () => this.openRecent()))
           .child(control("space-new", "New space", "mods/workspace-chrome/icons/plus.svg", () => run("space.new")))))
       .child(v_flex().id("space-list").flex_1().min_h(0).overflow_y_scrollbar().mode("always")
         .on_mouse_up("left", (_e, cx) => { this.pressed = null; cx.notify(); })

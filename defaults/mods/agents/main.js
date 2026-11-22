@@ -2,7 +2,7 @@
 // A viewed done agent stays in Done until left.
 
 import { View, div, image, svg } from "gpui-kit";
-import { v_flex, h_flex } from "gpui-base";
+import { v_flex, h_flex, HoverCard } from "gpui-base";
 import { agents, terminals, focused, spaces, run, theme, shared, setShared, setAgentOrder, openOverlay, closeOverlay, props, window, layout } from "herdr";
 import { look, badge, duration, sectionLabel, tile, MONO } from "./look.js";
 import { loader } from "./loader.js";
@@ -239,6 +239,12 @@ export default class Agents extends View {
     return badge(k, a.status);
   }
 
+  railTip(id, label, button, k) {
+    return HoverCard.new(`tip-${id}`).anchor("right_center").open_delay(300).close_delay(0).trigger(button)
+      .content(div().ml(6).px(9).py(5).rounded(8).bg(k.raised).border_1().border_color(k.border)
+        .shadow_md().text_size(12).text_color(k.foreground).whitespace_nowrap().child(label));
+  }
+
   render(cx) {
     if (this.notes) return this.notes.render();
     const t = theme();
@@ -265,9 +271,9 @@ export default class Agents extends View {
     list = [...pinned, ...rest];
     setAgentOrder(list.map((a) => a.address));
 
-    const withKids = (a, i) => {
+    const withKids = (a) => {
       const subs = collapsed ? [] : this.tree(nested, a.address);
-      const r = row(a, i, subs);
+      const r = row(a, subs);
       if (this.folded.has(a.address)) return [r];
       return [r, ...subs.map((s) => this.subRow(t, s, shown))];
     };
@@ -299,21 +305,19 @@ export default class Agents extends View {
     };
 
 
-    const row = (a, i, subs = []) => {
+    const row = (a, subs = []) => {
       // An agent on another machine (`vps/t7`) says which.
       const machine = a.address.includes("/") ? a.address.split("/")[0] : null;
       if (collapsed) {
-        return h_flex()
-          .id(`ag-${a.address}`)
-          .h(26)
-          .px(8)
-          .flex_none()
-          .items_center()
-          .gap(4)
-          .hover((s) => s.bg(t.hover))
+        const name = a.program?.name || a.tab_name || "Agent";
+        const label = [...new Set([name, a.space_name, machine].filter(Boolean))].join(" · ");
+        const button = h_flex().id(`ag-${a.address}`).h(32).w_full().flex_none()
+          .items_center().justify_center().rounded(8).accessibility_label(label).cursor_pointer()
+          .when(a.focused, (el) => el.bg(t.selected))
+          .hover((el) => el.bg(t.hover))
           .on_click(() => run("pane.focus", { pane: a.pane }))
-          .child(div().flex_1().min_w(0).whitespace_nowrap().text_right().text_color(t.muted).child(String(i + 1)))
-          .child(h_flex().w(14).flex_none().items_center().justify_center().child(this.status(t, { status: failed(a, words) }, true)));
+          .child(tile(a.program, 26, k));
+        return this.railTip(`agent-${a.address}`, label, button, k);
       }
       const when = this.since(a);
       const status = failed(a, words), context = this.sessions.contextOf(a.address), hovered = this.hovered === a.address;
@@ -451,7 +455,11 @@ export default class Agents extends View {
         .child(v_flex().id("ag-rows").flex_none().gap(2).when(!collapsed, (el) => el.pr(BAR)).children(rows)))
       .when(collapsed, (el) =>
         el.child(h_flex().h(28).items_center().justify_center()
-          .child(div().id("collapse").text_size(13).text_color(t.dim).hover((s) => s.text_color(t.foreground)).on_click(toggleSidebar).child(svg("mods/workspace-chrome/icons/sidebar.svg").size(16)))),
+          .child(this.railTip("collapse", "Expand sidebar",
+            h_flex().id("collapse").size(26).items_center().justify_center().rounded(7)
+              .accessibility_label("Expand sidebar").cursor_pointer().text_color(k.muted)
+              .hover((s) => s.bg(k.hover).text_color(k.foreground)).on_click(toggleSidebar)
+              .child(svg("mods/workspace-chrome/icons/sidebar.svg").size(16)), k))),
       );
   }
 }

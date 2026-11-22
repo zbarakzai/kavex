@@ -637,10 +637,11 @@ The default window, in short (`layouts/main.json` is the whole of it):
 
 Sidebar on the right: move `sidebar` to the end of `root`'s children. No sidebar: set
 `"hidden": true` on `sidebar` (the user can toggle it: `ctrl-shift-b`).
-Narrower than 160px, the sidebar mods draw a compact rail; folding resizes
-`sidebar` to 44 (76 on macOS, room for the traffic lights). Left between the
-rail and 200px, it settles to the nearer of the two once it holds still. On macOS,
-the tabs also leave room for the window buttons when the sidebar is narrower.
+In the Kavex layout, drag the sidebar divider inward past 200px to snap to the
+icon rail. Pull it outward to reopen at 200px, then keep dragging to resize.
+Hover a workspace or agent avatar to see its name. The rail is 44px wide
+(76px on macOS, to fit the traffic lights). A saved or programmatic width
+between the rail and 200px settles to the nearer one once it holds still.
 
 ### Layouts and mods other people made
 

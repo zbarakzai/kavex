@@ -3,7 +3,7 @@ import { h_flex, v_flex, HoverCard } from "gpui-base";
 import { theme, run, props, window, shared, setShared, updates, layout, agents, spaces, openOverlay, closeOverlay, settings, nextCommand } from "herdr";
 import { allowOpencode, checkUsage, EVERY, nearLimit, POPOVER_HEIGHT, POPOVER_WIDTH, usageOff } from "./checks.js";
 import { look, MONO } from "./look.js";
-import { SETTLE_MS, snapTarget } from "./snap.js";
+import { SETTLE_MS, SIDEBAR_MIN, snapTarget } from "./snap.js";
 import { checkSkills, EVERY as SKILLS_EVERY } from "./skills.js";
 
 function find(node, id) {
@@ -188,10 +188,15 @@ export default class WorkspaceChrome extends View {
         .child(div().ml(4).flex_none().whitespace_nowrap().child(tail))))
       .child(more).child(settings);
   }
-  // A width left between the rail and the minimum goes to the nearer one once it holds still.
+  // Saved widths or resize commands can still land between the rail and the labeled sidebar.
   settle(cx) {
-    const px = sidebarPx();
-    if (snapTarget(px, railPx()) === null || this.settling === px) return;
+    const px = sidebarPx(), rail = railPx();
+    if (px === rail || px >= SIDEBAR_MIN) {
+      const collapsed = px === rail;
+      if (Boolean(shared("sidebar.collapsed")) !== collapsed) setShared("sidebar.collapsed", collapsed);
+      return;
+    }
+    if (snapTarget(px, rail) === null || this.settling === px) return;
     this.settling = px;
     cx.timer.after(SETTLE_MS, () => {
       if (this.settling !== px) return;
@@ -219,6 +224,6 @@ export default class WorkspaceChrome extends View {
         .child(div().flex_1().min_w(0).truncate().text_size(16).font_medium().text_color(t.foreground).child("Kavex"))
         .child(this.button("search", svg("mods/workspace-chrome/icons/search.svg").size(16), () => run("mod.open", { name: "picker" }), t)))
       // On the macOS rail the traffic lights fill the row; the agents list's » unfolds it.
-      .when(collapsed && !mac, el => el.child(this.button("sidebar-toggle", svg("mods/workspace-chrome/icons/sidebar.svg").size(16), toggleSidebar, t)));
+      .when(collapsed && !mac, el => el.child(this.action("sidebar-toggle", "sidebar", "Expand sidebar", toggleSidebar, look(t), 24, null)));
   }
 }

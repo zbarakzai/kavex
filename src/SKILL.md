@@ -100,6 +100,9 @@ use the current agent session when Kavex can identify it.
 
 ## Customize layouts, keys, or mods
 
+Drag the sidebar divider inward to snap to the icon rail. Hover an avatar to see
+its name. Pull the divider outward to reopen the labeled sidebar.
+
 Open **Usage** at the bottom right for the active machine. A custom layout with just the
 sidebar footer offers **More actions → Usage limits** for all machines. Choose
 **Used** or **Left** to show the percentage consumed or remaining. Use **Detailed** for every window and
