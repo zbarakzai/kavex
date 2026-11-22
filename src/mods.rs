@@ -512,6 +512,7 @@ fn scan_dir(root: &Path, prefix: &str) -> Vec<Found> {
 pub enum Request {
     Run { name: String, args: Value },
     OpenOverlay { id: String, spec: Value },
+    RevealTerminalNote { terminal: String, anchor: Option<String>, text: String, reply: async_channel::Sender<bool> },
     CloseOverlay { id: String },
     Refresh,
     /// From `kavex do` / `kavex status` (control.rs); answer on `reply`.
@@ -986,6 +987,7 @@ fn exec_future(command: String, args: Vec<String>, cwd: Option<String>, on: Opti
 fn module(inst: Instance, copy: u64) -> HostModule {
     let props = inst.props.clone();
     let feedback_frame = inst.name == "frame-feedback";
+    let notes_picker = inst.name == "agents" && inst.props["notes"] == "browse";
     let feedback_from = inst.props.get("from").and_then(Value::as_str).unwrap_or("person").to_owned();
     let feedback_layout = inst.props.get("layout").and_then(Value::as_str).unwrap_or("other").to_owned();
     let (cmd_tx, commands) = async_channel::unbounded::<String>();
@@ -1007,6 +1009,17 @@ fn module(inst: Instance, copy: u64) -> HostModule {
         .async_function("writeTextFile", |a| {
             let expected = a.get(2).and_then(|v| match v { HostValue::Str(s) => Some(s.clone()), _ => None });
             Ok(crate::mod_files::write_text(a.string(0)?.to_owned(), a.string(1)?.to_owned(), expected))
+        })
+        .async_function("revealTerminalNote", move |a| {
+            if !notes_picker {
+                return Err(HostError::new("Only the session notes picker can reveal a terminal note."));
+            }
+            let terminal = a.string(0)?.to_owned();
+            let anchor = a.get(1).and_then(|v| match v { HostValue::Str(s) => Some(s.clone()), _ => None });
+            let text = a.string(2)?.to_owned();
+            let (reply, result) = async_channel::bounded(1);
+            request(Request::RevealTerminalNote { terminal, anchor, text, reply });
+            Ok(async move { Ok(HostValue::Bool(result.recv().await.unwrap_or(false))) })
         })
         .async_function("hc", |a| Ok(exec_future("hc".into(), strings(a.get(0)), None, None)))
         .function("home", |_| Ok(home().to_string_lossy().into_owned().into()))

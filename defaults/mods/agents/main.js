@@ -9,6 +9,7 @@ import { loader } from "./loader.js";
 import { fitRow } from "./fit.js";
 import { dropdown } from "./dropdown.js";
 import { Sessions, hasSession } from "./sessions.js";
+import { TerminalNotes } from "./notes.js";
 
 function find(node, id) {
   if (node?.id === id) return node;
@@ -59,6 +60,10 @@ function icon(p, size, color) {
 
 export default class Agents extends View {
   init(_props, cx) {
+    if (props()?.notes) {
+      this.notes = new TerminalNotes(props(), cx);
+      return;
+    }
     if (props()?.sortMenu) return;
     if (props()?.session) return this.initDropdown(cx);
     this.folded = new Set();
@@ -236,6 +241,7 @@ export default class Agents extends View {
   }
 
   render(cx) {
+    if (this.notes) return this.notes.render();
     const t = theme();
     if (props()?.sortMenu) return this.sortMenu(t);
     if (props()?.session) return this.drawDropdown(t);

@@ -172,6 +172,14 @@ the highlighted line shows where it will land.
   with the same address; its original command is never run again. Splits
   and mod panes stay. An exited or killed terminal is closed, not restarted.
   Focus, zoom, recent spaces, settled tabs and seen attention stay on this screen.
+- **Terminal notes:** Select text and release the mouse for **Add note** and **Copy**.
+  A note saves the selected text with an optional comment. Open the command palette
+  (Cmd+Shift+P on macOS, Ctrl+Shift+P elsewhere), type `%note`, and press Enter to
+  browse the focused terminal's notes. Choose a note to highlight its original
+  output. When the location is unavailable, Kavex shows the saved excerpt and comment.
+  Notes follow known Claude Code, Codex, and Pi sessions when resumed. Other notes
+  belong to the terminal where they were saved. Notes are local versioned JSON
+  under `terminal-notes/` in the app's home, including notes on remote terminals.
 - Every terminal is a core terminal. Kavex labels the ones it starts with
   `kavex.space=<id>` and `kavex.tab=<id>`. **A terminal with those
   labels shows up there**, even one you start yourself:

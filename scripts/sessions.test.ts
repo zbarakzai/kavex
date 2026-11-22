@@ -138,6 +138,9 @@ chmodSync(join(fakeBin, "hc"), 0o755);
 mock.module("gpui-kit", () => ({ View: class {}, div: make, svg: make, image: make }));
 mock.module("gpui-base", () => ({ h_flex: make, v_flex: make }));
 mock.module("herdr", () => ({
+  appHome: () => "/kavex",
+  notify: () => {},
+  revealTerminalNote: async () => false,
   agents: () => state.agents,
   terminals: () => state.terminals,
   focused: () => null,

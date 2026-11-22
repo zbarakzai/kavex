@@ -87,6 +87,13 @@ worker. Use app commands when the
 user wants to see a new tab or split, hc for orchestration that need not change
 the screen.
 
+## Terminal notes
+
+Select output for Add note or Copy. In Kavex's command palette, enter `%note`
+to browse the focused terminal's notes. Choosing a note highlights the
+retained output or shows the saved excerpt. Notes are local to Kavex and
+use the current agent session when Kavex can identify it.
+
 ## Customize layouts, keys, or mods
 
 First read `~/.config/kavex/AGENTS.md` (or `$HERDR_APP_HOME/AGENTS.md` if
