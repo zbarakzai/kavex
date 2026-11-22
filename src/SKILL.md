@@ -114,6 +114,11 @@ Use the back button to return to the list. **History** groups saved readings by
 date. **Accounts** shows provider status and access controls. Use **More actions**
 for Add machine and Customize.
 
+The coffee button next to **Usage** opens **Keep computer awake**. **On** holds the
+computer awake whenever Kavex runs, **Agent** does so while a local agent is
+working, and **Off** returns to normal sleep. Kavex remembers the choice and
+shows an active dot while it holds the computer awake.
+
 The memory icon beside **Usage** opens **System monitor** for this computer.
 It shows live CPU and memory history and the usage of Kavex's desktop process
 and local agent sessions. From any layout, open it with

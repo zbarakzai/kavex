@@ -36,6 +36,7 @@ pub struct EventLines {
     seq: u64,
     /// Every terminal the stream describes, in its order (schema/README.md, Events).
     terminals: Vec<Value>,
+    local_work: crate::awake::LocalWork,
 }
 
 /// What a push changed.
@@ -50,7 +51,11 @@ impl EventLines {
     /// From `events.subscribe`'s reply: its `seq` and `terminals`.
     pub fn new(snapshot: &Value) -> Self {
         let terminals = snapshot["terminals"].as_array().cloned().unwrap_or_default();
-        EventLines { pending: Vec::new(), seq: snapshot["seq"].as_u64().unwrap_or(0), terminals }
+        EventLines { seq: snapshot["seq"].as_u64().unwrap_or(0), terminals, ..Self::default() }
+    }
+
+    pub fn local_agents_working(&mut self, now: std::time::Instant) -> bool {
+        self.local_work.working(now)
     }
 
     /// The live terminals, as `terminal.list` puts them.
@@ -80,7 +85,13 @@ impl EventLines {
             match line["method"].as_str() {
                 Some("missed") => {
                     self.terminals = p["terminals"].as_array().cloned().unwrap_or_default();
-                    self.seq = p["seq"].as_u64().unwrap_or(self.seq);
+                    let seq = p["seq"].as_u64();
+                    // Remote layout refreshes also send this message at the current sequence.
+                    // Only an actual event gap invalidates our live observations.
+                    if seq != Some(self.seq) {
+                        self.local_work.clear();
+                    }
+                    self.seq = seq.unwrap_or(self.seq);
                     pushed.docs = true;
                     pushed.terminals = true;
                 }
@@ -102,6 +113,10 @@ impl EventLines {
     fn apply(&mut self, p: &Value) -> bool {
         let (kind, address, data) = (p["type"].as_str().unwrap_or_default(), &p["terminal"], &p["data"]);
         let at = self.terminals.iter().position(|t| &t["address"] == address);
+        let name = address.as_str().unwrap_or_default();
+        if matches!(kind, "created" | "finished" | "removed" | "lost" | "restarted") {
+            self.local_work.observe(kind, name, false, std::time::Instant::now());
+        }
         let whole = match kind {
             "created" | "restarted" => Some(data),
             "labels" => data.get("record"),
@@ -120,6 +135,14 @@ impl EventLines {
             return true;
         }
         let t = &mut self.terminals[i];
+        if kind == "status" {
+            let status = &data["status"];
+            let working = status["state"] == "working" || status == "working";
+            // Child records can change without refreshing an inherited root status.
+            if !working || *status != t["status"] || data["records"] == t["records"] {
+                self.local_work.observe(kind, name, working, std::time::Instant::now());
+            }
+        }
         let mut set = |keys: &[&str]| keys.iter().for_each(|k| t[*k] = data[*k].clone());
         match kind {
             "finished" | "lost" => {
@@ -520,6 +543,37 @@ mod tests {
         assert!(got.terminals && got.docs, "missed: everything again");
         assert_eq!(addresses(&lines), ["t9"]);
         assert!(lines.push(format!("{}\n", json!({"method": "event", "params": {"seq": 21, "type": "doc"}})).as_bytes()).docs);
+    }
+
+    #[test]
+    fn keep_awake_uses_live_local_reports_and_forgets_them_on_gaps() {
+        let rec = |address: &str| json!({"address": address, "state": "live", "status": {"state": "working"}});
+        let terminals = [rec("t1"), rec("remote/t2")];
+        let mut lines = EventLines::new(&json!({"seq": 5, "terminals": terminals}));
+        let now = std::time::Instant::now;
+        let report = |seq, terminal, state| format!("{}\n", json!({
+            "method": "event", "params": {"seq": seq, "type": "status", "terminal": terminal, "data": {"status": {"state": state}}}
+        }));
+        assert!(!lines.local_agents_working(now()));
+        lines.push(report(5, "t1", "working").as_bytes());
+        lines.push(report(6, "remote/t2", "working").as_bytes());
+        assert!(!lines.local_agents_working(now()));
+        lines.push(report(7, "t1", "working").as_bytes());
+        assert!(lines.local_agents_working(now()));
+        lines.push(report(8, "t1", "blocked").as_bytes());
+        assert!(!lines.local_agents_working(now()));
+        lines.push(report(9, "t1", "working").as_bytes());
+        let refresh = format!("{}\n", json!({"method": "missed", "params": {"seq": 9, "terminals": terminals}}));
+        lines.push(refresh.as_bytes());
+        assert!(lines.local_agents_working(now()));
+        let missed = format!("{}\n", json!({"method": "missed", "params": {"seq": 12, "terminals": terminals}}));
+        lines.push(missed.as_bytes());
+        assert!(!lines.local_agents_working(now()));
+        let child = format!("{}\n", json!({"method": "event", "params": {"seq": 13, "type": "status", "terminal": "t1", "data": {
+            "status": {"state": "working"}, "records": {"child": {"state": "done"}}
+        }}}));
+        lines.push(child.as_bytes());
+        assert!(!lines.local_agents_working(now()));
     }
 
     #[test]

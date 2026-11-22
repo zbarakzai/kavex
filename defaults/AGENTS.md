@@ -347,6 +347,7 @@ An orange dot on the menu button points to a skill update inside.
 **Usage** at the bottom right, below the workspace, opens limits for the active machine.
 A custom layout with just the sidebar footer offers **More actions → Usage limits**
 for all machines.
+
 The roster shows all reported windows and orders providers by the highest primary
 percentage used. Choose **Used** or **Left** to show the percentage consumed or remaining.
 Select a provider to see its reset times and reading status in the same dropdown. Use the back
@@ -374,6 +375,14 @@ the **Used** and **Left** setting. **Accounts** shows provider status and access
   Signing in belongs to the provider. An agent must not grant usage access on the person's behalf.
 - **Off** in **Settings → Look → Usage limits** hides the Usage button, stops checks, and clears readings,
   usage history, warnings and consent. Display preferences are kept in `shared("usage.presentation")`.
+
+The coffee button next to **Usage** opens **Keep computer awake**. **On** holds the
+computer awake while Kavex runs. **Agent** holds it while a local agent reports
+working, and **Off** returns to normal sleep. Kavex remembers the selection, and
+the dot marks an active hold. The hold works across layouts and ends when Kavex
+quits. On macOS the display can sleep and closing the lid still allows sleep.
+Windows follows the device's lid settings. On Linux the hold depends on which
+power and desktop services are available.
 
 The memory icon next to **Usage** opens **System monitor**. When focused,
 Enter or Space also opens it. It shows this computer's CPU and memory, a short
