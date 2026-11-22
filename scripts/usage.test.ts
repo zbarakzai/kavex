@@ -250,7 +250,7 @@ function providerPopover(roster: { draw: () => El }, provider: string) {
   const row = all(roster.draw()).find((node) => String(arg(node, "id")).startsWith("usage-row-" + provider + "-"));
   if (!row) throw new Error("Usage roster row is missing: " + provider);
   handler(row, "on_click")({}, cx);
-  return openPopover();
+  return roster;
 }
 
 function cachedRows() {
@@ -340,7 +340,7 @@ test("the dropdown opens above the footer and Usage limits opens beside the butt
   const [menu, usage] = state.overlays;
   expect(menu).toMatchObject({ mod: "workspace-chrome", kind: "popup", props: { footerMenu: true } });
   expect(menu.at.y + menu.height).toBeLessThan(BUTTON.y);
-  expect(usage).toMatchObject({ mod: "usage", kind: "popup", width: 440, height: 540, props: { from: "usage" } });
+  expect(usage).toMatchObject({ mod: "usage", kind: "popup", width: 400, height: 540, props: { from: "usage" } });
   expect(usage.at.x).toBeGreaterThan(BUTTON.x + BUTTON.width);
   expect(state.closedOverlays).toEqual(["footer-menu"]);
 });
@@ -379,12 +379,19 @@ test("a Customize update keeps its mark in the menu and on the three-dot button"
 });
 
 
-test("the detailed roster shows the provider, plan, quota and reset in a flat row", async () => {
+test("the detailed roster uses Kavex cards and shows the provider, plan, quota and reset", async () => {
   claude(WEEK);
   const { popover } = await opened();
   const root = popover.draw();
   expect(paths(root)).toContain("icons/claude.svg");
-  expect(words(root)).toEqual(expect.arrayContaining(["Usage", "· all agents", "Claude Code", "· Max", "Resets in 5d 7h"]));
+  expect(words(root)).toEqual(expect.arrayContaining(["Usage limits", "Claude Code", "· Max", "Resets in 5d 7h"]));
+  expect(arg(root, "bg")).toBe(colors.canvas);
+  expect(arg(root, "rounded")).toBe(13);
+  const [row] = rows(root);
+  expect(arg(row, "bg")).toBe(colors.card);
+  expect(arg(row, "border_color")).toBe(colors.card_border);
+  expect(arg(row, "rounded")).toBe(10);
+  expect(arg(byId(root, "usage-refresh")!, "bg")).toBe(colors.accent);
   const [week] = limits(root);
   expect(words(week)).toEqual(["wk", "12%"]);
   expect(filled(week)).toBe(12);
@@ -796,7 +803,7 @@ test("colors come from the theme, and the popover sits on the window's darkest c
   claude(WEEK);
   const { popover } = await opened();
   const root = popover.draw();
-  expect(arg(root, "bg")).toBe(colors.popover ?? colors.canvas);
+  expect(arg(root, "bg")).toBe(colors.canvas);
   expectThemeColors(root);
 });
 
@@ -811,7 +818,7 @@ test("a list that fits has no scroller to collapse; a longer one scrolls inside 
   state.shared.usage = { checkedAt: 1, entries: Object.fromEntries(many) };
   const root = popover.draw(), list = byId(root, "usage-rows")!;
   expect(scrolls(list)).toBe(true);
-  expect(arg(list, "h")).toBeLessThan(440);
+  expect(arg(list, "h") + 44 + 46 + 2).toBeLessThanOrEqual(540);
   expect(arg(list, "h")).toBeGreaterThan(300);
   expect(arg(root, "min_h")).toBe(0);
   expect(arg(list, "min_h")).toBe(0);
@@ -1717,13 +1724,13 @@ test("any one limit at 90% is enough for the dot", async () => {
 });
 
 
-test("overview meters stay neutral while provider details use green, amber and red", async () => {
+test("overview and details use Kavex provider colors and the near-limit theme color", async () => {
   claude(AT(45), "Current week (Sonnet only): 80% used", "Current week (Opus only): 90% used");
   const { popover } = await opened();
   const overview = limits(popover.draw());
   expect(new Set(overview.map(barColor)).size).toBe(1);
   const detail = limits(providerPopover(popover, "claude").draw());
-  expect(detail.map(barColor)).toEqual([colors.added, colors.ansi3 ?? colors.blocked, colors.failed ?? colors.blocked]);
+  expect(detail.map(barColor)).toEqual([colors.accent, colors.accent, colors.blocked]);
 });
 
 test("the footer redraws by itself when a limit resets, and not for every look at the clock", async () => {
@@ -1759,9 +1766,24 @@ test("compact usage defaults to the most consumed primary window, with a Used/Le
 test("the roster links to provider details, refresh history and account management", async () => {
   claude(WEEK);
   const { popover } = await opened();
+  const [row] = rows(popover.draw());
+  expect(handler(row, "on_mouse_move")).toBeUndefined();
+  expect(handler(row, "on_hover")).toBeUndefined();
+
+  const overlayCount = state.overlays.length;
   const detail = providerPopover(popover, "claude");
+  expect(state.overlays.length).toBe(overlayCount);
   expect(byId(detail.draw(), "usage-provider")).toBeDefined();
   expect(words(detail.draw())).toEqual(expect.arrayContaining(["This week", "12%", "Updated just now"]));
+  handler(byId(detail.draw(), "usage-back")!, "on_click")({}, cx);
+  expect(state.overlays.length).toBe(overlayCount);
+  expect(byId(popover.draw(), "usage-rows")).toBeDefined();
+
+  handler(popover.draw(), "on_key_down")({ key: "right" }, cx);
+  expect(byId(popover.draw(), "usage-provider")).toBeDefined();
+  handler(popover.draw(), "on_key_down")({ key: "left" }, cx);
+  expect(byId(popover.draw(), "usage-rows")).toBeDefined();
+  expect(state.overlays.length).toBe(overlayCount);
 
   handler(byId(popover.draw(), "usage-history")!, "on_click")({}, cx);
   const history = openPopover().draw();
@@ -1790,12 +1812,12 @@ test("the usage status strip shows the active machine and opens the roster above
   state.props = { usage: true };
   const status = view.render(cx).el as El;
   const strip = byId(status, "usage-status")!;
-  expect(words(strip)).toEqual(expect.arrayContaining(["Used", "81%"]));
+  expect(words(strip)).toEqual(expect.arrayContaining(["Usage", "81%"]));
   expect(words(strip)).not.toContain("12%");
   handler(strip, "on_mouse_down")({ bounds: BUTTON }, cx);
   handler(strip, "on_click")({}, cx);
-  expect(state.overlays.at(-1)).toMatchObject({ mod: "usage", width: 440, props: { from: "usage-status", machine: "vps" } });
-  expect(state.overlays.at(-1).at.y).toBe(BUTTON.y - (151 + 40 + 24) - 8);
+  expect(state.overlays.at(-1)).toMatchObject({ mod: "usage", width: 400, props: { from: "usage-status", machine: "vps" } });
+  expect(state.overlays.at(-1).at.y).toBe(BUTTON.y - (92 + 53 + 23) - 8);
 });
 
 test("reaching 90% raises one toast saying which limit and when it resets", async () => {
@@ -2211,6 +2233,7 @@ const reply = (popover: { draw: () => El }, id: string, provider = "opencode") =
   const button = all(detail.draw()).find((node) => String(arg(node, "id")).startsWith(id + "-"));
   if (!button) throw new Error("Usage consent button is missing: " + provider);
   handler(button, "on_click")({}, cx);
+  handler(byId(detail.draw(), "usage-back")!, "on_click")({}, cx);
 };
 const NOT_NOW = "usage-not-now", ALLOW = "usage-allow";
 

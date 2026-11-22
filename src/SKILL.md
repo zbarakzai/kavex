@@ -102,8 +102,8 @@ use the current agent session when Kavex can identify it.
 Open **Usage** in the workspace status strip for the active machine. The sidebar’s
 **More actions → Usage limits** shows all machines. Use **Detailed** for every
 window, **Used / Left** for percentage direction, and select a provider for its
-reading, reset and account status. The menu also opens usage history and account
-access. Use **More actions** for Add machine and Customize.
+reading, reset and account status in the same dropdown. Use the back button to
+return to the list. **History** and **Accounts** open their own dialogs. Use **More actions** for Add machine and Customize.
 
 First read `~/.config/kavex/AGENTS.md` (or `$HERDR_APP_HOME/AGENTS.md` if
 set). It is the installed guide to settings, layouts, commands and mods.

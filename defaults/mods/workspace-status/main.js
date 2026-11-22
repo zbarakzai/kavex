@@ -1,9 +1,8 @@
-import { View, div, image, svg } from "gpui-kit";
+import { View, div, svg } from "gpui-kit";
 import { h_flex } from "gpui-base";
 import { agents, openOverlay, props, run, settings, shared, spaces, theme, window } from "herdr";
 
-const GAP = 9;
-const ROSTER_WIDTH = 440;
+const ROSTER_WIDTH = 400;
 const ROSTER_HEIGHT = 540;
 const SOURCE = "usage-status";
 const STALE_MS = 30 * 60_000;
@@ -15,14 +14,6 @@ function reading(row, now) {
   const primary = current.filter((limit) => !limit.scoped);
   return (primary.length ? primary : current).reduce((highest, limit) =>
     !highest || limit.used > highest.used ? limit : highest, null);
-}
-
-function resetLabel(resetsAt, now) {
-  const mins = Math.ceil((resetsAt - now) / 60_000);
-  if (!resetsAt || mins <= 0) return "";
-  if (mins >= 1440) return `${Math.floor(mins / 1440)}d ${Math.floor(mins % 1440 / 60)}h`;
-  if (mins >= 60) return `${Math.floor(mins / 60)}h ${mins % 60}m`;
-  return `${mins}m`;
 }
 
 export default class WorkspaceStatus extends View {
@@ -43,11 +34,6 @@ export default class WorkspaceStatus extends View {
       ...(bounds ? { at: { x: bounds.x + bounds.width - ROSTER_WIDTH * zoom, y: bounds.y - (height + 8) * zoom } } : {}),
       props: { from: SOURCE, machine },
     });
-  }
-
-  meter(theme, used) {
-    return div().w(28).h(5).flex_none().rounded_full().bg(theme.border)
-      .child(div().h_full().w(28 * used / 100).rounded_full().bg(theme.muted));
   }
 
   legacy(t, space) {
@@ -71,41 +57,26 @@ export default class WorkspaceStatus extends View {
     const now = Date.now(), data = shared("usage"), pref = shared("usage.presentation");
     const detailed = pref?.mode === "verbose", remaining = pref?.display === "remaining";
     const rows = Object.values(data?.entries ?? {}).filter((row) => row.machine === machine);
+    // The popup fits its contents. Leave room above the button for the roster up to its cap.
     const rowHeight = rows.reduce((height, row) =>
-      height + 40 + (detailed && row.limits.length ? 24 * Math.ceil(row.limits.length / 5) : 0), 0);
-    const popupHeight = Math.min(ROSTER_HEIGHT, 151 + (rowHeight || 34));
-    const meters = rows.map((row) => ({ row, limit: reading(row, now) })).filter(({ limit }) => limit)
-      .sort((a, b) => b.limit.used - a.limit.used);
-    const room = this.width ?? 550;
-    const showTime = room >= 415;
-    const estimateWidth = detailed ? 87 : showTime ? 81 : 54;
-    const count = Math.max(0, Math.floor((room - 184) / estimateWidth));
-    const hidden = Math.max(0, meters.length - count);
-    const strip = h_flex().id("usage-status").h_full().gap(GAP).items_center()
-      .accessibility_label("Usage · all agents").cursor_pointer().px(6)
+      height + 53 + (detailed ? 23 * Math.ceil(row.limits.length / 3) : 0), 0);
+    const popupHeight = Math.min(ROSTER_HEIGHT, 92 + (rowHeight || 46));
+    const highest = rows.map((row) => ({ row, limit: reading(row, now) })).filter(({ limit }) => limit)
+      .sort((a, b) => b.limit.used - a.limit.used)[0];
+    const used = highest && Math.min(100, Math.max(0, Math.round(highest.limit.used)));
+    const value = highest && (remaining ? 100 - used : used);
+    const label = highest ? `Usage, ${highest.row.name} ${value}% ${remaining ? "left" : "used"}${highest.row.failed ? ", cached" : ""}` : "Usage limits";
+    const color = used >= 90 ? t.blocked : t.muted;
+    const strip = h_flex().id("usage-status").h(21).gap(6).items_center().flex_none().px(7)
+      .rounded(6).accessibility_label(label).cursor_pointer()
+      .hover((el) => el.bg(t.hover).text_color(t.foreground))
       .on_mouse_down("left", (e) => { this.pressed = { at: Date.now(), bounds: e.bounds }; })
-      .on_click(() => this.open(machine, popupHeight));
+      .on_click(() => this.open(machine, popupHeight))
+      .child(svg("mods/workspace-chrome/icons/gauge.svg").size(16).text_color(color))
+      .child(div().whitespace_nowrap().child("Usage"))
+      .when(Boolean(highest), (el) => el.child(div().font_family("Geist Mono").text_size(11)
+        .text_color(used >= 90 ? t.blocked : t.foreground).child(`${value}%${highest.row.failed ? "*" : ""}`)));
 
-    if (!meters.length || !count) {
-      strip.child(svg("mods/workspace-chrome/icons/gauge.svg").size(16).text_color(t.muted))
-        .child(div().whitespace_nowrap().child("Usage"));
-    } else {
-      strip.child(div().text_size(10).whitespace_nowrap().child(remaining ? "Left" : "Used"));
-      for (const { row, limit } of meters.slice(0, count)) {
-        const used = Math.min(100, Math.max(0, Math.round(limit.used)));
-        const value = remaining ? 100 - used : used;
-        const time = showTime ? resetLabel(limit.resetsAt, now) : "";
-        strip.child(h_flex().id(`usage-status-${row.agent}`).flex_none().gap(5).items_center()
-          .accessibility_label(`${row.name} ${value}% ${remaining ? "left" : "used"}${row.failed ? ", cached" : ""}`)
-          .when(Boolean(row.icon), (el) => el.child(row.tint === false
-            ? image(row.icon).size(13).flex_none()
-            : svg(row.icon).size(13).flex_none().text_color(t.foreground)))
-          .when(detailed, (el) => el.child(this.meter(t, value)))
-          .child(div().font_family("Geist Mono").text_size(11).text_color(t.foreground).child(`${value}%${row.failed ? "*" : ""}`))
-          .when(Boolean(time && !detailed), (el) => el.child(div().child(time))));
-      }
-    }
-    if (hidden) strip.child(div().flex_none().child(`+${hidden}`));
     return h_flex().size_full().px(9).gap(8).items_center().bg(t.chrome)
       .border_t(1).border_color(t.border).text_size(11).text_color(t.muted)
       .on_size_change((size, cx) => {
@@ -113,7 +84,7 @@ export default class WorkspaceStatus extends View {
         if (this.width !== width) { this.width = width; cx.notify(); }
       })
       .child(div().min_w(0).truncate().child(machine ?? "This computer"))
-      .when(room > 260, (el) => el.child(div().flex_none().child(`· ${agents().length} agents`)))
+      .when((this.width ?? 550) > 260, (el) => el.child(div().flex_none().child(`· ${agents().length} agents`)))
       .child(div().flex_1())
       .when(shared("usage.enabled") !== false, (el) => el.child(strip));
   }

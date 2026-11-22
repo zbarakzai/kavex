@@ -1,8 +1,8 @@
-import { View, div, image, svg } from "gpui-kit";
+import { View, div, svg } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
-import { closeOverlay, openOverlay, props, run, setShared, settings, shared, theme } from "herdr";
-import { checking, POPOVER_HEIGHT, POPOVER_WIDTH, subscriptions } from "./checks.js";
-import { look, MONO, soft } from "./look.js";
+import { closeOverlay, openOverlay, props, run, setShared, shared, theme } from "herdr";
+import { checking, NEAR, POPOVER_HEIGHT, POPOVER_WIDTH, subscriptions } from "./checks.js";
+import { look, MONO, tile } from "./look.js";
 import { loader } from "./loader.js";
 
 const ICONS = "mods/workspace-chrome/icons";
@@ -10,9 +10,14 @@ const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
 const WEEK = 7 * 24 * 60;
+const GUTTER = 5;
 const INSET = 14;
-const ROSTER_CHROME = 151;
-const DETAIL_WIDTH = POPOVER_WIDTH - 2 * (INSET + 1);
+const HEADER = 44;
+const FOOTER = 46;
+const ROOM = POPOVER_HEIGHT - HEADER - FOOTER - 2;
+const ROW_HEIGHT = 48;
+const CARD_INSET = 10;
+const DETAIL_WIDTH = POPOVER_WIDTH - 2 * (1 + GUTTER + 1 + INSET);
 
 const rowId = (row) => `${row.agent}-${row.who ?? row.machine ?? "local"}`;
 const limitId = (row, limit) => `${rowId(row)}-${limit.key ?? limit.label}`;
@@ -119,27 +124,13 @@ function status(row, pending) {
   return "No usage data";
 }
 
-function providerGlyph(row, k, size = 13) {
-  if (!row.icon) return icon("terminal", size, k.muted);
-  return row.tint ? svg(row.icon).size(size).flex_none().text_color(k.foreground) : image(row.icon).size(size).flex_none();
-}
+const hue = (row, k) => ({ claude: k.accent, codex: k.groups.blue.text, opencode: k.groups.teal.text })[row.agent] ?? k.muted;
 
-function providerTile(row, k) {
-  return h_flex().size(20).flex_none().items_center().justify_center()
-    .rounded(6).border_1().border_color(k.border).bg(k.raised).child(providerGlyph(row, k));
-}
-
-function miniBar(id, used, display, k, width, height = 5, health = false) {
-  const utilization = percent(used);
-  let fill = soft(k.muted, "66");
-  if (health) {
-    if (utilization >= 90) fill = k.failed;
-    else if (utilization >= 80) fill = k.ansi3 ?? k.blocked;
-    else fill = k.added;
-  }
+function miniBar(id, row, used, display, k, width, height = 4) {
+  const fill = percent(used) >= NEAR ? k.blocked : hue(row, k);
   return div().w(width).h(height).flex_none().rounded_full().overflow_hidden().bg(k.row_ring)
     .child(div().id(`bar-${id}`).h_full().w(width * percent(used, display) / 100)
-      .rounded_full().bg(fill).transition("width", 300));
+      .rounded_full().bg(fill).transition("width", 240));
 }
 
 function value(used, display, size, k) {
@@ -147,11 +138,11 @@ function value(used, display, size, k) {
     .child(`${percent(used, display)}%`);
 }
 
-const rule = (k) => div().w_full().h(1).flex_none().bg(soft(k.row_ring, "b3"));
+const rule = (k) => div().w_full().h(1).flex_none().bg(k.card_border);
 const icon = (name, size, color) => svg(`${ICONS}/${name}.svg`).size(size).flex_none().text_color(color);
 
 const control = (id, label, action, k) => h_flex().id(id).flex_none().items_center().justify_center()
-  .accessibility_label(label).rounded(5).cursor_pointer().text_color(k.muted)
+  .accessibility_label(label).rounded(6).cursor_pointer().text_color(k.muted)
   .hover((s) => s.bg(k.hover_strong).text_color(k.foreground))
   .on_click(action);
 
@@ -159,7 +150,7 @@ function detailMetric(row, limit, display, k) {
   const id = limitId(row, limit);
   return h_flex().id(`limit-${id}`).flex_none().items_center().gap(6)
     .child(div().text_size(10).text_color(k.muted).child(shortLabel(limit)))
-    .child(miniBar(id, limit.used, display, k, 28))
+    .child(miniBar(id, row, limit.used, display, k, 28))
     .child(value(limit.used, display, 11, k));
 }
 
@@ -172,7 +163,7 @@ function detailWindow(row, limit, display, k, now, width) {
         .child(div().min_w(0).truncate().font_medium().child(limit.label))
         .when(Boolean(reset), (el) => el.child(div().flex_none().text_color(k.muted).child(`· ${reset.toLowerCase()}`))))
       .child(value(limit.used, display, 12, k)))
-    .child(miniBar(id, limit.used, display, k, width, 6, true));
+    .child(miniBar(id, row, limit.used, display, k, width, 7));
 }
 
 function visibleEntries(entries, machine) {
@@ -199,43 +190,31 @@ export default class Usage extends View {
     this.overlay = config.overlay;
     this.page = config.page ?? "roster";
     this.machine = config.machine;
-    this.windowWidth = config.windowWidth;
     this.providerKey = config.provider;
-    this.hovered = null;
     this.selected = null;
-    this.bounds = new Map();
     this.focus = cx.focus_handle();
     this.focus.focus();
     if (this.page === "roster") run("workspace-chrome.check-usage");
   }
 
   close() {
-    if (this.submenu) closeOverlay(this.submenu);
     if (this.from) setShared("popup.closed", { from: this.from, at: Date.now() });
   }
 
-  openDetail(row) {
-    if (this.submenu) closeOverlay(this.submenu);
-    const zoom = Number(settings().zoom) || 1;
-    const bounds = this.bounds.get(rowId(row));
-    let at;
-    if (bounds) {
-      const right = bounds.x + bounds.width + 4 * zoom;
-      const fits = this.windowWidth ? right + POPOVER_WIDTH * zoom < this.windowWidth * zoom : this.from !== "usage-status";
-      at = { x: fits ? right : bounds.x - (POPOVER_WIDTH + 4) * zoom, y: bounds.y };
-    }
-    this.submenu = openOverlay({
-      mod: "usage", kind: "popup", width: POPOVER_WIDTH, height: POPOVER_HEIGHT,
-      ...(at ? { at } : {}), props: {
-        page: "provider", provider: rowId(row), parent: this.overlay,
-        ...(this.machine !== undefined && { machine: this.machine }),
-      },
-    });
+  openDetail(row, cx) {
+    this.providerKey = rowId(row);
+    this.page = "provider";
+    this.selected = null;
+    cx.notify();
+  }
+
+  back(cx) {
+    this.page = "roster";
+    this.selected = this.providerKey;
+    cx.notify();
   }
 
   openPage(page) {
-    const parent = props()?.parent;
-    if (parent) closeOverlay(parent);
     if (this.overlay) closeOverlay(this.overlay);
     openOverlay({
       mod: "usage", kind: "dialog", width: 680, height: page === "history" ? 520 : 480,
@@ -264,21 +243,22 @@ export default class Usage extends View {
 
   displayToggle(display, k) {
     const label = display === "used" ? "Used" : "Left";
-    return control("usage-display", label, () => this.toggleDisplay(display), k)
-      .h(23).px(6).gap(5).text_size(11).bg(k.raised)
-      .when(this.selected === "usage-display", (el) => el.bg(k.selected))
-      .child(label).child(div().text_size(12).child("↕"));
+    return control("usage-display", display === "used" ? "Show remaining usage" : "Show used percentage", () => this.toggleDisplay(display), k)
+      .h(24).px(8).gap(4).rounded_full().border_1().border_color(k.pill_ring).bg(k.pill)
+      .text_size(11).font_medium()
+      .when(this.selected === "usage-display", (el) => el.border_color(k.accent))
+      .child(label).child(icon("chevron-down", 12, k.muted));
   }
 
   density(mode, k) {
-    return h_flex().id("usage-density").mx(INSET).mb(10).h(24).flex_none().gap(2)
-      .p(2).rounded(6).border_1().border_color(k.border).bg(soft(k.background ?? k.canvas ?? k.surface, "80"))
-      .children([["verbose", "Detailed"], ["compact", "Compact"]].map(([option, label]) =>
-        h_flex().id(`usage-${option}`).flex_1().min_w(0).items_center().justify_center()
-          .accessibility_label(label).rounded(4).cursor_pointer().text_size(12)
+    return h_flex().id("usage-density").h(24).flex_none().gap(2)
+      .p(2).rounded(7).border_1().border_color(k.card_border).bg(k.well)
+      .children([["compact", "Compact"], ["verbose", "Detailed"]].map(([option, label]) =>
+        h_flex().id(`usage-${option}`).px(7).items_center().justify_center()
+          .accessibility_label(label).rounded(5).cursor_pointer().text_size(11)
+          .border_1().border_color(this.selected === `usage-${option}` ? k.accent : k.clear)
           .text_color(option === mode ? k.foreground : k.muted)
-          .when(option === mode, (el) => el.bg(k.row_ring).font_medium())
-          .when(this.selected === `usage-${option}`, (el) => el.border_1().border_color(k.accent))
+          .when(option === mode, (el) => el.bg(k.raised).font_medium())
           .on_click(() => changePreference({ mode: option }))
           .hover((s) => s.text_color(k.foreground))
           .child(label)));
@@ -290,16 +270,16 @@ export default class Usage extends View {
     if (!primary) {
       return h_flex().flex_none().items_center().gap(5)
         .when(Boolean(extra), (el) => el.id(`limit-${limitId(row, extra)}`)
-          .child(div().text_size(11).text_color(k.muted).child(shortLabel(extra)))
+          .child(div().max_w(110).truncate().text_size(11).text_color(k.muted).child(shortLabel(extra)))
           .child(value(extra.used, display, 12, k)));
     }
     const id = limitId(row, primary);
-    const flag = Boolean(extra && percent(extra.used) >= 90 && percent(primary.used) < 90);
+    const flag = Boolean(extra && percent(extra.used) >= NEAR && percent(primary.used) < NEAR);
     const reset = resetLabel(primary.resetsAt, now);
     return h_flex().id(`limit-${id}`).flex_none().items_center().gap(8)
       .when(flag, (el) => el.child(div().text_size(11).text_color(k.muted).child(`${shortLabel(extra)} ${percent(extra.used, display)}%`)))
       .when(!flag && Boolean(reset), (el) => el.child(div().text_size(11).text_color(k.muted).child(reset)))
-      .child(miniBar(id, primary.used, display, k, 30))
+      .child(miniBar(id, row, primary.used, display, k, 34))
       .child(value(primary.used, display, 12, k).w(36));
   }
 
@@ -308,45 +288,47 @@ export default class Usage extends View {
     const showDetails = pref.mode === "verbose" && row.limits.length > 0;
     const plan = planLabel(row.plan), reset = showDetails && nextReset(row.limits, now);
     const text = row.limits.length ? null : status(row, pending);
-    const handleMove = (event, cx) => {
-      this.bounds.set(id, event.bounds);
-      if (this.hovered === id) return;
-      this.hovered = id;
-      this.selected = id;
-      cx.notify();
-      cx.timer.after(160, () => {
-        if (this.hovered === id) this.openDetail(row);
-      });
-    };
-    return h_flex().id(`usage-row-${id}`).flex_none().px(INSET).py(10).w_full()
-      .gap(12).items_center().cursor_pointer().accessibility_label(`${row.name} usage details`)
-      .hover((s) => s.bg(k.hover_strong))
-      .when(this.selected === id, (el) => el.bg(k.hover))
-      .on_mouse_move(handleMove)
-      .on_hover((hovered) => { if (!hovered && this.hovered === id) this.hovered = null; })
-      .on_click(() => { this.hovered = null; this.openDetail(row); })
-      .child(v_flex().flex_1().min_w(0).gap(4)
-        .child(h_flex().items_center().gap(10)
-          .child(providerTile(row, k))
-          .child(h_flex().min_w(0).gap(3).items_center().when(!showDetails, (el) => el.flex_1())
+    return v_flex().id(`usage-row-${id}`).flex_none().min_h(ROW_HEIGHT).justify_center().px(CARD_INSET).py(8).gap(7)
+      .rounded(10).border_1().border_color(k.card_border).bg(k.card)
+      .cursor_pointer().accessibility_label(`${row.name} usage details`)
+      .hover((el) => el.bg(k.row_active_hover).border_color(k.row_ring))
+      .when(this.selected === id, (el) => el.border_color(k.accent))
+      .on_click((_event, cx) => this.openDetail(row, cx))
+      .child(h_flex().items_center().gap(10)
+        .child(tile(row, 24, k))
+        .child(v_flex().flex_1().min_w(0).gap(2)
+          .child(h_flex().items_center().min_w(0).gap(5)
             .child(div().min_w(0).truncate().font_medium().text_size(13).child(row.name))
-            .when(Boolean(plan), (el) => el.child(div().min_w(0).truncate().text_size(13).text_color(k.muted).child(`· ${plan}`))))
-          .when(Boolean(text), (el) => el.child(div().min_w(0).truncate().text_size(11).text_color(k.muted).child(text)))
-          .when(Boolean(reset), (el) => el.child(div().flex_none().text_size(11).text_color(k.muted).child(reset)))
-          .when(!showDetails && row.limits.length > 0, (el) => el.child(this.compactMetric(row, pref.display, k, now))))
-        .when(Boolean(row.failed && row.limits.length), (el) => el.child(div().flex_none().text_size(11).text_color(k.muted).child("Cached")))
-      .when(Boolean(row.place), (el) => el.child(div().pl(30).text_size(11).text_color(k.muted).truncate().child(row.place)))
-        .when(showDetails, (el) => el.child(h_flex().pl(30).flex_wrap().gap(10)
-          .children(row.limits.map((limit) => detailMetric(row, limit, pref.display, k))))))
-      .child(icon("chevron-right", 16, k.muted));
+            .when(Boolean(plan), (el) => el.child(div().min_w(0).truncate().text_size(11).text_color(k.muted).child(`· ${plan}`))))
+          .when(Boolean(row.place || text || (row.failed && row.limits.length)), (el) => el.child(
+            h_flex().min_w(0).gap(5).text_size(11).text_color(k.muted)
+              .when(Boolean(row.place), (line) => line.child(div().min_w(0).truncate().child(row.place)))
+              .when(Boolean(text), (line) => line.child(div().min_w(0).truncate().child(text)))
+              .when(Boolean(row.failed && row.limits.length), (line) => line.child(div().flex_none().child("Cached"))))))
+        .when(Boolean(reset), (el) => el.child(div().flex_none().text_size(11).text_color(k.muted).child(reset)))
+        .when(!showDetails && row.limits.length > 0, (el) => el.child(this.compactMetric(row, pref.display, k, now)))
+        .child(icon("chevron-right", 12, k.muted)))
+      .when(showDetails, (el) => el.child(h_flex().pl(34).flex_wrap().gap(10).pb(2)
+        .children(row.limits.map((limit) => detailMetric(row, limit, pref.display, k)))));
   }
 
-  actionRow(id, label, action, k) {
-    return h_flex().id(id).w_full().h(40).flex_none().px(INSET).gap(12).items_center().justify_between()
-      .accessibility_label(label).cursor_pointer().hover((s) => s.bg(k.hover_strong))
-      .when(this.selected === id, (el) => el.bg(k.hover))
-      .on_click(action)
-      .child(div().text_size(13).child(label)).child(icon("chevron-right", 16, k.muted));
+  footer(pending, k) {
+    const link = (id, label, title, page) => control(id, title, () => this.openPage(page), k)
+      .h(26).px(8).text_size(12).font_medium()
+      .when(this.selected === id, (el) => el.bg(k.selected))
+      .child(label);
+    return h_flex().h(FOOTER).flex_none().px(9).gap(2).items_center()
+      .child(link("usage-history", "History", "Usage details & history", "history"))
+      .child(link("usage-accounts", "Accounts", "Manage Accounts", "accounts"))
+      .child(div().flex_1())
+      .child(control("usage-refresh", "Refresh rate limits", () => run("workspace-chrome.refresh-usage"), k)
+        .h(30).pl(9).pr(12).gap(6).rounded_full().text_size(12).font_medium()
+        .bg(k.accent).text_color(k.accent_foreground)
+        .hover((el) => el.bg(k.accent).text_color(k.accent_foreground).opacity(0.88))
+        .when(this.selected === "usage-refresh", (el) => el.border_1().border_color(k.foreground))
+        .child(h_flex().size(16).items_center().justify_center()
+          .child(pending ? loader(k.accent_foreground, 2) : icon("refresh", 16, k.accent_foreground)))
+        .child("Refresh"));
   }
 
   answer(row, answer) {
@@ -374,12 +356,12 @@ export default class Usage extends View {
     const description = row.agent === "opencode"
       ? "Kavex reads your OpenCode key and sends it only to opencode.ai, to ask for your Go plan's limits."
       : `Read the existing ${row.name} login for usage requests to ${domain}.`;
-    return v_flex().id(`usage-consent-${rowId(row)}`).gap(9).p(12).rounded(6).border_1().border_color(k.border).bg(k.raised)
+    return v_flex().id(`usage-consent-${rowId(row)}`).gap(9).p(INSET).rounded(10).border_1().border_color(k.card_border).bg(k.card)
       .child(div().text_size(12).text_color(k.text_secondary).child(description))
       .child(h_flex().justify_end().gap(6).children(this.consentActions(row).map(([id, label, accepted]) =>
-        control(id, label, () => this.answer(row, accepted), k).h(25).px(9)
+        control(id, label, () => this.answer(row, accepted), k).h(28).px(12).rounded_full()
           .when(accepted, (button) => button.bg(k.solid).text_color(k.solid_foreground))
-          .when(open && !accepted, (button) => button.bg(k.background ?? k.canvas ?? k.surface))
+          .when(open && !accepted, (button) => button.bg(k.raised).text_color(k.foreground))
           .when(this.selected === id, (button) => button.border_1().border_color(k.accent))
           .child(label))));
   }
@@ -388,87 +370,81 @@ export default class Usage extends View {
     const pending = checking(usage, now), sorted = [...rows].sort((a, b) => rank(b) - rank(a));
     const estimated = rows.reduce((sum, row) => {
       const metricWidth = row.limits.reduce((width, limit) => width + shortLabel(limit).length * 6 + 76, 0);
-      const metrics = pref.mode === "verbose" && metricWidth ? Math.ceil(metricWidth / (POPOVER_WIDTH - 100)) * 24 : 0;
-      return sum + 40 + metrics + (row.place ? 15 : 0);
+      const lines = pref.mode === "verbose" ? Math.ceil(metricWidth / (POPOVER_WIDTH - 76)) : 0;
+      return sum + ROW_HEIGHT + GUTTER + lines * 23;
     }, 0);
-    const available = POPOVER_HEIGHT - ROSTER_CHROME;
-    const list = v_flex().id("usage-rows").w_full()
-      .when(estimated > available, (el) => el.h(available).min_h(0).overflow_y_scrollbar())
-      .when(!sorted.length, (el) => el.child(div().px(INSET).py(10).text_size(12).text_color(k.muted)
+    const list = v_flex().id("usage-rows").w_full().px(GUTTER).gap(GUTTER)
+      .when(estimated > ROOM, (el) => el.h(ROOM).min_h(0).overflow_y_scrollbar())
+      .when(!sorted.length, (el) => el.child(div().mx(1).p(INSET).rounded(10).border_1()
+        .border_color(k.card_border).bg(k.card).text_size(12).text_color(k.muted)
         .child(pending || !usage.checkedAt ? "Loading usage…" : "No usage data")))
       .children(sorted.map((row) => this.rosterRow(row, pref, k, now, pending)));
     this.actions = [
-      ["usage-refresh", () => run("workspace-chrome.refresh-usage")],
-      ["usage-display", () => this.toggleDisplay(pref.display)],
-      ["usage-verbose", () => changePreference({ mode: "verbose" })],
       ["usage-compact", () => changePreference({ mode: "compact" })],
-      ...sorted.map((row) => [rowId(row), () => this.openDetail(row), true]),
+      ["usage-verbose", () => changePreference({ mode: "verbose" })],
+      ["usage-display", () => this.toggleDisplay(pref.display)],
+      ...sorted.map((row) => [rowId(row), (cx) => this.openDetail(row, cx), true]),
       ["usage-history", () => this.openPage("history")],
       ["usage-accounts", () => this.openPage("accounts")],
+      ["usage-refresh", () => run("workspace-chrome.refresh-usage")],
     ];
-    return v_flex().id("usage").w_full().min_h(0).rounded(12).overflow_hidden().bg(k.popover ?? k.canvas)
-      .child(h_flex().w_full().flex_none().pl(INSET).pr(30).pt(12).pb(8).gap(8).items_center().justify_between()
-        .child(h_flex().min_w(0).gap(6).items_center()
-          .child(div().text_size(13).font_weight(600).child("Usage"))
-          .child(div().min_w(0).truncate().text_size(11).text_color(k.muted).child("· all agents"))
-          .child(control("usage-refresh", "Refresh rate limits", () => run("workspace-chrome.refresh-usage"), k)
-            .size(20).when(this.selected === "usage-refresh", (el) => el.bg(k.selected))
-            .child(pending ? loader(k.muted, 2) : icon("refresh", 16, k.muted))))
+    return v_flex().id("usage").w_full().min_h(0).rounded(13).bg(k.canvas)
+      .child(h_flex().h(HEADER).flex_none().pl(GUTTER + INSET).pr(9).gap(6).items_center()
+        .child(div().flex_1().min_w(0).truncate().text_size(14).font_medium().child("Usage limits"))
+        .child(this.density(pref.mode, k))
         .child(this.displayToggle(pref.display, k)))
-      .child(this.density(pref.mode, k))
-      .child(rule(k))
       .child(list)
-      .child(rule(k))
-      .child(this.actionRow("usage-history", "Usage details & history", () => this.openPage("history"), k))
-      .child(this.actionRow("usage-accounts", "Manage Accounts…", () => this.openPage("accounts"), k));
+      .child(this.footer(pending, k));
   }
 
   provider(row, usage, pref, k, now) {
     const hasConsentControl = Boolean(row && consentDomain(row));
+    const pending = checking(usage, now);
     this.actions = [
+      ["usage-back", (cx) => this.back(cx)],
       ["usage-display", () => this.toggleDisplay(pref.display)],
       ...(hasConsentControl ? this.consentActions(row).map(([id, , answer]) => [id, () => this.answer(row, answer)]) : []),
+      ["usage-history", () => this.openPage("history")],
       ["usage-accounts", () => this.openPage("accounts")],
+      ["usage-refresh", () => run("workspace-chrome.refresh-usage")],
     ];
-    if (!row) return v_flex().w_full().p(INSET).child(div().text_size(12).text_color(k.muted).child("No usage data"));
-    const plan = planLabel(row.plan), retry = resetLabel(row.retryAt, now);
-    const failed = row.failed || row.state === "error", reading = row.limits.length > 0;
-    const accountCard = row.agent === "claude" || row.agent === "codex";
-    const balances = balanceRows(row, k);
-    const scroll = row.limits.length * 39 + balances.length * 25 + (hasConsentControl ? 105 : 0) + (accountCard ? 143 : 102) > POPOVER_HEIGHT;
-    const update = () => div().text_size(11).text_color(k.muted).child(relativeUpdate(row.checkedAt, now));
-    const name = () => h_flex().min_w(0).items_center().gap(6)
-      .child(providerGlyph(row, k))
-      .child(div().min_w(0).truncate().text_size(13).font_medium().child(row.name));
-    const meters = v_flex().w_full().gap(12)
-      .when(!reading && !balances.length, (el) => el.child(div().text_color(k.muted).child(status(row, checking(usage, now)))))
-      .children(row.limits.map((limit) => detailWindow(row, limit, pref.display, k, now, accountCard ? DETAIL_WIDTH - 22 : DETAIL_WIDTH)))
-      .children(balances)
-      .when(failed && reading, (el) => el.child(v_flex().gap(4)
-        .child(div().font_medium().text_size(11).child("Refresh failed · showing cached data"))
-        .when(Boolean(row.error), (warning) => warning.child(div().text_size(11).text_color(k.muted).child(row.error)))))
-      .when(Boolean(retry) && retry !== "now", (el) => el.child(div().text_size(11).text_color(k.muted).child(`Retry in ${retry}`)));
-    const info = accountCard
-      ? v_flex().gap(8)
-        .child(h_flex().justify_between().items_center().gap(8).child(name()).child(update()))
-        .child(v_flex().gap(12).p(10).rounded(8).border_1().border_color(k.card_border).bg(k.card)
-          .child(h_flex().items_center().gap(8).justify_between()
-            .child(div().flex_1().min_w(0).truncate().font_medium().text_size(13).child([row.place, plan].filter(Boolean).join(" · ")))
-            .child(this.displayToggle(pref.display, k)))
-          .child(meters))
-      : v_flex().gap(12)
-        .child(h_flex().items_center().justify_between().gap(8)
-          .child(v_flex().flex_1().min_w(0).gap(3).child(name()).child(update()))
-          .child(this.displayToggle(pref.display, k)))
-        .when(Boolean(row.place), (el) => el.child(div().text_size(11).text_color(k.muted).child(row.place)))
-        .child(rule(k))
-        .child(meters);
-    return v_flex().id("usage-provider").w_full().p(INSET).gap(12).text_size(12).rounded(12).bg(k.popover ?? k.canvas)
-      .when(scroll, (el) => el.h(POPOVER_HEIGHT - 2).overflow_y_scrollbar())
-      .child(info)
-      .when(hasConsentControl, (el) => el.child(this.consentControls(row, k)))
-      .child(rule(k))
-      .child(this.actionRow("usage-accounts", "Manage Accounts…", () => this.openPage("accounts"), k));
+    const body = v_flex().id("usage-provider-body").w_full().px(GUTTER).gap(GUTTER);
+    if (row) {
+      const metadata = [row.place, planLabel(row.plan)].filter(Boolean).join(" · ");
+      const retry = resetLabel(row.retryAt, now);
+      const failed = row.failed || row.state === "error", reading = row.limits.length > 0;
+      const balances = balanceRows(row, k);
+      const estimated = 82 + row.limits.length * 44 + balances.length * 28 +
+        (hasConsentControl ? 122 : 0) + (failed ? 54 : 0) + (retry ? 20 : 0);
+      body.when(estimated > ROOM, (el) => el.h(ROOM).min_h(0).overflow_y_scrollbar())
+        .child(v_flex().flex_none().gap(14).p(INSET).rounded(10).border_1().border_color(k.card_border).bg(k.card)
+          .child(h_flex().items_center().gap(10)
+            .child(tile(row, 26, k))
+            .child(v_flex().flex_1().min_w(0).gap(2)
+              .child(div().min_w(0).truncate().text_size(14).font_medium().child(row.name))
+              .when(Boolean(metadata), (el) => el.child(div().truncate().text_size(11).text_color(k.muted).child(metadata))))
+            .child(div().flex_none().text_size(11).text_color(k.muted).child(relativeUpdate(row.checkedAt, now))))
+          .when(!reading && !balances.length, (el) => el.child(div().text_color(k.muted).child(status(row, pending))))
+          .children(row.limits.map((limit) => detailWindow(row, limit, pref.display, k, now, DETAIL_WIDTH)))
+          .children(balances)
+          .when(failed && reading, (el) => el.child(v_flex().gap(4)
+            .child(div().font_medium().text_size(11).text_color(k.failed_text).child("Refresh failed · showing cached data"))
+            .when(Boolean(row.error), (warning) => warning.child(div().text_size(11).text_color(k.muted).child(row.error)))))
+          .when(Boolean(retry) && retry !== "now", (el) => el.child(div().text_size(11).text_color(k.muted).child(`Retry in ${retry}`))))
+        .when(hasConsentControl, (el) => el.child(this.consentControls(row, k)));
+    } else {
+      body.child(div().p(INSET).text_color(k.muted).child("No usage data"));
+    }
+    return v_flex().id("usage-provider").w_full().min_h(0).rounded(13).bg(k.canvas).text_size(12)
+      .child(h_flex().h(HEADER).w_full().flex_none().px(9).gap(8).items_center()
+        .child(control("usage-back", "Back to usage limits", (_event, cx) => this.back(cx), k)
+          .h(26).px(7).gap(5).text_size(13).font_medium()
+          .when(this.selected === "usage-back", (el) => el.bg(k.selected))
+          .child(icon("chevron-left", 12, k.muted)).child("Usage limits"))
+        .child(div().flex_1())
+        .child(this.displayToggle(pref.display, k)))
+      .child(body)
+      .child(this.footer(pending, k));
   }
 
   pageHeader(label, k) {
@@ -487,7 +463,7 @@ export default class Usage extends View {
       return snapshots.filter((sample) => Number.isFinite(sample.at)).map((sample) => ({ ...sample, title, machine, id }));
     }).sort((a, b) => b.at - a.at);
     this.actions = [["usage-close", () => closeOverlay(this.overlay)]];
-    return v_flex().id("usage-history-page").size_full().bg(k.popover ?? k.canvas)
+    return v_flex().id("usage-history-page").size_full().bg(k.canvas)
       .child(this.pageHeader("Usage details & history", k)).child(rule(k))
       .when(!readings.length, (el) => el.child(div().p(18).text_size(12).text_color(k.muted).child("No usage history yet")))
       .when(readings.length > 0, (el) => el.child(v_flex().id("usage-history-list").flex_1().min_h(0).overflow_y_scrollbar().px(18)
@@ -508,7 +484,7 @@ export default class Usage extends View {
       ...rows.filter(consentDomain).flatMap((row) =>
         this.consentActions(row).map(([id, , answer]) => [id, () => this.answer(row, answer)])),
     ];
-    return v_flex().id("usage-accounts-page").size_full().bg(k.popover ?? k.canvas)
+    return v_flex().id("usage-accounts-page").size_full().bg(k.canvas)
       .child(this.pageHeader("Manage Accounts", k)).child(rule(k))
       .when(!rows.length, (el) => el.child(div().p(18).text_size(12).text_color(k.muted).child("No usage accounts configured")))
       .when(rows.length > 0, (el) => el.child(v_flex().id("usage-accounts-list").flex_1().min_h(0).overflow_y_scrollbar().px(18)
@@ -516,7 +492,7 @@ export default class Usage extends View {
           const connected = row.limits.length ? relativeUpdate(row.checkedAt, now) : status(row, checking(usage, now));
           return v_flex().id(`usage-account-${row.agent}-${row.machine ?? "local"}`).py(12).gap(9).border_b(1).border_color(k.border)
             .child(h_flex().w_full().items_center().gap(8)
-              .child(providerTile(row, k))
+              .child(tile(row, 24, k))
               .child(h_flex().flex_1().min_w(0).items_center().gap(5)
                 .child(div().min_w(0).truncate().text_size(13).font_medium().child(row.name))
                 .when(Boolean(row.place), (name) => name.child(div().min_w(0).truncate().text_size(11).text_color(k.muted).child(`· ${row.place}`))))
@@ -529,14 +505,14 @@ export default class Usage extends View {
     const actions = this.actions ?? [];
     const index = actions.findIndex(([id]) => id === this.selected);
     if (event.key === "left" && this.page === "provider") {
-      closeOverlay(this.overlay);
+      this.back(cx);
     } else if ((event.key === "up" || event.key === "down") && actions.length) {
       const offset = event.key === "down" ? 1 : -1;
       const next = index < 0 ? (offset > 0 ? 0 : actions.length - 1) : (index + offset + actions.length) % actions.length;
       this.selected = actions[next][0];
       cx.notify();
     } else if (index >= 0 && (event.key === "enter" || event.key === "space" || (event.key === "right" && actions[index][2]))) {
-      actions[index][1]();
+      actions[index][1](cx);
     } else {
       return;
     }

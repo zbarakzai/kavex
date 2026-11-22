@@ -9,7 +9,7 @@ import { readOnOwner } from "./provider-owner.js";
 export { usageOff };
 export const EVERY = 15 * 60_000;
 export const NEAR = 90;
-export const POPOVER_WIDTH = 440;
+export const POPOVER_WIDTH = 400;
 export const POPOVER_HEIGHT = 540;
 
 const REUSE = 5 * 60_000;

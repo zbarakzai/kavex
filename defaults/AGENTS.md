@@ -347,11 +347,11 @@ The three-dot **More actions** menu beside **Settings** in the sidebar footer of
 An orange dot on the menu button points to a usage warning or skill update inside.
 
 **Usage limits** opens from the workspace status strip or the sidebar’s **More actions** menu.
-The strip follows the active machine. The sidebar entry can show all machines. The roster is
-ordered by the highest primary percentage used. **Used / Left** applies to both views.
-**Detailed / Compact** switches between all windows and one window per provider. Select a provider
-for its reset times and reading status. The roster also links to **Usage details & history** and
-**Manage Accounts…**.
+The strip shows the highest primary usage on the active machine. The sidebar entry can show all
+machines. The roster is ordered by the highest primary percentage used. **Used / Left** applies
+to both views. **Compact / Detailed** switches between one window and all windows per provider.
+Select a provider to see its reset times and reading status in the same dropdown. Use the back
+button or ← to return to the roster. **History** and **Accounts** open their own dialogs.
 
 - **Provider coverage** includes Claude Code, Codex, OpenCode Go, Cursor, Gemini, Grok,
   Antigravity, Kimi, Muse, GitHub Copilot and Amp. Other detected agents show the source or
