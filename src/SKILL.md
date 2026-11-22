@@ -106,10 +106,12 @@ divider outward to reopen the full sidebar.
 
 Open **Usage** at the bottom right for the active machine. A custom layout with just the
 sidebar footer offers **More actions → Usage limits** for all machines. Choose
-**Used** or **Left** to show the percentage consumed or remaining. Use **Detailed** for every window and
-select a provider for its reading, reset and account status in the same dropdown.
-Use the back button to return to the list. **History** and **Accounts** open their
-own dialogs. Use **More actions** for Add machine and Customize.
+**Used** or **Left** to show the percentage consumed or remaining for every
+reported window. Select a provider for its reading, reset and account status in
+the same dropdown.
+Use the back button to return to the list. **History** groups saved readings by
+date. **Accounts** shows provider status and access controls. Use **More actions**
+for Add machine and Customize.
 
 First read `~/.config/kavex/AGENTS.md` (or `$HERDR_APP_HOME/AGENTS.md` if
 set). It is the installed guide to settings, layouts, commands and mods.

@@ -13,10 +13,9 @@ export default class WorkspaceStatus extends View {
     if (press && closed?.from === SOURCE && closed.at >= press.at - 100) return;
     const bounds = press?.bounds, zoom = settings().zoom || 1;
     const entries = Object.values(shared("usage")?.entries ?? {});
-    const detailed = shared("usage.presentation")?.mode === "verbose";
     // Leave room for the roster above the button, up to the popup's height cap.
     const rowsHeight = entries.filter((row) => row.machine === machine).reduce((height, row) =>
-      height + 53 + (detailed ? 23 * Math.ceil(row.limits.length / 3) : 0), 0);
+      height + 53 + 23 * Math.ceil(row.limits.length / 3), 0);
     const height = Math.min(ROSTER_HEIGHT, 92 + (rowsHeight || 46));
     openOverlay({
       mod: "usage",

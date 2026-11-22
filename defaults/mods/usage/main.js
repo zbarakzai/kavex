@@ -2,7 +2,7 @@ import { View, div, svg } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
 import { closeOverlay, openOverlay, props, run, setShared, shared, theme } from "herdr";
 import { checking, NEAR, POPOVER_HEIGHT, POPOVER_WIDTH, subscriptions } from "./checks.js";
-import { look, MONO, tile } from "./look.js";
+import { look, MONO, sectionLabel, tile } from "./look.js";
 import { loader } from "./loader.js";
 
 const ICONS = "mods/workspace-chrome/icons";
@@ -19,26 +19,15 @@ const ROW_HEIGHT = 48;
 const CARD_INSET = 10;
 const PROVIDER_TILE = 26;
 const PROVIDER_GAP = 10;
-const PREFERENCES = {
-  mode: { id: "usage-density", label: "Usage detail", options: [["compact", "Compact"], ["verbose", "Detailed"]] },
-  display: { id: "usage-display", label: "Percentage display", options: [["used", "Used"], ["remaining", "Left"]] },
-};
+const DIALOG_WIDTH = 600, DIALOG_HEIGHT = 460;
+const DISPLAY_OPTIONS = [["used", "Used"], ["remaining", "Left"]];
 const DETAIL_WIDTH = POPOVER_WIDTH - 2 * (1 + GUTTER + 1 + INSET);
 
 const rowId = (row) => `${row.agent}-${row.who ?? row.machine ?? "local"}`;
 const limitId = (row, limit) => `${rowId(row)}-${limit.key ?? limit.label}`;
 
-function presentation() {
-  const pref = shared("usage.presentation");
-  return {
-    display: pref?.display === "remaining" ? "remaining" : "used",
-    mode: pref?.mode === "verbose" ? "verbose" : "compact",
-  };
-}
-
-function changePreference(change) {
-  setShared("usage.presentation", { ...presentation(), ...change });
-}
+const displayPreference = () => shared("usage.presentation")?.display === "remaining" ? "remaining" : "used";
+const chooseDisplay = (display) => setShared("usage.presentation", { display });
 
 function percent(used, display = "used") {
   if (!Number.isFinite(used)) return 0;
@@ -83,16 +72,9 @@ function planLabel(plan) {
   return plan && !/^unknown$/i.test(plan) ? String(plan).replaceAll("_", " ") : null;
 }
 
-const compareUsed = (a, b) => percent(b.used) - percent(a.used);
 const scoped = (row, limit) => limit.scoped || (row.agent === "claude" && /^fable(?: weekly)?$/i.test(limit.label));
 const primaryLimits = (row) => row.limits.filter((limit) => !scoped(row, limit));
 const rank = (row) => Math.max(-1, ...primaryLimits(row).map((limit) => percent(limit.used)));
-
-function headline(row) {
-  const primary = primaryLimits(row);
-  const cursor = row.agent === "cursor" && primary.find((limit) => limit.label?.toLowerCase() === "models");
-  return cursor || primary.sort(compareUsed)[0] || null;
-}
 
 function shortLabel(limit) {
   const { minutes, label } = limit;
@@ -144,7 +126,15 @@ function value(used, display, size, k) {
     .child(`${percent(used, display)}%`);
 }
 
-const rule = (k) => div().w_full().h(1).flex_none().bg(k.card_border);
+const dialogCard = (k) => v_flex().w_full().flex_none().rounded(14)
+  .border_1().border_color(k.card_border).bg(k.card);
+
+function consentDescription(row) {
+  if (row.agent === "opencode") {
+    return "Kavex reads your OpenCode key and sends it only to opencode.ai, to ask for your Go plan's limits.";
+  }
+  return `Read the existing ${row.name} login for usage requests to ${consentDomain(row)}.`;
+}
 const icon = (name, size, color) => svg(`${ICONS}/${name}.svg`).size(size).flex_none().text_color(color);
 
 const control = (id, label, action, k) => h_flex().id(id).flex_none().items_center().justify_center()
@@ -223,7 +213,7 @@ export default class Usage extends View {
   openPage(page) {
     if (this.overlay) closeOverlay(this.overlay);
     openOverlay({
-      mod: "usage", kind: "dialog", width: 680, height: page === "history" ? 520 : 480,
+      mod: "usage", kind: "dialog", width: DIALOG_WIDTH, height: DIALOG_HEIGHT,
       props: { page, ...(this.machine !== undefined && { machine: this.machine }) },
     });
   }
@@ -244,12 +234,11 @@ export default class Usage extends View {
   }
 
   // The same pill and segment sizes as Settings.
-  segments(field, current, k) {
-    const { id, label, options } = PREFERENCES[field];
-    return h_flex().id(id).flex_none().p(3).gap(2).items_center()
-      .role("list_box").accessibility_label(label)
+  displayPicker(current, k) {
+    return h_flex().id("usage-display").flex_none().p(3).gap(2).items_center()
+      .role("list_box").accessibility_label("Percentage display")
       .rounded(999).border_1().border_color(k.pill_ring).bg(k.pill)
-      .children(options.map(([value, text]) => {
+      .children(DISPLAY_OPTIONS.map(([value, text]) => {
         const selected = value === current, optionId = `usage-${value}`;
         return h_flex().id(optionId).h(26).px(11).items_center().rounded(13)
           .role("list_box_option").accessibility_label(text).aria_selected(selected)
@@ -257,38 +246,18 @@ export default class Usage extends View {
           .text_size(13).cursor_pointer()
           .when(selected, (el) => el.bg(k.pill_selected).text_color(k.foreground))
           .when(!selected, (el) => el.text_color(k.muted).hover((st) => st.bg(k.hover_strong).text_color(k.foreground)))
-          .on_click(() => changePreference({ [field]: value }))
+          .on_click(() => chooseDisplay(value))
           .child(text);
       }));
   }
 
-  preferenceActions(field) {
-    return PREFERENCES[field].options.map(([value]) =>
-      [`usage-${value}`, () => changePreference({ [field]: value })]);
+  displayActions() {
+    return DISPLAY_OPTIONS.map(([value]) => [`usage-${value}`, () => chooseDisplay(value)]);
   }
 
-  compactMetric(row, display, k, now) {
-    const primary = headline(row);
-    const extra = row.limits.filter((limit) => scoped(row, limit)).sort(compareUsed)[0];
-    if (!primary) {
-      return h_flex().flex_none().items_center().gap(5)
-        .when(Boolean(extra), (el) => el.id(`limit-${limitId(row, extra)}`)
-          .child(div().max_w(110).truncate().text_size(11).text_color(k.muted).child(shortLabel(extra)))
-          .child(value(extra.used, display, 12, k)));
-    }
-    const id = limitId(row, primary);
-    const flag = Boolean(extra && percent(extra.used) >= NEAR && percent(primary.used) < NEAR);
-    const reset = resetLabel(primary.resetsAt, now);
-    return h_flex().id(`limit-${id}`).flex_none().items_center().gap(8)
-      .when(flag, (el) => el.child(div().text_size(11).text_color(k.muted).child(`${shortLabel(extra)} ${percent(extra.used, display)}%`)))
-      .when(!flag && Boolean(reset), (el) => el.child(div().text_size(11).text_color(k.muted).child(reset)))
-      .child(miniBar(id, row, primary.used, display, k, 34))
-      .child(value(primary.used, display, 12, k).w(36));
-  }
-
-  rosterRow(row, pref, k, now, pending) {
+  rosterRow(row, display, k, now, pending) {
     const id = rowId(row);
-    const showDetails = pref.mode === "verbose" && row.limits.length > 0;
+    const showDetails = row.limits.length > 0;
     const plan = planLabel(row.plan), reset = showDetails && nextReset(row.limits, now);
     const text = row.limits.length ? null : status(row, pending);
     return v_flex().id(`usage-row-${id}`).flex_none().min_h(ROW_HEIGHT).justify_center().px(CARD_INSET).py(8).gap(7)
@@ -309,10 +278,9 @@ export default class Usage extends View {
               .when(Boolean(text), (line) => line.child(div().min_w(0).truncate().child(text)))
               .when(Boolean(row.failed && row.limits.length), (line) => line.child(div().flex_none().child("Cached"))))))
         .when(Boolean(reset), (el) => el.child(div().flex_none().text_size(11).text_color(k.muted).child(reset)))
-        .when(!showDetails && row.limits.length > 0, (el) => el.child(this.compactMetric(row, pref.display, k, now)))
         .child(icon("chevron-right", 12, k.muted)))
       .when(showDetails, (el) => el.child(h_flex().pl(PROVIDER_TILE + PROVIDER_GAP).flex_wrap().gap(10).pb(2)
-        .children(row.limits.map((limit) => detailMetric(row, limit, pref.display, k)))));
+        .children(row.limits.map((limit) => detailMetric(row, limit, display, k)))));
   }
 
   footer(pending, k) {
@@ -321,8 +289,8 @@ export default class Usage extends View {
       .bg(k.pill).text_size(13).text_color(k.foreground)
       .child(label);
     return h_flex().h(FOOTER).flex_none().px(9).gap(6).items_center()
-      .child(link("usage-history", "History", "Usage details & history", "history"))
-      .child(link("usage-accounts", "Accounts", "Manage Accounts", "accounts"))
+      .child(link("usage-history", "History", "Usage history", "history"))
+      .child(link("usage-accounts", "Accounts", "Manage accounts", "accounts"))
       .child(div().flex_1())
       .child(control("usage-refresh", "Refresh rate limits", () => run("workspace-chrome.refresh-usage"), k)
         .h(34).px(14).gap(6).rounded(999).text_size(13).font_medium()
@@ -354,26 +322,28 @@ export default class Usage extends View {
     ];
   }
 
-  consentControls(row, k) {
-    const domain = consentDomain(row), answer = consent(row), open = answer === true;
-    const description = row.agent === "opencode"
-      ? "Kavex reads your OpenCode key and sends it only to opencode.ai, to ask for your Go plan's limits."
-      : `Read the existing ${row.name} login for usage requests to ${domain}.`;
-    return v_flex().id(`usage-consent-${rowId(row)}`).gap(9).p(INSET).rounded(10).border_1().border_color(k.card_border).bg(k.card)
-      .child(div().text_size(12).text_color(k.text_secondary).child(description))
-      .child(h_flex().justify_end().gap(6).children(this.consentActions(row).map(([id, label, accepted]) =>
-        control(id, label, () => this.answer(row, accepted), k).h(28).px(12).rounded_full()
-          .when(accepted, (button) => button.bg(k.solid).text_color(k.solid_foreground))
-          .when(open && !accepted, (button) => button.bg(k.raised).text_color(k.foreground))
-          .when(this.selected === id, (button) => button.border_1().border_color(k.accent))
-          .child(label))));
+  consentButtons(row, k, height) {
+    return h_flex().flex_none().justify_end().items_center().gap(6)
+      .children(this.consentActions(row).map(([id, label, accepted]) =>
+        control(id, label, () => this.answer(row, accepted), k).h(height).px(14).rounded(999)
+          .border_1().border_color(this.selected === id ? k.accent : k.pill_ring)
+          .bg(k.pill).text_color(k.foreground).text_size(13)
+          .when(accepted, (button) => button.bg(k.solid).text_color(k.solid_foreground)
+            .hover((el) => el.bg(k.solid).text_color(k.solid_foreground).opacity(0.88)))
+          .child(label)));
   }
 
-  roster(rows, usage, pref, k, now) {
+  consentControls(row, k) {
+    return v_flex().id(`usage-consent-${rowId(row)}`).gap(9).p(INSET).rounded(10).border_1().border_color(k.card_border).bg(k.card)
+      .child(div().text_size(12).text_color(k.text_secondary).child(consentDescription(row)))
+      .child(this.consentButtons(row, k, 28));
+  }
+
+  roster(rows, usage, display, k, now) {
     const pending = checking(usage, now), sorted = [...rows].sort((a, b) => rank(b) - rank(a));
     const estimated = rows.reduce((sum, row) => {
       const metricWidth = row.limits.reduce((width, limit) => width + shortLabel(limit).length * 6 + 76, 0);
-      const lines = pref.mode === "verbose" ? Math.ceil(metricWidth / (POPOVER_WIDTH - 76)) : 0;
+      const lines = Math.ceil(metricWidth / (POPOVER_WIDTH - 76));
       return sum + ROW_HEIGHT + GUTTER + lines * 23;
     }, 0);
     const list = v_flex().id("usage-rows").w_full().px(GUTTER).gap(GUTTER)
@@ -381,10 +351,9 @@ export default class Usage extends View {
       .when(!sorted.length, (el) => el.child(div().mx(1).p(INSET).rounded(10).border_1()
         .border_color(k.card_border).bg(k.card).text_size(12).text_color(k.muted)
         .child(pending || !usage.checkedAt ? "Loading usage…" : "No usage data")))
-      .children(sorted.map((row) => this.rosterRow(row, pref, k, now, pending)));
+      .children(sorted.map((row) => this.rosterRow(row, display, k, now, pending)));
     this.actions = [
-      ...this.preferenceActions("mode"),
-      ...this.preferenceActions("display"),
+      ...this.displayActions(),
       ...sorted.map((row) => [rowId(row), (cx) => this.openDetail(row, cx), true]),
       ["usage-history", () => this.openPage("history")],
       ["usage-accounts", () => this.openPage("accounts")],
@@ -393,18 +362,17 @@ export default class Usage extends View {
     return v_flex().id("usage").w_full().min_h(0).rounded(13).bg(k.canvas)
       .child(h_flex().h(HEADER).flex_none().pl(GUTTER + INSET).pr(9).gap(6).items_center()
         .child(div().flex_1().min_w(0).truncate().text_size(14).font_medium().child("Usage limits"))
-        .child(this.segments("mode", pref.mode, k))
-        .child(this.segments("display", pref.display, k)))
+        .child(this.displayPicker(display, k)))
       .child(list)
       .child(this.footer(pending, k));
   }
 
-  provider(row, usage, pref, k, now) {
+  provider(row, usage, display, k, now) {
     const hasConsentControl = Boolean(row && consentDomain(row));
     const pending = checking(usage, now);
     this.actions = [
       ["usage-back", (cx) => this.back(cx)],
-      ...this.preferenceActions("display"),
+      ...this.displayActions(),
       ...(hasConsentControl ? this.consentActions(row).map(([id, , answer]) => [id, () => this.answer(row, answer)]) : []),
       ["usage-history", () => this.openPage("history")],
       ["usage-accounts", () => this.openPage("accounts")],
@@ -427,7 +395,7 @@ export default class Usage extends View {
               .when(Boolean(metadata), (el) => el.child(div().truncate().text_size(11).text_color(k.muted).child(metadata))))
             .child(div().flex_none().text_size(11).text_color(k.muted).child(relativeUpdate(row.checkedAt, now))))
           .when(!reading && !balances.length, (el) => el.child(div().text_color(k.muted).child(status(row, pending))))
-          .children(row.limits.map((limit) => detailWindow(row, limit, pref.display, k, now, DETAIL_WIDTH)))
+          .children(row.limits.map((limit) => detailWindow(row, limit, display, k, now, DETAIL_WIDTH)))
           .children(balances)
           .when(failed && reading, (el) => el.child(v_flex().gap(4)
             .child(div().font_medium().text_size(11).text_color(k.failed_text).child("Refresh failed · showing cached data"))
@@ -444,40 +412,56 @@ export default class Usage extends View {
           .border_1().border_color(this.selected === "usage-back" ? k.accent : k.clear)
           .child(icon("chevron-left", 16, k.label)).child("Usage limits"))
         .child(div().flex_1())
-        .child(this.segments("display", pref.display, k)))
+        .child(this.displayPicker(display, k)))
       .child(body)
       .child(this.footer(pending, k));
   }
 
-  pageHeader(label, k) {
-    return h_flex().w_full().h(48).flex_none().px(18).gap(6).justify_between().items_center()
-      .child(div().text_size(16).font_weight(600).child(label))
-      .child(control("usage-close", "Close", () => closeOverlay(this.overlay), k).size(26).child(icon("close", 16, k.muted)));
+  dialog(page, title, content, k, tools = null) {
+    const close = control("usage-close", "Close", () => closeOverlay(this.overlay), k)
+      .size(28).rounded(7).border_1().border_color(this.selected === "usage-close" ? k.accent : k.clear)
+      .child(icon("close", 16, k.muted));
+    return v_flex().id(`usage-${page}-page`).size_full().min_h(0).rounded(13).overflow_hidden().bg(k.panel)
+      .child(h_flex().h(56).flex_none().px(18).gap(8).items_center()
+        .child(div().flex_1().min_w(0).truncate().text_size(15).font_semibold().child(title))
+        .when(Boolean(tools), (el) => el.child(tools))
+        .child(close))
+      .child(v_flex().id(`usage-${page}-list`).flex_1().min_h(0).overflow_y_scrollbar()
+        .px(18).pb(16).gap(12).children(content));
   }
 
   history(rows, usage, display, k) {
-    const selected = visibleEntries(usage.entries, this.machine);
-    const readings = Object.entries(usage.history ?? {}).flatMap(([id, snapshots]) => {
+    const readings = Object.entries(shared("usage.history") ?? {}).flatMap(([id, snapshots]) => {
       const [agent, machine] = id.split("|");
       if (this.machine !== undefined && (machine || null) !== this.machine) return [];
-      const row = selected?.[id] ?? rows.find((entry) => entry.agent === agent);
-      const title = row?.name ?? agent;
-      return snapshots.filter((sample) => Number.isFinite(sample.at)).map((sample) => ({ ...sample, title, machine, id }));
+      const provider = usage.entries?.[id] ?? rows.find((entry) => entry.agent === agent) ?? { agent, name: agent };
+      return snapshots.filter((sample) => Number.isFinite(sample.at))
+        .map((sample) => ({ ...sample, provider, machine, id }));
     }).sort((a, b) => b.at - a.at);
-    this.actions = [["usage-close", () => closeOverlay(this.overlay)]];
-    return v_flex().id("usage-history-page").size_full().bg(k.canvas)
-      .child(this.pageHeader("Usage details & history", k)).child(rule(k))
-      .when(!readings.length, (el) => el.child(div().p(18).text_size(12).text_color(k.muted).child("No usage history yet")))
-      .when(readings.length > 0, (el) => el.child(v_flex().id("usage-history-list").flex_1().min_h(0).overflow_y_scrollbar().px(18)
-        .children(readings.map(({ at, limits, title, machine, id }) =>
-          v_flex().id(`usage-history-${id}-${at}`).gap(6).py(10).border_b(1).border_color(k.border)
-            .child(h_flex().w_full().justify_between().items_center().gap(10)
-              .child(div().min_w(0).truncate().text_size(13).font_medium().child(machine ? `${title} · ${machine}` : title))
-              .child(div().flex_none().text_size(11).text_color(k.muted).child(new Date(at).toLocaleString())))
-            .child(h_flex().flex_wrap().gap(12).children(limits.map((limit) =>
-              h_flex().gap(6).items_center()
-                .child(div().text_size(11).text_color(k.muted).child(shortLabel(limit)))
-                .child(value(limit.used, display, 11, k)))))))));
+
+    const days = new Map();
+    for (const reading of readings) {
+      const day = new Date(reading.at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+      if (!days.has(day)) days.set(day, []);
+      days.get(day).push(reading);
+    }
+    const content = [...days].map(([day, samples]) =>
+      v_flex().w_full().flex_none().gap(8)
+        .child(div().px(2).child(sectionLabel(k, day.toUpperCase())))
+        .child(dialogCard(k).px(14).py(3).children(samples.map(({ at, limits, provider, machine, id }) =>
+          h_flex().id(`usage-history-${id}-${at}`).w_full().min_h(52).py(8).gap(12).items_center()
+            .child(tile(provider, PROVIDER_TILE, k))
+            .child(v_flex().flex_1().min_w(0).gap(4)
+              .child(div().truncate().text_size(13.5).font_medium()
+                .child(machine ? `${provider.name} · ${machine}` : provider.name))
+              .child(h_flex().flex_wrap().gap(12).children(limits.map((limit) => detailMetric(provider, limit, display, k)))))
+            .child(div().flex_none().font_family(MONO).text_size(11).text_color(k.label)
+              .child(new Date(at).toLocaleTimeString()))))));
+    if (!content.length) {
+      content.push(dialogCard(k).p(14).text_size(13).text_color(k.muted).child("No usage history yet"));
+    }
+    this.actions = [...this.displayActions(), ["usage-close", () => closeOverlay(this.overlay)]];
+    return this.dialog("history", "Usage history", content, k, this.displayPicker(display, k));
   }
 
   accounts(rows, usage, k, now) {
@@ -486,21 +470,25 @@ export default class Usage extends View {
       ...rows.filter(consentDomain).flatMap((row) =>
         this.consentActions(row).map(([id, , answer]) => [id, () => this.answer(row, answer)])),
     ];
-    return v_flex().id("usage-accounts-page").size_full().bg(k.canvas)
-      .child(this.pageHeader("Manage Accounts", k)).child(rule(k))
-      .when(!rows.length, (el) => el.child(div().p(18).text_size(12).text_color(k.muted).child("No usage accounts configured")))
-      .when(rows.length > 0, (el) => el.child(v_flex().id("usage-accounts-list").flex_1().min_h(0).overflow_y_scrollbar().px(18)
-        .children(rows.map((row) => {
-          const connected = row.limits.length ? relativeUpdate(row.checkedAt, now) : status(row, checking(usage, now));
-          return v_flex().id(`usage-account-${row.agent}-${row.machine ?? "local"}`).py(12).gap(9).border_b(1).border_color(k.border)
-            .child(h_flex().w_full().items_center().gap(8)
-              .child(tile(row, 24, k))
-              .child(h_flex().flex_1().min_w(0).items_center().gap(5)
-                .child(div().min_w(0).truncate().text_size(13).font_medium().child(row.name))
-                .when(Boolean(row.place), (name) => name.child(div().min_w(0).truncate().text_size(11).text_color(k.muted).child(`· ${row.place}`))))
-              .child(div().text_size(11).text_color(k.muted).child(connected)))
-            .when(Boolean(consentDomain(row)), (item) => item.child(this.consentControls(row, k)));
-        }))));
+    const pending = checking(usage, now);
+    const content = rows.map((row) => {
+      const connected = row.limits.length ? relativeUpdate(row.checkedAt, now) : status(row, pending);
+      const metadata = [row.place, planLabel(row.plan)].filter(Boolean).join(" · ");
+      return dialogCard(k).id(`usage-account-${row.agent}-${row.machine ?? "local"}`).p(14).gap(10)
+        .child(h_flex().w_full().items_center().gap(10)
+          .child(tile(row, PROVIDER_TILE, k))
+          .child(v_flex().flex_1().min_w(0).gap(2)
+            .child(div().truncate().text_size(13.5).font_medium().child(row.name))
+            .when(Boolean(metadata), (el) => el.child(div().truncate().text_size(12).text_color(k.label).child(metadata))))
+          .child(div().max_w(220).truncate().text_size(12).text_color(k.label).child(connected)))
+        .when(Boolean(consentDomain(row)), (item) => item.child(h_flex().id(`usage-consent-${rowId(row)}`).w_full().items_center().gap(12)
+          .child(div().flex_1().min_w(0).text_size(12).line_height("17px").text_color(k.text_secondary).child(consentDescription(row)))
+          .child(this.consentButtons(row, k, 34))));
+    });
+    if (!content.length) {
+      content.push(dialogCard(k).p(14).text_size(13).text_color(k.muted).child("No usage accounts configured"));
+    }
+    return this.dialog("accounts", "Manage accounts", content, k);
   }
 
   keyDown(event, cx) {
@@ -522,15 +510,15 @@ export default class Usage extends View {
   }
 
   render(cx) {
-    const k = look(theme()), now = Date.now(), usage = shared("usage") ?? {}, pref = presentation();
+    const k = look(theme()), now = Date.now(), usage = shared("usage") ?? {}, display = displayPreference();
     const rows = subscriptions(visibleEntries(usage.entries, this.machine), now, this.page !== "accounts");
     this.scheduleClock(cx, rows, now);
     let page;
     switch (this.page) {
-      case "provider": page = this.provider(rows.find((row) => rowId(row) === this.providerKey), usage, pref, k, now); break;
-      case "history": page = this.history(rows, { history: shared("usage.history") }, pref.display, k); break;
+      case "provider": page = this.provider(rows.find((row) => rowId(row) === this.providerKey), usage, display, k, now); break;
+      case "history": page = this.history(rows, usage, display, k); break;
       case "accounts": page = this.accounts(rows, usage, k, now); break;
-      default: page = this.roster(rows, usage, pref, k, now);
+      default: page = this.roster(rows, usage, display, k, now);
     }
     return page.text_color(k.foreground).track_focus(this.focus).on_key_down((event, cx) => this.keyDown(event, cx));
   }

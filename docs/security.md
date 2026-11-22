@@ -61,7 +61,7 @@ Usage limits** stops polling and clears usage data and access choices.
 their own programs. Kavex launches their usage-only commands or calls their account quota methods,
 on the machine where the agent runs. Their own CLI handles its login and provider requests.
 
-**Provider requests.** In Usage’s **Manage Accounts**, you can grant access for a provider on a
+**Provider requests.** In Usage’s **Accounts** dialog, you can grant access for a provider on a
 particular machine. Kavex then reads the following credentials for its usage request.
 
 | Provider | Login source | Request origin |

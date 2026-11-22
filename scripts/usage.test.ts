@@ -301,7 +301,7 @@ beforeEach(() => {
     files: {},
     reads: [],
     // The footer also looks for skill updates (scripts/skills.test.ts); these tests are about Usage alone.
-    shared: { "skills.checks": false, "usage.presentation": { display: "used", mode: "verbose" } },
+    shared: { "skills.checks": false, "usage.presentation": { display: "used" } },
     props: null,
     sidebar: 230,
     agentsShown: 2,
@@ -1761,7 +1761,7 @@ test("the footer redraws by itself when a limit resets, and not for every look a
   expect(f.copy.notified).toBe(1);
 });
 
-test("compact usage defaults to the most consumed primary window, with explicit Used and Left choices", async () => {
+test("the roster always shows all windows with only Used and Left choices", async () => {
   delete state.shared["usage.presentation"];
   claude(WEEK, SESSION);
   const { popover } = await opened();
@@ -1772,21 +1772,22 @@ test("compact usage defaults to the most consumed primary window, with explicit 
   expect(arg(display, "bg")).toBe(colors.pill);
   expect(arg(byId(root, "usage-used")!, "bg")).toBe(colors.pill_selected);
   expect(arg(byId(root, "usage-used")!, "h")).toBe(26);
-  expect(limits(root).map(words)).toEqual([["3h 30m", "33%"]]);
+  expect(byId(root, "usage-density")).toBeUndefined();
+  expect(limits(root).map(words)).toEqual([["wk", "12%"], ["5h", "33%"]]);
+
+  state.shared["usage.presentation"] = { display: "used", mode: "compact" };
+  expect(limits(popover.draw()).map(words)).toEqual([["wk", "12%"], ["5h", "33%"]]);
 
   handler(byId(root, "usage-remaining")!, "on_click")({}, cx);
   expect(arg(byId(popover.draw(), "usage-remaining")!, "bg")).toBe(colors.pill_selected);
-  expect(limits(popover.draw()).map(words)).toEqual([["3h 30m", "67%"]]);
-
-  handler(byId(popover.draw(), "usage-verbose")!, "on_click")({}, cx);
   expect(limits(popover.draw()).map(words)).toEqual([["wk", "88%"], ["5h", "67%"]]);
-  expect(state.shared["usage.presentation"]).toEqual({ display: "remaining", mode: "verbose" });
+  expect(state.shared["usage.presentation"]).toEqual({ display: "remaining" });
 
   const detail = providerPopover(popover, "claude");
   expect(arg(byId(detail.draw(), "usage-remaining")!, "aria_selected")).toBe(true);
   handler(byId(detail.draw(), "usage-used")!, "on_click")({}, cx);
   expect(limits(detail.draw()).map(words).flat()).toContain("33%");
-  expect(state.shared["usage.presentation"]).toEqual({ display: "used", mode: "verbose" });
+  expect(state.shared["usage.presentation"]).toEqual({ display: "used" });
 });
 
 test("the roster links to provider details, refresh history and account management", async () => {
@@ -1812,14 +1813,28 @@ test("the roster links to provider details, refresh history and account manageme
   expect(state.overlays.length).toBe(overlayCount);
 
   handler(byId(popover.draw(), "usage-history")!, "on_click")({}, cx);
-  const history = openPopover().draw();
+  const historyDialog = openPopover();
+  const history = historyDialog.draw();
   expect(byId(history, "usage-history-page")).toBeDefined();
+  const { width, height } = state.overlays.at(-1);
+  expectThemeColors(history);
   expect(words(history)).toEqual(expect.arrayContaining(["Claude Code", "12%"]));
+  handler(byId(history, "usage-remaining")!, "on_click")({}, cx);
+  expect(words(historyDialog.draw())).toContain("88%");
 
   handler(byId(popover.draw(), "usage-accounts")!, "on_click")({}, cx);
   const accounts = openPopover().draw();
   expect(byId(accounts, "usage-accounts-page")).toBeDefined();
+  expect(state.overlays.at(-1)).toMatchObject({ width, height });
+  expectThemeColors(accounts);
   expect(words(accounts)).toContain("Claude Code");
+
+  for (const [root, name] of [[history, "history"], [accounts, "accounts"]] as const) {
+    expect(arg(root, "bg")).toBe(colors.panel);
+    expect(root.calls.some(([method]) => method === "border_1")).toBe(false);
+    expect(mine(root.kids[1])).toBe(byId(root, `usage-${name}-list`));
+    expect(arg(byId(root, "usage-close")!, "accessibility_label")).toBe("Close");
+  }
 });
 
 test("saved provider readings without a window length still render", async () => {
@@ -2855,6 +2870,16 @@ test("the consent detail uses theme colors and emphasizes Allow", async () => {
   const allow = byId(root, ALLOW + "-opencode-local")!;
   expect(arg(allow, "bg")).toBe(colors.solid);
   expect(arg(allow, "text_color")).toBe(colors.solid_foreground);
+
+  handler(byId(root, "usage-accounts")!, "on_click")({}, cx);
+  const accounts = openPopover().draw();
+  const card = byId(accounts, "usage-account-opencode-local")!;
+  expect(arg(card, "rounded")).toBe(14);
+  expect(arg(card, "bg")).toBe(colors.card);
+  expect(words(card)).toEqual(expect.arrayContaining(["OpenCode", "Not now", "Allow"]));
+  const accountAllow = byId(card, ALLOW + "-opencode-local")!;
+  expect(arg(accountAllow, "h")).toBe(34);
+  expect(arg(accountAllow, "bg")).toBe(colors.solid);
 });
 
 const GROK = { ...CLAUDE, key: "grok", name: "Grok", icon: "icons/grok.svg", run: ["grok"] };

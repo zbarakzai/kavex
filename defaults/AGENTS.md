@@ -341,11 +341,11 @@ An orange dot on the menu button points to a skill update inside.
 **Usage** at the bottom right, below the workspace, opens limits for the active machine.
 A custom layout with just the sidebar footer offers **More actions → Usage limits**
 for all machines.
-The roster is ordered by the highest primary percentage used. Choose **Used** or **Left**
-to show the percentage consumed or remaining. Choose **Compact** for one window per
-provider or **Detailed** for all windows.
+The roster shows all reported windows and orders providers by the highest primary
+percentage used. Choose **Used** or **Left** to show the percentage consumed or remaining.
 Select a provider to see its reset times and reading status in the same dropdown. Use the back
-button or ← to return to the roster. **History** and **Accounts** open their own dialogs.
+button or ← to return to the roster. **History** groups saved readings by date and shares
+the **Used** and **Left** setting. **Accounts** shows provider status and access controls.
 
 - **Provider coverage** includes Claude Code, Codex, OpenCode Go, Cursor, Gemini, Grok,
   Antigravity, Kimi, Muse, GitHub Copilot and Amp. Other detected agents show the source or
