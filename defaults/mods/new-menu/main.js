@@ -1,6 +1,6 @@
 import { View, div, svg, image } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
-import { theme, spaces, panes, knownAgents, run, openOverlay, closeOverlay, props, window, keys, shared, setShared } from "herdr";
+import { theme, spaces, panes, machines, knownAgents, run, openOverlay, closeOverlay, props, window, keys, shared, setShared } from "herdr";
 
 function shortcut(name) {
   const k = keys().find(b => b.section === "global" && b.action === name);
@@ -21,16 +21,36 @@ function shortcut(name) {
 
 export default class NewMenu extends View {
   init(_props, cx) {
-    this.agents = [];
+    this.machine = spaces().find(s => s.active)?.machine ?? null;
+    const cache = `new-menu.agents:${this.machine ?? ""}`;
+    const agents = shared(cache);
+    this.agents = Array.isArray(agents) ? agents : [];
     this.from = props()?.from;
     this.handle = cx.focus_handle();
     this.handle.focus();
     cx.spawn(async cx => {
-      try { this.agents = await knownAgents({ on: spaces().find(s => s.active)?.machine }); }
-      catch { this.failed = true; }
+      const found = await this.refreshAgents(cache);
+      // Keep the numbered shortcuts tied to the rows shown when the menu opened.
+      if (this.agents.length) return;
+      this.agents = found;
+      this.failed = found.length === 0;
       cx.notify();
     });
   }
+
+  async refreshAgents(cache) {
+    const on = this.machine;
+    const ready = () => on === null || machines().some(m => m.name === on && m.layout === "ready");
+    if (!ready()) return [];
+    // The latest lookup owns the cache, even if an earlier popup's lookup finishes later.
+    const lookup = String(Number(sessionStorage.getItem(cache) ?? 0) + 1);
+    sessionStorage.setItem(cache, lookup);
+    const found = await knownAgents({ on }).catch(() => []);
+    if (!ready()) return [];
+    if (found.length && sessionStorage.getItem(cache) === lookup) setShared(cache, found);
+    return found;
+  }
+
   // `from` names the button that opened this: a second press on it shuts the menu.
   async close() {
     if (this.from) setShared("popup.closed", { from: this.from, at: Date.now() });
@@ -44,9 +64,11 @@ export default class NewMenu extends View {
   }
   // Opened from a group's menu (props `group`): the new tab joins it.
   open(args) {
+    const space = spaces().find(s => s.active);
+    if (args.argv && (space?.machine ?? null) !== this.machine) return;
     const { group } = props(), groups = shared("tab.groups") ?? {};
     if (groups[group]) setShared("tab.groups", { ...groups, [group]: { ...groups[group], adopt: true } });
-    run("tab.new", { space: spaces().find(s => s.active)?.id, ...args });
+    run("tab.new", { space: space?.id, ...args });
   }
 
   render() {

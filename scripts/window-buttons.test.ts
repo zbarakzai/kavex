@@ -37,6 +37,7 @@ mock.module("gpui-kit", () => ({ View: class {}, div: make, image: make, svg: ic
 mock.module("gpui-base", () => ({ h_flex: make, v_flex: make }));
 mock.module("herdr", () => ({
   spaces: () => [{ id: "s", active: true, machine: null, tabs: [{ id: "a", name: "a", active: true, status: null }] }],
+  knownAgents: async () => [],
   panes: () => [{ tab: "a", pane: "p", terminal: "t", focused: true, program: { name: "a" } }],
   terminals: () => [],
   machines: () => [{ name: null, layout: "ready" }],
