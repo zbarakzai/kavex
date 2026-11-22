@@ -99,6 +99,9 @@ use the current agent session when Kavex can identify it.
 
 ## Customize layouts, keys, or mods
 
+Open the three-dot **More actions** menu beside **Settings** in the sidebar
+footer for Usage limits, Add machine, or Customize.
+
 First read `~/.config/kavex/AGENTS.md` (or `$HERDR_APP_HOME/AGENTS.md` if
 set). It is the installed guide to settings, layouts, commands and mods.
 Read the generated `.d.ts` files beside it for full API details; do not edit
