@@ -3,6 +3,7 @@ import { h_flex, v_flex, HoverCard } from "gpui-base";
 import { theme, run, props, window, shared, setShared, updates, layout, agents, spaces, openOverlay, closeOverlay, settings, nextCommand } from "herdr";
 import { allowOpencode, checkUsage, EVERY, nearLimit, POPOVER_HEIGHT, POPOVER_WIDTH, usageOff } from "./checks.js";
 import { look, MONO } from "./look.js";
+import { railTooltip } from "./tooltip.js";
 import { SETTLE_MS, SIDEBAR_MIN, SIDEBAR_RAIL, snapTarget } from "./snap.js";
 import { checkSkills, EVERY as SKILLS_EVERY } from "./skills.js";
 
@@ -96,12 +97,13 @@ export default class WorkspaceChrome extends View {
     return div().id(id).size(30).flex_none().flex().items_center().justify_center().rounded(8).text_color(t.muted).hover(s => s.bg(t.raised).text_color(t.foreground))
       .on_mouse_down("left", (_e, cx) => cx.stop_propagation()).on_click(action).child(label);
   }
-  action(id, icon, name, click, k, width, mark) {
+  action(id, icon, name, click, k, width, mark, collapsed = false) {
     const button = div().id(id).relative().w(width).h(width).flex_none().flex().items_center().justify_center().rounded(7)
       .text_color(k.muted).accessibility_label(name).cursor_pointer().hover(s => s.bg(k.hover_strong).text_color(k.foreground))
       .when(id === "footer-more", el => el.on_mouse_down("left", (e) => { this.pressed = { at: Date.now(), bounds: e.bounds }; }))
       .on_click(click).child(svg(`mods/workspace-chrome/icons/${icon}.svg`).size(16))
       .when(Boolean(mark), el => el.child(div().absolute().top(2).right(2).size(6).rounded_full().bg(mark)));
+    if (collapsed) return railTooltip(id, name, button, k);
     return HoverCard.new(`tip-${id}`).anchor("bottom_center").open_delay(300).close_delay(0).trigger(button)
       .content(div().mb(6).px(9).py(5).rounded(8).bg(k.raised).border_1().border_color(k.border).shadow_md().text_size(12).text_color(k.foreground).whitespace_nowrap().child(name));
   }
@@ -162,7 +164,7 @@ export default class WorkspaceChrome extends View {
   footer(t) {
     const k = look(t), collapsed = narrow();
     this.warned = menuShowsUsage() && warning();
-    const settings = this.action("settings", "settings", "Settings", () => run("app.settings"), k, collapsed ? 30 : 24, updates().app.ready ? k.accent : null);
+    const settings = this.action("settings", "settings", "Settings", () => run("app.settings"), k, collapsed ? 30 : 24, updates().app.ready ? k.accent : null, collapsed);
     const bar = h_flex().size_full().pb(4).items_center();
     if (collapsed) return bar.justify_center().child(settings);
 

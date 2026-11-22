@@ -25,6 +25,7 @@ pub struct HoverCard {
     id: ElementId,
     anchor: Anchor,
     tap_to_open: bool,
+    passive: bool,
     trigger: Option<AnyElement>,
     content: Option<ContentBuilder>,
     open_delay: Duration,
@@ -38,6 +39,7 @@ impl HoverCard {
             id: id.into(),
             anchor: Anchor::TopCenter,
             tap_to_open: crate::is_mobile(),
+            passive: false,
             trigger: None,
             content: None,
             open_delay: Duration::from_secs_f64(0.6),
@@ -48,6 +50,13 @@ impl HoverCard {
 
     pub fn anchor(mut self, anchor: impl Into<Anchor>) -> Self {
         self.anchor = anchor.into();
+        self
+    }
+
+    /// Shows a hover label without capturing pointer input.
+    #[doc(hidden)]
+    pub fn passive(mut self) -> Self {
+        self.passive = true;
         self
     }
 
@@ -227,7 +236,7 @@ impl RenderOnce for HoverCard {
             div()
                 .id("trigger")
                 .child(trigger)
-                .when(self.tap_to_open, |trigger| {
+                .when(self.tap_to_open && !self.passive, |trigger| {
                     trigger.on_click(window.listener_for(&state, move |state, _, window, cx| {
                         state.cancel_tasks();
                         // Toggle the state rendered by this trigger even if
@@ -239,9 +248,18 @@ impl RenderOnce for HoverCard {
                     trigger.on_hover(window.listener_for(&state, |state, hovered, window, cx| {
                         state.on_trigger_hover(*hovered, window, cx)
                     }))
+                })
+                .when(self.passive, |trigger| {
+                    trigger.capture_any_mouse_down(
+                        window.listener_for(&state, |state, _, window, cx| {
+                            state.cancel_tasks();
+                            state.set_open(false, window, cx);
+                        }),
+                    )
                 }),
         )
-        .anchor(self.anchor);
+        .anchor(self.anchor)
+        .when(self.passive, Popup::passive);
 
         if !open {
             return popup;
@@ -260,7 +278,7 @@ impl RenderOnce for HoverCard {
                     .when(self.tap_to_open, |content| {
                         content.on_mouse_up_out(gpui::MouseButton::Left, dismiss)
                     })
-                    .when(!self.tap_to_open, |content| content.on_hover(hover))
+                    .when(!self.tap_to_open && !self.passive, |content| content.on_hover(hover))
             }))
         })
     }

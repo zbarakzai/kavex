@@ -274,6 +274,8 @@ The top-right folder opens Files and the branch opens Changes. Click the active 
 or use the panel's close button to hide it. `cmd-shift-b` (`ctrl-shift-j`) toggles the last view,
 and each space remembers its panel state. The welcome and the switches in Settings > Look set
 shared `"workspace.panels"`. A disabled view's toolbar button is hidden.
+Hover over a toolbar icon for its label below the button. In the collapsed sidebar, labels
+appear to the right of the rail.
 
 Kavex also ships `terminals` ("Terminals" with tabs in the title bar, panes as cards,
 and a space picker) and `win98` ("Kavex 98" with a whole desktop in one mod).

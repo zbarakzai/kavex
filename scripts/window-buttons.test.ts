@@ -34,7 +34,7 @@ const WINDOWS = { platform: "windows", titlebar: "none", buttons: true, maximize
 let state: { window: any; layout: any; shared: Record<string, any>; ran: [string, unknown][] };
 const icon = (path: string) => { const s = make(); s.el.calls.push(["path", [path]]); return s; };
 mock.module("gpui-kit", () => ({ View: class {}, div: make, image: make, svg: icon }));
-mock.module("gpui-base", () => ({ h_flex: make, v_flex: make, HoverCard: { new: make } }));
+mock.module("gpui-base", () => ({ h_flex: make, v_flex: make, HoverCard: { new: (id: string) => make().id(id) } }));
 mock.module("herdr", () => ({
   spaces: () => [{ id: "s", active: true, machine: null, tabs: [{ id: "a", name: "a", active: true, status: null }] }],
   knownAgents: async () => [],
@@ -148,6 +148,18 @@ test("the folder and branch buttons each open, select, and close their own view"
     expect(has(byId(tabs, `panel-toggle-${id}`)!, "bg")).toBe(true);
     handler(byId(tabs, `panel-toggle-${id}`)!, "on_click")({}, cx);
     expect(state.ran.splice(0)).toEqual([["layout.hide", { id: "panel" }]]);
+  }
+});
+
+test("each toolbar tooltip hangs below its button", () => {
+  const tabs = draw(Tabs);
+  for (const [id, name] of [["tab-new", "New tab"], ["panel-files", "Files"], ["panel-changes", "Changes"]]) {
+    const tip = byId(tabs, `kavex-chrome-tooltip-${id}`)!;
+    expect(tip, name).toBeDefined();
+    expect(arg(tip, "anchor"), name).toBe("top_right");
+    const content = mine(arg(tip, "content"))!;
+    expect(arg(content, "role"), name).toBe("tooltip");
+    expect(all(content).some((el) => el.kids.includes(name)), name).toBe(true);
   }
 });
 
