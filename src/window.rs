@@ -329,10 +329,14 @@ struct Copy {
     error: Option<String>,
 }
 
+const SELECTION_POPUP: &str = "terminal-selection";
+
 #[derive(Clone, Copy, PartialEq)]
 enum OverlayKind {
     Dialog,
     Popup,
+    /// A pointer popup that leaves keyboard focus in the terminal.
+    Selection,
     Toast,
     /// Stays until closed, moves where it's dropped, comes to the front when
     /// pressed (`movable.rs`). Never holds the keyboard on its own.
@@ -1434,7 +1438,14 @@ impl AppWindow {
         self.model.order_spaces();
         let (model, live) = (&self.model, &self.live);
         self.swapped.retain(|p, a| model.address_of(p).is_some() && live.contains_key(a));
-        let (mut terms, mods_visible) = self.visible();
+        let (mut terms, mut mods_visible) = self.visible();
+        if let Some(selection) = self.overlays.iter().find(|o| o.id == SELECTION_POPUP)
+            && let Some(address) = self.copies.get(&selection.slot).and_then(|c| c.inst.props["terminal"].as_str())
+            && !terms.iter().any(|(_, terminal)| terminal == address)
+        {
+            mods_visible.retain(|(slot, _)| slot != &selection.slot);
+            self.remove_overlay(SELECTION_POPUP, window, cx);
+        }
         // Every tab's terminals stay attached (only visible ones are drawn): tab
         // switches are instant and kitty images survive, which a repaint can't bring back.
         for c in self.model.tabs() {
@@ -1464,6 +1475,20 @@ impl AppWindow {
                 TerminalEvent::Ended => this.terminal_ended(&block, window, cx),
                 TerminalEvent::ContextMenu(at) => {
                     this.open_menu("pane", json!({ "pane": block.trim_end_matches(SWAP), "terminal": addr }), Some(*at), window, cx)
+                }
+                TerminalEvent::SelectionDismissed => this.remove_overlay(SELECTION_POPUP, window, cx),
+                TerminalEvent::Selection { at, text, anchor } => {
+                    this.remove_overlay(SELECTION_POPUP, window, cx);
+                    this.open_overlay(
+                        SELECTION_POPUP.into(),
+                        json!({
+                            "mod": "agents", "kind": "popup", "width": 162, "height": 44,
+                            "at": { "x": f32::from(at.x), "y": f32::from(at.y) + 8.0 },
+                            "props": { "notes": "selection", "terminal": addr, "text": text, "anchor": anchor },
+                        }),
+                        window,
+                        cx,
+                    );
                 }
             });
             let focus = view.read(cx).focus_handle().clone();
@@ -3409,7 +3434,10 @@ impl AppWindow {
                 return;
             }
             "app.palette" => {
-                let spec = json!({ "mod": "frame-palette", "kind": "popup", "at": "top", "offset": 60, "width": 620, "height": 0.85 });
+                self.remove_overlay(SELECTION_POPUP, window, cx);
+                let terminal = self.focused_terminal(window).map(|t| &t.address);
+                let spec = json!({ "mod": "frame-palette", "kind": "popup", "at": "top", "offset": 60, "width": 620, "height": 0.85,
+                    "props": { "terminal": terminal } });
                 self.open_overlay(mods::new_overlay_id(), spec, window, cx);
                 return;
             }
@@ -3556,6 +3584,7 @@ impl AppWindow {
 
     fn open_overlay(&mut self, id: String, spec: Value, window: &mut Window, cx: &mut Context<Self>) {
         let kind = match spec.get("kind").and_then(Value::as_str) {
+            Some("popup") if id == SELECTION_POPUP => OverlayKind::Selection,
             Some("popup") => OverlayKind::Popup,
             Some("toast") => OverlayKind::Toast,
             Some("window") => OverlayKind::Window,
@@ -3599,7 +3628,7 @@ impl AppWindow {
             _ => self.pointer,
         };
         let top = (spec.get("at").and_then(Value::as_str) == Some("top")).then(|| num("offset", 0.0));
-        let fit = layout.is_none() && (kind == OverlayKind::Popup || (matches!(kind, OverlayKind::Dialog | OverlayKind::Window) && spec.get("height").is_none()));
+        let fit = layout.is_none() && (matches!(kind, OverlayKind::Popup | OverlayKind::Selection) || (matches!(kind, OverlayKind::Dialog | OverlayKind::Window) && spec.get("height").is_none()));
         if kind == OverlayKind::Window && place.is_none() && spec.get("at").is_some_and(|v| v.get("x").is_some()) {
             place = Some(at);
         }
@@ -3745,6 +3774,14 @@ impl AppWindow {
         match req {
             Request::Run { name, args } => self.run(&name, args, window, cx),
             Request::OpenOverlay { id, spec } => self.open_overlay(id, spec, window, cx),
+            Request::RevealTerminalNote { terminal, anchor, text, reply } => {
+                let shown = self.visible().0;
+                let view = self.focused_terminal(window)
+                    .filter(|t| t.address == terminal && shown.iter().any(|(_, address)| *address == terminal))
+                    .or_else(|| shown.iter().find(|(_, address)| *address == terminal).and_then(|(slot, _)| self.terms.get(slot)));
+                let found = view.is_some_and(|term| term.view.update(cx, |view, cx| view.reveal_note(anchor.as_deref(), &text, cx)));
+                let _ = reply.try_send(found);
+            }
             Request::CloseOverlay { id } => self.close_overlay(&id, window, cx),
             Request::Refresh => self.refresh_mods(cx),
             Request::Control { cmd, reply } => match cmd.get("do").and_then(Value::as_str) {
@@ -4393,7 +4430,7 @@ impl AppWindow {
                         )
                         .into_any_element(),
                 ),
-                OverlayKind::Popup => {
+                OverlayKind::Popup | OverlayKind::Selection => {
                     let at = match o.top {
                         // Centered, hanging from `offset` px below the top (a drop-down from a bar).
                         Some(off) => point((viewport.width - w) / 2.0, settings::z(off)),

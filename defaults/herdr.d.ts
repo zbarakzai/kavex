@@ -362,6 +362,9 @@ export function openOverlay(spec: OverlaySpec): string;
  *  dialog or popup. A kept window closed this way stays closed. */
 export function closeOverlay(id: string): null;
 
+/** Notes picker only. Reveals a retained quote in a visible terminal. False if the location was lost. */
+export function revealTerminalNote(terminal: string, anchor: string | null, text: string): Promise<boolean>;
+
 /** Posts a notification. Shown by the `toast` mod (replaceable), which runs `action` when clicked.
  *  Kavex posts one itself when an agent needs you or finished while you weren't looking. Returns its id. */
 export function notify(n: {

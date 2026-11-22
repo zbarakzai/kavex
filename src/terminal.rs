@@ -39,6 +39,9 @@ pub enum TerminalEvent {
     Ended,
     /// Right-click where the program doesn't take the mouse: the pane menu.
     ContextMenu(Point<Pixels>),
+    /// The selection is ready for the notes actions.
+    Selection { at: Point<Pixels>, text: String, anchor: Option<String> },
+    SelectionDismissed,
     /// A Markdown file was opened: it shows in the Files panel.
     Preview(PathBuf),
 }
@@ -94,6 +97,7 @@ pub struct TerminalView {
     selecting: bool,
     selection_pointer: Point<Pixels>,
     selection_scroll: Option<Task<()>>,
+    selection_popup: bool,
     /// The terminal's folder, for links to relative paths.
     pub cwd: Option<PathBuf>,
     /// The link under the pointer while the link modifier is held.
@@ -171,6 +175,7 @@ impl TerminalView {
             selecting: false,
             selection_pointer: Point::default(),
             selection_scroll: None,
+            selection_popup: false,
             cwd: None,
             link: None,
             right_click_to_program: false,
@@ -524,10 +529,22 @@ impl TerminalView {
     /// Copies the selection to the clipboard (and the primary selection on Linux).
     pub fn copy(&mut self, cx: &mut Context<Self>) {
         if let Some(text) = self.grid.borrow().vt.selection_text() {
-            cx.write_to_clipboard(ClipboardItem::new_string(text.clone()));
-            #[cfg(target_os = "linux")]
-            cx.write_to_primary(ClipboardItem::new_string(text));
+            Self::copy_text(&text, cx);
         }
+    }
+
+    fn copy_text(text: &str, cx: &mut Context<Self>) {
+        cx.write_to_clipboard(ClipboardItem::new_string(text.to_owned()));
+        #[cfg(target_os = "linux")]
+        cx.write_to_primary(ClipboardItem::new_string(text.to_owned()));
+    }
+
+    pub fn reveal_note(&mut self, anchor: Option<&str>, text: &str, cx: &mut Context<Self>) -> bool {
+        let found = self.grid.borrow_mut().vt.reveal_note(anchor, text);
+        if found {
+            cx.notify();
+        }
+        found
     }
 
     fn key_down(&mut self, ev: &KeyDownEvent, _w: &mut Window, cx: &mut Context<Self>) {
@@ -535,6 +552,9 @@ impl TerminalView {
         // Typing clears a selection, as in Kavex.
         if !k.key.starts_with("shift") && !k.key.starts_with("control") && !k.key.starts_with("alt") {
             self.grid.borrow_mut().vt.clear_selection();
+            if std::mem::take(&mut self.selection_popup) {
+                cx.emit(TerminalEvent::SelectionDismissed);
+            }
         }
         let bytes = key_bytes(&mut self.grid.borrow_mut().vt, ev);
         if let Some(bytes) = bytes {
@@ -717,6 +737,15 @@ impl TerminalView {
         if let Some(pos) = pos {
             drop(g);
             self.select(Select::Release, pos, cx);
+            let text = self.grid.borrow().vt.selection_text();
+            if let Some(text) = text {
+                Self::copy_text(&text, cx);
+                if !text.trim().is_empty() && text.len() <= crate::mod_files::LIMIT as usize {
+                    let anchor = self.grid.borrow_mut().vt.note_anchor();
+                    self.selection_popup = true;
+                    cx.emit(TerminalEvent::Selection { at: pos, text, anchor });
+                }
+            }
         } else {
             g.vt.clear_selection();
             cx.notify();
@@ -732,10 +761,6 @@ impl TerminalView {
         let height = ch * g.vt.rows as f32;
         g.vt.select(step, col, row, x, y, cw, height);
         drop(g);
-        if matches!(step, Select::Release) {
-            // Copy on select, as in Kavex.
-            self.copy(cx);
-        }
         cx.notify();
     }
 }

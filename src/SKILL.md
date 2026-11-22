@@ -86,6 +86,15 @@ Use unlabeled `hc run` for a background worker. Live sub-agents appear under
 their parent in the Agents sidebar. A worker with a pane that reports status
 gets its own row. Use app commands when the user wants a new tab or split.
 
+## Terminal notes
+
+Select output for Add note or Copy. Save with Cmd+Enter on macOS or Ctrl+Enter
+elsewhere. In Kavex's command palette, enter `%note` to browse the focused
+terminal's notes. Search by text or comment, then click a note or use the
+arrow keys and Enter. The copy icon copies the saved text. Choosing a note
+highlights the retained output or shows the saved excerpt. Notes are local to Kavex and
+use the current agent session when Kavex can identify it.
+
 ## Customize layouts, keys, or mods
 
 First read `~/.config/kavex/AGENTS.md` (or `$HERDR_APP_HOME/AGENTS.md` if
