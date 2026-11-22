@@ -3,11 +3,11 @@
 // a similar name. Every figure comes from the provider's own pricing page, and the list is
 // checked at each release (see the release steps in AGENTS.md).
 //
-// Claude: platform.claude.com/docs/en/about-claude/pricing, read 2026-11-05.
+// Claude: platform.claude.com/docs/en/about-claude/pricing, read 2026-11-22.
 // `fast` is fast mode: the page gives its input and output, and its caching multipliers apply on
 // top of those. `over` is the price of a message whose prompt is over `tokens`, cache included.
 //
-// OpenAI: developers.openai.com/api/docs/pricing, read 2026-11-05.
+// OpenAI: developers.openai.com/api/docs/pricing, read 2026-11-22.
 // Standard and Fast tiers, short and long context; long is a response over 272K input tokens.
 // `read` is cached input. Cache writes aren't listed: the page prices 30-minute and 12-hour ones
 // and Codex writes one figure, so a session with any reads "no price". The page's "-" is no price
@@ -25,6 +25,8 @@ const openai = (short, long, fast, fastLong) => ({
 });
 
 export const PRICES = {
+  "claude-fable-5-2": { ...claude(8, 10, 16, 0.2, 40), fast: claude(16, 20, 32, 0.4, 80) },
+  "claude-mythos-5-2": { ...claude(8, 10, 16, 0.2, 40), fast: claude(16, 20, 32, 0.4, 80) },
   "claude-fable-5-1": claude(10, 12.5, 20, 0.25, 50),
   "claude-mythos-5-1": claude(10, 12.5, 20, 0.25, 50),
   "claude-fable-5": claude(10, 12.5, 20, 1, 50),
@@ -45,6 +47,8 @@ export const PRICES = {
   "claude-haiku-5-5": { ...claude(0.1, 0.125, 0.2, 0.01, 0.5), over: { tokens: 100000, ...claude(0.5, 0.625, 1, 0.05, 2.5) } },
   "claude-haiku-4-5-20251001": claude(1, 1.25, 2, 0.1, 5),
   "claude-3-5-haiku-20241022": claude(0.8, 1, 1.6, 0.08, 4),
+  "gpt-6.2-astra": openai([8, 0.4, 40], [16, 0.8, 60], [16, 0.8, 80], [32, 1.6, 120]),
+  "gpt-6.2-sol": openai([2, 0.1, 10], [4, 0.2, 15], [4, 0.2, 20], [8, 0.4, 30]),
   "gpt-6-astra": openai([10, 1, 50], [20, 2, 75], [20, 2, 100], [40, 4, 150]),
   "gpt-6.1-sol": openai([2, 0.1, 10], [4, 0.2, 15], [4, 0.2, 20], [8, 0.4, 30]),
   "gpt-6.1-terra": openai([1, 0.05, 5], [2, 0.1, 7.5], [2, 0.1, 10], [4, 0.2, 15]),

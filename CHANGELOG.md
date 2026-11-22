@@ -1,5 +1,23 @@
 # Kavex changelog
 
+## [0.5.0] - 2026-11-22
+
+### New
+
+- **Zaki is now Kavex.** Releases are available on GitHub. Installing Kavex brings over your settings and spaces, and your running terminals stay connected. (#15)
+- **Bookmark terminal output.** Select text and choose **Add note** to save it with an optional comment. Run `%note` from the command palette to search, copy, or jump back to saved output. Notes follow supported agent sessions when you resume them. (#19)
+- **Pick up a recent project.** Click the open-folder button beside **+** in Spaces to return to a project that’s already open or reopen one you closed. (#20)
+- **Manage skills in one place.** Open **More actions → Customize → Skills** to install from the catalog, a GitHub link, or a local folder. Kavex shares the skill with your local agents and lets you know when an update is available. (#13)
+- **A simpler sidebar footer.** Settings stays one click away. Usage limits, Add machine, and Customize are grouped under **More actions**, with a dot when something needs your attention. (#21)
+- **Open work in the background.** Agents can create tabs and spaces while your current terminal keeps keyboard focus. (#14)
+
+### Fixed
+
+- **One row per agent.** A sub-agent you keep open appears only once in the Agents list, with its own workers nested beneath it. (#18)
+- **A faster + menu.** Previously discovered agents appear right away while Kavex refreshes the list in the background. Number shortcuts stay stable while the menu is open. (#22)
+- **A better fit for narrow sidebars.** Agent rows adapt as you resize the sidebar, keeping the most useful details visible. (#14)
+- **Less work for hidden terminals.** The window stops processing live output from terminals you can’t see, while the terminals keep running. (#17)
+
 ## [0.4.1] - 2026-11-05
 
 ### Fixed
