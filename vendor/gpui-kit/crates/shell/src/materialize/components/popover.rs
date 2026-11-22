@@ -206,6 +206,11 @@ pub(in crate::materialize) fn popover(
         .into_any_element()
 }
 
+// KAVEX: shipped chrome labels use a private ID prefix for click-through.
+pub(in crate::materialize) fn is_chrome_tooltip(id: &str) -> bool {
+    id.starts_with("kavex-chrome-tooltip-")
+}
+
 /// A hover-driven anchored surface. It owns its own open state — there is no
 /// `open` to control and no pointer handler to wire, only the two delays.
 pub(in crate::materialize) fn hover_card(
@@ -239,8 +244,7 @@ pub(in crate::materialize) fn hover_card(
         );
     }
 
-    // KAVEX: shipped chrome labels use a private ID prefix for click-through.
-    let chrome_tooltip = id.starts_with("kavex-chrome-tooltip-");
+    let chrome_tooltip = is_chrome_tooltip(&id);
     HoverCard::new(SharedString::from(id))
         .when(chrome_tooltip, HoverCard::passive)
         .when_some(trigger, |card, trigger| card.trigger(trigger))

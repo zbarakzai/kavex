@@ -418,7 +418,8 @@ export default class extends View {
     return div().p(16).flex().items_start().child(HoverCard.new("kavex-chrome-tooltip-fixture").anchor("bottom_center").open_delay(10)
       .on_open_change(open => note(open ? "shown" : "hidden"))
       .trigger(div().size(32).on_click(() => note("click")))
-      .content(div().role("tooltip").w(80).h(50).child("Open files")));
+      .content(div().role("tooltip").w(80).h(50).child("Open files")))
+      .child(div().size(4).rounded(4).bg("#ffffff").loop("opacity", { values: [0.2, 1], period: 333 }));
   }
 }"#);
     let events = Rc::new(RefCell::new(Vec::new()));
@@ -434,6 +435,18 @@ export default class extends View {
     let mut visual = VisualTestContext::from_window(*window.deref(), cx);
 
     visual.update(|window, cx| window.draw(cx).clear(cx));
+    visual.run_until_parked();
+    let before = runtime.read_metrics().materializations();
+    for _ in 0..4 {
+        visual.executor().advance_clock(Duration::from_millis(40));
+        visual.run_until_parked();
+        visual.update(|window, cx| window.draw(cx).clear(cx));
+    }
+    assert_eq!(
+        runtime.read_metrics().materializations(), before,
+        "a passive tooltip should let the shell paint the loading dot without rebuilding the mod",
+    );
+
     let center = point(px(32.), px(32.));
     visual.simulate_mouse_move(center, None, Default::default());
     visual.executor().advance_clock(std::time::Duration::from_millis(100));

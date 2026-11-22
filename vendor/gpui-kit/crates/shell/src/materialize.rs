@@ -832,15 +832,18 @@ fn materialize_node(
     let frame_text = apply_loops(&behavior, &mut refinement, window, cx);
     // HERDR: for hosted spinners (see `Spin`).
     let _fade = Fade::enter(&refinement, &states);
-    if matches!(
-        component,
+    let keep_inline = match &component {
+        // Passive chrome labels paint in the deferred popup pass, above the shell's
+        // animation layer. Their presence needn't make loading dots rebuild the mod.
+        Component::HoverCard(id) => !components::popover::is_chrome_tooltip(id),
         Component::Popover(_)
-            | Component::HoverCard(_)
-            | Component::Popup(_)
-            | Component::Select(_)
-            | Component::Combobox(_)
-            | Component::DatePicker(..)
-    ) {
+        | Component::Popup(_)
+        | Component::Select(_)
+        | Component::Combobox(_)
+        | Component::DatePicker(..) => true,
+        _ => false,
+    };
+    if keep_inline {
         KEEP_INLINE.with(|o| o.set(true));
     }
     let inherited = refinement.text.color.unwrap_or(inherited);
