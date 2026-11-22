@@ -403,3 +403,45 @@ export default class extends View {
     cx.run_until_parked();
     window.update(cx, |_, window, _| window.remove_window()).unwrap();
 }
+
+#[gpui::test]
+fn a_visible_tooltip_lets_the_user_click_its_trigger(cx: &mut TestAppContext) {
+    use gpui::{point, px};
+    cx.update(gpui_shell::init);
+    let fixture = Fixture::new(r#"
+import { View, div } from "gpui-kit";
+import { HoverCard } from "gpui-base";
+import { note } from "fixture";
+export default class extends View {
+  render() {
+    // The window edge pushes the card over the trigger when there is no room above it.
+    return div().p(16).flex().items_start().child(HoverCard.new("kavex-chrome-tooltip-fixture").anchor("bottom_center").open_delay(10)
+      .on_open_change(open => note(open ? "shown" : "hidden"))
+      .trigger(div().size(32).on_click(() => note("click")))
+      .content(div().role("tooltip").w(80).h(50).child("Open files")));
+  }
+}"#);
+    let events = Rc::new(RefCell::new(Vec::new()));
+    let calls = events.clone();
+    gpui_shell::policy::set_default(Policy::new().with_host_module(
+        HostModule::new("fixture").function("note", move |a| {
+            calls.borrow_mut().push(a.string(0)?.to_owned());
+            Ok(HostValue::Null)
+        })
+    ).unwrap());
+    let runtime = ShellRuntime::new_isolated().unwrap();
+    let window = cx.add_window(|window, cx| Mounted(runtime.try_load(&fixture.0, window, cx).unwrap()));
+    let mut visual = VisualTestContext::from_window(*window.deref(), cx);
+
+    visual.update(|window, cx| window.draw(cx).clear(cx));
+    let center = point(px(32.), px(32.));
+    visual.simulate_mouse_move(center, None, Default::default());
+    visual.executor().advance_clock(std::time::Duration::from_millis(100));
+    visual.run_until_parked();
+    visual.update(|window, cx| window.draw(cx).clear(cx));
+    assert_eq!(*events.borrow(), ["shown"]);
+
+    visual.simulate_click(center, Default::default());
+    visual.run_until_parked();
+    assert!(events.borrow().iter().any(|event| event == "click"), "{:?}", events.borrow());
+}

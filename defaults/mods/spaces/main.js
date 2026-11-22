@@ -3,9 +3,10 @@
 // in the Changes panel, not here. Click to switch, right-click for its menu, drag to reorder.
 
 import { View, div, svg } from "gpui-kit";
-import { v_flex, h_flex, HoverCard } from "gpui-base";
+import { v_flex, h_flex } from "gpui-base";
 import { spaces, machines, panes, run, openOverlay, exec, hc, home, props, theme, settings, shared, setShared, watchFolder, window, layout } from "herdr";
 import { look, sectionLabel, MONO } from "./look.js";
+import { railTooltip } from "./tooltip.js";
 import { loader } from "./loader.js";
 import { projectOf, rememberProjects, RECENT_PROJECTS } from "./history.js";
 import { drawRecentSpaces, recentHistory } from "./recent.js";
@@ -349,12 +350,6 @@ export default class Spaces extends View {
       );
   }
 
-  railTip(id, label, button, k) {
-    return HoverCard.new(`tip-${id}`).anchor("right_center").open_delay(300).close_delay(0).trigger(button)
-      .content(div().ml(6).px(9).py(5).rounded(8).bg(k.raised).border_1().border_color(k.border)
-        .shadow_md().text_size(12).text_color(k.foreground).whitespace_nowrap().child(label));
-  }
-
   avatar(w, k) {
     return h_flex().size(26).flex_none().rounded(7).bg(w.active ? k.accent : k.tile)
       .items_center().justify_center().font_family(MONO).text_size(11.5)
@@ -372,7 +367,7 @@ export default class Spaces extends View {
       .on_click(() => run("space.select", { id: w.id }))
       .on_mouse_down("right", () => this.menu(w))
       .child(div().font_family(MONO).text_size(12).font_medium().child([...w.name][0]?.toUpperCase() ?? "?"));
-    return this.railTip(id, name, button, k);
+    return railTooltip(id, name, button, k);
   }
 
   render() {
@@ -384,7 +379,7 @@ export default class Spaces extends View {
       const button = div().id(id).size(controlSize).flex_none().flex().items_center()
         .justify_center().rounded(7).text_color(t.muted).accessibility_label(label).cursor_pointer()
         .hover((el) => el.bg(t.raised).text_color(t.foreground)).on_click(click).child(svg(glyph).size(16));
-      return collapsed ? this.railTip(id, label, button, k) : button.tooltip(label);
+      return collapsed ? railTooltip(id, label, button, k) : button.tooltip(label);
     };
     const palette = ["ansi6", "ansi3", "ansi4", "ansi5", "ansi2", "ansi1"];
     const sp = spaces();

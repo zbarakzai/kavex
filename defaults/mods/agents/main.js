@@ -2,9 +2,10 @@
 // A viewed done agent stays in Done until left.
 
 import { View, div, image, svg } from "gpui-kit";
-import { v_flex, h_flex, HoverCard } from "gpui-base";
+import { v_flex, h_flex } from "gpui-base";
 import { agents, terminals, focused, spaces, run, theme, shared, setShared, setAgentOrder, openOverlay, closeOverlay, props, layout } from "herdr";
 import { look, badge, duration, sectionLabel, tile, MONO } from "./look.js";
+import { railTooltip } from "./tooltip.js";
 import { loader } from "./loader.js";
 import { fitRow } from "./fit.js";
 import { dropdown } from "./dropdown.js";
@@ -230,12 +231,6 @@ export default class Agents extends View {
     return badge(k, a.status);
   }
 
-  railTip(id, label, button, k) {
-    return HoverCard.new(`tip-${id}`).anchor("right_center").open_delay(300).close_delay(0).trigger(button)
-      .content(div().ml(6).px(9).py(5).rounded(8).bg(k.raised).border_1().border_color(k.border)
-        .shadow_md().text_size(12).text_color(k.foreground).whitespace_nowrap().child(label));
-  }
-
   render(cx) {
     if (this.notes) return this.notes.render();
     const t = theme();
@@ -309,7 +304,7 @@ export default class Agents extends View {
           .hover((el) => el.bg(k.hover_strong))
           .on_click(() => run("pane.focus", { pane: a.pane }))
           .child(icon(a.program, 16, a.focused ? k.foreground : k.muted));
-        return this.railTip(`agent-${a.address}`, label, button, k);
+        return railTooltip(`agent-${a.address}`, label, button, k);
       }
       const when = this.since(a);
       const status = failed(a, words), context = this.sessions.contextOf(a.address), hovered = this.hovered === a.address;

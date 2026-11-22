@@ -239,7 +239,10 @@ pub(in crate::materialize) fn hover_card(
         );
     }
 
+    // KAVEX: shipped chrome labels use a private ID prefix for click-through.
+    let chrome_tooltip = id.starts_with("kavex-chrome-tooltip-");
     HoverCard::new(SharedString::from(id))
+        .when(chrome_tooltip, HoverCard::passive)
         .when_some(trigger, |card, trigger| card.trigger(trigger))
         .when_some(behavior.anchor, |card, anchor| card.anchor(anchor))
         .when_some(behavior.open_delay, |card, delay| card.open_delay(delay))
