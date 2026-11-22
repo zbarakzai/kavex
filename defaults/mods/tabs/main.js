@@ -1,6 +1,6 @@
 import { View, div, svg, image } from "gpui-kit";
 import { h_flex } from "gpui-base";
-import { spaces, panes, terminals, machines, run, openOverlay, closeOverlay, theme, window, shared, setShared, layout, settings, nextCommand, home as homeFolder } from "herdr";
+import { spaces, panes, terminals, machines, knownAgents, run, openOverlay, closeOverlay, theme, window, shared, setShared, layout, settings, nextCommand, home as homeFolder } from "herdr";
 import { GAP, HUES, INNER, away, clicked, columnOrder, failed, gathered, groupOf, home, labeled, landed, moves, nearest, nextColor, pruned, reopening, runs, shows, slotKey, slots, stepped } from "./groups.js";
 import { look, groupHue, tabHue, spaced, MONO } from "./look.js";
 import { loader } from "./loader.js";
@@ -397,11 +397,23 @@ export default class Tabs extends View {
     localStorage.setItem("panels", JSON.stringify(this.panels));
   }
 
-  render() {
+  render(cx) {
     const t = theme(), k = look(t);
     // Each live read copies its whole list into the script: once per render.
     const all = spaces(), terms = terminals(), right = shared("tabs.placement") === "right";
     const space = all.find(p => p.active);
+    const machine = space?.machine ?? null;
+    const ready = () => machine === null || machines().some(m => m.name === machine && m.layout === "ready");
+    if (!ready()) this.agentMachine = undefined;
+    else if (this.agentMachine !== machine) {
+      this.agentMachine = machine;
+      const cache = `new-menu.agents:${machine ?? ""}`;
+      // Seed the first visit. Later checks belong to the menu, which may already have a better result.
+      if (!shared(cache)) cx.spawn(async () => {
+        const agents = await knownAgents({ on: machine }).catch(() => []);
+        if (agents.length && ready() && !shared(cache)) setShared(cache, agents);
+      });
+    }
     const shown = space?.tabs ?? [];
     const s = tabState();
     const ps = panes();

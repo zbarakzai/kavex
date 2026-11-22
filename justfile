@@ -45,6 +45,7 @@ test:
     bun test scripts/pointer-moves.test.ts
     bun test scripts/window-buttons.test.ts
     bun test scripts/tab-menu.test.ts
+    bun test scripts/new-menu.test.ts
     bun test scripts/settings.test.ts
     bun test scripts/file-menu.test.ts
     bun test scripts/reader.test.ts
