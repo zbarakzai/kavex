@@ -1749,18 +1749,32 @@ test("the footer redraws by itself when a limit resets, and not for every look a
   expect(f.copy.notified).toBe(1);
 });
 
-test("compact usage defaults to the most consumed primary window, with a Used/Left toggle", async () => {
+test("compact usage defaults to the most consumed primary window, with explicit Used and Left choices", async () => {
   delete state.shared["usage.presentation"];
   claude(WEEK, SESSION);
   const { popover } = await opened();
-  expect(limits(popover.draw()).map(words)).toEqual([["3h 30m", "33%"]]);
-  handler(byId(popover.draw(), "usage-display")!, "on_click")({}, cx);
-  expect(words(popover.draw())).toContain("Left");
+  const root = popover.draw(), display = byId(root, "usage-display")!;
+  expect(words(display)).toEqual(["Used", "Left"]);
+  expect(paths(display)).toEqual([]);
+  expect(arg(display, "p")).toBe(3);
+  expect(arg(display, "bg")).toBe(colors.pill);
+  expect(arg(byId(root, "usage-used")!, "bg")).toBe(colors.pill_selected);
+  expect(arg(byId(root, "usage-used")!, "h")).toBe(26);
+  expect(limits(root).map(words)).toEqual([["3h 30m", "33%"]]);
+
+  handler(byId(root, "usage-remaining")!, "on_click")({}, cx);
+  expect(arg(byId(popover.draw(), "usage-remaining")!, "bg")).toBe(colors.pill_selected);
   expect(limits(popover.draw()).map(words)).toEqual([["3h 30m", "67%"]]);
 
   handler(byId(popover.draw(), "usage-verbose")!, "on_click")({}, cx);
   expect(limits(popover.draw()).map(words)).toEqual([["wk", "88%"], ["5h", "67%"]]);
   expect(state.shared["usage.presentation"]).toEqual({ display: "remaining", mode: "verbose" });
+
+  const detail = providerPopover(popover, "claude");
+  expect(arg(byId(detail.draw(), "usage-remaining")!, "aria_selected")).toBe(true);
+  handler(byId(detail.draw(), "usage-used")!, "on_click")({}, cx);
+  expect(limits(detail.draw()).map(words).flat()).toContain("33%");
+  expect(state.shared["usage.presentation"]).toEqual({ display: "used", mode: "verbose" });
 });
 
 test("the roster links to provider details, refresh history and account management", async () => {

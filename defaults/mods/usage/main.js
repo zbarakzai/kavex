@@ -17,6 +17,12 @@ const FOOTER = 46;
 const ROOM = POPOVER_HEIGHT - HEADER - FOOTER - 2;
 const ROW_HEIGHT = 48;
 const CARD_INSET = 10;
+const PROVIDER_TILE = 26;
+const PROVIDER_GAP = 10;
+const PREFERENCES = {
+  mode: { id: "usage-density", label: "Usage detail", options: [["compact", "Compact"], ["verbose", "Detailed"]] },
+  display: { id: "usage-display", label: "Percentage display", options: [["used", "Used"], ["remaining", "Left"]] },
+};
 const DETAIL_WIDTH = POPOVER_WIDTH - 2 * (1 + GUTTER + 1 + INSET);
 
 const rowId = (row) => `${row.agent}-${row.who ?? row.machine ?? "local"}`;
@@ -237,31 +243,28 @@ export default class Usage extends View {
     });
   }
 
-  toggleDisplay(display) {
-    changePreference({ display: display === "used" ? "remaining" : "used" });
+  // The same pill and segment sizes as Settings.
+  segments(field, current, k) {
+    const { id, label, options } = PREFERENCES[field];
+    return h_flex().id(id).flex_none().p(3).gap(2).items_center()
+      .role("list_box").accessibility_label(label)
+      .rounded(999).border_1().border_color(k.pill_ring).bg(k.pill)
+      .children(options.map(([value, text]) => {
+        const selected = value === current, optionId = `usage-${value}`;
+        return h_flex().id(optionId).h(26).px(11).items_center().rounded(13)
+          .role("list_box_option").accessibility_label(text).aria_selected(selected)
+          .border_1().border_color(this.selected === optionId ? k.accent : k.clear)
+          .text_size(13).cursor_pointer()
+          .when(selected, (el) => el.bg(k.pill_selected).text_color(k.foreground))
+          .when(!selected, (el) => el.text_color(k.muted).hover((st) => st.bg(k.hover_strong).text_color(k.foreground)))
+          .on_click(() => changePreference({ [field]: value }))
+          .child(text);
+      }));
   }
 
-  displayToggle(display, k) {
-    const label = display === "used" ? "Used" : "Left";
-    return control("usage-display", display === "used" ? "Show remaining usage" : "Show used percentage", () => this.toggleDisplay(display), k)
-      .h(24).px(8).gap(4).rounded_full().border_1().border_color(k.pill_ring).bg(k.pill)
-      .text_size(11).font_medium()
-      .when(this.selected === "usage-display", (el) => el.border_color(k.accent))
-      .child(label).child(icon("chevron-down", 12, k.muted));
-  }
-
-  density(mode, k) {
-    return h_flex().id("usage-density").h(24).flex_none().gap(2)
-      .p(2).rounded(7).border_1().border_color(k.card_border).bg(k.well)
-      .children([["compact", "Compact"], ["verbose", "Detailed"]].map(([option, label]) =>
-        h_flex().id(`usage-${option}`).px(7).items_center().justify_center()
-          .accessibility_label(label).rounded(5).cursor_pointer().text_size(11)
-          .border_1().border_color(this.selected === `usage-${option}` ? k.accent : k.clear)
-          .text_color(option === mode ? k.foreground : k.muted)
-          .when(option === mode, (el) => el.bg(k.raised).font_medium())
-          .on_click(() => changePreference({ mode: option }))
-          .hover((s) => s.text_color(k.foreground))
-          .child(label)));
+  preferenceActions(field) {
+    return PREFERENCES[field].options.map(([value]) =>
+      [`usage-${value}`, () => changePreference({ [field]: value })]);
   }
 
   compactMetric(row, display, k, now) {
@@ -294,11 +297,11 @@ export default class Usage extends View {
       .hover((el) => el.bg(k.row_active_hover).border_color(k.row_ring))
       .when(this.selected === id, (el) => el.border_color(k.accent))
       .on_click((_event, cx) => this.openDetail(row, cx))
-      .child(h_flex().items_center().gap(10)
-        .child(tile(row, 24, k))
+      .child(h_flex().items_center().gap(PROVIDER_GAP)
+        .child(tile(row, PROVIDER_TILE, k))
         .child(v_flex().flex_1().min_w(0).gap(2)
           .child(h_flex().items_center().min_w(0).gap(5)
-            .child(div().min_w(0).truncate().font_medium().text_size(13).child(row.name))
+            .child(div().min_w(0).truncate().font_medium().text_size(13.5).child(row.name))
             .when(Boolean(plan), (el) => el.child(div().min_w(0).truncate().text_size(11).text_color(k.muted).child(`· ${plan}`))))
           .when(Boolean(row.place || text || (row.failed && row.limits.length)), (el) => el.child(
             h_flex().min_w(0).gap(5).text_size(11).text_color(k.muted)
@@ -308,24 +311,24 @@ export default class Usage extends View {
         .when(Boolean(reset), (el) => el.child(div().flex_none().text_size(11).text_color(k.muted).child(reset)))
         .when(!showDetails && row.limits.length > 0, (el) => el.child(this.compactMetric(row, pref.display, k, now)))
         .child(icon("chevron-right", 12, k.muted)))
-      .when(showDetails, (el) => el.child(h_flex().pl(34).flex_wrap().gap(10).pb(2)
+      .when(showDetails, (el) => el.child(h_flex().pl(PROVIDER_TILE + PROVIDER_GAP).flex_wrap().gap(10).pb(2)
         .children(row.limits.map((limit) => detailMetric(row, limit, pref.display, k)))));
   }
 
   footer(pending, k) {
     const link = (id, label, title, page) => control(id, title, () => this.openPage(page), k)
-      .h(26).px(8).text_size(12).font_medium()
-      .when(this.selected === id, (el) => el.bg(k.selected))
+      .h(34).px(14).rounded(999).border_1().border_color(this.selected === id ? k.accent : k.pill_ring)
+      .bg(k.pill).text_size(13).text_color(k.foreground)
       .child(label);
-    return h_flex().h(FOOTER).flex_none().px(9).gap(2).items_center()
+    return h_flex().h(FOOTER).flex_none().px(9).gap(6).items_center()
       .child(link("usage-history", "History", "Usage details & history", "history"))
       .child(link("usage-accounts", "Accounts", "Manage Accounts", "accounts"))
       .child(div().flex_1())
       .child(control("usage-refresh", "Refresh rate limits", () => run("workspace-chrome.refresh-usage"), k)
-        .h(30).pl(9).pr(12).gap(6).rounded_full().text_size(12).font_medium()
+        .h(34).px(14).gap(6).rounded(999).text_size(13).font_medium()
+        .border_1().border_color(this.selected === "usage-refresh" ? k.foreground : k.clear)
         .bg(k.accent).text_color(k.accent_foreground)
         .hover((el) => el.bg(k.accent).text_color(k.accent_foreground).opacity(0.88))
-        .when(this.selected === "usage-refresh", (el) => el.border_1().border_color(k.foreground))
         .child(h_flex().size(16).items_center().justify_center()
           .child(pending ? loader(k.accent_foreground, 2) : icon("refresh", 16, k.accent_foreground)))
         .child("Refresh"));
@@ -380,9 +383,8 @@ export default class Usage extends View {
         .child(pending || !usage.checkedAt ? "Loading usage…" : "No usage data")))
       .children(sorted.map((row) => this.rosterRow(row, pref, k, now, pending)));
     this.actions = [
-      ["usage-compact", () => changePreference({ mode: "compact" })],
-      ["usage-verbose", () => changePreference({ mode: "verbose" })],
-      ["usage-display", () => this.toggleDisplay(pref.display)],
+      ...this.preferenceActions("mode"),
+      ...this.preferenceActions("display"),
       ...sorted.map((row) => [rowId(row), (cx) => this.openDetail(row, cx), true]),
       ["usage-history", () => this.openPage("history")],
       ["usage-accounts", () => this.openPage("accounts")],
@@ -391,8 +393,8 @@ export default class Usage extends View {
     return v_flex().id("usage").w_full().min_h(0).rounded(13).bg(k.canvas)
       .child(h_flex().h(HEADER).flex_none().pl(GUTTER + INSET).pr(9).gap(6).items_center()
         .child(div().flex_1().min_w(0).truncate().text_size(14).font_medium().child("Usage limits"))
-        .child(this.density(pref.mode, k))
-        .child(this.displayToggle(pref.display, k)))
+        .child(this.segments("mode", pref.mode, k))
+        .child(this.segments("display", pref.display, k)))
       .child(list)
       .child(this.footer(pending, k));
   }
@@ -402,7 +404,7 @@ export default class Usage extends View {
     const pending = checking(usage, now);
     this.actions = [
       ["usage-back", (cx) => this.back(cx)],
-      ["usage-display", () => this.toggleDisplay(pref.display)],
+      ...this.preferenceActions("display"),
       ...(hasConsentControl ? this.consentActions(row).map(([id, , answer]) => [id, () => this.answer(row, answer)]) : []),
       ["usage-history", () => this.openPage("history")],
       ["usage-accounts", () => this.openPage("accounts")],
@@ -419,7 +421,7 @@ export default class Usage extends View {
       body.when(estimated > ROOM, (el) => el.h(ROOM).min_h(0).overflow_y_scrollbar())
         .child(v_flex().flex_none().gap(14).p(INSET).rounded(10).border_1().border_color(k.card_border).bg(k.card)
           .child(h_flex().items_center().gap(10)
-            .child(tile(row, 26, k))
+            .child(tile(row, PROVIDER_TILE, k))
             .child(v_flex().flex_1().min_w(0).gap(2)
               .child(div().min_w(0).truncate().text_size(14).font_medium().child(row.name))
               .when(Boolean(metadata), (el) => el.child(div().truncate().text_size(11).text_color(k.muted).child(metadata))))
@@ -438,11 +440,11 @@ export default class Usage extends View {
     return v_flex().id("usage-provider").w_full().min_h(0).rounded(13).bg(k.canvas).text_size(12)
       .child(h_flex().h(HEADER).w_full().flex_none().px(9).gap(8).items_center()
         .child(control("usage-back", "Back to usage limits", (_event, cx) => this.back(cx), k)
-          .h(26).px(7).gap(5).text_size(13).font_medium()
-          .when(this.selected === "usage-back", (el) => el.bg(k.selected))
-          .child(icon("chevron-left", 12, k.muted)).child("Usage limits"))
+          .h(34).px(10).gap(10).rounded(10).text_size(13.5)
+          .border_1().border_color(this.selected === "usage-back" ? k.accent : k.clear)
+          .child(icon("chevron-left", 16, k.label)).child("Usage limits"))
         .child(div().flex_1())
-        .child(this.displayToggle(pref.display, k)))
+        .child(this.segments("display", pref.display, k)))
       .child(body)
       .child(this.footer(pending, k));
   }

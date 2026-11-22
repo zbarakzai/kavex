@@ -348,8 +348,9 @@ An orange dot on the menu button points to a usage warning or skill update insid
 
 **Usage limits** opens from the workspace status strip or the sidebar’s **More actions** menu.
 The strip shows the highest primary usage on the active machine. The sidebar entry can show all
-machines. The roster is ordered by the highest primary percentage used. **Used / Left** applies
-to both views. **Compact / Detailed** switches between one window and all windows per provider.
+machines. The roster is ordered by the highest primary percentage used. Choose **Used** or
+**Left** to show the percentage consumed or remaining. Choose **Compact** for one window
+per provider or **Detailed** for all windows.
 Select a provider to see its reset times and reading status in the same dropdown. Use the back
 button or ← to return to the roster. **History** and **Accounts** open their own dialogs.
 
