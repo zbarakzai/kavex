@@ -192,8 +192,13 @@ fn sync_defaults(mods: &Path, installed_path: &Path, shipped_mods: &[(&str, &[u8
     *stamps = others;
     let text = std::fs::read_to_string(installed_path).unwrap_or_default();
     let mut installed: Installed = serde_json::from_str(&text).unwrap_or_default();
-    let names: std::collections::BTreeSet<&str> = shipped_mods.iter().filter_map(|(p, _)| p.split('/').next()).collect();
-    let dropped: Vec<String> = installed.keys().filter(|n| !n.starts_with("layout:") && !names.contains(n.as_str())).cloned().collect();
+    let mut bundles = std::collections::BTreeMap::<&str, Vec<_>>::new();
+    for &(path, bytes) in shipped_mods {
+        if let Some((name, file)) = path.split_once('/') {
+            bundles.entry(name).or_default().push((file, bytes));
+        }
+    }
+    let dropped: Vec<String> = installed.keys().filter(|n| !n.starts_with("layout:") && !bundles.contains_key(n.as_str())).cloned().collect();
     for name in dropped {
         let target = mods.join(&name);
         if installed.get(&name).is_some_and(|was| target.exists() && as_shipped(&target, was)) {
@@ -201,11 +206,9 @@ fn sync_defaults(mods: &Path, installed_path: &Path, shipped_mods: &[(&str, &[u8
         }
         installed.remove(&name);
     }
-    for name in names {
+    for (name, files) in bundles {
         let target = mods.join(name);
-        let shipped: Files = shipped_mods.iter()
-            .filter_map(|(p, bytes)| Some((p.strip_prefix(&format!("{name}/"))?.to_owned(), fingerprint(bytes))))
-            .collect();
+        let shipped: Files = files.iter().map(|(path, bytes)| ((*path).to_owned(), fingerprint(bytes))).collect();
         if installed.get(name) == Some(&shipped) {
             let key = format!("mods/{name}");
             let of = files_fingerprint(&shipped);
@@ -215,7 +218,11 @@ fn sync_defaults(mods: &Path, installed_path: &Path, shipped_mods: &[(&str, &[u8
                 stamps.insert(key, stamp);
                 continue;
             }
-            if target.exists() && as_shipped(&target, &shipped) {
+            let unchanged = match &seen {
+                Some(files) => files.keys().eq(shipped.keys()) && untouched(&target, &shipped),
+                None => target.exists() && as_shipped(&target, &shipped),
+            };
+            if unchanged {
                 if let Some(files) = settled(seen, now) {
                     stamps.insert(key, Stamp { of, files });
                 }
@@ -232,8 +239,7 @@ fn sync_defaults(mods: &Path, installed_path: &Path, shipped_mods: &[(&str, &[u8
             }
         }
         // One mod at a time: a failed write leaves every later mod as it was.
-        let own: Vec<(&str, &[u8])> = shipped_mods.iter().filter(|(p, _)| p.starts_with(&format!("{name}/"))).copied().collect();
-        write_files(mods, &own)?;
+        write_files(&target, &files)?;
         installed.insert(name.to_owned(), shipped);
     }
     write_if_changed(installed_path, serde_json::to_string_pretty(&installed).unwrap() + "\n")
@@ -243,11 +249,16 @@ fn sync_defaults(mods: &Path, installed_path: &Path, shipped_mods: &[(&str, &[u8
 /// Windows creating a file is slow (the virus scan), and a first start
 /// writes hundreds. Returns once every one is written or has failed.
 fn write_files(root: &Path, files: &[(&str, &[u8])]) -> std::io::Result<()> {
+    let mut directories = std::collections::HashSet::new();
+    for (path, _) in files {
+        let parent = Path::new(path).parent().unwrap();
+        if directories.insert(parent) {
+            std::fs::create_dir_all(root.join(parent))?;
+        }
+    }
     let write = |part: &[(&str, &[u8])]| -> std::io::Result<()> {
         for (path, bytes) in part {
-            let file = root.join(path);
-            std::fs::create_dir_all(file.parent().unwrap())?;
-            std::fs::write(&file, bytes)?;
+            std::fs::write(root.join(path), bytes)?;
         }
         Ok(())
     };
