@@ -343,14 +343,15 @@ else the system's app. Commit takes what's staged, or everything if nothing is, 
 button, Enter or `cmd-enter` (`ctrl-enter`).
 
 The three-dot **More actions** menu beside **Settings** in the sidebar footer offers
-**Usage limits**, **Add machine**, and **Customize**. Use ↑ or ↓ and Enter to choose an action.
-An orange dot on the menu button points to a usage warning or skill update inside.
+**Add machine** and **Customize**. Use ↑ or ↓ and Enter to choose an action.
+An orange dot on the menu button points to a skill update inside.
 
-**Usage limits** opens from the workspace status strip or the sidebar’s **More actions** menu.
-The strip shows the highest primary usage on the active machine. The sidebar entry can show all
-machines. The roster is ordered by the highest primary percentage used. Choose **Used** or
-**Left** to show the percentage consumed or remaining. Choose **Compact** for one window
-per provider or **Detailed** for all windows.
+**Usage** at the bottom right, below the workspace, opens limits for the active machine.
+A custom layout with just the sidebar footer offers **More actions → Usage limits**
+for all machines.
+The roster is ordered by the highest primary percentage used. Choose **Used** or **Left**
+to show the percentage consumed or remaining. Choose **Compact** for one window per
+provider or **Detailed** for all windows.
 Select a provider to see its reset times and reading status in the same dropdown. Use the back
 button or ← to return to the roster. **History** and **Accounts** open their own dialogs.
 
@@ -373,7 +374,7 @@ button or ← to return to the roster. **History** and **Accounts** open their o
   credential, email, login response or account ID is saved there.
 - **Commands** `workspace-chrome.check-usage` and `workspace-chrome.refresh-usage` request a check.
   Signing in belongs to the provider. An agent must not grant usage access on the person's behalf.
-- **Off** in **Settings → Look → Usage limits** hides the meter, stops checks, and clears readings,
+- **Off** in **Settings → Look → Usage limits** hides the Usage button, stops checks, and clears readings,
   usage history, warnings and consent. Display preferences are kept in `shared("usage.presentation")`.
 
 **Customize** (in **More actions**, the `customize` mod, `mod.open {name: "customize"}`)

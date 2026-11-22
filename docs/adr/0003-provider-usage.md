@@ -38,8 +38,9 @@ hours. Confirmed sign-out clears the reading. [Orca polling](https://github.com/
 
 ## Presenting readings
 
-The workspace footer projects the active machine's meters. It uses the same Compact / Detailed
-and Used / Left preferences as the roster. The roster sorts by the highest primary usage
-percentage. Provider details show every limit and balance alongside the reading's age.
+The Usage button below the workspace opens the roster for the active machine. A custom
+layout with just the sidebar footer offers the roster for all machines in More actions. The roster sorts by the highest primary usage percentage
+and offers Compact / Detailed and Used / Left preferences. Provider details show every
+limit and balance alongside the reading's age.
 Kavex's Accounts view manages access to installed provider accounts. History shows samples of
 observed quota windows per provider and machine. [Orca usage roster](https://github.com/stablyai/orca/blob/b342cee0ff07f7d702db5c09543d7506a9424a48/src/renderer/src/components/status-bar/usage/UsageRosterPanel.tsx)

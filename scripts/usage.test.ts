@@ -56,6 +56,7 @@ let state: {
   shared: Record<string, any>;
   props: any;
   sidebar: number;
+  useShippedLayout?: boolean;
   agentsShown: number;
   space: any;
   overlays: any[];
@@ -69,6 +70,7 @@ let state: {
 
 // `solid` and its text are made for every theme by src/settings.rs, not written in the file.
 const themeFile = JSON.parse(readFileSync(new URL("../defaults/themes/kavex.json", import.meta.url), "utf8"));
+const shippedLayout = JSON.parse(readFileSync(new URL("../defaults/layouts/main.json", import.meta.url), "utf8"));
 const colors = { background: themeFile.background, foreground: themeFile.foreground, ...themeFile.colors, solid: "#abcdef", solid_foreground: "#123456" };
 
 async function exec(command: string, args: string[] = [], options: { on?: string | null } = {}) {
@@ -121,7 +123,7 @@ mock.module("herdr", () => ({
   playSound: () => {},
   closeOverlay: (id: string) => void state.closedOverlays.push(id),
   notify: (note: any) => void state.notes.push(note),
-  layout: () => ({ id: "root", children: [{ id: "sidebar", size: { px: state.sidebar } }] }),
+  layout: () => state.useShippedLayout ? shippedLayout : { id: "root", children: [{ id: "sidebar", size: { px: state.sidebar } }] },
   updates: () => ({ app: { ready: false, version: "0.4.0", updates: true }, core: { version: "0.1.15" }, checks: true }),
   agents: () => Array.from({ length: state.agentsShown }, () => ({})),
   spaces: () => (state.space ? [state.space] : []),
@@ -324,6 +326,16 @@ test("the footer exposes More actions and Settings, with three short menu rows",
   expect(byId(root, "customize")).toBeUndefined();
   press(f, "footer-more");
   expect(words(footerMenu().draw())).toEqual(["Usage limits", "Add machine", "Customize"]);
+});
+
+test("More actions offers only Add machine and Customize when Usage has a dedicated button", async () => {
+  state.useShippedLayout = true;
+  claude(AT(92));
+  const f = footer();
+  await wait(5_000);
+  expect(dotOn(f.draw())).toBeUndefined();
+  press(f, "footer-more");
+  expect(words(footerMenu().draw())).toEqual(["Add machine", "Customize"]);
 });
 
 test("the narrow rail keeps both actions inside its available width", () => {
@@ -1817,7 +1829,7 @@ test("saved provider readings without a window length still render", async () =>
   expect(limits(popover.draw()).map(words)).toEqual([["This week", "80%"]]);
 });
 
-test("the usage status strip shows the active machine and opens the roster above it", async () => {
+test("the standalone Usage button opens the roster at the right edge for the active machine", async () => {
   claude(WEEK);
   claudeOn("vps", OTHER, AT(81));
   await opened();
@@ -1826,14 +1838,17 @@ test("the usage status strip shows the active machine and opens the roster above
   state.props = { usage: true };
   const status = view.render(cx).el as El;
   expect(arg(status, "bg")).toBeUndefined();
-  expect(arg(status, "border_t")).toBe(1);
+  expect(arg(status, "border_t")).toBeUndefined();
+  expect(status.calls.some(([name]) => name === "justify_end")).toBe(true);
+  expect(words(status)).toEqual(["Usage"]);
   const strip = byId(status, "usage-status")!;
-  expect(words(strip)).toEqual(expect.arrayContaining(["Usage", "81%"]));
-  expect(words(strip)).not.toContain("12%");
   handler(strip, "on_mouse_down")({ bounds: BUTTON }, cx);
   handler(strip, "on_click")({}, cx);
   expect(state.overlays.at(-1)).toMatchObject({ mod: "usage", width: 400, props: { from: "usage-status", machine: "vps" } });
-  expect(state.overlays.at(-1).at.y).toBe(BUTTON.y - (92 + 53 + 23) - 8);
+  expect(state.overlays.at(-1).at).toEqual({ x: BUTTON.x + BUTTON.width - 400, y: BUTTON.y - (92 + 53 + 23) - 8 });
+
+  state.shared["usage.enabled"] = false;
+  expect(words(view.render(cx).el)).toEqual([]);
 });
 
 test("reaching 90% raises one toast saying which limit and when it resets", async () => {

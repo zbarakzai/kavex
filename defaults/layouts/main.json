@@ -84,58 +84,66 @@
       ]
     },
     {
-      "id": "work",
+      "id": "work-area",
       "type": "column",
-      "background": "surface",
-      "radius": 14,
       "resizable": false,
+      "gap": 4,
       "children": [
         {
-          "id": "tabs",
-          "type": "block",
-          "size": {
-            "px": 39
-          },
-          "window_drag": true,
-          "content": {
-            "mod": "tabs"
-          }
-        },
-        {
-          "id": "main",
-          "type": "block",
-          "padding": 6,
-          "content": {
-            "tab": "active",
-            "empty": { "mod": "start" },
-            "pane": {
-              "gap": 6,
-              "radius": 10,
-              "background": "background",
-              "lone": false,
-              "border": {
-                "width": 1,
-                "color": "border"
+          "id": "work",
+          "type": "column",
+          "background": "surface",
+          "radius": 14,
+          "resizable": false,
+          "children": [
+            {
+              "id": "tabs",
+              "type": "block",
+              "size": {
+                "px": 39
               },
-              "focus": {
-                "width": 1,
-                "color": "accent"
-              },
-              "header": {
-                "content": {
-                  "mod": "pane"
-                },
-                "height": 30,
-                "position": "top",
-                "reveal": "always"
+              "window_drag": true,
+              "content": {
+                "mod": "tabs"
+              }
+            },
+            {
+              "id": "main",
+              "type": "block",
+              "padding": 6,
+              "content": {
+                "tab": "active",
+                "empty": { "mod": "start" },
+                "pane": {
+                  "gap": 6,
+                  "radius": 10,
+                  "background": "background",
+                  "lone": false,
+                  "border": {
+                    "width": 1,
+                    "color": "border"
+                  },
+                  "focus": {
+                    "width": 1,
+                    "color": "accent"
+                  },
+                  "header": {
+                    "content": {
+                      "mod": "pane"
+                    },
+                    "height": 30,
+                    "position": "top",
+                    "reveal": "always"
+                  }
+                }
               }
             }
-          }
+          ]
         },
         {
           "id": "workspace-status",
           "type": "block",
-          "size": { "px": 25 },
+          "size": { "px": 24 },
           "content": { "mod": "workspace-status", "props": { "usage": true } }
         }
       ]

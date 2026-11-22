@@ -52,7 +52,8 @@ Do not assume every download is notarized or signed.
 
 ## Usage limits
 
-Open **Usage** in the workspace status strip or **More actions → Usage limits** in the sidebar.
+Open **Usage** at the bottom right. A custom layout with just the
+sidebar footer offers **More actions → Usage limits**.
 While Kavex is active, checks run when readings are due and every 15 minutes. **Settings → Look →
 Usage limits** stops polling and clears usage data and access choices.
 

@@ -117,7 +117,8 @@ test("the side panel and the Tabs column keep their headers as they were, at any
 
 test("a tab bar in a block with another name keeps them", () => {
   const root = show({ panel: true });
-  root.children.find((n: any) => n.id === "work").children[0].id = "my-bar";
+  const work = root.children.find((n: any) => n.id === "work-area").children.find((n: any) => n.id === "work");
+  work.children.find((n: any) => n.id === "tabs").id = "my-bar";
   expect(holders()).toEqual(["tabs"]);
 });
 

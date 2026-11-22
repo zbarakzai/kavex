@@ -58,7 +58,10 @@ fn traffic_light_divider_inset(n: &Node, axis: Axis, index: usize, macos: bool, 
     }
     // Keep the toolbar continuous above the rail; the divider starts with the content.
     shown.iter().skip(index).take(2).filter_map(|column| {
-        let header = column.children().iter().find(|child| !child.hidden)?;
+        let mut header = column.children().iter().find(|child| !child.hidden)?;
+        while header.axis() == Some(Axis::Column) && !matches!(header.size, Some(Span::Px { .. })) {
+            header = header.children().iter().find(|child| !child.hidden)?;
+        }
         match header.size {
             Some(Span::Px { px }) if header.window_drag => Some(px),
             _ => None,

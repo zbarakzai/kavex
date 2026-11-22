@@ -99,9 +99,9 @@ use the current agent session when Kavex can identify it.
 
 ## Customize layouts, keys, or mods
 
-Open **Usage** in the workspace status strip for the active machine. The sidebar’s
-**More actions → Usage limits** shows all machines. Choose **Used** or **Left** to
-show the percentage consumed or remaining. Use **Detailed** for every window and
+Open **Usage** at the bottom right for the active machine. A custom layout with just the
+sidebar footer offers **More actions → Usage limits** for all machines. Choose
+**Used** or **Left** to show the percentage consumed or remaining. Use **Detailed** for every window and
 select a provider for its reading, reset and account status in the same dropdown.
 Use the back button to return to the list. **History** and **Accounts** open their
 own dialogs. Use **More actions** for Add machine and Customize.

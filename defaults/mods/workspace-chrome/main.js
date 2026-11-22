@@ -22,7 +22,19 @@ const FOOTER_ACTIONS = [
   { id: "machine", label: "Add machine", icon: "machine", mod: "machine-add" },
   { id: "customize", label: "Customize", icon: "layers", mod: "customize" },
 ];
-const footerActions = () => usageOff() ? FOOTER_ACTIONS.slice(1) : FOOTER_ACTIONS;
+function hasUsageButton(node) {
+  if (!node || node.hidden) return false;
+  if (node.content?.mod === "workspace-status" && node.content.props?.usage) return true;
+  const children = node.children ?? [];
+  if (node.type === "stack") {
+    const visible = children.filter((child) => !child.hidden);
+    return hasUsageButton(visible.find((child) => child.id === node.active) ?? visible[0]);
+  }
+  return children.some(hasUsageButton);
+}
+
+const menuShowsUsage = () => !usageOff() && !hasUsageButton(layout());
+const footerActions = () => menuShowsUsage() ? FOOTER_ACTIONS : FOOTER_ACTIONS.slice(1);
 const FIRST_CHECK = 1000;
 const WATCH = 30_000;
 const FIRST_SKILLS_CHECK = 20_000;
@@ -73,7 +85,7 @@ export default class WorkspaceChrome extends View {
       cx.spawn(() => checkSkills({ within: SKILLS_EVERY }));
       // A limit passing its reset time changes no data, so nothing else would redraw the dot.
       const warned = this.warned;
-      this.warned = warning();
+      this.warned = menuShowsUsage() && warning();
       if (this.warned !== warned) cx.notify();
     });
     cx.spawn(async (cx) => {
@@ -160,7 +172,7 @@ export default class WorkspaceChrome extends View {
 
   footer(t) {
     const k = look(t), collapsed = narrow();
-    this.warned = !usageOff() && warning();
+    this.warned = menuShowsUsage() && warning();
     const tight = collapsed && sidebarPx() < 56, width = tight ? 18 : 24;
     const mark = this.warned ? k.blocked : skillUpdates() ? k.accent : null;
     const more = this.action("footer-more", "more", "More actions", () => this.openActions(), k, width, mark);
