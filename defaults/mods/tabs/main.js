@@ -30,9 +30,9 @@ function toolbarTooltip(id, label, button, k) {
   return HoverCard.new(`kavex-chrome-tooltip-${id}`).anchor("top_right").open_delay(300).close_delay(0).trigger(button)
     .content(div().role("tooltip").mt(4).flex().flex_col().items_end()
       .child(svg("mods/workspace-chrome/icons/tooltip-up.svg").w(10).h(5).mr((TOOL_BUTTON - 10) / 2)
-        .flex_none().text_color(k.foreground))
-      .child(div().px(8).py(4).rounded(6).bg(k.foreground)
-        .text_color(k.canvas).text_size(12).whitespace_nowrap().child(label)));
+        .flex_none().text_color(k.input))
+      .child(div().px(8).py(4).rounded(6).bg(k.canvas).border_1().border_color(k.input)
+        .text_color(k.foreground).text_size(12).whitespace_nowrap().child(label)));
 }
 // How a dragged tab moves. Native springs: `response` in ms, 1 `damping` has no overshoot.
 const SLIDE = { response: 150, damping: 1 }; // room opening and shutting: slower, and rooms pile up on a quick back and forth
