@@ -1,4 +1,6 @@
-# Usage limits come from each agent's own command
+# Usage limits originally came from each agent's own command
+
+The [provider usage design](0003-provider-usage.md) extends this decision. The original CLI paths and the local OpenCode access setting remain available.
 
 The `usage` mod shows subscription limits by running `claude -p /usage` and `codex app-server`, on the machine each agent is signed in on. It does not read Claude's or Codex's login, and it does not call `api.anthropic.com/api/oauth/usage` or `chatgpt.com/backend-api/wham/usage`, even though those give cleaner data and Omarchy uses the Claude one.
 
@@ -10,7 +12,3 @@ OpenCode is the one exception, because it has no such command: the mod reads its
 
 - **Status line wrapper:** official and structured, but it edits the person's Claude settings, and a status line hides Claude's footer hints. It also only updates while Claude runs.
 - **Private endpoints with consent:** still makes the mod send a request with someone's login, which the rule forbids.
-
-## Reliability follow-up
-
-The probes and cache adopt the lifecycle documented in the [Orca comparison](../../.scratch/usage-limits/orca-research.md). Claude's JSON stream identifies the command result among other CLI events. Codex completes the initialization handshake before querying account usage. Expired windows disappear, and failed checks can show readings from the previous 30 minutes. The privacy decision above governs both probes.

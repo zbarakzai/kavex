@@ -1,34 +1,30 @@
-// How each agent is read: docs/adr/0001-usage-through-agents-own-commands.md. The footer runs the
-// checks and the popover shows them, so each keeps a copy, as mods can't import each other's files;
-// scripts/look.test.ts keeps them equal.
+// Schedules provider probes, publishes readings by machine and account, and
+// preserves the original observation time for recoverable failures.
+import { agents as liveAgents, knownAgents, machines, notify, setShared, shared, spaces } from "herdr";
+import { hasCursorDesktop, hostFor, shellFinds, shellPath, usageOff } from "./provider-host.js";
+import { CHECKS, fingerprint, readAccountUsage } from "./provider-readers.js";
 
-import { createHash } from "crypto";
-import { exec as execute, home, knownAgents, machines, notify, readTextFile, setShared, shared, window } from "herdr";
-import { codexPosix, codexPowershell } from "./codex-probe.js";
+import { readOnOwner } from "./provider-owner.js";
 
+export { usageOff };
 export const EVERY = 15 * 60_000;
 export const NEAR = 90;
-export const POPOVER_WIDTH = 400;
+export const POPOVER_WIDTH = 440;
 export const POPOVER_HEIGHT = 540;
 
-const REUSE = 60_000;
+const REUSE = 5 * 60_000;
 const BUSY = 60_000;
 const STALE = 30 * 60_000;
-const SESSION_MINUTES = 300;
-const WEEK_MINUTES = 7 * 1440;
-const MONTH_MINUTES = 30 * 1440;
-const SETTLING = 0.05;
+const THROTTLED_STALE = 24 * 60 * 60_000;
+const RETRY_FLOOR = 30_000;
+const HISTORY_SPAN = 30 * 24 * 60 * 60_000;
+const HISTORY_LIMIT = 240;
+const HISTORY_KEY = "usage.history";
+const HISTORY_STEP = 15 * 60_000;
 const HERE = "This computer";
 
 const entryId = (agent, machine) => `${agent}|${machine ?? ""}`;
 const OPENCODE = entryId("opencode");
-
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-const CODEX_PLANS = {
-  pro: "Pro 200", prolite: "Pro 100", promax: "Pro 500", team: "Business", self_serve_business_usage_based: "Business", self_serve_business_prolite: "Business Premium",
-  ent26: "Enterprise", enterprise_cbp_automation: "Enterprise", enterprise_cbp_usage_based: "Enterprise", edu_plus: "Edu Plus", edu_pro: "Edu Pro", unknown: "",
-};
-const GO_WINDOWS = [["weekly", "This week", WEEK_MINUTES], ["rolling", "5 hours", SESSION_MINUTES], ["monthly", "This month", MONTH_MINUTES]];
 
 export function timeText(ms) {
   const minutes = Math.floor(ms / 60_000), hours = Math.floor(minutes / 60), days = Math.floor(hours / 24);
@@ -37,299 +33,136 @@ export function timeText(ms) {
   return minutes ? `${minutes}m` : "<1m";
 }
 
-const titled = (word) => word.replaceAll("_", " ").replace(/^./, (c) => c.toUpperCase());
-const fingerprint = (...parts) => (parts[0] ? createHash("sha256").update(parts.join("|")).digest("hex").slice(0, 16) : undefined);
-
-export const usageOff = () => shared("usage.enabled") === false;
-
-async function exec(...call) {
-  if (usageOff() || !shared("usage")?.era) throw new Error("usage was turned off");
-  return execute(...call);
-}
-
-// Claude writes its reset time for people, in the zone it was run in: "Nov 6 at 7:59pm (UTC)" or
-// "Nov 6, 7:59pm (Europe/London)", or only the time when that's today. The check asks for UTC so the
-// answer doesn't depend on the machine. Windows ignores that and names its own zone, which is only
-// ever this computer's, so any other zone is read as local time.
-function resetTime(text, now) {
-  const clock = /^(?:([A-Z][a-z]{2})\s+(\d{1,2})(?:\s+at|,)\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)(?:\s+\((.+)\))?$/i.exec(text.trim());
-  if (!clock) return null;
-  const [, monthName, dayText, hourText, minuteText, meridiem, zone] = clock;
-  const hour12 = Number(hourText), minute = Number(minuteText ?? 0), utc = zone?.toUpperCase() === "UTC";
-  if (hour12 < 1 || hour12 > 12 || minute >= 60) return null;
-  const hour = (hour12 % 12) + (meridiem.toLowerCase() === "pm" ? 12 : 0);
-  const today = new Date(now);
-  const year = utc ? today.getUTCFullYear() : today.getFullYear();
-  const month = utc ? today.getUTCMonth() : today.getMonth();
-  const day = utc ? today.getUTCDate() : today.getDate();
-  const at = (y, m, d) => (utc ? new Date(Date.UTC(y, m, d, hour, minute)) : new Date(y, m, d, hour, minute));
-  if (monthName) {
-    const namedMonth = MONTHS.findIndex((name) => name.toLowerCase() === monthName.toLowerCase()), namedDay = Number(dayText);
-    if (namedMonth < 0 || namedDay < 1) return null;
-    // A weekly limit can cross New Year in either direction.
-    const offset = month === 11 && namedMonth === 0 ? 1 : month === 0 && namedMonth === 11 ? -1 : 0;
-    const reset = at(year + offset, namedMonth, namedDay);
-    if ((utc ? reset.getUTCMonth() : reset.getMonth()) !== namedMonth) return null;
-    return reset.getTime();
-  }
-  const when = at(year, month, day).getTime();
-  const tomorrow = at(year, month, day + 1).getTime();
-  return when < now && tomorrow - now <= SESSION_MINUTES * 60_000 ? tomorrow : when;
-}
-
-function claudeLimits(text, now) {
-  const week = [], other = [], session = [];
-  for (const line of text.split("\n")) {
-    const m = /^Current (session|week \((.+?)\)): (\d+(?:\.\d+)?)\s*%\s+used(?:\W+resets (.+))?$/.exec(line.trim());
-    if (!m) continue;
-    const scope = m[2], minutes = m[1] === "session" ? SESSION_MINUTES : WEEK_MINUTES, limit = { used: Math.round(Number(m[3])), resetsAt: m[4] ? resetTime(m[4], now) : null, minutes };
-    if (m[4] && limit.resetsAt === null) continue;
-    if (m[1] === "session") session.push({ label: "5 hours", ...limit });
-    else if (scope === "all models") week.push({ label: "This week", ...limit });
-    else other.push({ label: scope.replace(/ only$/, ""), ...limit });
-  }
-  return [...week, ...other, ...session];
-}
-
-function periodName(minutes) {
-  if (minutes === WEEK_MINUTES) return "This week";
-  const [count, unit] = minutes % 1440 === 0 ? [minutes / 1440, "day"] : minutes >= 60 ? [Math.round(minutes / 60), "hour"] : [minutes, "minute"];
-  return `${count} ${unit}${count === 1 ? "" : "s"}`;
-}
-
-const rank = ({ minutes, model }) => (minutes === WEEK_MINUTES ? (model ? 1 : 0) : 2);
-
-function codexLimits(rates) {
-  const buckets = { ...rates?.rateLimitsByLimitId };
-  if (!buckets.codex && rates?.rateLimits) buckets.codex = rates.rateLimits;
-  const limits = Object.entries(buckets).flatMap(([id, bucket]) => {
-    const name = typeof bucket?.limitName === "string" && bucket.limitName.trim();
-    const model = id === "codex" ? null : name || titled(id);
-    return [bucket?.primary, bucket?.secondary].filter((period) => Number.isFinite(period?.usedPercent) && period.usedPercent >= 0).map((period) => {
-      const minutes = Number.isInteger(period.windowDurationMins) && period.windowDurationMins > 0 ? period.windowDurationMins : 0;
-      const name = minutes ? periodName(minutes) : null;
-      const label = !model ? name ?? "Limit" : !name || minutes === WEEK_MINUTES ? model : `${model} · ${name}`;
-      return { minutes, model, label, used: Math.round(period.usedPercent), resetsAt: Number.isFinite(period.resetsAt) && period.resetsAt > 0 ? period.resetsAt * 1000 : null };
-    });
-  });
-  limits.sort((a, b) => rank(a) - rank(b) || b.minutes - a.minutes || Boolean(a.model) - Boolean(b.model));
-  return limits.map(({ label, used, resetsAt, minutes }) => ({ label, used, resetsAt, minutes }));
-}
-
-function codexReport(output) {
-  const answers = {};
-  for (const line of output.split("\n")) {
-    try {
-      const message = JSON.parse(line);
-      if (Number.isInteger(message?.id) && !("method" in message) && "result" in message) answers[message.id] = message.result;
-    } catch {}
-  }
-  if (!answers[1] || !answers[2] || !("account" in answers[2])) throw new Error("no account answer from codex");
-  const { account } = answers[2], limits = codexLimits(answers[3]);
-  // A signed-out reply and real limits together do not identify an account.
-  if (account === null && !limits.length) return null;
-  if (account?.type === "apiKey" || account?.type === "amazonBedrock") return null;
-  if (account?.type !== "chatgpt") throw new Error("no account usage from codex");
-  const tier = typeof account.planType === "string" ? account.planType : "";
-  const plan = Object.hasOwn(CODEX_PLANS, tier) ? CODEX_PLANS[tier] : titled(tier);
-  return { plan, who: fingerprint(account.email, tier), limits, ...(!limits.length && { failed: true }) };
-}
-
-// Go's answer nests the windows under "usage"; another deployment spells them "<window>Usage".
-function goLimits(answer) {
-  const usage = answer?.usage ?? answer ?? {};
-  const limits = GO_WINDOWS.flatMap(([name, label, minutes]) => {
-    const window = usage[name] ?? answer?.[`${name}Usage`];
-    const percent = window?.percent ?? window?.usagePercent;
-    if (!Number.isFinite(percent) || percent < 0) return [];
-    const delay = window.resetInSec;
-    const resetsAt = window.resetsAt ? Date.parse(window.resetsAt) : Number.isFinite(delay) && delay >= 0 ? Date.now() + delay * 1000 : null;
-    return [{ label, used: window.status === "rate-limited" ? 100 : Math.round(percent), resetsAt: Number.isFinite(resetsAt) ? resetsAt : null, minutes }];
-  });
-  // A partial keyed response is a failed read. Older flat replies can contain individual windows.
-  if (answer?.usage && ![WEEK_MINUTES, SESSION_MINUTES].every((duration) => limits.some((limit) => limit.minutes === duration))) return [];
-  return limits;
-}
-
-// Dock-started apps miss what shell startup files add (nvm, most of all), so each machine's PATH
-// comes from the shell agents start in, and only that: the checks themselves run in `sh`.
-const PATH_LINE = `"\${SHELL:-sh}" -ic 'printenv PATH' 2>/dev/null </dev/null | tail -n 1`;
-const usesPowershell = (on) => !on && window()?.platform === "windows";
-
-async function shellPath(on) {
-  // Windows apps get the person's PATH from the system, not from shell startup files, and there's no `sh`.
-  if (usesPowershell(on)) return "";
-  try {
-    return (await exec("sh", ["-c", PATH_LINE], { on })).stdout.trim();
-  } catch {
-    return "";
-  }
-}
-
-function inShell({ on, path }, posix, powershell) {
-  if (usesPowershell(on)) return exec("powershell", ["-NoLogo", "-NoProfile", "-Command", powershell]);
-  return exec("sh", ["-c", `[ -n "$1" ] && PATH="$1" && export PATH; ${posix}`, "sh", path], { on });
-}
-
-// programs.json's `run` is the person's, so it reaches a shell as words and never as script. PowerShell
-// also ends a quoted string at a curly quote.
-const posixWords = (run) => run.map((word) => (/^[\w@%+:,./-]+$/.test(word) ? word : `'${word.replaceAll("'", `'\\''`)}'`)).join(" ");
-const powershellWord = (word) => `'${word.replace(/['‘’‚‛]/g, "$&$&")}'`;
-const powershellCall = (program) => `& ${powershellWord(program)}`;
-
 // `run` counts only as the agent's own program at a path of its own. Its flags would land in a
 // background check, ahead of `auth status`, where nobody can say what they'd spend.
 function programOf({ key, run }) {
+  const program = CHECKS[key]?.program ?? key;
   const name = run[0].split(/[\\/]/).pop().replace(/\.(exe|cmd)$/i, "");
-  return name === key ? run[0] : key;
+  return name === program ? run[0] : program;
 }
 
-const HAS = "kavex-has:", ASKED = "kavex-asked";
-
-// knownAgents also says "not installed" when it couldn't ask, and on an added machine it looks in
-// another PATH than the agents', so the machine's own shell settles it. Null: it can't be asked.
-async function shellFinds(where, programs) {
-  if (!programs.length) return new Set();
-  if (!where.path && !usesPowershell(where.on)) return null;
-  try {
-    const { stdout } = await inShell(where,
-      `for c in ${posixWords(programs)}; do command -v "$c" >/dev/null 2>&1 && echo "${HAS}$c"; done; echo ${ASKED}`,
-      `foreach ($c in @(${programs.map(powershellWord).join(",")})) { if (Get-Command $c -ErrorAction SilentlyContinue) { "${HAS}$c" } }; "${ASKED}"`);
-    if (!stdout.includes(ASKED)) return null;
-    return new Set(stdout.split(/\r?\n/).filter((line) => line.startsWith(HAS)).map((line) => line.slice(HAS.length)));
-  } catch {
-    return null;
-  }
-}
-
-// `--setting-sources=` keeps the person's hooks and plugins out of a check that runs every 15 minutes.
-const CLAUDE_USAGE = "-p /usage --output-format stream-json --verbose --no-session-persistence --strict-mcp-config --setting-sources=";
-
-function claudeResult(output) {
-  // System, assistant and rate-limit events can surround the command result.
-  let result;
-  for (const line of output.split("\n")) {
-    try {
-      const message = JSON.parse(line);
-      if (message?.type === "result") result = message;
-    } catch {}
-  }
-  return result;
-}
-
-async function claude(where) {
-  const posix = posixWords([where.program]), powershell = powershellCall(where.program);
-  const auth = JSON.parse((await inShell(where, `${posix} auth status`, `${powershell} auth status`)).stdout);
-  if (auth.loggedIn === false) return null;
-  if (auth.loggedIn !== true || typeof auth.authMethod !== "string") throw new Error("no sign-in status from claude");
-  if (auth.authMethod !== "claude.ai") return null;
-  const account = { plan: titled(auth.subscriptionType ?? ""), who: fingerprint(auth.email, auth.orgId) };
-  try {
-    const usage = await inShell(where, `env TZ=UTC ${posix} ${CLAUDE_USAGE}`, `$env:TZ='UTC'; ${powershell} ${CLAUDE_USAGE}`);
-    const report = claudeResult(usage.stdout);
-    if (usage.code === 0 && report?.is_error === false && typeof report.result === "string") {
-      const limits = claudeLimits(report.result, Date.now());
-      if (limits.length) return { ...account, limits };
-    }
-  } catch {}
-  return { ...account, limits: [], failed: true };
-}
-
-async function codex(where) {
-  const result = await inShell(where, codexPosix(posixWords([where.program])), codexPowershell(powershellWord(where.program)));
-  return codexReport(result.stdout);
-}
-
-const opencodeAllowed = () => !usageOff() && shared("usage.opencode") === true;
-
-async function opencodeKeys() {
-  const data = `${home()}/.local/share/opencode`, keys = [];
-  const add = (entry) => {
-    const key = String((typeof entry === "string" ? entry : entry?.key) ?? "").trim();
-    // A real key is one token. `$VAR`, `!command`, `{env:VAR}` and the like are for OpenCode to
-    // resolve, and are never sent. Going by what a key is leaves no such spelling to miss.
-    if (/^[A-Za-z0-9][\w.~+/=-]*$/.test(key) && !keys.includes(key)) keys.push(key);
-  };
-  let databaseFailed = false;
-  try {
-    const query = "SELECT value FROM credential WHERE active = 1 AND integration_id IN ('opencode-go', 'opencode') ORDER BY integration_id = 'opencode-go' DESC";
-    const rows = await exec("sqlite3", ["-cmd", ".timeout 1000", "-readonly", `${data}/opencode.db`, query]);
-    if (rows.code === 0) {
-      for (const row of rows.stdout.split("\n").filter(Boolean)) add(JSON.parse(row));
-    } else {
-      // Old installs may have only auth.json, or a database from before the credential table.
-      databaseFailed = !/unable to open database file|no such table: credential/i.test(rows.stderr);
-    }
-  } catch (error) {
-    databaseFailed = error instanceof SyntaxError;
-  }
-  if (!opencodeAllowed()) return [];
-  try {
-    const auth = JSON.parse((await readTextFile(`${data}/auth.json`)) ?? "{}");
-    if (!auth || typeof auth !== "object" || Array.isArray(auth)) throw new Error("invalid OpenCode auth file");
-    add(auth["opencode-go"]);
-    add(auth.opencode);
-  } catch (error) {
-    if (!keys.length) throw error;
-  }
-  if (databaseFailed && !keys.length) throw new Error("could not read OpenCode credentials");
-  return keys;
-}
-
-async function opencode() {
-  let unreachable = false;
-  for (const key of await opencodeKeys()) {
-    if (!opencodeAllowed()) return null;
-    try {
-      const answer = await fetch("https://opencode.ai/zen/go/v1/usage", { headers: { Authorization: `Bearer ${key}`, Accept: "application/json", "User-Agent": "kavex-usage/1.0" } });
-      if (answer.status === 401 || answer.status === 403) continue;
-      const body = await answer.json();
-      if (!answer.ok && ["AuthError", "EntitlementError"].includes(body?.error?.type)) continue;
-      const limits = answer.ok ? goLimits(body) : [];
-      if (limits.length) return { plan: "Go", limits };
-      unreachable = true;
-    } catch {
-      unreachable = true;
-    }
-  }
-  if (unreachable) throw new Error("no answer from opencode.ai");
-  return null;
-}
-
-const CHECKS = {
-  claude: { read: claude },
-  codex: { read: codex },
-  opencode: { read: opencode, localOnly: true, needsConsent: true },
+const UNSUPPORTED = {
+  pi: "Pi uses the connected model provider’s subscription.",
+  kiro: "Use /usage in an active Kiro CLI session.",
+  hermes: "Hermes uses the connected model provider’s subscription.",
+  qoder: "Use /usage in an active Qoder session.",
+  crush: "Crush uses the connected model provider’s subscription.",
+  mastracode: "Mastra Code uses the connected model provider’s subscription.",
+  "command-code": "This agent has no supported usage source.",
+  "prime-agent": "This agent has no supported usage source.",
 };
+
+const EXTRA_AGENTS = {
+  muse: { name: "Muse", icon: "icons/muse.svg", tint: true, run: ["muse"] },
+  mastracode: { name: "Mastra Code", icon: "icons/mastracode.svg", run: ["mastracode"] },
+  "command-code": { name: "Command Code", icon: "icons/command-code.svg", tint: true, run: ["command-code"] },
+  "prime-agent": { name: "Prime", icon: "icons/prime-agent.svg", tint: true, run: ["prime-agent"] },
+};
+
+function usageConsent(key, on = null) {
+  return !on && key === "opencode" ? shared("usage.opencode")
+    : shared("usage.consent")?.[on ? entryId(key, on) : key];
+}
+
+function withDiscoveredAgents(known, on) {
+  const names = new Set(known.map((agent) => agent.key));
+  const homes = new Map(spaces().map((space) => [space.id, space.machine ?? null]));
+  const running = liveAgents().filter((agent) => homes.get(agent.space) === on);
+  const more = [];
+  for (const { program } of running) {
+    const key = program?.key;
+    if (!key || names.has(key) || (!CHECKS[key] && !UNSUPPORTED[key])) continue;
+    names.add(key);
+    more.push({ ...program, run: [CHECKS[key]?.program ?? key], installed: true });
+  }
+  for (const [key, preset] of Object.entries(EXTRA_AGENTS)) {
+    if (!names.has(key)) more.push({ key, ...preset, installed: false });
+  }
+  return [...known, ...more];
+}
 
 async function checked(base, read) {
   try {
     const report = await read();
-    return report && { ...base, ...report, ...(!report.failed && { checkedAt: Date.now() }) };
+    if (!report) return null;
+    const { identity, accountRef, ...reading } = report;
+    const failed = Boolean(reading.failed || reading.state === "error");
+    return {
+      ...base, ...reading, failed,
+      who: reading.who ?? (identity ? fingerprint(base.agent, identity) : undefined),
+      attemptedAt: Date.now(),
+      ...(!failed && { checkedAt: Date.now() }),
+    };
   } catch {
-    return { ...base, limits: [], failed: true };
+    return { ...base, limits: [], failed: true, attemptedAt: Date.now() };
   }
 }
 
-async function checkMachine(on, last) {
-  const kept = (id) => last[id] && [id, { ...last[id], failed: true }];
-  const keepAll = () => Object.fromEntries(Object.keys(last).filter((id) => last[id].machine === on).map(kept));
+async function checkMachine(on, last, cycle, publish) {
+  const keep = (id) => last[id] && { ...last[id], failed: true };
+  const keepAll = () => {
+    for (const [id, entry] of Object.entries(last)) {
+      if (entry.machine === on) publish(id, keep(id));
+    }
+  };
   if (on && machines().find((machine) => machine.name === on)?.layout === "unavailable") return keepAll();
-  const [agents, path] = await Promise.all([knownAgents({ on }).catch(() => []), shellPath(on)]);
-  if (!agents.length) return keepAll();
-  const ours = agents.filter((agent) => CHECKS[agent.key] && !(on && CHECKS[agent.key].localOnly)).map((agent) => ({ ...agent, program: programOf(agent) }));
-  // `installed` is about run[0], which may not be what runs here.
+  const [known, path] = await Promise.all([knownAgents({ on }).catch(() => []), shellPath(on)]);
+  if (!known.length) keepAll();
+  const where = { on, path };
+  const catalog = withDiscoveredAgents(known, on);
+  const providers = catalog.filter(({ key }) => CHECKS[key] || UNSUPPORTED[key])
+    .map((agent) => ({ ...agent, program: programOf(agent) }));
   const sure = (agent) => agent.installed && agent.program === agent.run[0];
-  const finds = await shellFinds({ on, path }, ours.filter((agent) => !sure(agent)).map((agent) => agent.program));
-  const found = await Promise.all(ours.map(async (agent) => {
-    const { read, needsConsent } = CHECKS[agent.key], answer = shared("usage.opencode");
-    const id = entryId(agent.key, on), base = { agent: agent.key, name: agent.name, icon: agent.icon, tint: agent.tint, machine: on };
-    if (!sure(agent) && !finds?.has(agent.program)) return finds ? null : kept(id);
-    if (needsConsent && answer !== true) return answer === false ? null : [id, { ...base, ask: true, limits: [] }];
-    const entry = await checked(base, () => read({ on, path, program: agent.program }));
-    return entry && [id, entry];
+  const finds = await shellFinds(where, providers.filter((agent) => !sure(agent)).map((agent) => agent.program));
+  await Promise.all(providers.map(async (agent) => {
+    const key = agent.key, provider = CHECKS[key], id = entryId(key, on), saved = last[id];
+    const base = { agent: key, name: agent.name, icon: agent.icon, tint: agent.tint, machine: on,
+      ...(provider?.consentDomain && { consentDomain: provider.consentDomain }),
+    };
+    const discovered = sure(agent) || finds?.has(agent.program) || (provider?.discoverWithoutCli && await hasCursorDesktop(where));
+    if (!discovered) {
+      if (saved) publish(id, finds ? null : keep(id));
+      return;
+    }
+    if (!provider) return publish(id, { ...base, state: "unavailable", error: UNSUPPORTED[key], limits: [] });
+    const answer = usageConsent(key, on);
+    if (provider.needsConsent && answer !== true) {
+      return publish(id, { ...base, ask: answer !== false, state: answer === false ? "unavailable" : "setup",
+        error: answer === false ? "Usage access is off." : undefined, consentDomain: provider.consentDomain, limits: [] });
+    }
+    if (!probeDue(saved, cycle)) return publish(id, saved);
+    const allowed = () => cycle.active() && (!provider.needsConsent || usageConsent(key, on) === true);
+    const target = { ...where, program: agent.program };
+    const source = provider.usesHost ? hostFor(target, provider, allowed) : target;
+    const ownerAllowed = () => allowed() && usageConsent(key, on) === true;
+    const readOnAccountOwner = async (adapter) => {
+      const onOwner = await readOnOwner(target, key, provider, ownerAllowed);
+      return onOwner !== undefined ? onOwner : adapter(hostFor(target, provider, ownerAllowed));
+    };
+    const alternate = provider.alternate && answer === true ? () => readOnAccountOwner(provider.alternate) : null;
+    const read = provider.needsConsent && provider.ownerModule
+      ? () => readOnAccountOwner(provider.read)
+      : () => readAccountUsage(key, provider, source, alternate);
+    const report = await checked(base, read);
+    if (report && !report.failed && !report.state) report.state = "ok";
+    if (!allowed() || (alternate && usageConsent(key, on) !== answer)) return;
+    if (report?.failed) {
+      if (!report.kind && /rate.limit|throttl/i.test(report.error ?? "")) report.kind = "rate-limited";
+      report.failureStreak = Math.min(8, (saved?.failureStreak ?? 0) + 1);
+      report.retryAt = report.retryAt ?? report.attemptedAt + Math.min(EVERY, RETRY_FLOOR * 2 ** (report.failureStreak - 1));
+    }
+    // Retain signed-out state for the roster while preserving legacy subscription rows.
+    publish(id, report ?? ({ ...base, state: "signed-out", limits: [], attemptedAt: Date.now() }));
   }));
-  return Object.fromEntries(found.filter(Boolean));
+}
+
+function probeDue(saved, { now, activate, force, within }) {
+  if (!saved || saved.ask || !saved.attemptedAt || (saved.state === "unavailable" && !saved.checkedAt)) return true;
+  if ((saved.retryAt > now && saved.retryAt !== Number.MAX_SAFE_INTEGER) || (saved.retryAt === Number.MAX_SAFE_INTEGER && !force)) return false;
+  if (force) return true;
+  if (saved.failed) return now >= (saved.retryAt ?? saved.attemptedAt + RETRY_FLOOR);
+  const reset = saved.limits.some((limit) => limit.resetsAt > saved.attemptedAt && limit.resetsAt <= now);
+  return reset || now - saved.attemptedAt >= (activate ? REUSE : within);
 }
 
 export const checking = (usage, now) => Boolean(usage.startedAt) && now - usage.startedAt < BUSY;
@@ -341,7 +174,11 @@ function withOpencode(entries, entry) {
 
 // A failed check can keep the latest reading unless the agent identifies a different account.
 function orSaved(entry, saved) {
-  if (entry?.failed && saved?.limits.length && (!entry.who || entry.who === saved.who)) return { ...saved, failed: true };
+  const identified = entry?.who && entry.who === saved?.who;
+  const originalSource = !entry?.who && !entry?.source && !saved?.source;
+  if (entry?.failed && saved?.limits.length && (identified || originalSource)) {
+    return { ...entry, who: saved.who, plan: saved.plan, limits: saved.limits, checkedAt: saved.checkedAt };
+  }
   return entry;
 }
 
@@ -366,29 +203,83 @@ function warnNear() {
 // saves only into the era it started in, so one from before can't bring cleared numbers back, even
 // with Usage on again. It isn't one mark per pass: a pass over a minute long has another start beside
 // it, and if that took away its right to save, checks that slow would never save at all.
-export async function checkUsage({ force = false, within = REUSE } = {}) {
-  const last = shared("usage") ?? {}, now = Date.now(), era = last.era ?? Math.random(), answer = shared("usage.opencode");
+export async function checkUsage({ force = false, within = REUSE, activate = false } = {}) {
+  const last = shared("usage") ?? {}, now = Date.now();
   if (usageOff()) return;
+  const names = new Set([null, ...machines().map((machine) => machine.name)]);
+  const keepTarget = ([id]) => !id.includes("|") || names.has(id.slice(id.indexOf("|") + 1) || null);
+  const consent = shared("usage.consent") ?? {};
+  const currentConsent = Object.entries(consent).filter(keepTarget);
+  if (currentConsent.length !== Object.keys(consent).length) setShared("usage.consent", Object.fromEntries(currentConsent));
   if (checking(last, now)) {
     if (force && !last.refreshPending) setShared("usage", { ...last, refreshPending: true });
     return;
   }
-  const reset = Object.values(last.entries ?? {}).some((entry) => entry.limits.some((limit) =>
-    limit.resetsAt > last.checkedAt && limit.resetsAt <= now));
-  if (!force && !last.refreshPending && !reset && last.checkedAt && now - last.checkedAt < within) return;
-  setShared("usage", { ...last, era, startedAt: now, refreshPending: false });
-  const names = [...new Set([null, ...machines().map((machine) => machine.name)])];
-  const results = await Promise.all(names.map((on) => checkMachine(on, last.entries ?? {})));
+  const entries = Object.values(last.entries ?? {});
+  const reset = entries.some((entry) => entry.limits.some((limit) => limit.resetsAt > last.checkedAt && limit.resetsAt <= now));
+  const retry = entries.some((entry) => entry.failed && entry.retryAt && entry.retryAt <= now);
+  if (!force && !last.refreshPending && !reset && !retry && last.checkedAt && now - last.checkedAt < (activate ? REUSE : within)) return;
+
+  const era = last.era ?? Math.random(), generation = (last.generation ?? 0) + 1;
+  const roster = Object.fromEntries(Object.entries(last.entries ?? {}).filter(([, entry]) => names.has(entry.machine)));
+  const history = shared(HISTORY_KEY) ?? {};
+  const timelines = Object.entries(history).filter(keepTarget);
+  if (timelines.length !== Object.keys(history).length) setShared(HISTORY_KEY, Object.fromEntries(timelines));
+  const sourceGenerations = Object.fromEntries(Object.entries(last.sourceGenerations ?? {}).filter(keepTarget));
+  setShared("usage", { ...last, era, generation, startedAt: now, refreshPending: false, entries: roster, sourceGenerations });
+  const active = () => {
+    const current = shared("usage");
+    return !usageOff() && current?.era === era && (current.completedGeneration ?? 0) < generation;
+  };
+  const answer = usageConsent("opencode");
+  const publish = (id, report) => {
+    if (!active() || (id === OPENCODE && usageConsent("opencode") !== answer)) return;
+    const current = shared("usage");
+    const index = current.sourceGenerations ?? {};
+    if (index[id] > generation) return;
+    const saved = current.entries ?? {};
+    const previous = saved[id];
+    const entry = orSaved(report, previous);
+    const next = { ...saved };
+    if (entry) next[id] = entry;
+    else delete next[id];
+    setShared("usage", {
+      ...current,
+      entries: next,
+      sourceGenerations: { ...index, [id]: generation },
+    });
+    recordHistory(id, previous, entry);
+  };
+  const cycle = { force: force || last.refreshPending, activate, within, now, active };
+  await Promise.allSettled([...names].map((on) => checkMachine(on, roster, cycle, publish)));
+  if (!active()) return;
   const current = shared("usage");
-  if (usageOff() || current?.era !== era || current.checkedAt > now) return;
-  const saved = current.entries ?? {}, found = Object.assign({}, ...results);
-  for (const id in found) found[id] = orSaved(found[id], saved[id]);
-  // Answered midway, OpenCode's entry is no longer this pass's to save: Allow runs its own check.
-  return saveUsage(current, now, {
-    era,
-    checkedAt: now,
-    entries: shared("usage.opencode") === answer ? found : withOpencode(found, saved[OPENCODE]),
-  });
+  return saveUsage(current, now, { ...current, completedGeneration: generation, checkedAt: now });
+}
+
+function recordHistory(id, previous, next) {
+  const history = shared(HISTORY_KEY) ?? {};
+  // Account switches start a new timeline. No credential or provider identity
+  // is copied into a time series.
+  const switched = previous && next && (
+    (previous.who && next.who && previous.who !== next.who) ||
+    (previous.source !== next.source && (!previous.who || !next.who))
+  );
+  const points = switched ? [] : history[id] ?? [];
+  if (!next || !next.checkedAt || next.failed || !next.limits.length) {
+    if (!switched && next && !["signed-out", "setup"].includes(next.state)) return;
+    if (!(id in history)) return;
+    const cleared = { ...history };
+    delete cleared[id];
+    setShared(HISTORY_KEY, cleared);
+    return;
+  }
+  const at = next.checkedAt;
+  const recent = points.filter((point) => point.at > at - HISTORY_SPAN);
+  const last = recent.at(-1);
+  if (last && Math.floor(last.at / HISTORY_STEP) === Math.floor(at / HISTORY_STEP)) recent.pop();
+  recent.push({ at, limits: next.limits.map(({ label, used, resetsAt, minutes, key }) => ({ label, used, resetsAt, minutes, key })) });
+  setShared(HISTORY_KEY, { ...history, [id]: recent.slice(-HISTORY_LIMIT) });
 }
 
 // Consent is the person's press, saved by the popover. Any agent can run this command, so it only
@@ -399,12 +290,24 @@ export async function allowOpencode() {
   const usage = shared("usage") ?? {}, now = Date.now(), { ask, ...base } = usage.entries?.[OPENCODE] ?? {};
   if (usageOff() || !ask || shared("usage.opencode") !== true) return;
   const mine = checking(usage, now) ? null : now;
-  setShared("usage", { ...usage, startedAt: mine ?? usage.startedAt, entries: { ...usage.entries, [OPENCODE]: base } });
-  const found = await checked(base, opencode);
+  setShared("usage", {
+    ...usage, startedAt: mine ?? usage.startedAt,
+    entries: { ...usage.entries, [OPENCODE]: { ...base, state: "fetching" } },
+  });
+  const provider = CHECKS.opencode;
+  const allowed = () => !usageOff() && shared("usage")?.era === usage.era && usageConsent("opencode") === true;
+  const source = hostFor({ on: null, path: "", program: "opencode" }, provider, allowed);
+  const found = (await checked(base, async () => {
+    const reading = await readOnOwner({ on: null, path: "", program: "opencode" }, "opencode", provider, allowed);
+    return reading === undefined ? provider.read(source) : reading;
+  })) ??
+    { ...base, state: "signed-out", limits: [], attemptedAt: Date.now() };
   const current = shared("usage");
-  if (usageOff() || current?.era !== usage.era || current.checkedAt > now) return;
+  if (!allowed() || current.checkedAt > now) return;
+  recordHistory(OPENCODE, current.entries?.[OPENCODE], found);
   return saveUsage(current, mine, {
-    ...current, entries: withOpencode(current.entries, orSaved(found, current.entries?.[OPENCODE])),
+    ...current,
+    entries: withOpencode(current.entries, orSaved(found, current.entries?.[OPENCODE])),
   });
 }
 
@@ -415,20 +318,10 @@ function saveUsage(current, started, next) {
   if (current.refreshPending && !checking({ startedAt }, Date.now())) return checkUsage({ force: true });
 }
 
-// The pace so far, carried straight on. It's taken at the check, as `used` dates from then, so the
-// answer stands still while the clock moves. Early in a window that pace says little, so there's none.
-export function runsOut(limit, checkedAt, now) {
-  if (!limit.minutes || !limit.resetsAt || !checkedAt || limit.used <= 0 || limit.used >= 100) return null;
-  const length = limit.minutes * 60_000, spent = length - (limit.resetsAt - checkedAt);
-  if (spent < length * SETTLING) return null;
-  const at = checkedAt + ((100 - limit.used) * spent) / limit.used;
-  return at > now && at < limit.resetsAt ? at : null;
-}
-
-export function subscriptions(entries, now) {
+export function subscriptions(entries, now, merge = true) {
   const rows = new Map();
   for (const entry of Object.values(entries ?? {})) {
-    const key = entry.who ?? entryId(entry.agent, entry.machine), place = entry.machine ?? HERE, had = rows.get(key);
+    const key = (merge && entry.who) || entryId(entry.agent, entry.machine), place = entry.machine ?? HERE, had = rows.get(key);
     if (!had) rows.set(key, { ...entry, machines: [place] });
     else {
       const age = (entry.checkedAt ?? 0) - (had.checkedAt ?? 0);
@@ -439,7 +332,8 @@ export function subscriptions(entries, now) {
   const all = [...rows.values()];
   return all.map((row) => {
     const named = row.machines.length > 1 || row.machines[0] !== HERE || all.some((other) => other !== row && other.agent === row.agent);
-    const recent = !row.failed || now - row.checkedAt < STALE;
+    const retention = row.kind === "rate-limited" || (row.agent === "claude" && row.kind === "stale-token") ? THROTTLED_STALE : STALE;
+    const recent = !row.failed || now - row.checkedAt < retention;
     const limits = recent ? row.limits.filter((limit) => !limit.resetsAt || limit.resetsAt > now) : [];
     return { ...row, limits, expired: limits.length < row.limits.length, place: named ? row.machines.join(", ") : null };
   });

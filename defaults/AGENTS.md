@@ -346,41 +346,34 @@ The three-dot **More actions** menu beside **Settings** in the sidebar footer of
 **Usage limits**, **Add machine**, and **Customize**. Use ↑ or ↓ and Enter to choose an action.
 An orange dot on the menu button points to a usage warning or skill update inside.
 
-**Usage limits** (the `usage` popup mod) shows each Claude Code, Codex
-and OpenCode Go subscription, with its tier and each limit's percent used and time to reset, weekly
-first. A window disappears at reset and reappears when the provider reports its new usage.
-At 90% used its percent turns orange, the menu shows a dot and
-a toast says so, once until the limit falls below 90% again. A limit whose pace so far would use it up
-before it resets also says when, from 5% of the way through its window: a straight line, not a forecast.
+**Usage limits** opens from the workspace status strip or the sidebar’s **More actions** menu.
+The strip follows the active machine. The sidebar entry can show all machines. The roster is
+ordered by the highest primary percentage used. **Used / Left** applies to both views.
+**Detailed / Compact** switches between all windows and one window per provider. Select a provider
+for its reset times and reading status. The roster also links to **Usage details & history** and
+**Manage Accounts…**.
 
-- **Numbers:** each agent's own commands on its machine, in that machine's shell PATH: `claude auth
-  status`, `claude -p /usage` (its JSON stream, with no hooks, plugins, MCP or saved session), and
-  `codex app-server` (read-only, with plugins disabled), which answers `account/read` and
-  `account/rateLimits/read` after initializing. No tokens spent, no login read, no request
-  sent. From programs.json's `run` they take only a path to the agent's own program, never flags;
-  a program of another name means the plain agent.
-- **Rows:** none for an agent signed out, on an API key or not installed. One account on several
-  machines is one row, with the newest numbers. A removed machine's rows go at the next check. Only
-  the login in an agent's default config counts: a second account through `CLAUDE_CONFIG_DIR` has no row.
-- **Checks** run on opening, on Refresh, 5 seconds after the footer starts, and every 15 minutes
-  in layouts with that footer. A window reset brings the next check forward. Opening again within
-  a minute usually reuses the last result. Pressing Refresh during a check queues one follow-up.
-  `workspace-chrome.check-usage` and `workspace-chrome.refresh-usage` run checks.
-- **Failure** keeps recent numbers with their age for up to 30 minutes after the last successful
-  check. A failed check with no current windows reads "Could not check".
-- **Saved:** `shared("usage")` holds the numbers and an account fingerprint, never an email, login,
-  key or anything made from a key. `shared("usage.warned")` names the limits already warned about.
-- **Off:** the Usage limits row in Settings > Look, under Workspace. `shared("usage.enabled")` is
-  `false` (anything else is on): the menu hides Usage limits, no check runs, one still running saves nothing, and
-  `shared("usage")`, `shared("usage.warned")` and `shared("usage.opencode")` are cleared. Back on, it
-  checks within a minute.
-- **OpenCode** has no such command, so it's the one thing Usage sends itself, on this computer only.
-  A card in the popover asks first, and no key is read until it's answered. Allow sets
-  `shared("usage.opencode")` to `true` and checks at once; Not now sets it to `false` and stops
-  asking. Only the person's press answers: no command does, so never set it for them. Turning Usage
-  off and on asks again. Keys come only from OpenCode's `auth.json` and its database's `credential`
-  table and go only to `opencode.ai`, as a Bearer header; one written as a variable or a command is
-  never sent. A 401 or 403 means no Go plan: no row and no error.
+- **Provider coverage** includes Claude Code, Codex, OpenCode Go, Cursor, Gemini, Grok,
+  Antigravity, Kimi, Muse, GitHub Copilot and Amp. Other detected agents show the source or
+  account action that is available for them. Agents that use another provider’s subscription
+  do not get a separate meter for that subscription.
+- **Refresh** runs when the workspace becomes active and the latest check is due, every
+  15 minutes while the app is active, and after a known reset. A manual refresh queues one
+  follow-up if a check is already running. Provider errors retry on separate schedules.
+- **Freshness** uses the time the provider reading was obtained. Expired windows disappear.
+  A transient failure preserves current readings for 30 minutes, up to 24 hours for throttling
+  or a renewable Claude login. A signed-out account has a status row and no limits.
+- **Accounts** grants access for one provider on one machine. A login or key goes only to the
+  corresponding provider. An added machine that needs network usage runs the probe on that
+  machine with Node.js 18 or Bun. CLI probes run through the agent's program.
+- **History** stores a bounded set of measured windows as `shared("usage.history")`, keyed by
+  provider and machine. It clears a timeline when that source changes account or signs out.
+  The remaining `shared("usage")` fields hold the latest readings and refresh state. No
+  credential, email, login response or account ID is saved there.
+- **Commands** `workspace-chrome.check-usage` and `workspace-chrome.refresh-usage` request a check.
+  Signing in belongs to the provider. An agent must not grant usage access on the person's behalf.
+- **Off** in **Settings → Look → Usage limits** hides the meter, stops checks, and clears readings,
+  usage history, warnings and consent. Display preferences are kept in `shared("usage.presentation")`.
 
 **Customize** (in **More actions**, the `customize` mod, `mod.open {name: "customize"}`)
 covers the window with its own sidebar: Skills, and Code review (empty for now). Back or Esc closes it.

@@ -131,6 +131,12 @@
               }
             }
           }
+        },
+        {
+          "id": "workspace-status",
+          "type": "block",
+          "size": { "px": 25 },
+          "content": { "mod": "workspace-status", "props": { "usage": true } }
         }
       ]
     },

@@ -52,27 +52,36 @@ Do not assume every download is notarized or signed.
 
 ## Usage limits
 
-Open **More actions → Usage limits** in the sidebar footer to see your subscriptions' limits. Checks run 5 seconds after the footer starts, every 15 minutes, after a known reset, and when you open the popover. **Settings → Look → Usage limits** stops checks and clears the saved readings and your OpenCode answer.
+Open **Usage** in the workspace status strip or **More actions → Usage limits** in the sidebar.
+While Kavex is active, checks run when readings are due and every 15 minutes. **Settings → Look →
+Usage limits** stops polling and clears usage data and access choices.
 
-**What it runs.** On this computer and on each added machine:
+**CLI readings.** Claude Code, Codex, Antigravity, Muse, Amp and Copilot can report usage through
+their own programs. Kavex launches their usage-only commands or calls their account quota methods,
+on the machine where the agent runs. Their own CLI handles its login and provider requests.
 
-- Your shell, once per check, to learn its `PATH`: `$SHELL -ic 'printenv PATH'`. Your shell's startup files run when it does. Windows skips this step.
-- `command -v` (`Get-Command` on Windows), to look for an agent Kavex didn't find by itself.
-- Claude Code runs `claude auth status`, then `claude -p /usage` with its JSON stream enabled and no hooks, plugins, MCP servers or saved session. It spends no tokens.
-- Codex starts `codex app-server` in read-only mode with plugins disabled, initializes the connection, and asks for your account and limits.
+**Provider requests.** In Usage’s **Manage Accounts**, you can grant access for a provider on a
+particular machine. Kavex then reads the following credentials for its usage request.
 
-If `programs.json`'s `run` points to the agent's own program at another path, that path is used. Flags in `run` are left out of these checks, and a program of another name isn't started: the plain agent is.
+| Provider | Login source | Request origin |
+| --- | --- | --- |
+| Claude Code | Claude Code credentials file or its macOS Keychain item | `api.anthropic.com` |
+| Codex | Codex’s `auth.json` when App Server needs a supplemental reading | `chatgpt.com` |
+| OpenCode Go | OpenCode `auth.json` and read-only credential database | `opencode.ai` |
+| Cursor | Cursor CLI login, platform credential store or read-only Cursor account database | `cursor.com` |
+| Gemini | Gemini CLI or OpenCode’s Google login | `cloudcode-pa.googleapis.com` and `oauth2.googleapis.com` |
+| Grok | Grok CLI account session | `cli-chat-proxy.grok.com` |
+| Kimi | Kimi CLI account and credential files | `api.kimi.com` |
 
-**What it reads.** The answers to those commands. It doesn't read Claude Code's or Codex's login, and it never touches the macOS Keychain. Those answers include your email, which is used to make a short SHA-256 fingerprint, so that one account on two machines shows as one row. The email isn't kept.
+Kavex validates the origin before sending credentials and refuses to forward them to a different
+origin after a redirect. Gemini may renew its token in memory. The account probes do not persist
+credentials or change the provider's login files. On added machines, Node.js 18 or Bun runs the
+adapter locally to that machine and returns its sanitized results to Kavex.
 
-**What it sends.** For Claude Code and Codex, nothing: those programs talk to their own providers, as they always do. OpenCode has no such command, so it is the one exception, and it works like this:
-
-- Nothing is read or sent until you press Allow on the card in the popover. Not now saves that answer and reads nothing. Turning Usage limits off and on asks again.
-- After Allow, on this computer only, each check reads the keys for `opencode` and `opencode-go` from `~/.local/share/opencode/auth.json` and from the `credential` table of `opencode.db` beside it, with `sqlite3 -readonly`. Keys on added machines are never read.
-- A key written as a variable or a command, such as `$OPENCODE_API_KEY` or `!pass show opencode`, is left alone and never sent.
-- Each key is sent in turn to `https://opencode.ai/zen/go/v1/usage` as a Bearer header, until one gives Go's limits. That is the only address it goes to. Kavex's `fetch` refuses to carry that header through a redirect to anywhere else.
-
-**What it keeps.** In `shared.json` in the app home, not encrypted: each subscription's name, tier and limits, and the fingerprint for Claude Code and Codex. No key, login or email is saved, and nothing made from an OpenCode key.
+**Stored data.** The app home’s `shared.json` holds usage readings, tier labels, account fingerprints,
+access decisions, and a bounded timeline of observed limits. It contains no credentials, email,
+raw account ID, or provider login response. Clearing or switching a discovered account clears the
+history for that provider and machine.
 
 ## Session context and API cost
 

@@ -392,7 +392,9 @@ export default class Settings extends View {
     if (on) {
       setShared("usage", null);
       setShared("usage.opencode", null);
+      setShared("usage.consent", null);
       setShared("usage.warned", null);
+      setShared("usage.history", null);
     }
   }
 
@@ -537,7 +539,7 @@ export default class Settings extends View {
               t,
               this.row(t, "Tabs", "A bar on top, or a column on the right.", this.tabsPicker(t)),
               ...PANELS.map(([id, title, about]) => this.row(t, title, about, this.toggle(t, `st-panel-${id}`, this.panels().includes(id), () => this.togglePanel(id)))),
-              this.row(t, "Usage limits", "Your subscriptions' limits in the sidebar, checked every 15 minutes.", this.toggle(t, "st-usage", this.usageOn(), () => this.toggleUsage())),
+              this.row(t, "Usage limits", "Show account usage in the workspace footer and refresh while Kavex is active.", this.toggle(t, "st-usage", this.usageOn(), () => this.toggleUsage())),
             ),
           ),
         ),

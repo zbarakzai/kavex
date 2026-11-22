@@ -1,6 +1,7 @@
 /target
 /dist
 /.brain
+/.scratch/
 /AGENTS.local.md
 .DS_Store
 __pycache__/

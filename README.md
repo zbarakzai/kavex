@@ -85,7 +85,7 @@ Settings → Updates shows what is available. Builds from source do not update t
 
 Kavex sends no telemetry, and no feedback unless you send it.
 
-Usage limits shows how much of your subscriptions is left by running Claude Code's and Codex's own commands, on the machine each one is signed in on. Your logins stay with those agents, and Kavex sends nothing for them. OpenCode has no such command, so it is the one exception: only after you press Allow, Kavex reads your OpenCode key and sends it to `opencode.ai`, and nowhere else, to ask for your Go plan's limits. The key is never saved. Settings → Look turns Usage limits off. [Security and privacy](docs/security.md#usage-limits) says exactly what it reads, runs and sends.
+Usage shows subscription limits from supported agents in the workspace footer. It uses agent commands and provider usage services. Credential-backed checks use the account access you grant in **Usage → Manage Accounts**, on the machine that holds the login. **Settings → Look → Usage limits** turns it off. [What Usage reads and sends](docs/security.md#usage-limits)
 
 Session context and API cost come from the files agents already write on their own machine, and nothing is sent anywhere. To tell agents apart, Kavex adds a small hook to Codex, which you approve in `/hooks`, and a small extension to Pi.
 

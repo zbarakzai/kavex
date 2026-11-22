@@ -23,8 +23,8 @@ const FOOTER_ACTIONS = [
   { id: "customize", label: "Customize", icon: "layers", mod: "customize" },
 ];
 const footerActions = () => usageOff() ? FOOTER_ACTIONS.slice(1) : FOOTER_ACTIONS;
-const FIRST_CHECK = 5000;
-const WATCH = 60_000;
+const FIRST_CHECK = 1000;
+const WATCH = 30_000;
 const FIRST_SKILLS_CHECK = 20_000;
 
 // The sidebar's rail goes by its width, not a flag: dragging its edge narrows it too.
@@ -62,11 +62,14 @@ export default class WorkspaceChrome extends View {
       return;
     }
     if (!props()?.footer) return;
-    cx.timer.after(FIRST_CHECK, (cx) => cx.spawn(() => checkUsage()));
+    this.wasActive = window()?.active !== false;
+    cx.timer.after(FIRST_CHECK, (cx) => {
+      if (window()?.active !== false) cx.spawn(() => checkUsage({ activate: true }));
+    });
     // Skills follow the same rule: any footer may run a due check (skills.js).
     cx.timer.after(FIRST_SKILLS_CHECK, (cx) => cx.spawn(() => checkSkills({ within: SKILLS_EVERY })));
     cx.timer.every(WATCH, (cx) => {
-      cx.spawn(() => checkUsage({ within: EVERY }));
+      if (window()?.active !== false) cx.spawn(() => checkUsage({ within: EVERY }));
       cx.spawn(() => checkSkills({ within: SKILLS_EVERY }));
       // A limit passing its reset time changes no data, so nothing else would redraw the dot.
       const warned = this.warned;
@@ -191,7 +194,12 @@ export default class WorkspaceChrome extends View {
   render(cx) {
     const t = theme();
     if (props()?.footerMenu) return this.actionsMenu(look(t));
-    if (props()?.footer) return this.footer(t);
+    if (props()?.footer) {
+      const active = window()?.active !== false;
+      if (active && this.wasActive === false) cx.spawn(() => checkUsage({ activate: true }));
+      this.wasActive = active;
+      return this.footer(t);
+    }
     this.settle(cx);
     const collapsed = narrow(), mac = window()?.platform === "macos";
     return h_flex().size_full().pl(mac && !collapsed ? 76 : 8).gap(8).items_center()
