@@ -50,10 +50,12 @@ test:
     bun test scripts/reader.test.ts
     bun test scripts/start.test.ts
     bun test scripts/sessions.test.ts
+    bun test scripts/terminal-notes.test.ts
     bun test scripts/usage.test.ts
     bun test scripts/skills.test.ts
     bun test scripts/skills-page.test.ts
     bun test scripts/sidebar-fit.test.ts
+    bun test scripts/recent-spaces.test.ts
     cargo test --locked
 
 docs-generate: build

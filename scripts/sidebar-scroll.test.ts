@@ -31,6 +31,9 @@ let state: { spaces: any[]; agents: any[]; sidebar: number; notified: number };
 mock.module("gpui-kit", () => ({ View: class {}, div: make, image: make, svg: make }));
 mock.module("gpui-base", () => ({ h_flex: make, v_flex: make }));
 mock.module("herdr", () => ({
+  appHome: () => "/kavex",
+  notify: () => {},
+  revealTerminalNote: async () => false,
   spaces: () => state.spaces,
   agents: () => state.agents,
   machines: () => [],

@@ -136,6 +136,13 @@
       ]
     },
     {
+      "name": "Heroicons Folder Open",
+      "source": "https://github.com/tailwindlabs/heroicons/blob/v2.2.0/optimized/16/solid/folder-open.svg",
+      "files": [
+        "defaults/icons/LICENSE-Heroicons.txt"
+      ]
+    },
+    {
       "name": "LobeHub icons",
       "source": "https://github.com/lobehub/lobe-icons",
       "files": [
