@@ -7,11 +7,15 @@ const ROSTER_HEIGHT = 540;
 const SOURCE = "usage-status";
 const MONITOR = "system-monitor-status";
 const MONITOR_WIDTH = 442;
-const MONITOR_HEIGHT = 400;
+const MONITOR_HEIGHT = 336;
 
 const activity = () => svg("mods/workspace-chrome/icons/activity.svg").size(16).flex_none();
 
 export default class WorkspaceStatus extends View {
+  init(_props, cx) {
+    if (props()?.monitor) this.monitorFocus = cx.focus_handle();
+  }
+
   open(machine) {
     const press = this.pressed, closed = shared("popup.closed");
     this.pressed = null;
@@ -40,9 +44,12 @@ export default class WorkspaceStatus extends View {
     const viewport = globalThis.window?.viewport_size();
     const width = viewport?.width > 16 ? Math.min(MONITOR_WIDTH, (viewport.width - 16) / zoom) : MONITOR_WIDTH;
     const height = viewport?.height > 16 ? Math.min(MONITOR_HEIGHT, (viewport.height - 16) / zoom) : MONITOR_HEIGHT;
+    const at = bounds
+      ? { x: bounds.x + bounds.width - width * zoom, y: bounds.y - height * zoom - 8 }
+      : viewport && { x: viewport.width - width * zoom - 12, y: viewport.height - (height + 24) * zoom - 14 };
     openOverlay({
       mod: "system-monitor", kind: "popup", width, height,
-      ...(bounds ? { at: { x: bounds.x + bounds.width - width * zoom, y: bounds.y - height * zoom - 8 } } : {}),
+      ...(at ? { at } : {}),
       props: { from: MONITOR },
     });
   }
@@ -70,6 +77,13 @@ export default class WorkspaceStatus extends View {
 
     return h_flex().size_full().px(9).gap(3).items_center().justify_end().text_size(11.8).text_color(t.muted)
       .when(config.monitor, (el) => el.child(button(MONITOR, "System monitor").tooltip("System monitor")
+        .when(Boolean(this.monitorFocus), (el) => el.track_focus(this.monitorFocus).tab_stop(true)
+          .border_1().border_color(`${t.surface.slice(0, 7)}00`).focus((el) => el.border_color(t.accent)))
+        .on_key_down((event, cx) => {
+          if (event.key !== "enter" && event.key !== "space") return;
+          cx.stop_propagation();
+          this.openMonitor();
+        })
         .on_mouse_down("left", (e) => { this.monitorPressed = { at: Date.now(), bounds: e.bounds }; })
         .on_click(() => this.openMonitor())
         .child(activity())))

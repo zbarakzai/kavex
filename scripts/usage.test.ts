@@ -3022,7 +3022,7 @@ test("the main status strip opens a local monitor alongside independent Usage li
   handler(monitor, "on_mouse_down")({ bounds: BUTTON }, cx);
   handler(monitor, "on_click")({}, cx);
   expect(state.overlays.at(-1)).toMatchObject({
-    mod: "system-monitor", kind: "popup", at: { x: BUTTON.x + BUTTON.width - 442, y: BUTTON.y - 408 },
+    mod: "system-monitor", kind: "popup", at: { x: BUTTON.x + BUTTON.width - 442, y: BUTTON.y - 344 },
     props: { from: "system-monitor-status" },
   });
 
@@ -3046,4 +3046,17 @@ test("the system monitor anchor fits a small window at high zoom", () => {
   } finally {
     globalThis.window = prior;
   }
+});
+
+test("the monitor button has a keyboard focus ring and opens with Enter", () => {
+  state.props = { monitor: true };
+  const view = new WorkspaceStatus();
+  view.init(null, cx);
+  const button = byId(view.render(cx).el, "system-monitor-status")!;
+  expect(arg(button, "tab_stop")).toBe(true);
+  const focusStyle = make();
+  handler(button, "focus")(focusStyle);
+  expect(arg(focusStyle.el, "border_color")).toBe(colors.accent);
+  handler(button, "on_key_down")({ key: "enter" }, cx);
+  expect(state.overlays.at(-1)).toMatchObject({ mod: "system-monitor" });
 });
