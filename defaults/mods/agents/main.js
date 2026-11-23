@@ -58,8 +58,6 @@ export default class Agents extends View {
     }
     if (props()?.sortMenu) return;
     if (props()?.session) return this.initDropdown(cx);
-    this.notesStatus = new NotesStatus();
-    this.notesStatus.start(cx);
     this.folded = new Set();
     // Each agent's last state and when it changed (ms), kept across restarts.
     this.changed = JSON.parse(localStorage.getItem("changed") ?? "{}");
@@ -67,6 +65,8 @@ export default class Agents extends View {
     this.sessions = new Sessions();
     this.sessions.start(cx);
     cx.timer.every(30000, (cx) => cx.notify());
+    this.notesStatus = new NotesStatus();
+    this.notesStatus.start(cx);
   }
 
   initDropdown(cx) {

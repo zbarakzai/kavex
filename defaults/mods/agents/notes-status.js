@@ -24,7 +24,7 @@ export class NotesStatus {
     const reading = { key, changed };
     this.loading = reading;
     if (!source) {
-      if (shared("terminal.notes") !== null) setShared("terminal.notes", null);
+      if (shared("terminal.notes") != null) setShared("terminal.notes", null);
       this.loading = null;
       return;
     }
@@ -37,7 +37,7 @@ export class NotesStatus {
         if (JSON.stringify(shared("terminal.notes")) !== JSON.stringify(status)) setShared("terminal.notes", status);
       } catch {
         // A failed read must not retain a previous conversation's availability.
-        if (this.loading === reading && noteSourceKey(noteSource()) === key && shared("terminal.notes") !== null) {
+        if (this.loading === reading && noteSourceKey(noteSource()) === key && shared("terminal.notes") != null) {
           setShared("terminal.notes", null);
         }
       } finally {

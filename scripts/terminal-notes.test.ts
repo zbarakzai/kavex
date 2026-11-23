@@ -144,6 +144,12 @@ const footer = () => {
   return view;
 };
 
+test("no visible terminal leaves notes availability unset", () => {
+  currentFocus = null;
+  new NotesStatus().refresh(cx);
+  expect(sharedValues).toEqual({});
+});
+
 test("the footer offers existing notes only for the visible terminal and opens that source", async () => {
   await saveNote(terminal, quote);
   currentTerminal = { ...shell, address: "core-1:t7" };
