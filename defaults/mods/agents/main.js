@@ -11,6 +11,7 @@ import { fitRow } from "./fit.js";
 import { dropdown } from "./dropdown.js";
 import { Sessions, hasSession } from "./sessions.js";
 import { TerminalNotes } from "./notes.js";
+import { NotesStatus } from "./notes-status.js";
 
 function find(node, id) {
   if (node?.id === id) return node;
@@ -57,6 +58,8 @@ export default class Agents extends View {
     }
     if (props()?.sortMenu) return;
     if (props()?.session) return this.initDropdown(cx);
+    this.notesStatus = new NotesStatus();
+    this.notesStatus.start(cx);
     this.folded = new Set();
     // Each agent's last state and when it changed (ms), kept across restarts.
     this.changed = JSON.parse(localStorage.getItem("changed") ?? "{}");
@@ -233,6 +236,7 @@ export default class Agents extends View {
 
   render(cx) {
     if (this.notes) return this.notes.render();
+    if (cx) this.notesStatus?.follow(cx);
     const t = theme();
     if (props()?.sortMenu) return this.sortMenu(t);
     if (props()?.session) return this.drawDropdown(t);

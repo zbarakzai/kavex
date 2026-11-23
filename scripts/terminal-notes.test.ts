@@ -6,22 +6,30 @@ let opened: unknown[] = [];
 let revealed: unknown[][] = [];
 let canReveal = false;
 const shell = { address: "t7", created_ms: 100, program: { key: "shell" } };
-let currentTerminal: typeof shell & { labels?: Record<string, string> } = shell;
+let currentTerminal: typeof shell & { labels?: Record<string, string>; foreground?: { pid: number } } = shell;
 let clipboard = "";
 let dismissed: string[] = [];
 let jobs: Promise<unknown>[] = [];
 let noteScrolls: number[] = [];
 let interfere: (() => void) | null = null;
+let sharedValues: Record<string, any> = {};
+let currentFocus: any = { terminal: "t7" };
+let currentProps: any = { overlay: "palette", terminal: "vps/t9" };
+let holdRead: ((path: string) => Promise<string | null> | undefined) | null = null;
 mock.module("herdr", () => ({
   theme: () => ({}),
   commands: () => [{ name: "mod.open", args: [{ name: "name", required: true }] }],
   layout: () => ({}),
   layouts: () => [],
   keys: () => [],
-  props: () => ({ overlay: "palette", terminal: "vps/t9" }),
+  props: () => currentProps,
   run: () => { throw new Error("The palette should open the Notes mod directly."); },
-  shared: () => null,
-  focused: () => ({ terminal: "t7" }),
+  shared: (key: string) => sharedValues[key] ?? null,
+  setShared: (key: string, value: unknown) => { sharedValues[key] = value; },
+  focused: () => currentFocus,
+  agents: () => [],
+  spaces: () => [],
+  settings: () => ({ zoom: 1 }),
   terminals: () => [currentTerminal],
   openOverlay: (spec: unknown) => opened.push(spec),
   closeOverlay: (id: string) => dismissed.push(id),
@@ -34,7 +42,7 @@ mock.module("herdr", () => ({
   exec: async () => ({ code: 0, stdout: "/home/tester/.claude\n" }),
   appHome: () => platform === "windows" ? "C:\\kavex" : "/kavex",
   window: () => ({ platform }),
-  readTextFile: async (path: string) => files.get(path) ?? null,
+  readTextFile: async (path: string) => holdRead?.(path) ?? files.get(path) ?? null,
   writeTextFile: async (path: string, text: string, expected: string | null) => {
     interfere?.();
     interfere = null;
@@ -50,6 +58,7 @@ type Element = {
   click?: (_event: unknown, context: unknown) => void;
   mouseDown?: (event: { local_position: { x: number }; bounds: { width: number } }) => void;
   itemClick?: (id: string, context: unknown) => void;
+  keyDown?: (event: { key: string }, context: unknown) => void;
   children: Element[];
 };
 function element(): any {
@@ -67,6 +76,7 @@ function element(): any {
     if (key === "on_click") return (callback: Element["click"]) => { node.click = callback; return api; };
     if (key === "on_mouse_down") return (_button: string, callback: Element["mouseDown"]) => { node.mouseDown = callback; return api; };
     if (key === "on_item_click") return (callback: Element["itemClick"]) => { node.itemClick = callback; return api; };
+    if (key === "on_key_down") return (callback: Element["keyDown"]) => { node.keyDown = callback; return api; };
     return () => api;
   } });
   return api;
@@ -81,11 +91,12 @@ mock.module("gpui-base", () => ({
   VirtualListScrollHandle: { new: () => ({ scroll_to_item: (index: number) => noteScrolls.push(index) }) },
   Scrollbar: { vertical: element },
   InputState: { new: input }, TextareaState: { new: input }, Input: { new: element }, Textarea: { new: element },
+  HoverCard: { new: element },
 }));
 
 const cx = {
   spawn: (work: (context: unknown) => Promise<unknown>) => jobs.push(work(cx)),
-  timer: { after: (_ms: number, work: (context: unknown) => void) => work(cx) },
+  timer: { after: (_ms: number, work: (context: unknown) => void) => work(cx), every() {} },
   notify() {},
   stop_propagation() {},
   focus_handle: () => ({ focus() {} }),
@@ -98,6 +109,8 @@ const button = (node: Element, text: string): Element | undefined =>
 
 const { default: Palette } = await import("../defaults/frame/palette/main.js");
 const { TerminalNotes } = await import("../defaults/mods/agents/notes.js");
+const { NotesStatus } = await import("../defaults/mods/agents/notes-status.js");
+const { default: WorkspaceStatus } = await import("../defaults/mods/workspace-status/main.js");
 const { listNotes, saveNote } = await import("../defaults/mods/agents/notes-store.js");
 
 const { noteScope } = await import("../defaults/mods/agents/notes-scope.js");
@@ -118,6 +131,132 @@ beforeEach(() => {
   jobs = [];
   interfere = null;
   platform = "linux";
+  sharedValues = {};
+  currentFocus = { terminal: "t7" };
+  currentProps = { overlay: "palette", terminal: "vps/t9" };
+  holdRead = null;
+});
+
+const footer = () => {
+  currentProps = { monitor: true, usage: true };
+  const view: any = new WorkspaceStatus();
+  view.init({}, cx);
+  return view;
+};
+
+test("the footer offers existing notes only for the visible terminal and opens that source", async () => {
+  await saveNote(terminal, quote);
+  currentTerminal = { ...shell, address: "core-1:t7" };
+  currentFocus = { shown: currentTerminal.address };
+  const status = new NotesStatus();
+  status.refresh(cx);
+  await settle();
+  const view = footer();
+  const action = button(view.render(cx).node, "Notes")!;
+  expect(action).toBeDefined();
+  action.click!({}, cx);
+  expect(opened.at(-1)).toMatchObject({ mod: "agents", props: { notes: "browse", source: { address: "core-1:t7", created_ms: 100 } } });
+
+  currentTerminal = { ...shell, address: "t8" };
+  currentFocus = { shown: "t8" };
+  expect(button(view.render(cx).node, "Notes")).toBeUndefined();
+  status.refresh(cx);
+  await settle();
+  expect(button(view.render(cx).node, "Notes")).toBeUndefined();
+});
+
+test("saving the first note updates availability and the footer action supports Enter", async () => {
+  const status = new NotesStatus();
+  status.refresh(cx);
+  await settle();
+  const view = footer();
+  expect(button(view.render(cx).node, "Notes")).toBeUndefined();
+  await saveNote({ machine: null, terminalRun: "t7:100" }, quote);
+  expect(sharedValues["terminal.notes.changed"]).toBeTruthy();
+  status.refresh(cx);
+  await settle();
+  button(view.render(cx).node, "Notes")!.keyDown!({ key: "enter" }, cx);
+  expect(opened.at(-1)).toMatchObject({ mod: "agents", props: { notes: "browse", source: { address: "t7" } } });
+});
+
+test("late note reads cannot make another terminal's Notes action appear", async () => {
+  await saveNote({ machine: null, terminalRun: "t7:100" }, quote);
+  const savedPath = [...files.keys()][0];
+  const saved = files.get(savedPath)!;
+  let finishRead!: (value: string) => void;
+  holdRead = (path) => path === savedPath ? new Promise((resolve) => { finishRead = resolve; }) : undefined;
+  const status = new NotesStatus();
+  status.refresh(cx);
+  for (let i = 0; i < 4; i++) await Promise.resolve();
+  currentTerminal = { ...shell, address: "t8" };
+  currentFocus = { shown: "t8" };
+  status.refresh(cx);
+  finishRead(saved);
+  await settle();
+  expect(button(footer().render(cx).node, "Notes")).toBeUndefined();
+  expect(sharedValues["terminal.notes"]?.source.address).toBe("t8");
+});
+
+test("resumed sessions keep their notes, while a new conversation in the same terminal has none", async () => {
+  const sessionId = "557dcd48-09b6-4bed-84fb-afbd80910ee0";
+  const label = `/home/tester/.codex/sessions/2026/11/21/rollout-${sessionId}.jsonl`;
+  const codex = { ...shell, program: { key: "codex" }, labels: { "kavex.session": label } };
+  currentTerminal = codex;
+  await saveNote({ machine: null, agent: "codex", session: sessionId }, quote);
+  const status = new NotesStatus();
+  status.refresh(cx);
+  await settle();
+  const view = footer();
+  expect(button(view.render(cx).node, "Notes")).toBeDefined();
+
+  currentTerminal = { ...codex, labels: { "kavex.session": label.replace(sessionId, "657dcd48-09b6-4bed-84fb-afbd80910ee0") } };
+  expect(button(view.render(cx).node, "Notes")).toBeUndefined();
+  status.refresh(cx);
+  await settle();
+  expect(button(view.render(cx).node, "Notes")).toBeUndefined();
+
+  currentTerminal = { ...codex, address: "t8", created_ms: 200 };
+  currentFocus = { shown: "t8" };
+  status.refresh(cx);
+  await settle();
+  expect(button(view.render(cx).node, "Notes")).toBeDefined();
+});
+
+test("a new Claude conversation in the same process never opens the previous conversation's notes", async () => {
+  const record = "/home/tester/.claude/sessions/101.json";
+  currentTerminal = { ...shell, program: { key: "claude" }, foreground: { pid: 101 } };
+  files.set(record, JSON.stringify({ sessionId: "old-conversation", cwd: "/project" }));
+  await saveNote({ machine: null, agent: "claude", session: "old-conversation" }, quote);
+  const status = new NotesStatus();
+  status.refresh(cx);
+  await settle();
+  const view = footer();
+  expect(button(view.render(cx).node, "Notes")).toBeDefined();
+
+  files.set(record, JSON.stringify({ sessionId: "new-conversation", cwd: "/project" }));
+  button(view.render(cx).node, "Notes")!.click!({}, cx);
+  const browser = new TerminalNotes((opened.at(-1) as any).props, cx);
+  await settle();
+  expect(browser.scope.session).toBe("new-conversation");
+  expect(browser.items).toEqual([]);
+  status.refresh(cx);
+  await settle();
+  expect(button(view.render(cx).node, "Notes")).toBeUndefined();
+});
+
+test("an unreadable notes file clears availability without overwriting the notes", async () => {
+  await saveNote({ machine: null, terminalRun: "t7:100" }, quote);
+  const status = new NotesStatus();
+  status.refresh(cx);
+  await settle();
+  const view = footer();
+  expect(button(view.render(cx).node, "Notes")).toBeDefined();
+  const path = [...files.keys()][0];
+  files.set(path, "{ incomplete");
+  status.refresh(cx);
+  await settle();
+  expect(button(view.render(cx).node, "Notes")).toBeUndefined();
+  expect(files.get(path)).toBe("{ incomplete");
 });
 
 test("a saved note keeps the exact quote, optional comment, and selection anchor", async () => {

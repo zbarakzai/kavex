@@ -168,7 +168,12 @@ on this screen in `shared("spaces.recent")`.
   with the same address; its original command is never run again. Splits
   and mod panes stay. An exited or killed terminal is closed, not restarted.
   Focus, zoom, recent spaces, settled tabs and seen attention stay on this screen.
-- **Terminal notes:** Select text and release the mouse for **Add note** and **Copy**.
+- **Terminal notes:** Drag to select text and release the mouse for **Add note** and **Copy**,
+  including inside agents that track the mouse; Shift is not required. Plain clicks still
+  go to the program. Hold Alt when a mouse-tracking program should handle a drag itself.
+  **Notes**, beside **System** in the footer, opens the visible session's saved notes;
+  it appears only when that session has notes. The agents mod publishes its current
+  source, scope and count in `shared("terminal.notes")`; saves update `shared("terminal.notes.changed")`.
   A note saves the selected text with an optional comment. Cmd+Enter on macOS or
   Ctrl+Enter elsewhere saves from the editor. Open the command palette
   (Cmd+Shift+P on macOS, Ctrl+Shift+P elsewhere), type `%note`, and press Enter to
@@ -816,7 +821,7 @@ The main ones:
   with no terminal holding keyboard focus, they use the focused pane or block.
   Dragging a text selection past the terminal's top or bottom scrolls while held;
   releasing stops it. Programs that track the mouse still get their mouse events
-  (hold Shift to select text instead). A drag stays with the terminal where it
+  (hold Alt to send a drag to the program; ordinary drags select text). A drag stays with the terminal where it
   started, including its release outside the pane; other panes don't receive it.
   Terminals display Kitty graphics, including Unicode placeholder images used by
   programs such as yazi; partial images and scrolling follow the placeholder cells.

@@ -1,8 +1,8 @@
 import { div, svg } from "gpui-kit";
 import * as ui from "gpui-base";
-import { closeOverlay, focused, notify, openOverlay, revealTerminalNote, terminals, theme, window } from "herdr";
+import { closeOverlay, notify, openOverlay, revealTerminalNote, theme, window } from "herdr";
 import { MONO } from "./look.js";
-import { noteScope, terminalScope } from "./notes-scope.js";
+import { noteScope, noteSource, terminalScope } from "./notes-scope.js";
 import { listNotes, saveNote } from "./notes-store.js";
 
 const ROW_GAP = 5;
@@ -32,24 +32,10 @@ function keyHint(t, keys, text) {
     .child(text);
 }
 
-function terminalSource(p) {
-  if (p.source) return p.source;
-  const focus = focused();
-  const address = p.terminal ?? focus?.shown ?? focus?.terminal;
-  const term = terminals().find((t) => t.address === address);
-  if (!term) return null;
-  return {
-    address, created_ms: term.created_ms, pid: term.pid,
-    foreground: { pid: term.foreground?.pid },
-    program: { key: term.program?.key },
-    labels: { "kavex.session": term.labels?.["kavex.session"] },
-  };
-}
-
 export class TerminalNotes {
   constructor(p, cx) {
     this.p = p;
-    this.source = terminalSource(p);
+    this.source = noteSource(p);
     this.items = [];
     this.at = 0;
     this.busy = p.notes !== "selection";
@@ -151,7 +137,7 @@ export class TerminalNotes {
     cx.notify();
     cx.spawn(async (cx) => {
       try {
-        const source = terminalSource({ terminal });
+        const source = noteSource({ terminal });
         const current = this.showTerminal ? terminalScope(source) : await noteScope(source);
         const scope = this.showTerminal ? this.runScope : this.scope;
         if (JSON.stringify(current) === JSON.stringify(scope) && await revealTerminalNote(terminal, note.anchor ?? null, note.text)) {
