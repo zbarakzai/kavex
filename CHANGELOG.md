@@ -1,5 +1,21 @@
 # Kavex changelog
 
+## [0.6.0] - 2026-11-23
+
+### New
+
+- **More accounts in Usage.** Open **Usage** below the workspace to see your provider limits, reset times, and history for the active machine. Choose percentages used or left and manage provider access under **Accounts**. (#24)
+- **See what is using your computer.** Click **System** to see live CPU and memory readings for this computer, Kavex, and local agent sessions. (#27)
+- **Keep your computer awake.** Click **Keep awake** to prevent idle sleep while Kavex is open or only while local agents are working. The dot shows when Kavex is keeping the computer awake. (#28)
+- **File and folder icons.** Files and Changes use the Symbols icon set to distinguish languages, file types, and common folders. (#25)
+
+### Fixed
+
+- Usage refreshes while Kavex is active and after known resets. A provider that fails to refresh no longer holds up the other readings. (#24)
+- The sidebar snaps to an icon rail when narrowed, and the default workspace keeps tabs above terminals. (#24)
+- Toolbar and collapsed-sidebar tooltips stay clear of the controls they describe. (#26)
+- Selected toolbar and menu controls use outline icons, and the footer uses evenly spaced labels for System, Usage, and Keep awake. (#29)
+
 ## [0.5.0] - 2026-11-22
 
 ### New
