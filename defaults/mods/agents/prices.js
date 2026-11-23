@@ -3,11 +3,11 @@
 // a similar name. Every figure comes from the provider's own pricing page, and the list is
 // checked at each release (see the release steps in AGENTS.md).
 //
-// Claude: platform.claude.com/docs/en/about-claude/pricing, read 2026-11-22.
+// Claude: platform.claude.com/docs/en/about-claude/pricing, read 2026-11-23.
 // `fast` is fast mode: the page gives its input and output, and its caching multipliers apply on
 // top of those. `over` is the price of a message whose prompt is over `tokens`, cache included.
 //
-// OpenAI: developers.openai.com/api/docs/pricing, read 2026-11-22.
+// OpenAI: developers.openai.com/api/docs/pricing, read 2026-11-23.
 // Standard and Fast tiers, short and long context; long is a response over 272K input tokens.
 // `read` is cached input. Cache writes aren't listed: the page prices 30-minute and 12-hour ones
 // and Codex writes one figure, so a session with any reads "no price". The page's "-" is no price
