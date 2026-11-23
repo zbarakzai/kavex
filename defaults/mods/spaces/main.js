@@ -393,7 +393,7 @@ export default class Spaces extends View {
       changed = true;
     }
     if (changed) setShared("space.colors", kept);
-    const add = control("space-new", "New space", "mods/workspace-chrome/icons/plus.svg", () => run("space.new"));
+    const add = control("space-new", "New space", "mods/workspace-chrome/icons/heroicons/plus.svg", () => run("space.new"));
     const header = collapsed
       ? v_flex().h(RAIL_HEADER).flex_none().gap(4).items_center().justify_center()
         .child(div().id("space-rail-label").font_family(MONO).text_size(9).text_color(k.label).child("SPACES"))
@@ -401,7 +401,7 @@ export default class Spaces extends View {
       : h_flex().pt(14).pb(4).pl(10).items_center().justify_between()
         .child(sectionLabel(k, "SPACES"))
         .child(h_flex().gap(2)
-          .child(control("space-recent", RECENT_LABEL, "icons/folder-open.svg", () => this.openRecent()))
+          .child(control("space-recent", RECENT_LABEL, "mods/workspace-chrome/icons/heroicons/folder-open.svg", () => this.openRecent()))
           .child(add));
     return v_flex().size_full().min_h(0).text_size(13)
       .child(header)

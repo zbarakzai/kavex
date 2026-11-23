@@ -9,8 +9,8 @@ import { SkillsPage } from "./skills-page.js";
 
 const I = (name) => `mods/workspace-chrome/icons/${name}.svg`;
 const PAGES = [
-  { id: "skills", title: "Skills", icon: "layers" },
-  { id: "review", title: "Code review", icon: "changes" },
+  { id: "skills", title: "Skills", icon: "heroicons/square-3-stack-3d" },
+  { id: "review", title: "Code review", icon: "heroicons/document-magnifying-glass" },
 ];
 
 export default class Customize extends View {
@@ -45,7 +45,7 @@ export default class Customize extends View {
       .child(h_flex().id("cz-back").h(30).flex_none().px(10).gap(6).items_center().rounded(9).cursor_pointer().text_color(t.label)
         .hover((s) => s.bg(t.hover).text_color(t.foreground))
         .on_click(() => this.close())
-        .child(svg(I("chevron-left")).size(16).flex_none()).child(div().text_size(13).child("Back to Kavex")))
+        .child(svg(I("heroicons/chevron-left")).size(16).flex_none()).child(div().text_size(13).child("Back to Kavex")))
       .child(h_flex().h(44).flex_none().px(10).items_center().text_size(16).font_medium().text_color(t.foreground).child("Customize"))
       .children(PAGES.map((p) => this.navRow(t, `cz-p-${p.id}`, p.icon, p.title, p.id === this.page, (_e, cx) => {
         this.page = p.id;
@@ -60,7 +60,7 @@ export default class Customize extends View {
       .child(div().text_size(22).font_medium().text_color(t.foreground).child("Code review"))
       .child(div().text_size(13.5).text_color(t.muted).child("Review changes with your agents."))
       .child(v_flex().w_full().pt(120).gap(12).items_center()
-        .child(h_flex().size(40).rounded(20).items_center().justify_center().border_1().border_color(t.card_border).text_color(t.label).child(svg(I("changes")).size(16)))
+        .child(h_flex().size(40).rounded(20).items_center().justify_center().border_1().border_color(t.card_border).text_color(t.label).child(svg(I("heroicons/document-magnifying-glass")).size(16)))
         .child(div().text_size(13.5).text_color(t.foreground).child("Coming soon"))
         .child(div().text_size(12.5).text_color(t.label).child("Code review settings will be here.")));
   }

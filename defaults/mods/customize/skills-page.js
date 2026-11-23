@@ -240,7 +240,7 @@ export class SkillsPage {
       .when(Boolean(onClick), (el) => el.on_click(onClick))
       .when(Boolean(icon), (el) => el.child(svg(I(icon)).size(16).flex_none()))
       .child(label)
-      .when(caret, (el) => el.child(svg(I("chevron-down")).size(12).flex_none()));
+      .when(caret, (el) => el.child(svg(I("heroicons/chevron-down")).size(12).flex_none()));
   }
 
   iconButton(t, id, icon, onClick, { on = false, spinning = false } = {}) {
@@ -320,10 +320,10 @@ export class SkillsPage {
         .child(div().text_size(13.5).text_color(t.muted).child("Extend every agent with task-specific skills")))
       .child(h_flex().flex_none().gap(6).items_center()
         .child(h_flex().w(240).h(32).px(12).gap(8).items_center().rounded(999).border_1().border_color(t.pill_ring)
-          .child(svg(I("search")).size(16).flex_none().text_color(t.dim))
+          .child(svg(I("heroicons/magnifying-glass")).size(16).flex_none().text_color(t.dim))
           .child(div().flex_1().min_w(0).text_size(13).child(Input.new(this.search).h(26).text_color(t.foreground))))
-        .child(this.iconButton(t, "cz-refresh", "refresh", (_e, cx) => this.refresh(cx), { spinning: checking }))
-        .child(this.popover("options", this.iconButton(t, "cz-options", "settings", null, { on: this.menu === "options" }), () => this.dropdown(t)))
+        .child(this.iconButton(t, "cz-refresh", "heroicons/arrow-path", (_e, cx) => this.refresh(cx), { spinning: checking }))
+        .child(this.popover("options", this.iconButton(t, "cz-options", "heroicons/cog-6-tooth", null, { on: this.menu === "options" }), () => this.dropdown(t)))
         .child(this.popover("add", this.button(t, "cz-add", "Add", null, { solid: true, caret: true }), () => this.dropdown(t))));
   }
 

@@ -136,7 +136,7 @@ export default class Picker extends View {
         const label = r.kind === "new" ? "New tab" : r.machine ? `New space on ${r.machine}` : "New space";
         return picks(h_flex().id(r.kind === "new" ? "pk-new" : `pk-space-${r.machine ?? "here"}`), r)
           .child(h_flex().size(22).flex_none().rounded(6).bg(k.tile).items_center().justify_center().text_color(k.tile_text)
-            .child(svg("mods/workspace-chrome/icons/plus.svg").size(16).flex_none()))
+            .child(svg("mods/workspace-chrome/icons/heroicons/plus.svg").size(16).flex_none()))
           .child(div().flex_1().min_w(0).truncate().text_color(k.text_secondary).child(label));
       }
       const others = Math.max(0, r.mine.length - 1) + r.team, here = r.w.active && r.ctx.active;
@@ -192,7 +192,7 @@ export default class Picker extends View {
         cx.notify();
       })
       .child(h_flex().h(SEARCH).flex_none().m(GUTTER).px(14).gap(10).items_center().rounded(10).bg(k.card).border_1().border_color(k.card_border)
-        .child(svg("mods/workspace-chrome/icons/search.svg").size(16).flex_none().text_color(k.text_faint))
+        .child(svg("mods/workspace-chrome/icons/heroicons/magnifying-glass.svg").size(16).flex_none().text_color(k.text_faint))
         .child(Input.new(this.input).flex_1().h_full().text_size(13).text_color(k.foreground)))
       .child(v_flex().h(Math.min(MOST, tall)).min_h(0).flex_shrink(1).px(GUTTER).gap(GUTTER).overflow_y_scrollbar().children(cards.map(card)))
       .child(h_flex().h(FOOTER).flex_none().px(EDGE).gap(14).items_center()

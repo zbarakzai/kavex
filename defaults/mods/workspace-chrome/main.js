@@ -19,9 +19,9 @@ function find(node, id) {
 const FOOTER_MENU = "workspace-actions";
 const MENU_WIDTH = 184, MENU_ROW = 30, MENU_PAD = 4;
 const FOOTER_ACTIONS = [
-  { id: "usage", label: "Usage limits", icon: "gauge" },
-  { id: "machine", label: "Add machine", icon: "machine", mod: "machine-add" },
-  { id: "customize", label: "Customize", icon: "layers", mod: "customize" },
+  { id: "usage", label: "Usage limits", icon: "heroicons/chart-pie" },
+  { id: "machine", label: "Add machine", icon: "heroicons/server-stack", mod: "machine-add" },
+  { id: "customize", label: "Customize", icon: "heroicons/square-3-stack-3d", mod: "customize" },
 ];
 function hasUsageButton(node) {
   if (!node || node.hidden) return false;
@@ -164,12 +164,12 @@ export default class WorkspaceChrome extends View {
   footer(t) {
     const k = look(t), collapsed = narrow();
     this.warned = menuShowsUsage() && warning();
-    const settings = this.action("settings", "settings", "Settings", () => run("app.settings"), k, collapsed ? 30 : 24, updates().app.ready ? k.accent : null, collapsed);
+    const settings = this.action("settings", "heroicons/cog-6-tooth", "Settings", () => run("app.settings"), k, collapsed ? 30 : 24, updates().app.ready ? k.accent : null, collapsed);
     const bar = h_flex().size_full().pb(4).items_center();
     if (collapsed) return bar.justify_center().child(settings);
 
     const mark = this.warned ? k.blocked : skillUpdates() ? k.accent : null;
-    const more = this.action("footer-more", "more", "More actions", () => this.openActions(), k, 24, mark);
+    const more = this.action("footer-more", "heroicons/bars-3", "More actions", () => this.openActions(), k, 24, mark);
     const list = agents().length, tail = `· ${list} ${list === 1 ? "AGENT" : "AGENTS"}`;
     const machine = (spaces().find(s => s.active)?.machine ?? "This computer").toUpperCase();
     return bar.gap(2).pl(4).child(h_flex().flex_1().min_w(0).items_center()
@@ -213,6 +213,6 @@ export default class WorkspaceChrome extends View {
     return h_flex().size_full().pl(mac && !collapsed ? 76 : 8).gap(8).items_center()
       .when(!collapsed, el => el.child(image("mods/workspace-chrome/logo.png").size(22).flex_none())
         .child(div().flex_1().min_w(0).truncate().text_size(16).font_medium().text_color(t.foreground).child("Kavex"))
-        .child(this.button("search", svg("mods/workspace-chrome/icons/search.svg").size(16), () => run("mod.open", { name: "picker" }), t)));
+        .child(this.button("search", svg("mods/workspace-chrome/icons/heroicons/magnifying-glass.svg").size(16), () => run("mod.open", { name: "picker" }), t)));
   }
 }

@@ -41,8 +41,9 @@ function isActive(mode) {
 const activityLabel = (active) => active ? "Active" : "Inactive";
 const activityDot = (t, active) => div().size(6).flex_none().rounded_full().bg(active ? (t.added ?? t.accent) : t.dim);
 
-const footerButton = (id, label, t) => h_flex().id(id).h(STATUS_HEIGHT).px(7).gap(6).items_center().flex_none()
-  .rounded(7).role("button").accessibility_label(label).cursor_pointer()
+const footerButton = (id, label, t) => h_flex().id(id).h(STATUS_HEIGHT).px(5).gap(5).items_center().flex_none()
+  .rounded(7).border_1().border_color(CLEAR).role("button").accessibility_label(label).cursor_pointer()
+  .focus((el) => el.border_color(t.accent).text_color(t.foreground))
   .hover((el) => el.bg(t.hover_strong ?? t.hover).text_color(t.foreground));
 
 function lidNote() {
@@ -146,15 +147,13 @@ export default class WorkspaceStatus extends View {
   awakeButton(t) {
     const { mode, label } = selectedMode();
     const active = isActive(mode);
-    const name = `${TITLE}, ${label} · ${activityLabel(active)}`;
-    const button = footerButton("keep-awake", name, t).w(84).px(6).justify_center()
-      .border_1().border_color(CLEAR).tab_index(0)
+    const status = `${label} · ${activityLabel(active)}`;
+    const button = footerButton("keep-awake", `${TITLE}, ${status}`, t).tab_index(0)
       .text_color(active ? t.foreground : t.muted)
-      .focus((el) => el.border_color(t.accent).text_color(t.foreground))
       .on_mouse_down("left", (e) => { this.awakePress = { at: Date.now(), bounds: e.bounds }; })
       .on_click((_e, cx) => this.openAwake(cx))
       .child(svg(CUP).size(STATUS_ICON).flex_none())
-      .child(div().min_w(0).max_w(36).truncate().child(label))
+      .child("Keep awake")
       .child(activityDot(t, active));
     const closed = shared("popup.closed");
     if (this.awakeOpenedAt && closed?.from === AWAKE_SOURCE && closed.at >= this.awakeOpenedAt) {
@@ -167,6 +166,7 @@ export default class WorkspaceStatus extends View {
       .content(v_flex().role("tooltip").w(236).mb(6).px(10).py(7).gap(3).rounded(6).bg(t.canvas)
         .border_1().border_color(t.input)
         .child(div().text_size(12).font_medium().text_color(t.foreground).child(TITLE))
+        .child(div().text_size(11.5).text_color(t.muted).child(status))
         .child(div().text_size(11.5).line_height("15px").text_color(t.muted).child(lidNote())));
   }
 
@@ -228,10 +228,9 @@ export default class WorkspaceStatus extends View {
     const space = spaces().find((space) => space.active);
     if (!config?.usage && !config?.monitor) return this.legacy(t, space);
 
-    return h_flex().size_full().px(9).gap(4).items_center().justify_end().text_size(11.8).text_color(t.muted)
+    return h_flex().size_full().px(9).gap(2).items_center().justify_end().text_size(11.8).text_color(t.muted)
       .when(config.monitor, (el) => el.child(footerButton(MONITOR, "System monitor", t).tooltip("System monitor")
-        .when(Boolean(this.monitorFocus), (el) => el.track_focus(this.monitorFocus).tab_stop(true)
-          .border_1().border_color(`${t.surface.slice(0, 7)}00`).focus((el) => el.border_color(t.accent)))
+        .when(Boolean(this.monitorFocus), (el) => el.track_focus(this.monitorFocus).tab_stop(true))
         .on_key_down((event, cx) => {
           if (event.key !== "enter" && event.key !== "space") return;
           cx.stop_propagation();
@@ -239,11 +238,12 @@ export default class WorkspaceStatus extends View {
         })
         .on_mouse_down("left", (e) => { this.monitorPressed = { at: Date.now(), bounds: e.bounds }; })
         .on_click(() => this.openMonitor())
-        .child(svg(`${ICONS}/memory.svg`).size(STATUS_ICON).flex_none())))
+        .child(svg(`${ICONS}/heroicons/cpu-chip.svg`).size(STATUS_ICON).flex_none())
+        .child("System")))
       .when(config.usage && shared("usage.enabled") !== false, (el) => el.child(footerButton(SOURCE, "Usage limits", t)
         .on_mouse_down("left", (e) => { this.pressed = { at: Date.now(), bounds: e.bounds }; })
         .on_click(() => this.open(space?.machine ?? null))
-        .child(svg(`${ICONS}/gauge.svg`).size(STATUS_ICON).flex_none())
+        .child(svg(`${ICONS}/heroicons/chart-pie.svg`).size(STATUS_ICON).flex_none())
         .child("Usage")))
       .when(config.usage, (el) => el.child(this.awakeButton(t)));
   }

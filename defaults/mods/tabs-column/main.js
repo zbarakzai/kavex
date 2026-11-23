@@ -345,8 +345,8 @@ export default class TabsColumn extends View {
         .child(div().flex_none().font_family(MONO).text_size(11).text_color(k.label).child(String(list.length)))
         .child(div().flex_1())
         .child(h_flex().flex_none().gap(2).items_center()
-          .child(tool("column-group", "mods/workspace-chrome/icons/layers.svg", () => active && this.group(picks), picks.length > 1))
-          .child(tool("column-new", "mods/workspace-chrome/icons/plus.svg", () => openOverlay({ mod: "new-menu", kind: "popup", at: this.under(250), width: 250, height: 512, props: { from: "column-new" } })))))
+          .child(tool("column-group", "mods/workspace-chrome/icons/heroicons/square-3-stack-3d.svg", () => active && this.group(picks), picks.length > 1))
+          .child(tool("column-new", "mods/workspace-chrome/icons/heroicons/plus.svg", () => openOverlay({ mod: "new-menu", kind: "popup", at: this.under(250), width: 250, height: 512, props: { from: "column-new" } })))))
       .child(v_flex().id("column-list").flex_1().min_h(0).gap(COLUMN.gap).px(INSET).pb(12).overflow_y_scrollbar()
         .when(stay.length > 0 || Boolean(d?.moving.tabs), (el) => el.child(v_flex().flex_none().gap(COLUMN.rowGap)
           // With no loose tabs there's no section yet: nothing shifts until a row heads here.

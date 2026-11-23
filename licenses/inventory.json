@@ -136,8 +136,8 @@
       ]
     },
     {
-      "name": "Heroicons Folder Open",
-      "source": "https://github.com/tailwindlabs/heroicons/blob/v2.2.0/optimized/16/solid/folder-open.svg",
+      "name": "Heroicons 2.2.0",
+      "source": "https://github.com/tailwindlabs/heroicons/tree/v2.2.0/optimized",
       "files": [
         "defaults/icons/LICENSE-Heroicons.txt"
       ]
