@@ -1,10 +1,10 @@
-# Zaki icon set: request for Claude Design
+# Kavex icon set: request for Claude Design
 
-Please draw one consistent set of **52 interface icons** for Zaki, a native desktop app for terminals and coding agents. Today's icons come from several sources and don't match.
+Please draw one consistent set of **52 interface icons** for Kavex, a native desktop app for terminals and coding agents. Today's icons come from several sources and don't match.
 
 The look follows the rest of the design: clean, flat, quiet. Rounded line icons, one weight, no decoration. They sit beside Geist and Geist Mono text in a dense dark window, so each must read at 12 to 16px.
 
-Not in this request: agent and program logos (Claude, Codex, Cursor, Node, Docker and the rest in `defaults/icons/`), the Zaki app icon, and the Zaki 98 retro art.
+Not in this request: agent and program logos (Claude, Codex, Cursor, Node, Docker and the rest in `defaults/icons/`), the Kavex app icon, and the Kavex 98 retro art.
 
 ## Format
 

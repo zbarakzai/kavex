@@ -20,7 +20,7 @@
 
 ### New
 
-- **Zaki is now Kavex.** Releases are available on GitHub. Installing Kavex brings over your settings and spaces, and your running terminals stay connected. (#15)
+- **GitHub releases and easier upgrades.** Installing Kavex brings over your settings and spaces, and your running terminals stay connected. (#15)
 - **Bookmark terminal output.** Select text and choose **Add note** to save it with an optional comment. Run `%note` from the command palette to search, copy, or jump back to saved output. Notes follow supported agent sessions when you resume them. (#19)
 - **Pick up a recent project.** Click the open-folder button beside **+** in Spaces to return to a project that’s already open or reopen one you closed. (#20)
 - **Manage skills in one place.** Open **More actions → Customize → Skills** to install from the catalog, a GitHub link, or a local folder. Kavex shares the skill with your local agents and lets you know when an update is available. (#13)
@@ -37,7 +37,7 @@
 ## [0.4.1] - 2026-11-05
 
 ### Fixed
-- Zaki on Windows is faster and lighter. It starts quicker, the window keeps drawing while a new terminal opens, Settings opens without a stall, and an idle or minimized window no longer redraws all the time. (#10)
+- The app on Windows is faster and lighter. It starts quicker, the window keeps drawing while a new terminal opens, Settings opens without a stall, and an idle or minimized window no longer redraws all the time. (#10)
 - Keys you type into a new terminal before it's ready are no longer lost. (#10)
 - Ctrl-click opens Windows paths shown in a terminal, and Ctrl-click on a program shows it in Explorer instead of running it. (#11)
 - Agents show context and cost for Claude Code sessions that use another config folder, such as one set by `CLAUDE_CONFIG_DIR` for a second account. (#11)
@@ -56,21 +56,21 @@
 - **Files uses the Changes tree.** The Files panel now has the same tree as Changes, with file types, folds and single-folder paths on one line. (#3)
 - **Right-click in Files.** Create, rename and delete files, cd or open a tab there, reveal them, attach them to an agent, or copy their path. Deleting always asks. On your computer it goes to the Trash, and on another machine it's gone for good. (#3)
 - **Switch branch from Changes.** The branch pill shows your branch and switches it, and refuses to overwrite uncommitted work. (#3)
-- **Settings in the new design.** Settings now looks like the rest of Zaki, and Settings > Look has switches to turn the Files and Changes panels off or on. (#3)
+- **Settings in the new design.** Settings now matches the rest of the app, and Settings > Look has switches to turn the Files and Changes panels off or on. (#3)
 - **Softer menus and dialogs.** Every menu, dropdown and dialog has the same rounded corners and fades in smoothly as it opens. (#3)
-- **A new logo.** The ram is now Zaki's app icon, and it sits beside the name at the top of the sidebar. (#3)
+- **A new logo.** The ram is now the app icon, and it sits beside the name at the top of the sidebar. (#3)
 - **New interface icons.** One matching set across the app. Personal mods can load them from `mods/workspace-chrome/icons/`. The old icon paths still work in this release and will be removed in the next one, and so will the status bar's mod, kept for layouts you cloned. (#3)
 - **Language logos in the file trees.** Files and Changes show each file's real logo, such as React, Python or Rust, in your theme's color. (#3)
 - **Context on every agent.** Each Claude Code, Codex and Pi row in Agents, and its tab in the Tabs column, shows how full its session's context is, orange from 90%. (#8)
 - **A dropdown on the agent's logo.** Click an agent's logo to see its model, a context bar, its API cost and its token counts. On a subscription, API cost is what the session would cost on the API, not what you paid. The chevron still folds sub-agents. (#8)
-- **Zaki adds a hook to Codex.** To tell agents apart, Zaki adds a small hook to `~/.codex/hooks.json` by itself, keeping your own hooks, and keeps its script in `~/.zaki`. Zaki never approves it: run `/hooks` in Codex once, trust Zaki's hook and restart that Codex. Until then its row shows `–`. (#8)
-- **Zaki adds an extension to Pi.** To tell agents apart, Zaki adds a small extension at `~/.pi/agent/extensions/zaki-session.ts` by itself, keeping your other extensions. There's nothing to approve. A Pi already running needs `/reload`, and until then its row shows `–`. (#8)
+- **Codex session tracking.** The app adds a small hook to `~/.codex/hooks.json` to tell agents apart and keeps your own hooks. Run `/hooks` in Codex once, approve the app’s hook, and restart Codex. Until then its row shows `–`. (#8)
+- **Pi session tracking.** The app adds a small extension to tell agents apart and keeps your other extensions. There's nothing to approve. A Pi already running needs `/reload`, and until then its row shows `–`. (#8)
 - **Softer bars from agents.** The gray bars agents draw behind your messages and their input box are now soft, rounded and the same height. (#8)
 - **Usage limits in the sidebar.** A gauge in the sidebar's footer shows how much of your Claude Code, Codex and OpenCode Go subscriptions is left, each limit with its time to reset. Settings turns it off. (#6)
 - **A warning before you run out.** Usage limits say when you'd run out at your current pace, and a toast warns you at 90%. (#7)
 - **A Markdown reader.** Read Markdown files in the Files panel, opened from any terminal. (#5)
 - **A new loader and start screen.** Working agents show a triangle loader, and with no space open you get an animated ram and a code trail. (#4)
-- **The picker and Add a machine in the new design.** Both now look like the rest of Zaki. (#6)
+- **The picker and Add a machine in the new design.** Both now match the rest of the app. (#6)
 
 ## [0.3.0] - 2026-10-31
 
@@ -88,9 +88,9 @@
 ## [0.2.0] - 2026-10-31
 
 ### New
-- Herdr is now Zaki: a new name, a new logo, and its own settings in `~/.config/zaki`.
-- Zaki installs and updates from its own private link, on macOS, Linux and Windows.
-- Zaki sends no usage data or feedback.
+- The app has a new name, a new logo, and its own settings folder.
+- The app installs and updates from its own private link on macOS, Linux and Windows.
+- The app sends no usage data or feedback.
 
 ## [0.1.10] - 2026-10-30
 

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Zaki V2 — tabs on the right or on top</title>
+<title>Kavex V2 — tabs on the right or on top</title>
 <script src="./support.js"></script>
 </head>
 <body>
@@ -18,7 +18,7 @@ body{margin:0}
 <aside aria-label="Spaces" style="flex: 1 1 220px; min-width: 0; display: flex; flex-direction: column; gap: 2px; padding: 0 4px">
 <div style="display: flex; align-items: center; gap: 8px; height: 44px; padding-left: 8px">
 <span aria-hidden="true" style="display: flex; gap: 7px"><span style="width: 11px; height: 11px; border-radius: 50%; background: #2E2E2E"></span><span style="width: 11px; height: 11px; border-radius: 50%; background: #2E2E2E"></span><span style="width: 11px; height: 11px; border-radius: 50%; background: #2E2E2E"></span></span>
-<span style="flex: 1; font-size: 16px; font-weight: 500; margin-left: 10px">Zaki</span>
+<span style="flex: 1; font-size: 16px; font-weight: 500; margin-left: 10px">Kavex</span>
 <button aria-label="Search" style="width: 30px; height: 30px; display: grid; place-items: center; border: 0; cursor: pointer; background: transparent; color: #A8A8A8; border-radius: 8px; padding: 0"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg></button>
 </div>
 <h2 style="margin: 14px 0 4px; padding-left: 10px; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 10.5px; font-weight: 500; letter-spacing: 0.1em; color: #8E8E8E">SPACES</h2>
@@ -28,7 +28,7 @@ body{margin:0}
 </button>
 <button aria-current="true" style="display: flex; align-items: center; gap: 10px; padding: 5px 8px; border: 0; cursor: pointer; font: inherit; color: inherit; border-radius: 10px; background: #1C1C1C; text-align: left; width: 100%">
 <span aria-hidden="true" style="flex: none; width: 26px; height: 26px; border-radius: 7px; background: {{accent}}; display: grid; place-items: center; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11.5px; font-weight: 600; color: #140A05">Z</span>
-<span style="flex: 1; font-size: 13.5px">zaki</span>
+<span style="flex: 1; font-size: 13.5px">kavex</span>
 </button>
 <button style="display: flex; align-items: center; gap: 10px; padding: 5px 8px; border: 0; cursor: pointer; font: inherit; color: inherit; border-radius: 10px; background: transparent; text-align: left; width: 100%">
 <span aria-hidden="true" style="flex: none; width: 26px; height: 26px; border-radius: 7px; background: #1F1F1F; display: grid; place-items: center; font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11.5px; color: #CFCFCF">G</span>
@@ -48,12 +48,12 @@ body{margin:0}
 <sc-if value="{{right}}" hint-placeholder-val="{{ true }}">
 <div style="display: flex; align-items: center; gap: 10px; height: 40px; padding: 0 16px 0 14px; border-radius: 13px; background: #1F1F1F; box-shadow: inset 0 0 0 1px #2C2C2C; font-size: 14px">
 <span aria-hidden="true" style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 12.5px; color: {{accent}}">&gt;_</span>Claude Code
-<span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 10.5px; letter-spacing: 0.06em; color: #8E8E8E">~/DESKTOP/OPEN-SOURCE/ZAKI</span>
+<span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 10.5px; letter-spacing: 0.06em; color: #8E8E8E">~/DESKTOP/OPEN-SOURCE/KAVEX</span>
 </div>
 </sc-if>
 
 <sc-if value="{{top}}" hint-placeholder-val="{{ false }}">
-<div role="tablist" aria-label="Tabs in zaki" style="display: flex; align-items: center; flex-wrap: wrap; gap: 6px">
+<div role="tablist" aria-label="Tabs in kavex" style="display: flex; align-items: center; flex-wrap: wrap; gap: 6px">
 <sc-for list="{{groups}}" as="g" hint-placeholder-count="3">
 <div role="group" aria-label="{{g.name}}" style="display: flex; align-items: center; gap: 2px; height: 40px; box-sizing: border-box; padding: 3px; border-radius: 13px; background: {{g.tint}}; box-shadow: inset 0 0 0 1px {{g.ring}}">
 <button aria-expanded="{{g.barOpenAttr}}" onClick="{{g.barToggle}}" style="display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 10px 0 11px; border: 0; cursor: pointer; font: inherit; border-radius: 10px; background: transparent; color: {{g.color}}; font-size: 13.5px; font-weight: 600">{{g.name}}<sc-if value="{{g.barClosed}}" hint-placeholder-val="{{ false }}"><span style="font-family: 'Geist Mono', ui-monospace, monospace; font-size: 11px; font-weight: 400; color: #9A9A9A">{{g.count}}</span><sc-if value="{{g.hasNeeds}}" hint-placeholder-val="{{ false }}"><span aria-label="needs you" style="width: 7px; height: 7px; border-radius: 50%; background: {{accent}}"></span></sc-if></sc-if></button>
@@ -112,7 +112,7 @@ body{margin:0}
 </div>
 </div>
 
-<div role="tablist" aria-orientation="vertical" aria-label="Tabs in zaki" style="flex: 1 1 0; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding: 2px 8px 12px">
+<div role="tablist" aria-orientation="vertical" aria-label="Tabs in kavex" style="flex: 1 1 0; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding: 2px 8px 12px">
 
 <div style="display: flex; flex-direction: column; gap: 2px; background: #151515; border: 1px solid #262626; border-radius: 18px; padding: 4px">
 <sc-for list="{{loose}}" as="t" hint-placeholder-count="2">

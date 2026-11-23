@@ -23,7 +23,7 @@ On macOS the app lives in `~/Applications/Kavex.app`.
 Run the command again at any time to reinstall the latest version.
 Downloads are also on the [releases page](https://github.com/zbarakzai/kavex/releases).
 
-Kavex was called Zaki before 0.5.0. Installing Kavex removes the Zaki app and brings your settings, spaces and running terminals over; `~/.config/zaki` is left in place.
+When upgrading from a version before 0.5.0, the installer replaces the old app. Kavex brings over your settings and spaces and reconnects to running terminals. Your original settings folder is preserved.
 
 Linux needs a desktop session and a working Vulkan driver.
 

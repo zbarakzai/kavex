@@ -1,6 +1,6 @@
-# Zaki UI — design handoff (v1 editor + v2 tabs)
+# Kavex UI — design handoff (v1 editor + v2 tabs)
 
-This folder is the agreed design for Zaki's main window. Implement it in the app; don't redesign it.
+This folder is the agreed design for Kavex's main window. Implement it in the app; don't redesign it.
 
 - `tokens.json` — every colour, status, group colour, radius, size and type style. Use these values exactly.
 - `screens/v1-editor.dc.html` — Version 1: sidebar, tab bar on top, real terminal, Changes panel (diff + file tree).
@@ -21,7 +21,7 @@ The `.dc.html` files are mockups in a small template format: `{{ }}` holes, `<sc
 
 ## Sidebar
 
-- Header: window controls, "Zaki", search.
+- Header: window controls, "Kavex", search.
 - **SPACES**: one line per space: a 26px letter tile (`tile`; the current space's tile is solid `accent` with dark text) and the name. No branch under the space; the branch lives in the Changes panel.
 - **AGENTS** (v1 only, see open questions): one line per agent: a 22px agent-icon tile, the space name plus ` · tab number`, a time (`<1m`, `32m`), and a status badge (see Status). No agent-name text, because the icon says which agent it is.
 - Bottom: Settings, Add machine, then a mono line `● THIS COMPUTER · N AGENTS`.
@@ -55,9 +55,9 @@ When placement = right, the tab bar is replaced by one chip showing the current 
 
 One status vocabulary everywhere (sidebar, tab dots, tab rows): done, working, needs you, failed, idle, queued. The badge, dot and colour values are in `tokens.status`. Badges are 17px tall, radius 5, 9px mono uppercase.
 
-## Open questions — ask Zaki before deciding
+## Open questions — ask the maintainer before deciding
 
-1. **Agent icons:** the orange `>_` tile is a placeholder. Zaki will supply the official Claude Code / Codex / Cursor icons as files.
+1. **Agent icons:** the orange `>_` tile is a placeholder. The maintainer will supply the official Claude Code / Codex / Cursor icons as files.
 2. **Sidebar AGENTS list:** v2 drops it because the Tabs column lists every agent. Keep it only when tabs are on top, or remove it everywhere?
 3. **Step progress (`3/5`):** herdr's status protocol (OSC 7501) reports state only. Showing steps needs an extension to that protocol.
 4. **Tab placement setting:** should it be per space (like panels) or global? Should Settings expose it as well as the switch?
