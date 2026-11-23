@@ -3116,7 +3116,7 @@ test("the main footer keeps System monitor, Usage and Keep computer awake togeth
   handler(monitor, "on_mouse_down")({ bounds: BUTTON }, cx);
   handler(monitor, "on_click")({}, cx);
   expect(state.overlays.at(-1)).toMatchObject({
-    mod: "system-monitor", kind: "popup", at: { x: BUTTON.x + BUTTON.width - 442, y: BUTTON.y - 344 },
+    mod: "system-monitor", kind: "popup", at: { x: BUTTON.x + BUTTON.width - 442, y: BUTTON.y - 410 },
     props: { from: "system-monitor-status" },
   });
 

@@ -506,6 +506,94 @@ fn settings_sections_and_updates(cx: &mut TestAppContext) {
 }
 
 #[gpui::test]
+fn system_monitor_scrolls_to_the_last_agent(cx: &mut TestAppContext) {
+    use gpui::{
+        AnyView, Context, ElementId, InteractiveElement as _, IntoElement, Modifiers, MouseButton,
+        ParentElement as _, Render, ScrollHandle, Styled as _, canvas, div, point, px,
+    };
+
+    struct Popup {
+        content: AnyView,
+        scroll: Rc<RefCell<ScrollHandle>>,
+    }
+
+    impl Render for Popup {
+        fn render(&mut self, _: &mut gpui::Window, _: &mut Context<Self>) -> impl IntoElement {
+            let view_id = ElementId::View(self.content.entity_id());
+            let scroll = self.scroll.clone();
+            div().w(px(442.)).flex().overflow_hidden().occlude()
+                .child(self.content.clone())
+                .child(canvas(move |_, window, cx| {
+                    window.with_element_namespace(view_id, |window| {
+                        window.with_element_namespace("system-monitor", |window| {
+                            window.with_element_namespace("monitor-processes", |window| {
+                                // Read the handle retained by the shell's scrollable component.
+                                let component = format!("gpui_shell::scroll::Scrollable<{}>", std::any::type_name::<gpui::Stateful<gpui::Div>>());
+                                window.with_element_namespace(gpui::SharedString::from(component), |window| {
+                                    *scroll.borrow_mut() = window
+                                        .use_keyed_state("monitor-sessions", cx, |_, _| ScrollHandle::new())
+                                        .read(cx)
+                                        .clone();
+                                });
+                            });
+                        });
+                    });
+                }, |_, _, _, _| {}).absolute().size(px(0.)))
+        }
+    }
+
+    cx.update(gpui_shell::init);
+    let staged = Staged::new();
+    let root = staged.wrapper("mods/system-monitor", r#"
+        this.current = {
+            cpu: 21, cores: 8,
+            memory: { used: 8 * 1024 ** 3, total: 16 * 1024 ** 3, available: 8 * 1024 ** 3, percent: 50 },
+            sessions: Array.from({ length: 12 }, (_, i) => ({
+                address: `t${i}`, name: `Agent ${i + 1}`, cpu: 0.8, memory: 64 * 1024 ** 2,
+            })),
+        };
+        "#);
+    let runtime = ShellRuntime::new_isolated().unwrap();
+    let values = fixture(false, props(), updates("current", "current"));
+    gpui_shell::policy::set_default(Policy::new().with_host_module(module(values, Rc::default())).unwrap());
+    let context = cx.add_empty_window();
+    let scroll = Rc::new(RefCell::new(ScrollHandle::new()));
+    context.update(|window, cx| {
+        let root = runtime.try_load(&root, window, cx).unwrap();
+        let content = root.read(cx).content().clone();
+        window.replace_root(cx, |_, _| Popup { content, scroll: scroll.clone() });
+        window.draw(cx).clear(cx);
+    });
+    gpui_shell::policy::set_default(Policy::new());
+    let scroll = scroll.borrow().clone();
+    let bounds = scroll.bounds();
+    assert!(scroll.max_offset().y > px(0.), "the agent rows overflow {bounds:?}");
+
+    let wheel = |context: &mut gpui::VisualTestContext, dy| {
+        context.simulate_event(gpui::ScrollWheelEvent {
+            position: bounds.center(),
+            delta: gpui::ScrollDelta::Pixels(point(px(0.), px(dy))),
+            ..Default::default()
+        });
+        context.update(|window, cx| window.draw(cx).clear(cx));
+    };
+    wheel(context, -1000.);
+    assert_eq!(scroll.offset().y, -scroll.max_offset().y, "the wheel reaches the last agent");
+    wheel(context, 1000.);
+    assert_eq!(scroll.offset().y, px(0.));
+
+    let thumb = point(bounds.right() - px(8.), bounds.top() + px(16.));
+    let end = point(thumb.x, bounds.bottom() - px(1.));
+    let modifiers = Modifiers::none();
+    context.simulate_mouse_move(thumb, None, modifiers);
+    context.simulate_mouse_down(thumb, MouseButton::Left, modifiers);
+    context.simulate_mouse_move(end, MouseButton::Left, modifiers);
+    context.simulate_mouse_up(end, MouseButton::Left, modifiers);
+    context.update(|window, cx| window.draw(cx).clear(cx));
+    assert_eq!(scroll.offset().y, -scroll.max_offset().y, "dragging the thumb reaches the last agent");
+}
+
+#[gpui::test]
 fn animated_images_advance_with_explicit_and_implicit_ids(cx: &mut TestAppContext) {
     use gpui::{IntoElement as _, http_client::{AsyncBody, FakeHttpClient, Response}};
     use image::{Delay, Frame, Rgba, RgbaImage, codecs::gif::GifEncoder};

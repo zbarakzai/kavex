@@ -388,10 +388,10 @@ depends on which power and desktop services are available.
 The **System** button next to **Usage** opens **System monitor**. When focused,
 Enter or Space also opens it. It shows this computer's CPU and memory, a short
 live history, and the CPU and resident memory of Kavex's desktop process and
-local agent sessions. CPU percentages
-are shares of all logical cores. A session includes its terminal process tree;
-shared pages can appear in more than one resident memory figure. The monitor
-samples locally while its popup is open and the window is active.
+local agent sessions. Scroll the agent rows to see the full list. CPU
+percentages are shares of all logical cores. A session includes its terminal
+process tree. Shared pages can appear in more than one resident memory figure.
+The monitor samples locally while its popup is open and the window is active.
 
 Use `mod.open {name: "system-monitor"}` to open it from any layout. Personal
 layouts can set `monitor: true` in the `workspace-status` mod's props to show
