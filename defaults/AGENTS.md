@@ -391,6 +391,7 @@ live history, and the CPU and resident memory of Kavex's desktop process and
 local agent sessions. Scroll the agent rows to see the full list. CPU
 percentages are shares of all logical cores. A session includes its terminal
 process tree. Shared pages can appear in more than one resident memory figure.
+RAM appears on the first reading. CPU arrives after a short sampling interval.
 The monitor samples locally while its popup is open and the window is active.
 
 Use `mod.open {name: "system-monitor"}` to open it from any layout. Personal
