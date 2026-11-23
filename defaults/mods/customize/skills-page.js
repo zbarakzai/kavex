@@ -352,7 +352,7 @@ export class SkillsPage {
       return box(300)
         .child(item("cz-add-link", "branch", "From a GitHub link", "A skill's folder, or a repo of skills", (_e, cx) => { this.menu = null; this.linking = true; this.found = null; this.link.focus(); cx.notify(); }))
         .child(item("cz-add-folder", "folder", "From a folder", "A skill of your own, used where it is", (_e, cx) => this.addFolder(cx)))
-        .child(item("cz-add-suggest", "plus", "Suggest one for the list", "github.com/zbarakzai/zaki-skills", () => { this.menu = null; browse(CATALOG_REPO); }));
+        .child(item("cz-add-suggest", "plus", "Suggest one for the list", "Open the skill catalog on GitHub", () => { this.menu = null; browse(CATALOG_REPO); }));
     const check = shared("skills.check") ?? {}, at = check.at ? new Date(check.at) : null;
     const when = at ? `Last looked at ${String(at.getHours()).padStart(2, "0")}:${String(at.getMinutes()).padStart(2, "0")}` : "Not looked yet";
     const line = (id, title, about, on, onClick) => h_flex().w_full().px(10).py(8).gap(12).items_center()

@@ -183,8 +183,8 @@ on this screen in `shared("spaces.recent")`.
   `kavex.space=<id>` and `kavex.tab=<id>`. **A terminal with those
   labels shows up there**, even one you start yourself:
   `hc run --keep --label kavex.space=<id> --label kavex.tab=<id> -- claude`, plus
-  `--label kavex.group=<name>` to land in a tab group. Labels from when
-  Kavex was Zaki (`zaki.space`, ...) still work: Kavex renames them.
+  `--label kavex.group=<name>` to land in a tab group. Kavex migrates terminal labels
+  from versions before 0.5.0.
   Labels use ids local to that machine; remote ids shown by the app have a
   `<machine>/` prefix (strip it when writing labels on that machine). Adoption
   also enables core keep; `terminal.park` removes the pane and disables keep.
@@ -407,7 +407,7 @@ a GitHub link or a folder:
   and `~/.agents/skills` (Codex, Pi, Gemini CLI, OpenCode, Cursor, Amp). A folder of the person's
   own is linked where it is, never copied. Off removes the links and keeps the copy; Remove deletes
   Kavex's copy (never a folder of the person's). This computer only, not added machines.
-- **The list:** `catalog.json` in github.com/zbarakzai/zaki-skills, rebuilt there every 6 hours from
+- **The list:** `catalog.json` in the [skill catalog repository](https://github.com/zbarakzai/zaki-skills), rebuilt every 6 hours from
   the repos in its `sources.json`, with each repo's files in `files/<owner>/<repo>.json`. Kavex keeps
   the last one it read in `skills-catalog.json`.
 - **Updates:** 20 seconds after the footer starts, then every 6 hours, Kavex reads the list (one
