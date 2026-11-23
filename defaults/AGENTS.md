@@ -376,15 +376,16 @@ the **Used** and **Left** setting. **Accounts** shows provider status and access
 - **Off** in **Settings → Look → Usage limits** hides the Usage button, stops checks, and clears readings,
   usage history, warnings and consent. Display preferences are kept in `shared("usage.presentation")`.
 
-The coffee button next to **Usage** opens **Keep computer awake**. **On** holds the
-computer awake while Kavex runs. **Agent** holds it while a local agent reports
-working, and **Off** returns to normal sleep. Kavex remembers the selection, and
-the dot marks an active hold. The hold works across layouts and ends when Kavex
-quits. On macOS the display can sleep and closing the lid still allows sleep.
-Windows follows the device's lid settings. On Linux the hold depends on which
-power and desktop services are available.
+The **Keep awake** button next to **Usage** opens **Keep computer awake**.
+**On** keeps the computer awake while Kavex runs. **Agent** keeps it awake
+while a local agent reports working. **Off** returns to normal sleep. Kavex
+remembers the selection, and the dot marks an active hold. Hover over
+**Keep awake** to see the selected mode. The hold works across layouts and ends
+when Kavex quits. On macOS the display can sleep and closing the lid still
+allows sleep. Windows follows the device's lid settings. On Linux the hold
+depends on which power and desktop services are available.
 
-The memory icon next to **Usage** opens **System monitor**. When focused,
+The **System** button next to **Usage** opens **System monitor**. When focused,
 Enter or Space also opens it. It shows this computer's CPU and memory, a short
 live history, and the CPU and resident memory of Kavex's desktop process and
 local agent sessions. CPU percentages

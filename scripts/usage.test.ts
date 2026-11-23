@@ -1880,7 +1880,7 @@ test("Keep computer awake sits beside Usage and stays available when usage check
   state.props = { usage: true };
   const status = view.render().el;
   const controls = all(status).filter((el) => ["keep-awake", "usage-status"].includes(arg(el, "id")));
-  expect(controls.map(words)).toEqual([["Usage"], ["Off"]]);
+  expect(controls.map(words)).toEqual([["Usage"], ["Keep awake"]]);
   state.shared["usage.enabled"] = false;
   expect(byId(view.render().el, "keep-awake")).toBeDefined();
   expect(byId(view.render().el, "usage-status")).toBeUndefined();
@@ -3103,9 +3103,16 @@ test("the main footer keeps System monitor, Usage and Keep computer awake togeth
   const monitor = byId(root, "system-monitor-status")!;
   expect(arg(monitor, "accessibility_label")).toBe("System monitor");
   expect(paths(monitor)).toEqual(["mods/workspace-chrome/icons/heroicons/cpu-chip.svg"]);
-  const buttons = all(root).map((el) => arg(el, "id"))
-    .filter((id) => ["system-monitor-status", "usage-status", "keep-awake"].includes(id));
-  expect(buttons).toEqual(["system-monitor-status", "usage-status", "keep-awake"]);
+  const buttons = all(root).filter((el) => ["system-monitor-status", "usage-status", "keep-awake"].includes(arg(el, "id")));
+  expect(buttons.map((el) => arg(el, "id"))).toEqual(["system-monitor-status", "usage-status", "keep-awake"]);
+  expect(buttons.map(words)).toEqual([["System"], ["Usage"], ["Keep awake"]]);
+  expect(arg(root, "gap")).toBe(2);
+  for (const button of buttons) {
+    expect(arg(button, "h")).toBe(24);
+    expect(arg(button, "px")).toBe(5);
+    expect(arg(button, "gap")).toBe(5);
+    expect(arg(button, "w")).toBeUndefined();
+  }
   handler(monitor, "on_mouse_down")({ bounds: BUTTON }, cx);
   handler(monitor, "on_click")({}, cx);
   expect(state.overlays.at(-1)).toMatchObject({
