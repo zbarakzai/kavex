@@ -307,10 +307,13 @@ export class TerminalNotes {
   render() {
     const t = theme();
     if (this.p.notes === "selection") {
-      return ui.h_flex().w_full().p(4).gap(3).items_center()
-        .child(button(t, "add-note", "Add note", () => this.edit(), { primary: true, glyph: "pin" }).px(8))
-        .child(div().w(1).h(18).bg(t.input))
-        .child(button(t, "copy-selection", "Copy", (_e, cx) => { this.copy(this.p.text, cx); this.close(); }, { glyph: "copy" }).px(8));
+      const action = (id, glyph, label, click) => ui.h_flex().id(id).h(31).px(9).gap(10).rounded(7).items_center().flex_none()
+        .accessibility_label(label).cursor_pointer().text_color(t.foreground).hover((el) => el.bg(t.hover)).on_click(click)
+        .child(icon(`heroicons/${glyph}`).text_color(t.muted))
+        .child(label);
+      return ui.v_flex().id("selection-actions").w_full().p(5).gap(2).text_size(12.8)
+        .child(action("add-note", "pencil-square", "Add note", () => this.edit()))
+        .child(action("copy-selection", "clipboard-document", "Copy", (_e, cx) => { this.copy(this.p.text, cx); this.close(); }));
     }
     const edit = this.p.notes === "edit";
     let title = this.scope?.terminalRun || this.showTerminal ? "Terminal notes" : "Session notes";
