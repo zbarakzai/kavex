@@ -28,7 +28,7 @@ const file = JSON.parse(readFileSync(new URL("../defaults/themes/kavex.json", im
 const colors = { background: file.background, ...file.colors };
 let state: { shared: Record<string, any> };
 const input = { on: () => {}, value: () => "", focus: () => {}, set_value: () => {}, set_selected_range: () => {} };
-mock.module("gpui-kit", () => ({ View: class {}, div: make, svg: make, image: make }));
+mock.module("gpui-kit", () => ({ View: class {}, div: make, svg: (path: string) => make().path(path), image: make }));
 mock.module("gpui-base", () => ({ h_flex: make, v_flex: make, InputState: { new: () => input }, Input: { new: make } }));
 mock.module("herdr", () => ({
   hc: async () => ({ code: 0, stdout: '{"machines":[]}', stderr: "" }),
@@ -74,6 +74,17 @@ test("it's the window in small: the canvas behind, rounded to fit the frame, and
   expect([arg(root, "bg"), arg(root, "rounded"), arg(root, "p"), arg(root, "gap")]).toEqual([colors.canvas, 13, 6, 6]);
   const panel = all(root).find((e) => e.kids.some((k) => mine(k) === page))!;
   expect([arg(panel, "bg"), arg(panel, "border_color")]).toEqual([colors.panel, colors.panel_border]);
+});
+
+test("Settings navigation uses outline icons", () => {
+  const tree = open("look").draw();
+  for (const [id, name] of [
+    ["st-s-look", "swatch"], ["st-s-machines", "server-stack"], ["st-s-alerts", "bell"],
+    ["st-s-updates", "arrow-down-tray"], ["st-s-privacy", "shield-check"], ["st-feedback", "chat-bubble-left-right"],
+  ]) {
+    const glyph = all(byId(tree, id)!).find((el) => arg(el, "path"));
+    expect(arg(glyph!, "path")).toBe(`mods/workspace-chrome/icons/heroicons/${name}.svg`);
+  }
 });
 
 test("the shown page is marked like the shown tab", () => {

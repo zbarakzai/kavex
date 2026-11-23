@@ -19,9 +19,9 @@ function find(node, id) {
 const FOOTER_MENU = "workspace-actions";
 const MENU_WIDTH = 184, MENU_ROW = 30, MENU_PAD = 4;
 const FOOTER_ACTIONS = [
-  { id: "usage", label: "Usage limits", icon: "gauge" },
+  { id: "usage", label: "Usage limits", icon: "heroicons/chart-pie" },
   { id: "machine", label: "Add machine", icon: "heroicons/server-stack", mod: "machine-add" },
-  { id: "customize", label: "Customize", icon: "layers", mod: "customize" },
+  { id: "customize", label: "Customize", icon: "heroicons/square-3-stack-3d", mod: "customize" },
 ];
 function hasUsageButton(node) {
   if (!node || node.hidden) return false;

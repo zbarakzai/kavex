@@ -130,7 +130,7 @@ test("the folder and branch buttons each open, select, and close their own view"
   for (const id of ["tab-new", "panel-toggle-files", "panel-toggle-changes"]) {
     expect(arg(byId(actions, id)!, "size")).toBe(28);
   }
-  for (const [id, other, label, icon] of [["files", "changes", "Files", "heroicons/folder"], ["changes", "files", "Changes", "heroicons/share"]]) {
+  for (const [id, other, label, icon] of [["files", "changes", "Files", "heroicons/folder"], ["changes", "files", "Changes", "git-branch-outline"]]) {
     show({ active: other });
     const button = byId(draw(Tabs), `panel-toggle-${id}`)!;
     expect(arg(button, "accessibility_label")).toBe(label);
@@ -177,6 +177,10 @@ test("the side panel header shows only the current view with its own close butto
       const h = header(panel);
       expect([arg(h, "h"), arg(h, "px"), byId(h, "window-buttons")], `${panel} ${width}`).toEqual([46, 6, undefined]);
       expect(byId(h, "panel-expand")).toBeDefined();
+      expect(icons(h)).toEqual([
+        `mods/workspace-chrome/icons/heroicons/arrows-pointing-${width >= 860 ? "in" : "out"}.svg`,
+        "mods/workspace-chrome/icons/heroicons/x-mark.svg",
+      ]);
       const other = panel === "files" ? "changes" : "files";
       expect(byId(h, `panel-${other}`)).toBeUndefined();
       const close = byId(h, `panel-close-${panel}`)!;

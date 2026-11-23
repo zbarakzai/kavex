@@ -321,13 +321,19 @@ afterEach(() => { setSystemTime(); });
 test("the footer exposes More actions and Settings, with three short menu rows", () => {
   const f = footer(), root = f.draw();
   expect(byId(root, "footer-more")).toBeDefined();
-  expect(paths(byId(root, "footer-more")!)).toEqual(["mods/workspace-chrome/icons/more.svg"]);
+  expect(paths(byId(root, "footer-more")!)).toEqual(["mods/workspace-chrome/icons/heroicons/bars-3.svg"]);
   expect(byId(root, "settings")).toBeDefined();
   expect(byId(root, "usage")).toBeUndefined();
   expect(byId(root, "machine")).toBeUndefined();
   expect(byId(root, "customize")).toBeUndefined();
   press(f, "footer-more");
-  expect(words(footerMenu().draw())).toEqual(["Usage limits", "Add machine", "Customize"]);
+  const menu = footerMenu().draw();
+  expect(words(menu)).toEqual(["Usage limits", "Add machine", "Customize"]);
+  expect(paths(menu)).toEqual([
+    "mods/workspace-chrome/icons/heroicons/chart-pie.svg",
+    "mods/workspace-chrome/icons/heroicons/server-stack.svg",
+    "mods/workspace-chrome/icons/heroicons/square-3-stack-3d.svg",
+  ]);
 });
 
 test("More actions offers only Add machine and Customize when Usage has a dedicated button", async () => {
@@ -383,7 +389,7 @@ test("keyboard selection and clicks open the original footer actions", () => {
   expect(state.lastRun).toEqual({ name: "mod.open", args: { name: "customize" } });
 });
 
-test("a Customize update keeps its mark in the menu and on the three-dot button", () => {
+test("a Customize update keeps its mark in the menu and on the More actions button", () => {
   state.shared["skills.updates"] = [{ name: "example" }];
   const f = footer();
   expect(dotOn(f.draw())).toBeDefined();
@@ -1859,6 +1865,7 @@ test("the standalone Usage button opens the roster at the right edge for the act
   expect(status.calls.some(([name]) => name === "justify_end")).toBe(true);
   const strip = byId(status, "usage-status")!;
   expect(words(strip)).toEqual(["Usage"]);
+  expect(paths(strip)).toEqual(["mods/workspace-chrome/icons/heroicons/chart-pie.svg"]);
   handler(strip, "on_mouse_down")({ bounds: BUTTON }, cx);
   handler(strip, "on_click")({}, cx);
   expect(state.overlays.at(-1)).toMatchObject({ mod: "usage", width: 400, props: { from: "usage-status", machine: "vps" } });
@@ -3095,7 +3102,7 @@ test("the main footer keeps System monitor, Usage and Keep computer awake togeth
   const root = view.render(cx).el as El;
   const monitor = byId(root, "system-monitor-status")!;
   expect(arg(monitor, "accessibility_label")).toBe("System monitor");
-  expect(paths(monitor)).toEqual(["mods/workspace-chrome/icons/memory.svg"]);
+  expect(paths(monitor)).toEqual(["mods/workspace-chrome/icons/heroicons/cpu-chip.svg"]);
   const buttons = all(root).map((el) => arg(el, "id"))
     .filter((id) => ["system-monitor-status", "usage-status", "keep-awake"].includes(id));
   expect(buttons).toEqual(["system-monitor-status", "usage-status", "keep-awake"]);

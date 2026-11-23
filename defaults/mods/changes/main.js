@@ -33,7 +33,20 @@ const MOST_LINES = 6000, MOST_FILES = 128, MOST_LISTED = 2000, MOST_UNTRACKED = 
 const commas = (n) => String(n).replace(/\B(?=(\d{3})+$)/g, ",");
 const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
 const minus = "\u2212";
-const icon = (name, size = 16) => svg(`mods/workspace-chrome/icons/${name}.svg`).size(size).flex_none();
+const CONTROL_ICONS = {
+  __proto__: null,
+  branch: "git-branch-outline",
+  commit: "heroicons/document-check",
+  "find-in-diff": "heroicons/document-magnifying-glass",
+  "split-view": "heroicons/view-columns",
+  "file-tree": "heroicons/queue-list",
+  more: "heroicons/ellipsis-horizontal",
+  search: "heroicons/magnifying-glass",
+  "chevron-down": "heroicons/chevron-down",
+  "chevron-left": "heroicons/chevron-left",
+  "chevron-right": "heroicons/chevron-right",
+};
+const icon = (name, size = 16) => svg(`mods/workspace-chrome/icons/${CONTROL_ICONS[name] ?? name}.svg`).size(size).flex_none();
 const store = (name, fallback) => { try { return JSON.parse(localStorage.getItem(name) ?? "null") ?? fallback; } catch { return fallback; } };
 const keep = (name, value) => localStorage.setItem(name, JSON.stringify(value));
 const findNode = (node, id) => { if (!node || typeof node !== "object") return null; if (node.id === id) return node; for (const child of node.children ?? []) { const hit = findNode(child, id); if (hit) return hit; } return null; };

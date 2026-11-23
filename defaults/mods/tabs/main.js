@@ -23,7 +23,7 @@ const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const machineOf = (id) => (id.includes("/") ? id.split("/")[0] : null);
 const TOP = 5, CHIP = 34; // the bar's top padding, which levels it with the window buttons, and a chip's height
 const TOOL_BUTTON = 28;
-const PANELS = [["files", "Files", "heroicons/folder"], ["changes", "Changes", "heroicons/share"]];
+const PANELS = [["files", "Files", "heroicons/folder"], ["changes", "Changes", "git-branch-outline"]];
 
 function toolbarTooltip(id, label, button, k) {
   // Align the right edges so a label in the corner can extend inward while its arrow stays centered.

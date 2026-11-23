@@ -36,7 +36,7 @@ export function drawRecentSpaces(currentProjects, home) {
       run(command, args);
     })
     .child(h_flex().size(28).flex_none().items_center().justify_center().rounded(6).bg(k.tile)
-      .child(glyph("folder").text_color(project.active ? k.accent_text : k.muted)))
+      .child(glyph("heroicons/folder").text_color(project.active ? k.accent_text : k.muted)))
     .child(v_flex().flex_1().min_w(0).gap(1)
       .child(div().truncate().text_size(13).font_medium().text_color(k.foreground).child(project.name))
       .child(div().truncate().font_family(MONO).text_size(10.5).text_color(k.muted).child(subtitle(project, home))))

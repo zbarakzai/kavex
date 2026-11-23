@@ -60,7 +60,7 @@ export default class Customize extends View {
       .child(div().text_size(22).font_medium().text_color(t.foreground).child("Code review"))
       .child(div().text_size(13.5).text_color(t.muted).child("Review changes with your agents."))
       .child(v_flex().w_full().pt(120).gap(12).items_center()
-        .child(h_flex().size(40).rounded(20).items_center().justify_center().border_1().border_color(t.card_border).text_color(t.label).child(svg(I("changes")).size(16)))
+        .child(h_flex().size(40).rounded(20).items_center().justify_center().border_1().border_color(t.card_border).text_color(t.label).child(svg(I("heroicons/document-magnifying-glass")).size(16)))
         .child(div().text_size(13.5).text_color(t.foreground).child("Coming soon"))
         .child(div().text_size(12.5).text_color(t.label).child("Code review settings will be here.")));
   }

@@ -9,11 +9,11 @@ import { loader } from "./loader.js";
 const I = (name) => `mods/workspace-chrome/icons/${name}.svg`;
 
 const SECTIONS = [
-  { id: "look", title: "Look", icon: "look" },
-  { id: "machines", title: "Machines", icon: "machine" },
-  { id: "alerts", title: "Alerts", icon: "alerts" },
-  { id: "updates", title: "Updates", icon: "updates" },
-  { id: "privacy", title: "Privacy", icon: "privacy" },
+  { id: "look", title: "Look", icon: "heroicons/swatch" },
+  { id: "machines", title: "Machines", icon: "heroicons/server-stack" },
+  { id: "alerts", title: "Alerts", icon: "heroicons/bell" },
+  { id: "updates", title: "Updates", icon: "heroicons/arrow-down-tray" },
+  { id: "privacy", title: "Privacy", icon: "heroicons/shield-check" },
 ];
 
 const LOOKS = { main: "Kavex", terminals: "Terminals", win98: "Kavex 98" };
@@ -898,7 +898,7 @@ export default class Settings extends View {
         ),
       )
       .child(div().flex_1())
-      .child(this.navRow(t, "st-feedback", "messages", "Send feedback", false, () => { closeOverlay(props()?.overlay); run("app.feedback"); }));
+      .child(this.navRow(t, "st-feedback", "heroicons/chat-bubble-left-right", "Send feedback", false, () => { closeOverlay(props()?.overlay); run("app.feedback"); }));
     return h_flex()
       .id("settings")
       .track_focus(this.handle)

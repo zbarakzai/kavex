@@ -243,7 +243,7 @@ export default class WorkspaceStatus extends View {
       .when(config.usage && shared("usage.enabled") !== false, (el) => el.child(footerButton(SOURCE, "Usage limits", t)
         .on_mouse_down("left", (e) => { this.pressed = { at: Date.now(), bounds: e.bounds }; })
         .on_click(() => this.open(space?.machine ?? null))
-        .child(svg(`${ICONS}/gauge.svg`).size(STATUS_ICON).flex_none())
+        .child(svg(`${ICONS}/heroicons/chart-pie.svg`).size(STATUS_ICON).flex_none())
         .child("Usage")))
       .when(config.usage, (el) => el.child(this.awakeButton(t)));
   }

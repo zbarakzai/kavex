@@ -38,8 +38,8 @@ const kidStatus = (k) => {
   return s === "error" ? "failed" : s === "done" ? "idle" : s;
 };
 const SORTS = [
-  { id: "priority", label: "Priority", icon: "sort-priority" },
-  { id: "grouped", label: "Grouped by space", icon: "layers" },
+  { id: "priority", label: "Priority", icon: "heroicons/clock" },
+  { id: "grouped", label: "Grouped by space", icon: "heroicons/square-3-stack-3d" },
 ];
 const sortOf = () => SORTS.find((s) => s.id === shared("agents.sort")) ?? SORTS[0];
 

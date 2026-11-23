@@ -103,7 +103,7 @@ export default class TabMenu extends View {
     const others = Object.entries(all).filter(([, g]) => g.tabs.some((id) => here.includes(id)) && !tabs.every((id) => g.tabs.includes(id)));
     return [
       ...(one ? [{ icon: "rename", label: "Rename", act: () => run("tab.rename", { id: tabs[0] }), key: "tab.rename" }] : []),
-      { icon: "layers", label: one ? "New group" : `Group ${tabs.length} tabs`, keep: true, act: (cx) => this.draft(cx), key: "tabs.group" },
+      { icon: "heroicons/square-3-stack-3d", label: one ? "New group" : `Group ${tabs.length} tabs`, keep: true, act: (cx) => this.draft(cx), key: "tabs.group" },
       ...others.map(([id, g]) => ({ dot: groupHue(look(theme()), g.color).text, label: `Add to ${g.name || "group"}`, act: () => this.join(id) })),
       ...(inGroup ? [{ icon: "minus", label: one ? "Remove from group" : "Remove from groups", act: () => setShared("tab.groups", without(tabs)) }] : []),
       { line: true, icon: "plus", label: "New tab", act: () => run("tab.new", { space: p.space }), key: "tab.new" },
@@ -124,7 +124,7 @@ export default class TabMenu extends View {
   }
 
   draftRows() {
-    return [{ icon: "layers", label: "Create group", hint: "Enter", keep: true, act: () => this.create() }];
+    return [{ icon: "heroicons/square-3-stack-3d", label: "Create group", hint: "Enter", keep: true, act: () => this.create() }];
   }
 
   choose(row, cx) {
