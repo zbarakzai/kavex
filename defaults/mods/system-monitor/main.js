@@ -7,7 +7,7 @@ import { look, MONO, soft } from "./look.js";
 
 const INTERVAL = 2000, COLS = 36, ROWS = 8;
 const GUTTER = 5, INSET = 14;
-const PANEL_HEIGHT = 334, MIN_WIDTH = 306;
+const PANEL_HEIGHT = 400, MIN_WIDTH = 306;
 const CPU_COLUMN = 70, MEMORY_COLUMN = 90;
 const NONE = "—";
 const number = (size) => div().font_family(MONO).text_size(size);
@@ -105,7 +105,7 @@ function processTable(k, reading, desktop, agents, sessions) {
     .child(v_flex().px(INSET).flex_none()
       .child(contribution(k, "monitor-desktop", "Kavex desktop", desktop))
       .child(contribution(k, "monitor-agents", agentLabel, agents)))
-    .child(v_flex().id("monitor-sessions").flex_1().min_h(0).px(INSET).pb(6).overflow_y_scrollbar()
+    .child(v_flex().id("monitor-sessions").flex_1().min_h(0).px(INSET).pb(6).overflow_y_scrollbar().mode("always")
       .children(sessions.map((session) => contribution(k, `monitor-${session.address}`, session.name, session, true)))
       .when(Boolean(reading && !sessions.length), (el) => el.child(div().pl(10).pt(3).child(secondary(k, "No local agents running")))));
 }
