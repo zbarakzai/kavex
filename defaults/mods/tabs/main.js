@@ -310,7 +310,7 @@ export default class Tabs extends View {
       .child(div().max_w(170).truncate().child(c.zoomed ? `${name} Z` : name))
       .when(Boolean(dot), (el) => el.child(status === "working" ? loader(k.accent, 2) : div().size(6).rounded(3).flex_none().bg(dot)))
       .when(c.active, (el) => el.child(h_flex().id(`close-${c.id}`).size(20).flex_none().items_center().justify_center().rounded(6).text_color(k.label).hover((s) => s.bg(k.hover_strong).text_color(k.foreground))
-        .on_mouse_down("left", stop).on_click((_e, cx) => { cx.stop_propagation(); run("tab.close", { id: c.id }); }).child(svg("mods/workspace-chrome/icons/close.svg").size(16))));
+        .on_mouse_down("left", stop).on_click((_e, cx) => { cx.stop_propagation(); run("tab.close", { id: c.id }); }).child(svg("mods/workspace-chrome/icons/heroicons/x-mark.svg").size(16))));
   }
 
   tag(id, g, hue, tabs, v) {
