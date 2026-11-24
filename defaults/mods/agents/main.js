@@ -433,7 +433,12 @@ export default class Agents extends View {
         ),
       )
       .when(list.length === 0 && !collapsed, (el) =>
-        el.child(div().px(10).text_size(12).text_color(k.label).child("No agent status yet. Agents show up here when they report their status. Older versions and agents inside tmux may not.")),
+        el.child(v_flex().id("agents-empty").w_full().px(10).py(18).gap(8).flex_none().items_center()
+          .child(div().relative().w(96).h(64).flex_none()
+            .child(svg("mods/agents/empty-agents.svg").w_full().h_full().text_color(k.line_number))
+            .child(div().absolute().left(30).top(30).font_family(MONO).text_size(14).line_height("16px")
+              .text_color(k.accent_text).child(">_")))
+          .child(div().text_size(12).text_color(k.label).child("No agents yet"))),
       )
       .child(v_flex().id("ag-list").flex_1().min_h(0)
         .when(collapsed, (el) => el.overflow_y_scroll())
