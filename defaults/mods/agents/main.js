@@ -9,6 +9,7 @@ import { railTooltip } from "./tooltip.js";
 import { loader } from "./loader.js";
 import { fitRow } from "./fit.js";
 import { dropdown } from "./dropdown.js";
+import { EMPTY_ART_MIN_HEIGHT, emptyState } from "./empty.js";
 import { Sessions, hasSession } from "./sessions.js";
 import { TerminalNotes } from "./notes.js";
 
@@ -58,6 +59,7 @@ export default class Agents extends View {
     if (props()?.sortMenu) return;
     if (props()?.session) return this.initDropdown(cx);
     this.folded = new Set();
+    this.showEmptyArt = false;
     // Each agent's last state and when it changed (ms), kept across restarts.
     this.changed = JSON.parse(localStorage.getItem("changed") ?? "{}");
     this.pins = JSON.parse(localStorage.getItem("pins") ?? "[]");
@@ -432,30 +434,18 @@ export default class Agents extends View {
             ),
         ),
       )
-      .when(list.length === 0 && !collapsed, (el) =>
-        el.child(v_flex().id("agents-empty").w_full().px(10).py(18).gap(8).flex_none().items_center()
-          .child(div().relative().w(128).h(72).flex_none()
-            .child(div().absolute().left(24).right(24).top(43).h(1).bg(k.border))
-            .child(h_flex().absolute().left(0).top(27).size(34).items_center().justify_center()
-              .rounded(11).border_1().border_color(k.border).bg(k.canvas)
-              // Full-color image() SVGs are decoded at their intrinsic size.
-              .child(image("mods/agents/icons/codex.svg").size(20).opacity(0.65)))
-            .child(h_flex().absolute().right(0).top(27).size(34).items_center().justify_center()
-              .rounded(11).border_1().border_color(k.border).bg(k.canvas)
-              .child(svg("icons/opencode.svg").size(20).text_color(k.label)))
-            .child(h_flex().absolute().left(38).top(9).size(52).items_center().justify_center()
-              .rounded(14).border_1().border_color(k.row_ring).bg(k.tile)
-              .child(svg("icons/claude.svg").size(32).text_color("#D97757"))))
-          .child(div().text_size(12).text_color(k.label).child("No agents yet"))),
-      )
       .child(v_flex().id("ag-list").flex_1().min_h(0)
         .when(collapsed, (el) => el.overflow_y_scroll())
         .when(!collapsed, (el) => el.overflow_y_scrollbar().mode("always"))
         .on_size_change((size, cx) => {
-          if (Math.round(size.width) === this.listWidth) return;
-          this.listWidth = Math.round(size.width);
+          const width = Math.round(size.width);
+          const showEmptyArt = size.height >= EMPTY_ART_MIN_HEIGHT;
+          if (width === this.listWidth && showEmptyArt === this.showEmptyArt) return;
+          this.listWidth = width;
+          this.showEmptyArt = showEmptyArt;
           cx.notify();
         })
+        .when(list.length === 0 && !collapsed, (el) => el.child(emptyState(k, this.showEmptyArt)))
         .child(v_flex().id("ag-rows").flex_none().gap(2)
           .when(collapsed, (el) => el.items_center())
           .when(!collapsed, (el) => el.pr(BAR))

@@ -127,6 +127,7 @@ test("every icon in the Symbols theme is shipped", async () => {
 // caret is 12, and only the welcome screen's tiles take 20. Brand logos keep their own
 // dimensions; no-color is sized to its swatch.
 test("interface icons come in three sizes", async () => {
+  const programIcons = new Set(['"icons/claude.svg"', '"icons/opencode.svg"', '"icons/shell.svg"']);
   const steps: Record<string, number> = {};
   const bad: string[] = [];
   const paths = [...new Bun.Glob("{mods,frame}/**/*.js").scanSync({ cwd: root })].filter((p) => !p.startsWith("mods/win98/"));
@@ -139,7 +140,7 @@ test("interface icons come in three sizes", async () => {
       ...[...source.matchAll(/\bicon\(("[a-z-]+"|name|more\.name),\s*(\d+)\)/g)].map((m) => [m[1], m[2]]),
     ];
     for (const [name, size] of uses) {
-      if (!/workspace-chrome|^I\(|^"|^name$|more\.name|^icon$|menuIcon/.test(name) || /^"icons\/|no-color/.test(name)) continue;
+      if (!/workspace-chrome|^I\(|^"|^name$|more\.name|^icon$|menuIcon/.test(name) || programIcons.has(name) || name.includes("no-color")) continue;
       steps[size] = (steps[size] ?? 0) + 1;
       if (!(/chevron/.test(name) ? ["12", "16"] : path === "frame/welcome/main.js" ? ["16", "20"] : ["16"]).includes(size)) bad.push(`${path}: ${name} at ${size}`);
     }

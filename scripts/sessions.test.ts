@@ -779,6 +779,27 @@ test("the collapsed rail shows no percent", async () => {
   expect(percents(draw())).toEqual([]);
 });
 
+test("the empty sidebar keeps its caption when there is no room for the logos", async () => {
+  const { draw } = await open();
+  const resize = (height: number) => arg(byId(draw(), "ag-list")!, "on_size_change")({ width: 222, height }, cx);
+  const empty = () => byId(draw(), "agents-empty")!;
+  const hasLogo = () => all(empty()).some((el) => arg(el, "size") === 32);
+
+  resize(180);
+  expect(hasLogo()).toBe(true);
+  resize(50); // The minimum 90 px Agents panel, less its 40 px header.
+  expect(words(empty())).toContain("No agents yet");
+  expect(hasLogo()).toBe(false);
+  resize(180);
+  expect(hasLogo()).toBe(true);
+
+  state.layout = { id: "sidebar", size: { px: 76 } };
+  expect(byId(draw(), "agents-empty")).toBeUndefined();
+  state.layout = null;
+  state.agents = [listed(running("t1", null))];
+  expect(byId(draw(), "agents-empty")).toBeUndefined();
+});
+
 test("every color the row and the dropdown use comes from the theme", async () => {
   const { draw } = await one([said({ id: "m1", read: 950000 })]);
   clicks(byId(draw(), "logo-t1")!);
