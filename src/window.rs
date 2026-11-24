@@ -1521,7 +1521,7 @@ impl AppWindow {
                     this.open_overlay(
                         SELECTION_POPUP.into(),
                         json!({
-                            "mod": "agents", "kind": "popup", "width": 184, "height": 80,
+                            "mod": "agents", "kind": "popup", "width": 80, "height": 44,
                             "at": { "x": f32::from(at.x), "y": f32::from(at.y) + 8.0 },
                             "props": { "notes": "selection", "terminal": addr, "text": text, "anchor": anchor },
                         }),

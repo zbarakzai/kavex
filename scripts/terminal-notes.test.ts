@@ -55,6 +55,7 @@ type Element = {
   id?: string;
   height?: number;
   label?: string;
+  accessibilityLabel?: string;
   click?: (_event: unknown, context: unknown) => void;
   mouseDown?: (event: { local_position: { x: number }; bounds: { width: number } }) => void;
   itemClick?: (id: string, context: unknown) => void;
@@ -67,6 +68,7 @@ function element(): any {
     if (key === "node") return node;
     if (key === "id") return (id: string) => { node.id = id; return api; };
     if (key === "h") return (height: number) => { node.height = height; return api; };
+    if (key === "accessibility_label") return (label: string) => { node.accessibilityLabel = label; return api; };
     if (key === "child") return (child: any) => {
       node.children.push(typeof child === "string" ? { label: child, children: [] } : child.node);
       return api;
@@ -104,7 +106,7 @@ const cx = {
 };
 const settle = async () => { while (jobs.length) await jobs.shift(); };
 const button = (node: Element, text: string): Element | undefined =>
-  node.children.some((child) => child.label === text) && node.click ? node :
+  (node.accessibilityLabel === text || node.children.some((child) => child.label === text)) && node.click ? node :
     node.children.map((child) => button(child, text)).find(Boolean);
 
 const { default: Palette } = await import("../defaults/frame/palette/main.js");

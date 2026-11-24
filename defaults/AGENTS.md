@@ -168,10 +168,11 @@ on this screen in `shared("spaces.recent")`.
   with the same address; its original command is never run again. Splits
   and mod panes stay. An exited or killed terminal is closed, not restarted.
   Focus, zoom, recent spaces, settled tabs and seen attention stay on this screen.
-- **Terminal notes:** Drag to select text and release the mouse for **Add note** and **Copy**,
-  including inside agents that track the mouse; Shift is not required. Plain clicks still
+- **Terminal notes:** Drag to select text and release the mouse for the **Add note** (pencil)
+  and **Copy** (clipboard) outline icons. Hover an icon for its label.
+  Selection works inside agents that track the mouse; Shift is not required. Plain clicks still
   go to the program. Hold Alt when a mouse-tracking program should handle a drag itself.
-  **Notes**, beside **System** in the footer, opens the visible session's saved notes;
+  **Notes**, before **System**, **Usage** and **Keep awake** in the footer, opens the visible session's saved notes;
   it appears only when that session has notes. The agents mod publishes its current
   source, scope and count in `shared("terminal.notes")`; saves update `shared("terminal.notes.changed")`.
   A note saves the selected text with an optional comment. Cmd+Enter on macOS or

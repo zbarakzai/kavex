@@ -262,6 +262,7 @@ export default class WorkspaceStatus extends View {
     const notes = config.monitor ? this.sessionNotes() : null;
 
     return h_flex().size_full().px(9).gap(2).items_center().justify_end().text_size(11.8).text_color(t.muted)
+      .when(Boolean(notes), (el) => el.child(this.notesButton(t, notes)))
       .when(config.monitor, (el) => el.child(footerButton(MONITOR, "System monitor", t).tooltip("System monitor")
         .when(Boolean(this.monitorFocus), (el) => el.track_focus(this.monitorFocus).tab_stop(true))
         .on_key_down((event, cx) => {
@@ -273,7 +274,6 @@ export default class WorkspaceStatus extends View {
         .on_click(() => this.openMonitor())
         .child(svg(`${ICONS}/heroicons/cpu-chip.svg`).size(STATUS_ICON).flex_none())
         .child("System")))
-      .when(Boolean(notes), (el) => el.child(this.notesButton(t, notes)))
       .when(config.usage && shared("usage.enabled") !== false, (el) => el.child(footerButton(SOURCE, "Usage limits", t)
         .on_mouse_down("left", (e) => { this.pressed = { at: Date.now(), bounds: e.bounds }; })
         .on_click(() => this.open(space?.machine ?? null))

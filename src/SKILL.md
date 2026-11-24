@@ -92,11 +92,12 @@ gets its own row. Use app commands when the user wants a new tab or split.
 
 ## Terminal notes
 
-Drag to select output for Add note or Copy; Shift is not required, even inside
+Drag to select output for the Add note (pencil) or Copy (clipboard) outline icons;
+hover an icon for its label. Shift is not required, even inside
 mouse-tracking programs. Plain clicks still reach the program; Alt-drag sends
-a drag to it. Save with Cmd+Enter on macOS or Ctrl+Enter elsewhere. Notes beside
-System in the footer appears when the visible session has saved notes and opens
-them. In Kavex's command palette, enter `%note` to browse the focused
+a drag to it. Save with Cmd+Enter on macOS or Ctrl+Enter elsewhere. Notes appears
+before System, Usage and Keep awake in the footer when the visible session has saved
+notes, and opens them. In Kavex's command palette, enter `%note` to browse the focused
 terminal's notes. Search by text or comment, then click a note or use the
 arrow keys and Enter. The copy icon copies the saved text. Choosing a note
 highlights the retained output or shows the saved excerpt. Notes are local to Kavex and
