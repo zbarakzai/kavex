@@ -128,6 +128,8 @@ mock.module("herdr", () => ({
   layout: () => state.useShippedLayout ? shippedLayout : { id: "root", children: [{ id: "sidebar", size: { px: state.sidebar } }] },
   updates: () => ({ app: { ready: false, version: "0.4.0", updates: true }, core: { version: "0.1.15" }, checks: true }),
   agents: () => Array.from({ length: state.agentsShown }, () => ({})),
+  terminals: () => [],
+  focused: () => null,
   spaces: () => (state.space ? [state.space] : []),
   openOverlay: (spec: any) => (state.overlays.push(spec), `overlay-${state.overlays.length}`),
   run: (name: string, args: unknown) => {

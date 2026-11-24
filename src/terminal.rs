@@ -12,6 +12,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 use std::collections::HashMap;
 use crate::links;
+mod selection;
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -98,6 +99,7 @@ pub struct TerminalView {
     selection_pointer: Point<Pixels>,
     selection_scroll: Option<Task<()>>,
     selection_popup: bool,
+    selection_click: Option<selection::ProgramClick>,
     /// The terminal's folder, for links to relative paths.
     pub cwd: Option<PathBuf>,
     /// The link under the pointer while the link modifier is held.
@@ -176,6 +178,7 @@ impl TerminalView {
             selection_pointer: Point::default(),
             selection_scroll: None,
             selection_popup: false,
+            selection_click: None,
             cwd: None,
             link: None,
             right_click_to_program: false,
@@ -732,12 +735,14 @@ impl TerminalView {
 
     fn finish_selection(&mut self, pos: Option<Point<Pixels>>, cx: &mut Context<Self>) {
         self.selecting = false;
+        let click = self.selection_click.take();
         let mut g = self.grid.borrow_mut();
         g.buttons_down.retain(|b| *b != MouseButton::Left);
         if let Some(pos) = pos {
             drop(g);
             self.select(Select::Release, pos, cx);
             let text = self.grid.borrow().vt.selection_text();
+            let selected = text.is_some();
             if let Some(text) = text {
                 Self::copy_text(&text, cx);
                 if !text.trim().is_empty() && text.len() <= crate::mod_files::LIMIT as usize {
@@ -745,6 +750,10 @@ impl TerminalView {
                     self.selection_popup = true;
                     cx.emit(TerminalEvent::Selection { at: pos, text, anchor });
                 }
+            }
+            if let Some(press) = click.and_then(|click| click.release(pos, selected)) {
+                self.mouse(GHOSTTY_MOUSE_ACTION_PRESS, Some(MouseButton::Left), press.position, press.modifiers);
+                self.mouse(GHOSTTY_MOUSE_ACTION_RELEASE, Some(MouseButton::Left), pos, press.modifiers);
             }
         } else {
             g.vt.clear_selection();
@@ -1513,8 +1522,11 @@ impl Render for TerminalView {
                     }
                     return;
                 }
-                if !this.mouse(GHOSTTY_MOUSE_ACTION_PRESS, Some(ev.button), ev.position, ev.modifiers) {
+                if selection::selects_text(this.grid.borrow().vt.mouse_tracking(), ev.modifiers) {
+                    this.selection_click = this.takes_mouse(ev.modifiers).then(|| selection::ProgramClick::new(ev.clone()));
                     this.start_selection(ev.position, cx);
+                } else {
+                    this.mouse(GHOSTTY_MOUSE_ACTION_PRESS, Some(ev.button), ev.position, ev.modifiers);
                 }
             }))
             // Right-click is Kavex's menu, even when the program tracks the mouse
@@ -1589,6 +1601,9 @@ impl Render for TerminalView {
                                     }
                                     if this.selecting {
                                         this.selection_pointer = ev.position;
+                                        if let Some(click) = &mut this.selection_click {
+                                            click.move_to(ev.position);
+                                        }
                                         if ev.pressed_button == Some(MouseButton::Left) {
                                             this.select(Select::Drag, ev.position, cx);
                                         } else {
@@ -1648,6 +1663,20 @@ impl Focusable for TerminalView {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_native_drag_captures_output_while_the_program_tracks_the_mouse() {
+        use super::*;
+        let mut vt = Vt::new(30, 3);
+        vt.write(b"hello world\r\nsecond line\x1b[?1000h\x1b[?1006h");
+        assert!(vt.mouse_tracking());
+        assert!(selection::selects_text(vt.mouse_tracking(), Modifiers::default()));
+        vt.select(Select::Press, 0, 0, 1.0, 5.0, 10.0, 60.0);
+        vt.select(Select::Drag, 6, 0, 65.0, 5.0, 10.0, 60.0);
+        vt.select(Select::Release, 6, 0, 65.0, 5.0, 10.0, 60.0);
+        assert!(vt.selection_text().unwrap().starts_with("hello"));
+        assert!(vt.note_anchor().is_some());
+    }
+
     #[test]
     fn an_agents_bar_is_one_shape_whatever_is_inside_it() {
         use super::*;

@@ -1,5 +1,5 @@
 // Local notes, one versioned document per agent session or terminal run.
-import { appHome, readTextFile, window, writeTextFile } from "herdr";
+import { appHome, readTextFile, setShared, window, writeTextFile } from "herdr";
 
 function pathOf({ machine = null, agent, session, terminalRun }) {
   if (!session && !terminalRun) throw new Error("No session or terminal for this note.");
@@ -40,6 +40,7 @@ export async function saveNote(scope, { text, comment = "", anchor = null }) {
     const { raw, items } = await load(path);
     try {
       await writeTextFile(path, JSON.stringify({ version: 1, items: [note, ...items] }, null, 2) + "\n", raw);
+      setShared("terminal.notes.changed", id);
       return note;
     } catch (error) {
       if (await readTextFile(path) === raw) throw error;
