@@ -124,8 +124,8 @@ test("every icon in the Symbols theme is shipped", async () => {
 
 // Sizes in fixed steps, never per icon: an icon's art fills 19 of its 24 units, so 16 draws about
 // 13 px, level with 13 px text, even alone in a button: a bigger one beside it looks oversized. A
-// caret is 12, and only the welcome screen's tiles take 20. Logos have no margin and stay 14;
-// no-color is sized to its swatch.
+// caret is 12, and only the welcome screen's tiles take 20. Brand logos keep their own
+// dimensions; no-color is sized to its swatch.
 test("interface icons come in three sizes", async () => {
   const steps: Record<string, number> = {};
   const bad: string[] = [];
@@ -139,7 +139,7 @@ test("interface icons come in three sizes", async () => {
       ...[...source.matchAll(/\bicon\(("[a-z-]+"|name|more\.name),\s*(\d+)\)/g)].map((m) => [m[1], m[2]]),
     ];
     for (const [name, size] of uses) {
-      if (!/workspace-chrome|^I\(|^"|^name$|more\.name|^icon$|menuIcon/.test(name) || /icons\/shell|no-color/.test(name)) continue;
+      if (!/workspace-chrome|^I\(|^"|^name$|more\.name|^icon$|menuIcon/.test(name) || /^"icons\/|no-color/.test(name)) continue;
       steps[size] = (steps[size] ?? 0) + 1;
       if (!(/chevron/.test(name) ? ["12", "16"] : path === "frame/welcome/main.js" ? ["16", "20"] : ["16"]).includes(size)) bad.push(`${path}: ${name} at ${size}`);
     }
