@@ -71,24 +71,22 @@ ${stat}
   });
 });
 
-test("macOS uses the second CPU sample and converts BSD process time", () => {
+test("macOS reads kernel CPU ticks and converts BSD process time", () => {
   expect(parseMac(`10 16384000 8
+cpu-ticks ${Buffer.from(Uint32Array.of(40, 20, 100, 5).buffer).toString("base64")}
 Mach Virtual Memory Statistics: (page size of 4096 bytes)
 Pages wired down: 400.
 Pages purgeable: 100.
 Anonymous pages: 700.
 Pages occupied by compressor: 250.
-      cpu
- us sy id
- 51 49 0
- 20 19 61
 --
  10 1 250 1:02.34 Sun Nov 22 21:45:01 2026
 `, 1000)).toMatchObject({
-    appPid: 10, cores: 8, capacity: 8000, cpu: { percent: 39 },
+    appPid: 10, cores: 8, capacity: 8000, cpu: { total: 165, busy: 65 },
     memory: { total: 16384000, available: 11264000 },
     processes: [{ pid: 10, parent: 1, cpu: 62340, memory: 256000 }],
   });
+  expect(parseMac("10 16384000 8\n 51 49 0\n 20 19 61\n", 1000).cpu).toEqual({ percent: 39 });
 });
 
 test("Windows reads raw CPU and working-set counters without rounding", () => {
@@ -114,6 +112,7 @@ test.skipIf(!native)("the native collector identifies its app parent and returns
   await Bun.sleep(110);
   const after = await readSnapshot(native, exec);
   const current = measure(before, after, []);
+  if (native === "macos") expect(before.cpu).toMatchObject({ total: expect.any(Number), busy: expect.any(Number) });
   expect(after.appPid).toBe(process.pid);
   expect(after.cores).toBeGreaterThan(0);
   expect(current.memory.used).toBeGreaterThan(0);
