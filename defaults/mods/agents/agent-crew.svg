@@ -1,18 +1,21 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 96" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-  <g opacity=".45">
-    <path d="m22 35-2-7m-14 20v8m32-8v8"/>
-    <circle cx="19" cy="25" r="2.5"/>
-    <rect x="9" y="37" width="27" height="27" rx="8"/>
-    <rect x="14" y="45" width="17" height="11" rx="5.5"/>
-    <path d="M19 50v1m7-1v1M16 65v4m13-4v4M32 83H8v-5a9 9 0 0 1 9-9h11a9 9 0 0 1 8 5"/>
-    <path d="m106 30 3-6m-19 18v8m32-8v8"/>
-    <circle cx="110" cy="21" r="2.5"/>
-    <rect x="93" y="32" width="27" height="27" rx="8"/>
-    <rect x="98" y="40" width="17" height="11" rx="5.5"/>
-    <path d="M102 45h1m7 0h1M100 60v5m13-5v5M96 80h24v-6a9 9 0 0 0-9-9h-10a9 9 0 0 0-9 7"/>
+  <g opacity=".6">
+    <path d="M23 36q-4-3-3-7"/>
+    <circle cx="21" cy="26" r="2.5"/>
+    <rect x="9" y="37" width="28" height="26" rx="12"/>
+    <path d="M15 49q2-3 4 0m7 0q2-3 4 0m-11 7q4 3 8-1M15 64q-9 3-9 14v2a4 4 0 0 0 4 4h22M12 72q-3 4-2 7"/>
+    <path d="M107 31q4-1 4-5"/>
+    <circle cx="111" cy="23" r="2.5"/>
+    <rect x="93" y="33" width="28" height="26" rx="12"/>
+    <circle cx="101" cy="45" r="1.4" fill="currentColor" stroke="none"/>
+    <circle cx="112" cy="45" r="1.4" fill="currentColor" stroke="none"/>
+    <path d="M103 51q4 4 8 0M99 60q-6 3-7 11m5 8h20a4 4 0 0 0 4-4q0-8-7-14M118 65q8-1 7-9"/>
+    <circle cx="124" cy="53" r="2.5"/>
   </g>
-  <path opacity=".8" d="M64 21v-6m-26 23v12m52-12v12"/>
-  <rect x="42" y="23" width="44" height="39" rx="13"/>
-  <path opacity=".6" d="M53 29h22M54 63v6m20-6v6M50 69h28a12 12 0 0 1 12 12v6a3 3 0 0 1-3 3H41a3 3 0 0 1-3-3v-6a12 12 0 0 1 12-12Z"/>
-  <path opacity=".45" d="M45 78v5m38-5v5M56 85h16"/>
+  <path opacity=".8" d="M64 21q-3-3-1-6"/>
+  <rect x="42" y="23" width="44" height="38" rx="18"/>
+  <circle cx="55" cy="41" r="2.3" fill="currentColor" stroke="none"/>
+  <circle cx="73" cy="41" r="2.3" fill="currentColor" stroke="none"/>
+  <path d="M59 49q5 6 10 0"/>
+  <path opacity=".8" d="M51 64q-11 4-11 17v2a6 6 0 0 0 6 6h36a6 6 0 0 0 6-6v-2q0-13-11-17M44 71q-8 1-7 9m46-9q8 1 8 8M50 89v2m28-2v2"/>
 </svg>
