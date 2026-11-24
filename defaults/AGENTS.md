@@ -75,7 +75,7 @@ first frame or during GPU recovery it reports an error instead of a PNG.
 
 | File | What it decides | Applied |
 |---|---|---|
-| `layouts/<name>.json` | the window and its whole look: blocks, theme, fonts, backgrounds, pane frames; one file per layout (`main`, `terminals`, `win98`, any you add) | live |
+| `layouts/<name>.json` | the window and its whole look: blocks, theme, fonts, backgrounds, pane frames; one file per layout (`main`, `terminals`, any you add) | live |
 | `keys.json` | what every key does | live |
 | `settings.json` | the person: zoom, sounds, fonts for every layout | live |
 | `mods/<name>/` | panels: small JavaScript programs | live (hot reload) |
@@ -278,7 +278,7 @@ Hover over a toolbar icon for its label below the button. In the collapsed sideb
 appear to the right of the rail.
 
 Kavex also ships `terminals` ("Terminals" with tabs in the title bar, panes as cards,
-and a space picker) and `win98` ("Kavex 98" with a whole desktop in one mod).
+and a space picker).
 Add a layout by writing a new file.
 
 The + menu shows the last detected agents for the active machine while it checks for changes.
@@ -430,8 +430,8 @@ a GitHub link or a folder:
 **Kavex's own layouts and mods are read-only.** They are replaced whole
 on every start. Use settings.json for look (fonts, sizes, theme, colors,
 sounds), where the layout leaves them unset. Kavex (main) has no look of
-its own, so your settings decide it; Kavex 98 and Terminals bring their own
-look. The theme picker overrides any layout. To change a shipped layout's
+its own, so your settings decide it; Terminals brings its own look.
+The theme picker overrides any layout. To change a shipped layout's
 look beyond that, or its structure/code, clone it and edit the clone:
 
 ```sh
@@ -451,8 +451,10 @@ overlay names to the new name.
 If you edit a shipped file anyway, the next start moves it to
 `<name>-edited` (a mod folder or layout JSON; a number is added if taken),
 copies its layout clicks, restores Kavex's version and shows a toast.
-No-longer-shipped things go if
-untouched, otherwise they stay.
+Retired bundled layouts and mods are removed on update if unchanged, along with
+their unchanged bundled theme and preview files. Edited personal files are
+preserved. If the selected layout is no longer available, Kavex opens the
+Kavex (`main`) layout instead.
 
 Clicks (sizes, shown/hidden, stack child, floating spots, theme picks,
 background, text size, pane header height and border/focus look) live
@@ -565,21 +567,19 @@ layout's look and a block can differ:
   "cursor"?, "ansi": [16 colors], "colors"?: {...} }`, all `#rrggbb`; panel
   colors are derived from these, `colors` overrides them and can add names of its own
   (a layout's colors should stick to the names every theme has: one missing paints
-  magenta). Kavex ships `kavex` and `atom-one-dark`. The original unedited Atom One Dark and Win98 theme files
-  are upgraded to readable terminal colors; edited theme files are kept.
-  A theme named like a layout (`themes/win98.json`) is
+  magenta). Kavex ships `kavex` and `atom-one-dark`. The original unedited Atom One Dark theme file
+  is upgraded to readable terminal colors; edited theme files are kept.
+  A theme named like a layout is
   that layout's own: Settings offers it only there.
 - `font` / `font_size`: the terminals' (px at zoom 1); `ui_font`: the mods'
   (their text sizes are their own, in px, and follow zoom). Optional: without
   them a layout uses settings.json's, else Kavex's (Geist Mono 13, Geist).
-  Kavex (main) leaves these unset; Terminals sets text size 15, and Kavex 98
-  brings its own fonts.
+  Kavex (main) leaves these unset; Terminals sets text size 15.
   JetBrains Mono, Geist Mono and Geist ship with Kavex; any installed font
   works (a terminal font the machine lacks falls back to Geist Mono).
   A layout brings its own fonts: `.ttf`/`.otf` files in a mod's `fonts/`
   folder (or the home's `fonts/`) load at start and on the next look change,
-  so a layout and its mod folder travel together (Kavex 98's do: its pixel
-  fonts are in `mods/win98/fonts/`).
+  so a layout and its mod folder travel together.
 - `terminal_opacity` (0..1): below 1, the background behind a terminal
   (a pane frame's, the layout's gradient) shows through its text.
 - Switching layouts switches the look. The theme menu changes the shown

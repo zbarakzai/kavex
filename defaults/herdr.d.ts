@@ -70,7 +70,7 @@ export function playSound(sound: string): null;
  *   Mod clones rewrite their own asset prefixes and self-opening overlay names.
  *   Default clone name: <name>-copy; an existing name is refused. Clones record cloned_from: {name, version}.
  *   Shipped layouts/mods are replaced at start; edits move to <name>-edited.
- *   Kavex (main) inherits settings; Kavex 98 and Terminals bring their own look. Clone to change shipped looks beyond theme picks.
+ *   Kavex (main) inherits settings; Terminals brings its own look. Clone to change shipped looks beyond theme picks.
  *   layout.reset {name?} resets a shipped layout and its clicks.
  * App: mod.open {name}, overlay.close {id?}, app.help, app.reset, app.theme {name}, app.zoom_in|zoom_out|zoom_reset.
  * Mods: "<mod>.<command>" delivers <command> to that mod's nextCommand().

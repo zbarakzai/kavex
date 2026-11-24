@@ -1,5 +1,7 @@
 import { createHash } from "node:crypto";
-import { resolve } from "node:path";
+import { mkdtemp, rm, rmdir } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 
 process.chdir(resolve(import.meta.dir, ".."));
 const inventory = await Bun.file("licenses/inventory.json").json();
@@ -40,10 +42,20 @@ const version = Bun.spawnSync([tool, "--version"]);
 if (version.exitCode !== 0 || version.stdout.toString().trim() !== "cargo-about 0.9.3") {
   throw new Error("Install cargo-about 0.9.3 (see licenses/README.md)");
 }
-const generated = Bun.spawnSync([
-  tool, "generate", "--locked", "--fail", "scripts/notices.hbs",
-], { stdout: "pipe", stderr: "inherit" });
-if (generated.exitCode !== 0) throw new Error("cargo-about failed");
+const temporary = await mkdtemp(join(tmpdir(), "kavex-notices-"));
+const output = join(temporary, "cargo.txt");
+let cargoNotices: string;
+try {
+  // cargo-about requires an output file when launched from PowerShell.
+  const generated = Bun.spawnSync([
+    tool, "generate", "--locked", "--fail", "--output-file", output, "scripts/notices.hbs",
+  ], { stdout: "inherit", stderr: "inherit" });
+  if (generated.exitCode !== 0) throw new Error("cargo-about failed");
+  cargoNotices = (await Bun.file(output).text()).replaceAll("\r\n", "\n").replace(/[ \t]+$/gm, "");
+} finally {
+  await rm(output, { force: true });
+  await rmdir(temporary);
+}
 
 let text = "Kavex third-party notices\n=========================\n"
   + "Regenerate with just notices. See licenses/README.md.\n\n";
@@ -55,7 +67,7 @@ for (const path of inputs) {
   const hash = createHash("sha256").update(input).digest("hex");
   text += `Input-SHA256: ${hash} ${path}\n`;
 }
-text += "\n" + generated.stdout.toString().replaceAll("\r\n", "\n");
+text += "\n" + cargoNotices;
 for (const component of inventory.components) {
   text += `\n----------------------------------------------------------------------\n${component.name}\n${component.source}\n\n`;
   for (const path of component.files) {

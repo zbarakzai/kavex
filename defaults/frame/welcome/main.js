@@ -451,7 +451,7 @@ export default class Welcome extends View {
           .rounded(10)
           .bg(t.raised)
           .child(div().text_size(13.5).font_semibold().text_color(t.foreground).child("More examples in Settings"))
-          .child(this.para(t, "Settings \u203a Look has more layouts to try or start from, Kavex 98 among them. Your agent can copy any of them and change anything.")),
+          .child(this.para(t, "Settings \u203a Look offers Kavex and Terminals as layouts to try or start from. Your agent can copy either and change anything.")),
       )
       .child(this.para(t, "Something off or missing? Settings \u203a Send feedback. We read every one."));
   }
