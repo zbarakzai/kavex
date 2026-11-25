@@ -171,6 +171,10 @@ jobs:
           & "$env:RUNNER_TEMP\bun-windows-x64\bun.exe" test scripts/usage-provider-owner.test.ts
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & "$env:RUNNER_TEMP\bun-windows-x64\bun.exe" test scripts/system-monitor.test.ts
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & "$env:RUNNER_TEMP\bun-windows-x64\bun.exe" test scripts/file-menu.test.ts -t 'native Windows folder creation'
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & "$env:RUNNER_TEMP\bun-windows-x64\bun.exe" test scripts/files.test.ts -t 'Files lists literal folder names'
 
   # Keep the required check name stable while requiring every platform.
   test:

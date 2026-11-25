@@ -31,7 +31,7 @@ async function directory(path, on) {
       const found = await fs.readdir(path, { withFileTypes: true });
       return found.filter(e => e.name !== ".git").slice(0, 501).map(e => ({ name: e.name, dir: e.isDirectory() }));
     } catch {}
-    const r = await exec("powershell", ["-NoProfile", "-Command", "& { param($p) @(Get-ChildItem -LiteralPath $p -Force -ErrorAction Stop | Where-Object Name -ne '.git' | Select-Object -First 501 | ForEach-Object { @{ name=$_.Name; dir=($_.PSIsContainer -and -not ($_.Attributes -band [IO.FileAttributes]::ReparsePoint)) } }) | ConvertTo-Json -Compress } '" + path.replaceAll("'", "''") + "'"]);
+    const r = await exec("powershell", ["-NoProfile", "-Command", "& { param($p) @(Get-ChildItem -LiteralPath $p -Force -ErrorAction Stop | Where-Object Name -ne '.git' | Select-Object -First 501 | ForEach-Object { @{ name=$_.Name; dir=($_.PSIsContainer -and -not ($_.Attributes -band [IO.FileAttributes]::ReparsePoint)) } }) | ConvertTo-Json -Compress } '" + path.replace(/['\u2018\u2019\u201a\u201b]/g, "$&$&") + "'"]);
     if (r.code !== 0) throw new Error(r.stderr || "Cannot list this folder");
     const result = JSON.parse(r.stdout || "[]");
     return Array.isArray(result) ? result : [result];
@@ -273,6 +273,7 @@ export default class Files extends View {
     const file = { file: full, on };
     switch (name) {
       case "new": return this.begin({ kind: "new", folder: path }, "", cx);
+      case "new_folder": return dir && this.begin({ kind: "new", folder: path, dir: true }, "", cx);
       case "rename": return this.begin({ kind: "rename", path, dir }, baseName(path), cx);
       case "delete": return this.ask(target);
       case "remove": return this.remove(target, cx);
@@ -324,7 +325,7 @@ export default class Files extends View {
   begin(edit, value, cx) {
     this.edit = edit; this.editError = null;
     if (edit.folder && !this.folders.has(edit.folder)) this.toggle(edit.folder, cx);
-    this.input = InputState.new({ value, placeholder: edit.kind === "new" ? "Name this file" : "" });
+    this.input = InputState.new({ value, placeholder: edit.kind === "new" ? (edit.dir ? "Name this folder" : "Name this file") : "" });
     const stem = edit.dir ? -1 : value.lastIndexOf(".");
     if (value) this.input.set_selected_range({ start: 0, end: stem > 0 ? stem : value.length });
     this.input.on("change", (_e, cx) => { this.editError = null; cx.notify(); });
@@ -340,7 +341,9 @@ export default class Files extends View {
   }
 
   commit(cx) {
-    const edit = this.edit, name = this.input.value().trim(), adding = edit.kind === "new";
+    const edit = this.edit, adding = edit.kind === "new", typed = this.input.value().trim();
+    // New folders accept either separator; tree paths always use forward slashes.
+    const name = adding && edit.dir ? typed.replaceAll("\\", "/") : typed;
     if (edit.busy) return;
     if (!adding && name === baseName(edit.path)) return this.finish(cx);
     this.editError = badName(name, adding);
@@ -350,7 +353,10 @@ export default class Files extends View {
     edit.busy = true;
     cx.spawn(async cx => {
       try {
-        if (adding) await create(this.full(to), this.on);
+        if (adding) {
+          await create(this.full(to), this.on, edit.dir);
+          if (edit.dir && this.current(context)) for (let path = to; path; path = parentOf(path)) this.folders.add(path);
+        }
         else { await move(this.full(edit.path), this.full(to), this.on); this.moved(edit.path, to); }
         if (this.edit === edit) this.finish(cx);
         await this.settle(folder, context, cx);
@@ -377,7 +383,7 @@ export default class Files extends View {
 
   rows(prefix, depth, out, t) {
     if (out.length >= TOTAL || depth > 40) return out;
-    if (!prefix && this.edit?.folder === "") this.newFile(depth, out, t);
+    if (!prefix && this.edit?.folder === "") this.newEntry(depth, out, t);
     for (const entry of this.entries.get(prefix) ?? []) {
       if (out.length >= TOTAL) break;
       const path = prefix ? `${prefix}/${entry.name}` : entry.name, open = this.folders.has(path);
@@ -406,15 +412,15 @@ export default class Files extends View {
         : row.pl(22 + depth * 14).gap(6).text_color(t.text_secondary).child(fileIcon(entry.name)).child(div().flex_1().min_w(0).truncate().child(entry.name))
           .when(Boolean(mark), el => el.child(div().font_family(MONO).text_size(11).text_color(mark === "A" ? t.added : mark === "D" || mark === "U" ? t.removed : t.muted).child(mark))));
       if (entry.dir && open) {
-        if (chain.includes(this.edit?.folder)) this.newFile(depth + 1, out, t);
+        if (chain.includes(this.edit?.folder)) this.newEntry(depth + 1, out, t);
         this.rows(last, depth + 1, out, t);
       }
     }
     return out;
   }
 
-  newFile(depth, out, t) {
-    this.draft(depth, svg("mods/workspace-chrome/icons/file-new.svg").size(16).flex_none().text_color(t.label), out, t);
+  newEntry(depth, out, t) {
+    this.draft(depth, svg(`mods/workspace-chrome/icons/${this.edit.dir ? "folder" : "file-new"}.svg`).size(16).flex_none().text_color(t.label), out, t);
   }
 
   title(t) {

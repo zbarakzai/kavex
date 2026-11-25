@@ -2,7 +2,7 @@
 import { exec, hc, window } from "herdr";
 
 const windows = (on) => !on && window()?.platform === "windows";
-const single = (text) => `'${text.replaceAll("'", "''")}'`;
+const single = (text) => `'${text.replace(/['\u2018\u2019\u201a\u201b]/g, "$&$&")}'`;
 const sh = (on, script, ...args) => exec("sh", ["-c", script, "files", ...args], { on });
 const powershell = (script, ...args) => exec("powershell", ["-NoProfile", "-Command", `& { param($a, $b) $ErrorActionPreference = 'Stop'; ${script} } ${args.map(single).join(" ")}`]);
 
@@ -17,7 +17,7 @@ export const parentOf = (path) => path.split("/").slice(0, -1).join("/");
 export const native = (path, on) => (windows(on) ? path.replaceAll("/", "\\") : path);
 export const quoted = (path, on) => (windows(on) ? single(path) : `'${path.replaceAll("'", `'\\''`)}'`);
 
-// Why this can't be a name, or null. `nested`: a new file may name folders on the way to it.
+// Why this can't be a name, or null. `nested`: a new entry may name folders on the way to it.
 export function badName(name, nested) {
   if (!name) return "Give it a name";
   const parts = name.split(/[/\\]/);
@@ -26,10 +26,10 @@ export function badName(name, nested) {
   return null;
 }
 
-export async function create(path, on) {
+export async function create(path, on, dir = false) {
   checked(windows(on)
-    ? await powershell(`if (Test-Path -LiteralPath $a) { exit ${EXISTS} }; [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($a)) | Out-Null; [IO.File]::Open($a, 'CreateNew').Close()`, native(path, on))
-    : await sh(on, `[ -e "$1" ] && exit ${EXISTS}; mkdir -p "$(dirname "$1")" && : > "$1"`, path));
+    ? await powershell(`if (Test-Path -LiteralPath $a) { exit ${EXISTS} }; ${dir ? "[IO.Directory]::CreateDirectory($a) | Out-Null" : "[IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($a)) | Out-Null; [IO.File]::Open($a, 'CreateNew').Close()"}`, native(path, on))
+    : await sh(on, `if [ -e "$1" ] || [ -L "$1" ]; then exit ${EXISTS}; fi; ${dir ? 'mkdir -p -- "$1"' : 'mkdir -p "$(dirname "$1")" && : > "$1"'}`, path));
 }
 
 // -ef: on a disk that ignores case, foo and Foo are one file and the rename is still wanted.

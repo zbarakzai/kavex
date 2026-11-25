@@ -96,7 +96,7 @@ test("A closed folder's rows don't count toward the 5,000 limit", async () => {
 test("Files lists literal folder names, not shell expressions", async () => {
   const root = await mkdtemp(join(process.platform === "linux" ? "/var/tmp" : tmpdir(), "herdr-files-"));
   try {
-    for (const name of ["Test Folder (ACME)", "O'Brien $folder; (ACME)"]) {
+    for (const name of ["Test Folder (ACME)", "O'Brien $folder; (ACME)", "O\u2019Brien [draft] $folder; (ACME)"]) {
       const folder = join(root, name);
       await mkdir(join(folder, "child"), { recursive: true });
       await writeFile(join(folder, "hello.txt"), "hello");
@@ -108,4 +108,4 @@ test("Files lists literal folder names, not shell expressions", async () => {
   } finally {
     await rm(root, { recursive: true, force: true });
   }
-});
+}, 20000);

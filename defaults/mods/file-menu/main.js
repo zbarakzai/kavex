@@ -15,6 +15,7 @@ function rows({ dir, root, local }) {
     ...(dir
       ? [
           { id: "new", icon: "file-new", label: "New file" },
+          { id: "new_folder", icon: "folder", label: "New folder" },
           ...line([
             ...(terminal ? [{ id: "cd", icon: "terminal", label: "cd to directory", off: !shell, hint: shell ? "" : "not in a shell" }] : []),
             { id: "tab", icon: "plus", label: "Open in new tab" },
