@@ -1352,7 +1352,9 @@ mod tests {
                 while reading.load(std::sync::atomic::Ordering::Relaxed) {
                     match std::fs::read(&path) {
                         Ok(bytes) => { serde_json::from_slice::<Value>(&bytes).unwrap(); }
-                        Err(e) => assert_eq!(e.kind(), std::io::ErrorKind::NotFound),
+                        // Windows can deny opening the old file while replacement leaves it pending deletion.
+                        Err(e) => assert!(e.kind() == std::io::ErrorKind::NotFound
+                            || (cfg!(windows) && e.kind() == std::io::ErrorKind::PermissionDenied), "{e}"),
                     }
                     std::thread::yield_now();
                 }

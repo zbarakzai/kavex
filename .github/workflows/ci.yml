@@ -111,6 +111,9 @@ jobs:
           threads=()
           if [ "$RUNNER_OS" = Linux ]; then
             threads=(-- --test-threads 4)
+          elif [ "$RUNNER_OS" = Windows ]; then
+            # Render deadlines use wall time; parallel tests can exhaust a frame's budget on Windows runners.
+            threads=(-- --test-threads 1)
           fi
           cargo test --locked --config 'profile.dev.package."*".opt-level=0' --config 'profile.dev.package.quickjs-jit-sys.opt-level=2' --no-fail-fast "${only[@]}" "${threads[@]}"
       # Windows runners lack an interactive desktop. Linux uses headless Vulkan
