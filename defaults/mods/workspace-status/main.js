@@ -1,6 +1,6 @@
 import { View, div, svg } from "gpui-kit";
 import { h_flex, v_flex, HoverCard } from "gpui-base";
-import { agents, closeOverlay, openOverlay, props, run, settings, setShared, shared, spaces, theme, window as appWindow } from "herdr";
+import { agents, closeOverlay, focused, openOverlay, props, run, settings, setShared, shared, spaces, terminals, theme, window as appWindow } from "herdr";
 
 const ROSTER_WIDTH = 400;
 const ROSTER_HEIGHT = 540;
@@ -56,7 +56,10 @@ function lidNote() {
 export default class WorkspaceStatus extends View {
   init(_props, cx) {
     const config = props();
-    if (config?.monitor) this.monitorFocus = cx.focus_handle();
+    if (config?.monitor) {
+      this.monitorFocus = cx.focus_handle();
+      this.notesFocus = cx.focus_handle();
+    }
     if (!config?.awakeMenu) return;
     this.menuFocus = cx.focus_handle();
     this.menuFocus.focus();
@@ -208,6 +211,35 @@ export default class WorkspaceStatus extends View {
     });
   }
 
+  sessionNotes() {
+    const status = shared("terminal.notes"), focus = focused();
+    if (!status?.count) return null;
+    const source = terminals().find((term) => term.address === (focus?.shown ?? focus?.terminal));
+    // A late read or saved snapshot from another terminal/run must never label this session.
+    const key = source && JSON.stringify([source.address, source.created_ms ?? source.pid,
+      source.foreground?.pid, source.program?.key, source.labels?.["kavex.session"]]);
+    return key === status.key ? status : null;
+  }
+
+  openNotes(status) {
+    if (this.sessionNotes()?.key !== status.key) return;
+    openOverlay({ mod: "agents", kind: "dialog", width: 520, props: { notes: "browse", source: status.source } });
+  }
+
+  notesButton(t, status) {
+    return footerButton("terminal-notes-status", "Session notes", t)
+      .tooltip(`${status.count} saved ${status.count === 1 ? "note" : "notes"}`)
+      .when(Boolean(this.notesFocus), (el) => el.track_focus(this.notesFocus).tab_stop(true))
+      .on_key_down((event, cx) => {
+        if (event.key !== "enter" && event.key !== "space") return;
+        cx.stop_propagation();
+        this.openNotes(status);
+      })
+      .on_click(() => this.openNotes(status))
+      .child(svg(`${ICONS}/heroicons/pencil-square.svg`).size(STATUS_ICON).flex_none())
+      .child("Notes");
+  }
+
   legacy(t, space) {
     const list = agents(), needs = list.filter((agent) => agent.status === "blocked").length;
     const label = (icon, text) => h_flex().gap(6).items_center()
@@ -227,8 +259,10 @@ export default class WorkspaceStatus extends View {
     if (config?.awakeMenu) return this.awakeMenu(t);
     const space = spaces().find((space) => space.active);
     if (!config?.usage && !config?.monitor) return this.legacy(t, space);
+    const notes = config.monitor ? this.sessionNotes() : null;
 
     return h_flex().size_full().px(9).gap(2).items_center().justify_end().text_size(11.8).text_color(t.muted)
+      .when(Boolean(notes), (el) => el.child(this.notesButton(t, notes)))
       .when(config.monitor, (el) => el.child(footerButton(MONITOR, "System monitor", t).tooltip("System monitor")
         .when(Boolean(this.monitorFocus), (el) => el.track_focus(this.monitorFocus).tab_stop(true))
         .on_key_down((event, cx) => {

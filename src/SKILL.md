@@ -92,14 +92,20 @@ gets its own row. Use app commands when the user wants a new tab or split.
 
 ## Terminal notes
 
-Select output for Add note or Copy. Save with Cmd+Enter on macOS or Ctrl+Enter
-elsewhere. In Kavex's command palette, enter `%note` to browse the focused
+Drag to select output for the Add note (pencil) or Copy (clipboard) outline icons;
+hover an icon for its label. Shift is not required, even inside
+mouse-tracking programs. Plain clicks still reach the program; Alt-drag sends
+a drag to it. Save with Cmd+Enter on macOS or Ctrl+Enter elsewhere. Notes appears
+before System, Usage and Keep awake in the footer when the visible session has saved
+notes, and opens them. In Kavex's command palette, enter `%note` to browse the focused
 terminal's notes. Search by text or comment, then click a note or use the
 arrow keys and Enter. The copy icon copies the saved text. Choosing a note
 highlights the retained output or shows the saved excerpt. Notes are local to Kavex and
 use the current agent session when Kavex can identify it.
 
 ## Customize layouts, keys, or mods
+
+The built-in layouts are `main` (Kavex) and `terminals` (Terminals).
 
 Drag the sidebar divider inward to snap to the icon rail. **Spaces** and
 **Agents** label the two groups. Hover an avatar to see its name. Pull the

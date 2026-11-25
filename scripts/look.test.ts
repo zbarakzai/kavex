@@ -1,6 +1,7 @@
 import { test, expect, mock } from "bun:test";
 import { readdirSync, readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const element = () => new Proxy({}, { get: (_t, _k, self) => () => self });
 mock.module("gpui-kit", () => ({ div: element, image: element, svg: element }));
@@ -10,7 +11,7 @@ const { look, groupHue } = await import("../defaults/mods/spaces/look.js");
 const { DOTS } = await import("../defaults/mods/agents/loader.js");
 const { fileIconPath, folderIconPath } = await import("../defaults/mods/files/filetypes.js");
 
-const root = new URL("../defaults/", import.meta.url).pathname;
+const root = fileURLToPath(new URL("../defaults/", import.meta.url));
 const kavex = JSON.parse(readFileSync(join(root, "themes/kavex.json"), "utf8"));
 
 // What a theme without the design's names resolves to: only what src/settings.rs always gives.
@@ -127,10 +128,9 @@ test("every icon in the Symbols theme is shipped", async () => {
 // caret is 12, and only the welcome screen's tiles take 20. Brand logos keep their own
 // dimensions; no-color is sized to its swatch.
 test("interface icons come in three sizes", async () => {
-  const programIcons = new Set(['"icons/claude.svg"', '"icons/opencode.svg"', '"icons/shell.svg"']);
   const steps: Record<string, number> = {};
   const bad: string[] = [];
-  const paths = [...new Bun.Glob("{mods,frame}/**/*.js").scanSync({ cwd: root })].filter((p) => !p.startsWith("mods/win98/"));
+  const paths = [...new Bun.Glob("{mods,frame}/**/*.js").scanSync({ cwd: root })].map((path) => path.replaceAll("\\", "/"));
   const args = "(?:[^()]|\\((?:[^()]|\\([^()]*\\))*\\))*";
   for (const path of paths) {
     const source = await Bun.file(join(root, path)).text();
@@ -140,7 +140,7 @@ test("interface icons come in three sizes", async () => {
       ...[...source.matchAll(/\bicon\(("[a-z-]+"|name|more\.name),\s*(\d+)\)/g)].map((m) => [m[1], m[2]]),
     ];
     for (const [name, size] of uses) {
-      if (!/workspace-chrome|^I\(|^"|^name$|more\.name|^icon$|menuIcon/.test(name) || programIcons.has(name) || name.includes("no-color")) continue;
+      if (!/workspace-chrome|^I\(|^"|^name$|more\.name|^icon$|menuIcon/.test(name) || /^"icons\/|no-color/.test(name)) continue;
       steps[size] = (steps[size] ?? 0) + 1;
       if (!(/chevron/.test(name) ? ["12", "16"] : path === "frame/welcome/main.js" ? ["16", "20"] : ["16"]).includes(size)) bad.push(`${path}: ${name} at ${size}`);
     }

@@ -12,6 +12,7 @@ import { dropdown } from "./dropdown.js";
 import { EMPTY_ART_MIN_HEIGHT, emptyState } from "./empty.js";
 import { Sessions, hasSession } from "./sessions.js";
 import { TerminalNotes } from "./notes.js";
+import { NotesStatus } from "./notes-status.js";
 
 function find(node, id) {
   if (node?.id === id) return node;
@@ -66,6 +67,8 @@ export default class Agents extends View {
     this.sessions = new Sessions();
     this.sessions.start(cx);
     cx.timer.every(30000, (cx) => cx.notify());
+    this.notesStatus = new NotesStatus();
+    this.notesStatus.start(cx);
   }
 
   initDropdown(cx) {
@@ -235,6 +238,7 @@ export default class Agents extends View {
 
   render(cx) {
     if (this.notes) return this.notes.render();
+    if (cx) this.notesStatus?.follow(cx);
     const t = theme();
     if (props()?.sortMenu) return this.sortMenu(t);
     if (props()?.session) return this.drawDropdown(t);

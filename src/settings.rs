@@ -96,10 +96,13 @@ fn preset(name: &str) -> Option<&'static Palette> {
 /// The shipped theme files (defaults/themes), written to `themes/` when missing.
 const THEMES: &[(&str, &str)] = &[
     ("atom-one-dark", include_str!("../defaults/themes/atom-one-dark.json")),
-    ("win98", include_str!("../defaults/themes/win98.json")),
     ("kavex", include_str!("../defaults/themes/kavex.json")),
 ];
-pub const SHIPPED_THEMES: &[&str] = &["atom-one-dark", "win98", "kavex"];
+pub const SHIPPED_THEMES: &[&str] = &["atom-one-dark", "kavex"];
+
+// Names and fingerprints only: old installs can retire unchanged files without
+// keeping the removed palettes or overwriting a person's edited theme.
+const RETIRED_THEMES: &[(&str, &[&str])] = &[("win98", &["e85289ec8aff0bde", "6f4c38ef6e9bc187"])];
 
 /// `themes/<name>.json`: a palette, plus `colors` overrides like settings.json's.
 #[derive(Deserialize)]
@@ -131,36 +134,6 @@ const PREVIOUS_THEMES: &[(&str, &str)] = &[
   ]
 }
 "##),
-    ("win98", r##"{
-  "background": "#ffffff",
-  "foreground": "#c0c0c0",
-  "selection": "#000080",
-  "cursor": "#c0c0c0",
-  "ansi": [
-    "#000000", "#aa0000", "#00aa00", "#aa5500", "#0000aa", "#aa00aa", "#00aaaa", "#aaaaaa",
-    "#555555", "#ff5555", "#55ff55", "#ffff55", "#5555ff", "#ff55ff", "#55ffff", "#ffffff"
-  ],
-  "colors": {
-    "foreground": "#000000",
-    "surface": "#c0c0c0",
-    "popover": "#c0c0c0",
-    "raised": "#dfdfdf",
-    "hover": "#dfdfdf",
-    "border": "#808080",
-    "input": "#ffffff",
-    "muted": "#404040",
-    "dim": "#808080",
-    "accent": "#000080",
-    "accent_foreground": "#ffffff",
-    "ring": "#000000",
-    "working": "#808000",
-    "blocked": "#ff0000",
-    "done": "#0000ff",
-    "idle": "#808080",
-    "unknown": "#808080"
-  }
-}
-"##),
 ];
 
 /// Writes the shipped themes into the home folder `home` (it reads no
@@ -169,6 +142,20 @@ pub fn install_themes(home: &std::path::Path) {
     let _ = std::fs::create_dir_all(home.join("themes"));
     for (name, text) in THEMES {
         install_theme(&home.join("themes").join(format!("{name}.json")), name, text);
+    }
+    for (name, versions) in RETIRED_THEMES {
+        if let Err(error) = crate::mods::retire_shipped_file(&home.join("themes").join(format!("{name}.json")), versions) {
+            tracing::warn!("cannot retire theme {name}: {error}");
+        }
+    }
+}
+
+fn resolved_theme(name: &str, fallback: &str, home: &std::path::Path) -> String {
+    let name = crate::zaki_compat::theme(name);
+    if RETIRED_THEMES.iter().any(|(retired, _)| *retired == name) && !home.join("themes").join(format!("{name}.json")).is_file() {
+        fallback.to_owned()
+    } else {
+        name.to_owned()
     }
 }
 
@@ -230,7 +217,7 @@ fn shipped_theme_upgrades_preserve_personal_edits() {
         std::fs::write(&path, previous).unwrap();
         install_theme(&path, name, current);
         assert_eq!(std::fs::read_to_string(&path).unwrap(), current);
-        let edited = previous.replace("#abb2bf", "#abcdef").replace("#c0c0c0", "#abcdef");
+        let edited = previous.replace("#abb2bf", "#abcdef");
         std::fs::write(&path, &edited).unwrap();
         install_theme(&path, name, current);
         assert_eq!(std::fs::read_to_string(&path).unwrap(), edited);
@@ -259,6 +246,23 @@ fn shipped_theme_files() {
 /// Whether `name` is a theme that can be shown.
 pub fn theme_exists(name: &str) -> bool {
     palette(name).is_ok()
+}
+
+#[test]
+fn retired_theme_selections_fall_back_without_discarding_personal_themes() {
+    let root = std::env::temp_dir().join(format!("kavex-retired-themes-{}", std::process::id()));
+    let folder = root.join("themes");
+    std::fs::create_dir_all(&folder).unwrap();
+    let name = RETIRED_THEMES[0].0;
+    assert_eq!(resolved_theme(name, DEFAULT_DARK, &root), DEFAULT_DARK);
+    assert_eq!(resolved_theme(name, DEFAULT_LIGHT, &root), DEFAULT_LIGHT);
+    assert_eq!(resolved_theme("personal", DEFAULT_DARK, &root), "personal");
+    let path = folder.join(format!("{name}.json"));
+    std::fs::write(&path, "personal theme").unwrap();
+    assert_eq!(resolved_theme(name, DEFAULT_DARK, &root), name);
+    install_themes(&root);
+    assert_eq!(std::fs::read_to_string(&path).unwrap(), "personal theme");
+    std::fs::remove_dir_all(root).unwrap();
 }
 
 /// Whether a theme is light (by its background), for picking its half of a pair.
@@ -542,7 +546,10 @@ impl Settings {
             Appearance::Dark => true,
         };
         let (theme_light, theme_dark) = match look.theme.as_ref().or(person.theme.as_ref()) {
-            Some(c) => (crate::zaki_compat::theme(c.pick(false)).to_owned(), crate::zaki_compat::theme(c.pick(true)).to_owned()),
+            Some(c) => {
+                let home = crate::mods::app_dir();
+                (resolved_theme(c.pick(false), DEFAULT_LIGHT, &home), resolved_theme(c.pick(true), DEFAULT_DARK, &home))
+            }
             None => (DEFAULT_LIGHT.to_owned(), DEFAULT_DARK.to_owned()),
         };
         Settings {
@@ -758,7 +765,7 @@ pub fn note_fonts(names: Vec<String>) {
 }
 
 /// Font files the home brings: `fonts/` and each mod's `fonts/` (a layout's
-/// look travels with its mod, as Kavex 98's does). Loads the ones not loaded
+/// look travels with its mod). Loads the ones not loaded
 /// yet; true when any was.
 pub fn load_home_fonts(cx: &mut gpui::App) -> bool {
     static LOADED: Mutex<Vec<PathBuf>> = Mutex::new(Vec::new());
@@ -899,13 +906,15 @@ mod tests {
         assert_eq!(Settings::compose(&person, &terminals.look, true).font_size, 15.0);
         let main_settings = Settings::compose(&person, &main.look, true);
         assert_eq!((main_settings.font_size, main_settings.theme.as_str()), (19.0, "moss"));
-        let mut win98: Node = serde_json::from_str(include_str!("../defaults/layouts/win98.json")).unwrap();
-        let win_settings = Settings::compose(&person, &win98.look, true);
-        assert_eq!(win_settings.theme, "win98");
-        assert_eq!(win_settings.font_family, "PxPlus IBM VGA 8x16");
+        let mut custom = main.clone();
+        custom.look.theme = Some(ThemeChoice::One("paper".into()));
+        custom.look.font = Some("custom font".into());
+        let custom_settings = Settings::compose(&person, &custom.look, true);
+        assert_eq!(custom_settings.theme, "paper");
+        assert_eq!(custom_settings.font_family, "custom font");
         let clicks = crate::layout_sync::State { theme: Some(ThemeChoice::One("ink".into())), ..Default::default() };
-        clicks.apply(&mut win98);
-        assert_eq!(Settings::compose(&person, &win98.look, true).theme, "ink");
+        clicks.apply(&mut custom);
+        assert_eq!(Settings::compose(&person, &custom.look, true).theme, "ink");
     }
 
     /// The guide agents read (written to the home folder) explains every

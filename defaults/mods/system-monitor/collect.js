@@ -1,3 +1,5 @@
+import { Buffer } from "buffer";
+
 // These commands collect only numeric counters and process identity. They run locally
 // as children of the desktop, which also gives us the exact desktop PID.
 const PROBE = "kavex-system-monitor";
@@ -14,11 +16,30 @@ for path in /proc/[0-9]*/stat; do
 done
 `;
 
+// Read the cumulative ticks behind iostat without spending a second inside the
+// probe. Both supported macOS architectures use little-endian 32-bit Mach words.
+const MACH_CPU = `
+ObjC.import("Foundation");
+ObjC.bindFunction("mach_host_self", ["uint32", []]);
+ObjC.bindFunction("host_statistics", ["int", ["uint32", "int", "void *", "void *"]]);
+const HOST_CPU_LOAD_INFO = 3;
+const ticks = $.NSMutableData.dataWithLength(16);
+// The input/output word count is initialized to 4 (user, system, idle, nice).
+const count = $.NSMutableData.alloc.initWithBase64EncodedStringOptions("BAAAAA==", 0);
+if ($.host_statistics($.mach_host_self(), HOST_CPU_LOAD_INFO, ticks.mutableBytes, count.mutableBytes) !== 0)
+  throw new Error("Could not read Mach CPU counters");
+ObjC.unwrap(ticks.base64EncodedStringWithOptions(0));
+`;
+
 const MACOS = String.raw`
 set -e
 export LC_ALL=C
 printf '%s %s %s\n' "$PPID" "$(/usr/sbin/sysctl -n hw.memsize)" "$(/usr/sbin/sysctl -n hw.logicalcpu)"
-/usr/sbin/iostat -d -C -n 0 -c 2 -w 1
+if ticks=$(/usr/bin/osascript -l JavaScript -e "$1"); then
+  printf 'cpu-ticks %s\n' "$ticks"
+else
+  /usr/sbin/iostat -d -C -n 0 -c 2 -w 1
+fi
 /usr/bin/vm_stat
 printf '%s\n' --
 /bin/ps -ax -o pid=,ppid=,rss=,time=,lstart=
@@ -77,12 +98,21 @@ export function parseLinux(text) {
   return { appPid, cores, capacity: cpu?.total, cpu, memory: memory(mem.MemTotal, available), processes };
 }
 
+function macCpu(header) {
+  const ticks = Buffer.from(header.match(/^cpu-ticks ([A-Za-z0-9+/=]+)$/m)?.[1] ?? "", "base64");
+  if (ticks.length === 16) {
+    const view = new DataView(ticks.buffer, ticks.byteOffset, ticks.byteLength);
+    const busy = view.getUint32(0, true) + view.getUint32(4, true) + view.getUint32(12, true);
+    return { total: busy + view.getUint32(8, true), busy };
+  }
+  // The fallback iostat reports a boot average first and interval CPU second.
+  const idle = Array.from(header.matchAll(/^[ \t]*\d+[ \t]+\d+[ \t]+(\d+)[ \t]*$/gm), (match) => Number(match[1]));
+  return idle.length > 1 ? { percent: 100 - idle.at(-1) } : null;
+}
+
 export function parseMac(text, now) {
   const [header, table = ""] = text.split(/\r?\n--\r?\n/, 2);
   const [appPid, total, cores] = fields(header.split("\n", 1)[0]).map(Number);
-  const idle = Array.from(header.matchAll(/^[ \t]*\d+[ \t]+\d+[ \t]+(\d+)[ \t]*$/gm), (match) => Number(match[1]));
-  // iostat reports the boot average first and interval CPU second.
-  const cpu = idle.length > 1 ? { percent: 100 - idle.at(-1) } : null;
   const pageSize = Number(header.match(/page size of (\d+) bytes/)?.[1]);
   const pages = Object.fromEntries(Array.from(header.matchAll(/^([^:\n]+):\s+(\d+)\.$/gm), ([, key, count]) => [key, Number(count)]));
   // Approximate Activity Monitor's app + wired + compressed memory. File cache
@@ -97,7 +127,7 @@ export function parseMac(text, now) {
     const cpu = time.split(":").reduce((seconds, part) => seconds * 60 + Number(part), 0) * 1000;
     processes.push({ pid: Number(pid), parent: Number(parent), start, cpu, memory: Number(rss) * 1024 });
   }
-  return { appPid, cores, capacity: now * cores, cpu, memory: memory(total, Math.max(0, total - used)), processes };
+  return { appPid, cores, capacity: now * cores, cpu: macCpu(header), memory: memory(total, Math.max(0, total - used)), processes };
 }
 
 export function parseWindows(text) {
@@ -111,7 +141,8 @@ export async function readSnapshot(platform, exec) {
     const { code, stdout } = await exec("powershell", ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command", WINDOWS]);
     if (code === 0) return parseWindows(stdout);
   } else if (platform === "linux" || platform === "macos") {
-    const { code, stdout } = await exec("/bin/sh", ["-c", platform === "linux" ? LINUX : MACOS, PROBE]);
+    const args = platform === "linux" ? ["-c", LINUX, PROBE] : ["-c", MACOS, PROBE, MACH_CPU];
+    const { code, stdout } = await exec("/bin/sh", args);
     if (code === 0) return platform === "linux" ? parseLinux(stdout) : parseMac(stdout, Date.now());
   }
   throw new Error("Could not sample this computer");

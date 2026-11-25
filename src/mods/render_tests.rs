@@ -506,6 +506,45 @@ fn settings_sections_and_updates(cx: &mut TestAppContext) {
 }
 
 #[gpui::test]
+fn system_monitor_samples_on_activation_and_primes_cpu_before_the_regular_poll(cx: &mut TestAppContext) {
+    use std::time::Duration;
+
+    cx.update(gpui_shell::init);
+    let staged = Staged::new();
+    std::fs::write(staged.0.join("main.js"), r#"
+import { div } from "gpui-kit";
+import Monitor from "./mods/system-monitor/main.js";
+export default class Fixture extends Monitor {
+    render() { return div().child(`Samples: ${this.history.length}`).child(super.render()); }
+}"#).unwrap();
+    let context = cx.add_empty_window();
+    let mut session = context.update(|window, cx| {
+        let values = fixture(false, props(), updates("current", "current"));
+        let policy = Policy::new().with_host_module(module(values, Rc::default())).unwrap();
+        DescriptionSession::load(ShellRuntime::new_isolated().unwrap(), &staged.0, policy, window, cx).unwrap()
+    });
+    let mut describe = |context: &mut gpui::VisualTestContext| {
+        context.run_until_parked();
+        context.update(|window, cx| session.describe(window, cx).unwrap())
+    };
+    assert!(describe(context).contains("Samples: 0"));
+    context.update(|window, _| window.activate_window());
+    context.run_until_parked();
+    context.executor().advance_clock(Duration::from_millis(100));
+    let first = describe(context);
+    assert!(first.contains("Samples: 1"), "{first}");
+    assert!(first.contains("available"), "{first}");
+
+    context.executor().advance_clock(Duration::from_millis(250));
+    let primed = describe(context);
+    assert!(primed.contains("Samples: 2"), "{primed}");
+
+    context.deactivate_window();
+    context.executor().advance_clock(Duration::from_secs(2));
+    assert!(describe(context).contains("Samples: 2"));
+}
+
+#[gpui::test]
 fn system_monitor_scrolls_to_the_last_agent(cx: &mut TestAppContext) {
     use gpui::{
         AnyView, Context, ElementId, InteractiveElement as _, IntoElement, Modifiers, MouseButton,

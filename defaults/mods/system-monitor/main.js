@@ -6,6 +6,7 @@ import { measure } from "./measure.js";
 import { look, MONO, soft } from "./look.js";
 
 const INTERVAL = 2000, COLS = 36, ROWS = 8;
+const CPU_BASELINE_INTERVAL = 250;
 const GUTTER = 5, INSET = 14;
 const PANEL_HEIGHT = 400, MIN_WIDTH = 306;
 const CPU_COLUMN = 70, MEMORY_COLUMN = 90;
@@ -115,7 +116,18 @@ export default class SystemMonitor extends View {
     this.source = props()?.from;
     this.history = [];
     this.bindings = new Map();
-    this.sample(cx);
+    if (window.is_window_active()) this.sample(cx);
+    else cx.spawn(async (cx) => {
+      // The popup can mount before the window activation event. Check briefly
+      // without running a probe in an inactive window or waiting a full tick.
+      for (let attempt = 0; attempt < 10 && !this.closed; attempt++) {
+        await cx.sleep(100);
+        if (window.is_window_active()) {
+          this.sample(cx);
+          return;
+        }
+      }
+    });
     cx.timer.every(INTERVAL, (cx) => this.sample(cx));
   }
 
@@ -146,6 +158,9 @@ export default class SystemMonitor extends View {
         this.memoryPlot = plot(this.history, "memory");
         this.cpuPlot = plot(this.history, "cpu");
         this.failed = false;
+        // RAM is ready on the first sample. CPU needs a delta, so prime it
+        // without waiting for the regular two-second refresh.
+        if (!previous) cx.timer.after(CPU_BASELINE_INTERVAL, (cx) => this.sample(cx));
       } catch {
         if (!this.closed && window.is_window_active()) this.failed = true;
       } finally {

@@ -185,23 +185,8 @@
       ]
     },
     {
-      "name": "Pixelated MS Sans Serif fonts (Kavex 98)",
-      "source": "https://github.com/jdan/98.css; unchanged font conversion.",
-      "files": [
-        "defaults/mods/win98/fonts/LICENSE-MSSansSerif.txt",
-        "licenses/CC-BY-SA-3.0.txt"
-      ]
-    },
-    {
-      "name": "PxPlus IBM VGA font (Kavex 98)",
-      "source": "https://int10h.org/oldschool-pc-fonts/",
-      "files": [
-        "defaults/mods/win98/fonts/LICENSE-PxPlus.txt"
-      ]
-    },
-    {
       "name": "Kavex logo artwork",
-      "source": "Ram path adapted from https://github.com/herdrdev/herdr/blob/HEAD/assets/logo.svg (Apache-2.0). Kavex 98 artwork is drawn by defaults/mods/win98/art/generate.ts, under the app's Apache-2.0 license.",
+      "source": "Ram path adapted from https://github.com/herdrdev/herdr/blob/HEAD/assets/logo.svg (Apache-2.0).",
       "files": [
         "LICENSE"
       ]

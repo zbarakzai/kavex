@@ -67,7 +67,7 @@ Remote work keeps running when your local window closes or your laptop sleeps, a
 ## Make it yours
 
 Open the command palette to find an action by name, or open Settings to change fonts, colors, sounds and other preferences.
-The built-in layouts include Kavex, Terminals and Kavex 98.
+The built-in layouts are Kavex and Terminals.
 A **layout** arranges the window. **Mods** are small JavaScript programs that draw its panels, menus and dialogs.
 
 Duplicate a shipped layout or mod before changing its structure or code. Your copies stay yours; Kavex updates the shipped ones on start.

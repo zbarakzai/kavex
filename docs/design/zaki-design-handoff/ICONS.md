@@ -4,7 +4,7 @@ Please draw one consistent set of **52 interface icons** for Kavex, a native des
 
 The look follows the rest of the design: clean, flat, quiet. Rounded line icons, one weight, no decoration. They sit beside Geist and Geist Mono text in a dense dark window, so each must read at 12 to 16px.
 
-Not in this request: agent and program logos (Claude, Codex, Cursor, Node, Docker and the rest in `defaults/icons/`), the Kavex app icon, and the Kavex 98 retro art.
+Not in this request: agent and program logos (Claude, Codex, Cursor, Node, Docker and the rest in `defaults/icons/`) and the Kavex app icon.
 
 ## Format
 

@@ -446,6 +446,40 @@ fn fingerprint(bytes: &[u8]) -> String {
     format!("{h:016x}")
 }
 
+/// Remove a retired text asset only when it still matches a shipped version.
+pub(crate) fn retire_shipped_file(path: &Path, versions: &[&str]) -> std::io::Result<bool> {
+    let text = match std::fs::read_to_string(path) {
+        Ok(text) => text,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+        Err(error) => return Err(error),
+    };
+    let hash = fingerprint(text.replace("\r\n", "\n").as_bytes());
+    if !versions.contains(&hash.as_str()) {
+        return Ok(false);
+    }
+    std::fs::remove_file(path)?;
+    Ok(true)
+}
+
+#[test]
+fn retired_text_assets_preserve_personal_edits() {
+    let root = std::env::temp_dir().join(format!("kavex-retired-assets-{}", std::process::id()));
+    std::fs::create_dir_all(&root).unwrap();
+    let path = root.join("preview.svg");
+    let original = "<svg>\n</svg>\n";
+    let hash = fingerprint(original.as_bytes());
+    std::fs::write(&path, original.replace('\n', "\r\n")).unwrap();
+    assert!(retire_shipped_file(&path, &[&hash]).unwrap());
+    assert!(!path.exists());
+    assert!(!retire_shipped_file(&path, &[&hash]).unwrap());
+    let personal = "<svg>personal drawing</svg>\n";
+    std::fs::write(&path, personal).unwrap();
+    assert!(!retire_shipped_file(&path, &[&hash]).unwrap());
+    assert_eq!(std::fs::read_to_string(&path).unwrap(), personal);
+    std::fs::remove_file(path).unwrap();
+    std::fs::remove_dir(root).unwrap();
+}
+
 /// Whether every file Kavex installed is still there as installed.
 fn untouched(dir: &Path, files: &Files) -> bool {
     files.iter().all(|(path, want)| std::fs::read(dir.join(path)).is_ok_and(|b| fingerprint(&b) == *want))
@@ -1318,7 +1352,9 @@ mod tests {
                 while reading.load(std::sync::atomic::Ordering::Relaxed) {
                     match std::fs::read(&path) {
                         Ok(bytes) => { serde_json::from_slice::<Value>(&bytes).unwrap(); }
-                        Err(e) => assert_eq!(e.kind(), std::io::ErrorKind::NotFound),
+                        // Windows can deny opening the old file while replacement leaves it pending deletion.
+                        Err(e) => assert!(e.kind() == std::io::ErrorKind::NotFound
+                            || (cfg!(windows) && e.kind() == std::io::ErrorKind::PermissionDenied), "{e}"),
                     }
                     std::thread::yield_now();
                 }

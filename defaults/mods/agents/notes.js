@@ -1,8 +1,8 @@
 import { div, svg } from "gpui-kit";
 import * as ui from "gpui-base";
-import { closeOverlay, focused, notify, openOverlay, revealTerminalNote, terminals, theme, window } from "herdr";
+import { closeOverlay, notify, openOverlay, revealTerminalNote, theme, window } from "herdr";
 import { MONO } from "./look.js";
-import { noteScope, terminalScope } from "./notes-scope.js";
+import { noteScope, noteSource, terminalScope } from "./notes-scope.js";
 import { listNotes, saveNote } from "./notes-store.js";
 
 const ROW_GAP = 5;
@@ -32,24 +32,10 @@ function keyHint(t, keys, text) {
     .child(text);
 }
 
-function terminalSource(p) {
-  if (p.source) return p.source;
-  const focus = focused();
-  const address = p.terminal ?? focus?.shown ?? focus?.terminal;
-  const term = terminals().find((t) => t.address === address);
-  if (!term) return null;
-  return {
-    address, created_ms: term.created_ms, pid: term.pid,
-    foreground: { pid: term.foreground?.pid },
-    program: { key: term.program?.key },
-    labels: { "kavex.session": term.labels?.["kavex.session"] },
-  };
-}
-
 export class TerminalNotes {
   constructor(p, cx) {
     this.p = p;
-    this.source = terminalSource(p);
+    this.source = noteSource(p);
     this.items = [];
     this.at = 0;
     this.busy = p.notes !== "selection";
@@ -151,7 +137,7 @@ export class TerminalNotes {
     cx.notify();
     cx.spawn(async (cx) => {
       try {
-        const source = terminalSource({ terminal });
+        const source = noteSource({ terminal });
         const current = this.showTerminal ? terminalScope(source) : await noteScope(source);
         const scope = this.showTerminal ? this.runScope : this.scope;
         if (JSON.stringify(current) === JSON.stringify(scope) && await revealTerminalNote(terminal, note.anchor ?? null, note.text)) {
@@ -307,10 +293,20 @@ export class TerminalNotes {
   render() {
     const t = theme();
     if (this.p.notes === "selection") {
-      return ui.h_flex().w_full().p(4).gap(3).items_center()
-        .child(button(t, "add-note", "Add note", () => this.edit(), { primary: true, glyph: "pin" }).px(8))
-        .child(div().w(1).h(18).bg(t.input))
-        .child(button(t, "copy-selection", "Copy", (_e, cx) => { this.copy(this.p.text, cx); this.close(); }, { glyph: "copy" }).px(8));
+      const action = (id, glyph, label, click) => ui.h_flex().id(id).size(32).flex_none().items_center().justify_center()
+        .rounded(7).border_1().border_color("#00000000").role("button").accessibility_label(label).tooltip(label).tab_index(0)
+        .cursor_pointer().text_color(t.muted)
+        .hover((el) => el.bg(t.hover_strong ?? t.hover).text_color(t.foreground))
+        .focus((el) => el.border_color(t.accent).text_color(t.foreground))
+        .on_key_down((event, cx) => {
+          if (event.key !== "enter" && event.key !== "space") return;
+          cx.stop_propagation();
+          click(event, cx);
+        })
+        .on_click(click).child(icon(`heroicons/${glyph}`));
+      return ui.h_flex().id("selection-actions").w_full().p(5).gap(4).items_center()
+        .child(action("add-note", "pencil-square", "Add note", () => this.edit()))
+        .child(action("copy-selection", "clipboard-document", "Copy", (_e, cx) => { this.copy(this.p.text, cx); this.close(); }));
     }
     const edit = this.p.notes === "edit";
     let title = this.scope?.terminalRun || this.showTerminal ? "Terminal notes" : "Session notes";
