@@ -51,6 +51,8 @@ test:
     bun test scripts/reader.test.ts
     bun test scripts/start.test.ts
     bun test scripts/sessions.test.ts
+    bun test scripts/antigravity.test.ts
+    bun test scripts/antigravity-bridge.test.ts
     bun test scripts/terminal-notes.test.ts
     bun test scripts/usage.test.ts
     bun test scripts/system-monitor.test.ts

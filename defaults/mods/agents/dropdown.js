@@ -5,6 +5,7 @@ import { look, MONO } from "./look.js";
 const BAR = 80;
 
 function count(n) {
+  if (n === undefined || n === null) return "?";
   const short = (value, unit) => `${value < 100 ? Number(value.toFixed(1)) : Math.round(value)}${unit}`;
   return n < 1000 ? String(n) : n < 999500 ? short(n / 1e3, "k") : short(n / 1e6, "M");
 }
@@ -20,6 +21,7 @@ export function dropdown(t, session) {
   const { used, total, percent } = session.context;
   const known = percent !== undefined;
   const size = used === null ? "?" : count(used);
+  const context = total ? (used === undefined ? `${count(total)} max` : `${size} / ${count(total)}`) : size;
   const line = (label) => h_flex().w_full().gap(8).items_center().child(div().w(52).flex_none().text_color(k.label).child(label));
   const figure = (text) => div().flex_none().font_family(MONO).text_size(11).text_color(t.foreground).child(text);
   const { input, output, cached } = session.tokens;
@@ -32,10 +34,10 @@ export function dropdown(t, session) {
     .child(
       line("Context")
         .when(known, (el) => el.child(div().w(BAR).h(4).flex_none().rounded(2).bg(k.well).child(div().h_full().w((BAR * percent) / 100).rounded(2).bg(percent >= 90 ? t.blocked : t.accent))))
-        .child(figure(total ? `${size} / ${count(total)}` : size))
+        .child(figure(context))
         .when(known, (el) => el.child(figure(`${percent}%`))),
     )
     .child(line("API cost").child(div().flex_1()).child(figure(money(session.cost))))
     .child(line("Tokens").child(figure(`in ${count(input)} · out ${count(output)} · cached ${count(cached)}`)))
-    .child(div().text_size(11).text_color(k.label).child("What this would cost on the API, not what you paid."));
+    .child(div().text_size(11).text_color(k.label).child(session.estimated ? "Estimated at API prices, not what you paid." : "What this would cost on the API, not what you paid."));
 }

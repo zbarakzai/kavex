@@ -1,4 +1,5 @@
 import { claude } from "./claude.js";
+import { antigravity } from "./antigravity.js";
 import { codex } from "./codex.js";
 import { machineOn } from "./machine.js";
 import { pi } from "./pi.js";
@@ -44,6 +45,7 @@ export async function noteScope(term) {
     if (agent === "claude") session = (await claude.locate({ term, machine: await machineOn(machine) }))?.id;
     if (agent === "codex") session = codex.locate({ label })?.id;
     if (agent === "pi") session = pi.locate({ label })?.id;
+    if (agent === "antigravity") session = antigravity.locate({ label, term })?.id;
   } catch {
     // A missing record or a lost connection still lets the user save the quote for this terminal.
   }

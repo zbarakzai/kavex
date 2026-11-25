@@ -24,8 +24,13 @@ For [session context](#session-context-and-api-cost), Kavex also writes these ou
 - `~/.codex/hooks.json`: one hook added at the end of `SessionStart`. Your own hooks keep their place, and a file Kavex can't read or understand is left alone.
 - `~/.kavex/codex-session.sh` and `~/.kavex/codex-session.ps1`: the script that hook runs.
 - `~/.pi/agent/extensions/kavex-session.ts`: an extension of Kavex's own. Pi loads it with nothing to approve.
+- `~/.gemini/antigravity-cli/settings.json`: the title command is wrapped when Node.js 18+ or Bun is
+  available. Existing title output is preserved; disabled or unreadable settings are left alone.
+- `~/.kavex/antigravity/title.cjs` and `title-original.json`: the Antigravity bridge and its saved
+  original title definition. The original command still receives the same CLI state input.
 
-They do nothing outside a Kavex terminal, and they stay behind if you remove Kavex or the app home.
+Session reporting does nothing outside a Kavex terminal; Antigravity still forwards an existing
+title command. These files stay behind if you remove Kavex or the app home.
 
 Spaces, tabs and splits are stored in each machine's core document, not in the app home.
 Terminals and their output belong to [herdr-core](https://github.com/herdrdev/herdr-core).
@@ -86,21 +91,33 @@ history for that provider and machine.
 
 ## Session context and API cost
 
-The `agents` mod shows how full each Claude Code, Codex and Pi session is, and what it would cost at API prices. It has no off switch.
+The `agents` mod shows how full each Claude Code, Codex, Pi and Antigravity session is, and what it would cost at API prices. It has no off switch.
 
 **What it runs.** On the machine the agent runs on:
 
 - Claude Code: `claude -p "/context"`, once per model and kept for a day, with no saved session, MCP servers or setting sources. It spends no tokens.
 - `sh` with `dd`, `wc`, `grep` and `find` to read session files. Windows uses PowerShell, which also lists running processes to find Claude Code's.
 - Codex's hook and Pi's extension run `hc label`, to tell Kavex which session file a terminal holds and, for Pi, its context's total.
+- Antigravity runs its title bridge with Node.js or Bun. The bridge uses `hc label` to report that
+  terminal's conversation ID, model, context percentage, token totals and API cost. An existing title
+  command is forwarded through the platform shell. It contacts no core outside a Kavex terminal.
 
 Kavex never approves its Codex hook. Codex runs it only after you trust it in `/hooks`.
 
 **What it reads.** Your agents' session files, which hold your conversations, and Claude Code's per-process record in `~/.claude/sessions`. A filter runs over each file, and only lines with usage, a model or a helper's name reach the mod. For Pi those lines hold the whole answer. To set up, it reads `~/.codex/hooks.json` and the files listed under [What stays on disk](#what-stays-on-disk). It doesn't read any agent's login, or Codex's `config.toml`.
 
+Antigravity instead supplies its documented live state to the title bridge. That input can include
+an email address, workspace paths, a conversation title and subscription information. The bridge
+keeps only the allowlisted session identity and numbers above; it does not read transcripts or
+credentials. Undocumented current-context and cached-token figures stay unknown.
+
 **What it sends.** Nothing. On an added machine the numbers come back over your own connection to it.
 
-**What it keeps.** In `shared.json` in the app home, not encrypted: each model's context total, and which agents are set up on which machine. Terminal labels in the core hold each session file's path, and Pi's context total. No conversation text, token count or cost is saved.
+**What it keeps.** In `shared.json` in the app home, not encrypted: each model's context total, and which agents are set up on which machine. Claude, Codex and Pi terminal labels in the core hold each session file's path, and Pi's context total. Those adapters save no conversation text, token count or cost.
+
+Antigravity's terminal label also holds its latest reported token totals and cost, until Kavex
+observes that terminal back at its shell. It contains no prompt, email, workspace path or quota.
+These labels belong to the core and are not encrypted. No history of those snapshots is kept by the mod.
 
 ## Telemetry
 

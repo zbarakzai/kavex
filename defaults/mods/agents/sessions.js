@@ -5,12 +5,13 @@
 // `install` for one with files of its own, `keepsOpen` for one whose writes no watcher reports.
 
 import { agents, hc, machines, setShared, shared, terminals, watchFolder } from "herdr";
+import { antigravity } from "./antigravity.js";
 import { claude } from "./claude.js";
 import { codex } from "./codex.js";
 import { BLOCK, NO_FILE, due, machineOn } from "./machine.js";
 import { pi } from "./pi.js";
 
-const AGENTS = { claude, codex, pi };
+const AGENTS = { claude, codex, pi, antigravity };
 
 const LABEL = "kavex.session";
 const TOTAL = "kavex.total";
@@ -101,9 +102,14 @@ export class Sessions {
       const listed = here.filter((t) => this.follows(t, all));
       for (const a of this.live.keys()) if (machineOf(a) === on && !listed.some((t) => t.address === a)) this.live.delete(a);
       if (!this.only) await this.tidy(here);
-      pass.machine = listed.length ? await this.machine(on).catch(() => null) : null;
-      for (const term of pass.machine ? listed : []) {
-        if (!this.only) this.setUp(pass.machine, term.program.key, AGENTS[term.program.key], cx);
+      const needsMachine = listed.some((term) => {
+        const agent = AGENTS[term.program.key];
+        return !agent.snapshot || (!this.only && agent.setup !== undefined && shared(SETUP)?.[onMachine(on, term.program.key)] !== agent.setup);
+      });
+      pass.machine = needsMachine ? await this.machine(on).catch(() => null) : null;
+      for (const term of listed) {
+        if (!pass.machine && !AGENTS[term.program.key].snapshot) continue;
+        if (!this.only && pass.machine) this.setUp(pass.machine, term.program.key, AGENTS[term.program.key], cx);
         if (this.current(pass) && !(on && offline(on))) await this.follow(term, pass, cx);
       }
       if (!this.current(pass)) return;
@@ -141,7 +147,7 @@ export class Sessions {
     const name = onMachine(machine.on, key);
     if (agent.setup === undefined || shared(SETUP)?.[name] === agent.setup || !due(this.tried, name, RETRY)) return;
     cx.spawn(async () => {
-      const done = await agent.install(machine.files).catch(() => false);
+      const done = await agent.install(machine.files, machine).catch(() => false);
       if (done) setShared(SETUP, { ...shared(SETUP), [name]: agent.setup });
     });
   }
@@ -154,6 +160,13 @@ export class Sessions {
     try {
       const found = await agent.locate({ term, label: term.labels?.[LABEL], total: term.labels?.[TOTAL], machine: pass.machine });
       if (!this.current(pass)) return;
+      // A title callback can report numbers directly, with no conversation file to read.
+      if (agent.snapshot) {
+        if (!found) return this.unreported(term, agent, cx);
+        this.live.set(term.address, found);
+        if (JSON.stringify(session?.result) !== JSON.stringify(found.result)) cx.notify();
+        return;
+      }
       if (found && found.id !== session?.id) {
         session = { ...found, facts: agent.facts(), files: new Map(), torn: new Set(), changes: 1, done: 0 };
         this.live.set(term.address, session);
