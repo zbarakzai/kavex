@@ -1,4 +1,4 @@
-import { beforeEach, expect, mock, test } from "bun:test";
+import { beforeEach, expect, mock, spyOn, test } from "bun:test";
 
 let terms: any[];
 let saved: Record<string, any>;
@@ -7,6 +7,7 @@ let labels: string[][];
 let offline: boolean;
 mock.module("herdr", () => ({
   agents: () => terms,
+  focused: () => null,
   terminals: () => terms,
   machines: () => [{ name: null, layout: "ready" }, { name: "remote", layout: offline ? "unavailable" : "ready" }],
   home: () => "/test-home",
@@ -162,4 +163,18 @@ test("the dropdown distinguishes unavailable token figures from zero", async () 
   expect(text).toContain("1M max");
   expect(text).toContain("cached ?");
   expect(text).not.toMatch(/NaN|undefined/);
+});
+
+test("a connected bridge with no conversation yet stays at No usage yet", async () => {
+  terms[0].labels["kavex.session"] = report({ session: null });
+  const sessions = new Sessions();
+  sessions.start(cx);
+  await settle();
+  const later = Date.now() + 10000;
+  const clock = spyOn(Date, "now").mockReturnValue(later);
+  try {
+    sessions.tick(cx);
+    await settle();
+    expect(sessions.shown("t1")).toEqual({ state: "empty", say: "No usage yet" });
+  } finally { clock.mockRestore(); }
 });

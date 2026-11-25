@@ -28,6 +28,8 @@ For [session context](#session-context-and-api-cost), Kavex also writes these ou
   available. Existing title output is preserved; disabled or unreadable settings are left alone.
 - `~/.kavex/antigravity/title.cjs` and `title-original.json`: the Antigravity bridge and its saved
   original title definition. The original command still receives the same CLI state input.
+- `~/.kavex/antigravity/title.cmd` on Windows: finds the selected runtime in PATH without searching
+  the project directory implicitly, and follows runtime upgrades.
 
 Session reporting does nothing outside a Kavex terminal; Antigravity still forwards an existing
 title command. These files stay behind if you remove Kavex or the app home.

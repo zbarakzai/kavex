@@ -2,7 +2,8 @@
 // its helpers' files, `filter`, `facts` and `add` read their lines, and `numbers` says what they add
 // up to. Its `context` needs `total` asked of the agent when it has `asks`, a model. Optional:
 // `reports`, `waiting` and `patience` for an agent that labels its own terminal, `setup` and
-// `install` for one with files of its own, `keepsOpen` for one whose writes no watcher reports.
+// `install(files, machine)` for one with files of its own, `keepsOpen` for unwatched writes,
+// or `snapshot` when `locate` returns `{ id, result }` directly instead of a session file.
 
 import { agents, hc, machines, setShared, shared, terminals, watchFolder } from "herdr";
 import { antigravity } from "./antigravity.js";

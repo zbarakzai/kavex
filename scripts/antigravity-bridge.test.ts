@@ -74,7 +74,8 @@ test("unreadable or disabled title settings are left untouched", async () => {
 test("a machine without Node or Bun keeps its settings and gets no broken bridge", async () => {
   const fixture = installation('{"model":"personal"}', false);
   expect(await antigravity.install?.(fixture.files, fixture.machine)).toBe(false);
-  expect(fixture.runs).toEqual(["node", "bun"]);
+  expect(fixture.runs).toContain(process.platform === "win32" ? "node.exe" : "node");
+  expect(fixture.runs).toContain(process.platform === "win32" ? "bun.exe" : "bun");
   expect(fixture.writes).toEqual([]);
 });
 
@@ -90,7 +91,7 @@ test("the live payload keeps only documented numbers and never invents cached or
 
 // Only the hc boundary is replaced. The installed script, JSON stdin, title command and
 // platform shell all run in real child processes, with no connection to a person's core.
-function callback(fixture: ReturnType<typeof installation>, payload: unknown, terminal: string | null, configured = false) {
+function callback(fixture: ReturnType<typeof installation>, payload: unknown, terminal: string | null, configured = false, cwd?: string, path = process.env.PATH) {
   const trace = join(fixture.home, "hc.json");
   const preload = join(fixture.home, "hc-fixture.cjs");
   writeFileSync(preload, `const cp = require('node:child_process'); const real = cp.spawnSync;
@@ -99,11 +100,13 @@ cp.spawnSync = (program, args, options) => {
   return real(program, args, options);
 };`);
   const script = fixture.home + "/.kavex/antigravity/title.cjs";
-  const env = { ...process.env, HOME: fixture.home, USERPROFILE: fixture.home, HC_TERMINAL_ID: terminal ?? "", NODE_OPTIONS: "--require " + JSON.stringify(preload) };
+  const env: NodeJS.ProcessEnv = { ...process.env, HOME: fixture.home, USERPROFILE: fixture.home, HC_TERMINAL_ID: terminal ?? "", NODE_OPTIONS: "--require " + JSON.stringify(preload) };
+  for (const key of Object.keys(env)) if (key.toUpperCase() === "PATH") delete env[key];
+  env.PATH = path;
   // Bun does not implement NODE_OPTIONS --require, so explicitly preload for both runtimes.
   const command = JSON.parse(readFileSync(fixture.path, "utf8")).title.command;
   const reply = configured
-    ? spawnSync(command, { shell: true, env, input: JSON.stringify(payload), encoding: "utf8", windowsHide: true })
+    ? spawnSync(command, { shell: true, cwd, env, input: JSON.stringify(payload), encoding: "utf8", windowsHide: true })
     : spawnSync(process.execPath, ["--require", preload, script], { env, input: JSON.stringify(payload), encoding: "utf8", windowsHide: true });
   expect(reply.status).toBe(0);
   expect(reply.stderr).toBe("");
@@ -146,7 +149,16 @@ test.skipIf(!Bun.which("node"))("the configured command works through the real p
 test("a callback before the next conversation exists clears the previous session label", async () => {
   const fixture = installation();
   expect(await antigravity.install?.(fixture.files, fixture.machine)).toBe(true);
-  expect(callback(fixture, state({ conversation_id: "" }), "t1").labels).toEqual(["label", "t1", "kavex.session="]);
+  const result = callback(fixture, state({ conversation_id: "" }), "t1");
+  expect(antigravity.locate({ term: { address: "t1" }, label: result.labels[2].slice("kavex.session=".length) })).toEqual({
+    id: null, result: { state: "empty", say: "No usage yet" },
+  });
+});
+
+test("a payload without session identity leaves the terminal's current label alone", async () => {
+  const fixture = installation();
+  expect(await antigravity.install?.(fixture.files, fixture.machine)).toBe(true);
+  expect(callback(fixture, state({ conversation_id: undefined }), "t1").labels).toEqual([]);
 });
 
 test("settings changed during installation are never replaced", async () => {
@@ -177,4 +189,35 @@ test("tilde expansion preserves adjacent shell operators in an existing title co
   expect(await antigravity.install?.(fixture.files, fixture.machine)).toBe(true);
   const words = callback(fixture, state(), "t1").stdout.trim().split(/\s+/).sort();
   expect(words).toEqual(["First", "Second"]);
+});
+
+test.skipIf(!Bun.which("node"))("runtime upgrades do not leave the bridge pointing at an old binary", async () => {
+  const fixture = installation('{"title":{"command":"echo Active runtime"}}');
+  const removed = join(fixture.home, process.platform === "win32" ? "removed-node.exe" : "removed-node");
+  fixture.machine.run = async () => ({ code: 0, stdout: JSON.stringify(["24.0.0", removed]), stderr: "" });
+  expect(await antigravity.install(fixture.files, fixture.machine)).toBe(true);
+  expect(callback(fixture, state(), "t1", true).stdout.trim()).toBe("Active runtime");
+});
+
+test.skipIf(process.platform !== "win32" || !Bun.which("node"))("a workspace runtime cannot shadow the verified Windows PATH runtime", async () => {
+  const fixture = installation('{"title":{"command":"echo Trusted runtime"}}', true, Bun.which("node")!);
+  const project = join(fixture.home, "project");
+  mkdirSync(project);
+  writeFileSync(join(project, "node.exe"), "not a runtime");
+  writeFileSync(join(project, "node.cmd"), "@echo Unsafe runtime\r\n");
+  expect(await antigravity.install(fixture.files, fixture.machine)).toBe(true);
+  expect(callback(fixture, state(), "t1", true, project).stdout.trim()).toBe("Trusted runtime");
+});
+
+test.skipIf(process.platform !== "win32" || !Bun.which("node"))("an accepted Windows runtime shim also works when no native runtime is in PATH", async () => {
+  const fixture = installation('{"title":{"command":"echo Shim runtime"}}');
+  const bin = join(fixture.home, "shim-bin");
+  mkdirSync(bin);
+  const node = Bun.which("node")!;
+  writeFileSync(join(bin, "node.cmd"), `@echo off\r\n\"${node}\" %*\r\n`);
+  fixture.machine.run = async (program) => program === "node" || program === "node.cmd"
+    ? { code: 0, stdout: JSON.stringify(["24.0.0", node]), stderr: "" }
+    : { code: 127, stdout: "", stderr: "" };
+  expect(await antigravity.install(fixture.files, fixture.machine)).toBe(true);
+  expect(callback(fixture, state(), "t1", true, fixture.home, bin).stdout.trim()).toBe("Shim runtime");
 });

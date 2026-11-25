@@ -257,13 +257,15 @@ on this screen in `shared("spaces.recent")`.
   - **Antigravity CLI (`agy`):** Kavex installs a title bridge when Node.js 18+ or Bun is available on
     that machine. It wraps `title.command` in `~/.gemini/antigravity-cli/settings.json`, preserves an
     existing command and its output in `~/.kavex/antigravity/title-original.json`, and leaves disabled
-    or unreadable settings alone. The bridge is `~/.kavex/antigravity/title.cjs`. It does not replace
+    or unreadable settings alone. The bridge is `~/.kavex/antigravity/title.cjs`, with a `title.cmd`
+    launcher on Windows that searches PATH without the implicit project directory. It does not replace
     the status line. Enable titles with `/title on` and restart agy; setup failures retry after ten
     minutes, or after restarting Kavex. Removing the bridge after successful setup is respected until
     setup changes. Recent agy versions report agent status themselves through OSC 7501.
     The bridge labels its exact terminal `kavex.session=antigravity:<JSON>` with only the conversation
     ID, model and reported numbers. These labels stay in the core until the terminal returns to its
-    shell. No conversation file or login is read. Context uses agy's reported percentage; its maximum
+    shell. Before a conversation starts, a connected bridge reports "No usage yet". No conversation
+    file or login is read. Context uses agy's reported percentage; its maximum
     is shown separately, since the current-token numerator is not documented. Input/output are agy's
     session totals, cached tokens stay `?`, and absent cost reads "no price". API cost is agy's own
     list-price estimate including helpers. Notes use the reported conversation ID, including on resume.

@@ -1,7 +1,9 @@
 // Shared by the mod and its standalone title bridge. Keep this function self-contained.
 export function sessionReport(value, terminal) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  if (value.terminal !== terminal || typeof value.session !== "string" || !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(value.session)) return null;
+  if (value.terminal !== terminal) return null;
+  if (value.session === null || value.session === "") return { session: null, terminal };
+  if (typeof value.session !== "string" || !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(value.session)) return null;
   const count = (n) => Number.isSafeInteger(n) && n >= 0 ? n : undefined;
   const model = typeof value.model === "string" && value.model.length <= 256 && !/[\x00-\x1f\x7f]/.test(value.model) ? value.model : undefined;
   return {
@@ -22,7 +24,7 @@ export function liveReport(state, terminal) {
   const context = state?.context_window;
   const pending = context?.current_usage === null;
   return sessionReport({
-    session: state?.conversation_id || state?.session_id,
+    session: state?.conversation_id ?? state?.session_id,
     terminal, model: state?.model?.display_name || state?.model?.id,
     percent: pending ? undefined : context?.used_percentage,
     total: context?.context_window_size,
