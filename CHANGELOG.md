@@ -1,5 +1,23 @@
 # Kavex changelog
 
+## [0.7.0] - 2026-11-25
+
+### New
+
+- **Session context for Antigravity CLI.** An Antigravity (`agy`) row in the Agents list shows its model, how full its context is, its token totals and API cost, and notes follow its conversation. Kavex connects through agy's title command, which needs Node.js 18+ or Bun on that machine, and your own title command keeps working. If setup can't finish, the agent's dropdown says why. (#40)
+- **Notes in the footer.** When the terminal you're looking at has saved notes, **Notes** appears in the footer and opens them. (#35)
+- **Select terminal text with a plain drag.** Dragging selects terminal output without Shift, even in programs that use the mouse, and offers **Add note** and **Copy**. Hold Alt to drag inside the program instead. (#35)
+- **New folder in Files.** Right-click a folder or the tree's background and choose **New folder**. A name such as `docs/drafts` creates the folders inside each other. (#39)
+- **Agent logos in an empty Agents list.** With no agents running, the sidebar shows the Claude Code, Codex and OpenCode logos and "No agents yet". (#37)
+- **Kavex 98 is retired.** It's no longer in Looks. If you used it, Kavex switches to Kavex/Paper and the main layout, and files you edited yourself stay. (#38)
+
+### Fixed
+
+- The System monitor opens faster on macOS: memory shows at once, and CPU readings within a second. (#36)
+- Every agent row in the System monitor can be scrolled into view. (#33)
+- On Windows, Pi's session reporting never runs a program named `hc` from your project folder. (#40)
+- The Skills **Add** menu uses the same outline icons as the rest of Kavex. (#34)
+
 ## [0.6.0] - 2026-11-23
 
 ### New
