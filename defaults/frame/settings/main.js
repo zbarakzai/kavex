@@ -16,7 +16,7 @@ const SECTIONS = [
   { id: "privacy", title: "Privacy", icon: "heroicons/shield-check" },
 ];
 
-const LOOKS = { main: "Kavex", terminals: "Terminals", win98: "Kavex 98" };
+const LOOKS = { main: "Kavex", terminals: "Terminals" };
 const APPEARANCES = [
   [null, "System"],
   ["light", "Light"],
@@ -400,7 +400,7 @@ export default class Settings extends View {
       .flex_wrap()
       .gap(8)
       .children(
-        // A theme named like a layout (themes/win98.json) is that layout's own.
+        // A theme named like a layout is that layout's own.
         themes()
           .filter((x) => Boolean(x.light) === light && (x.name === shared("layout") || !layouts().includes(x.name)))
           .map(({ name, colors: c }) => {

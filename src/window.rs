@@ -146,11 +146,10 @@ fn launch_failure(record: &Value, output: &str) -> Option<String> {
 const LAYOUTS: &[(&str, &str)] = &[
     ("main", include_str!("../defaults/layouts/main.json")),
     ("terminals", include_str!("../defaults/layouts/terminals.json")),
-    ("win98", include_str!("../defaults/layouts/win98.json")),
 ];
 
-/// Pictures shipped layouts name as their `preview`, written beside them.
-const LAYOUT_PREVIEWS: &[(&str, &str)] = &[("win98.svg", include_str!("../defaults/layouts/win98.svg"))];
+/// Fingerprints of retired bundled previews, kept only to clean up older installs.
+const RETIRED_LAYOUT_PREVIEWS: &[(&str, &[&str])] = &[("win98.svg", &["7d0f2d80beaa2603"])];
 
 pub fn shipped_layouts() -> Vec<&'static str> {
     LAYOUTS.iter().map(|(n, _)| *n).collect()
@@ -242,8 +241,10 @@ fn install_layouts() {
     if let Err(e) = mods::sync_layouts(&mods::app_dir(), LAYOUTS) {
         tracing::warn!("cannot install layouts: {e}");
     }
-    for (name, text) in LAYOUT_PREVIEWS {
-        let _ = std::fs::write(file(&format!("layouts/{name}")), text);
+    for (name, versions) in RETIRED_LAYOUT_PREVIEWS {
+        if let Err(e) = mods::retire_shipped_file(&file(&format!("layouts/{name}")), versions) {
+            tracing::warn!("cannot retire layout preview {name}: {e}");
+        }
     }
 }
 

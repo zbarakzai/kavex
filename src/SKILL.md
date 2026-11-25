@@ -105,6 +105,8 @@ use the current agent session when Kavex can identify it.
 
 ## Customize layouts, keys, or mods
 
+The built-in layouts are `main` (Kavex) and `terminals` (Terminals).
+
 Drag the sidebar divider inward to snap to the icon rail. **Spaces** and
 **Agents** label the two groups. Hover an avatar to see its name. Pull the
 divider outward to reopen the full sidebar.
