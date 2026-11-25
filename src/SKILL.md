@@ -39,6 +39,8 @@ kavex do agent.focus --terminal t7
 
 To show the person a Markdown file (a plan, a report), open it in the Files panel
 when asked. The folder icon at the top right opens Files, and the branch icon opens Changes.
+In Files, right-click a folder or empty space and choose New folder, type its name, then Enter.
+Names such as `src/components` create nested folders; Escape cancels and existing names are refused.
 The Markdown renders in Files and follows the file as you save it:
 
 ```sh

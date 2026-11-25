@@ -1,5 +1,5 @@
 import { test, expect, mock, beforeEach, afterAll } from "bun:test";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -55,6 +55,10 @@ mock.module("herdr", () => ({
   exec: async (cmd: string, args: string[], opts: any) => {
     if (cmd === "sh") return shell(args, opts);
     state.execs.push([cmd, ...args]);
+    if (cmd === "powershell" && state.nativeWindows) {
+      const r = Bun.spawnSync([cmd, ...args]);
+      return { code: r.exitCode, stdout: r.stdout.toString(), stderr: r.stderr.toString() };
+    }
     return { code: 1, stdout: "", stderr: "" };
   },
   hc: async (args: string[]) => (state.hc.push(args), { code: 0, stdout: "", stderr: "" }),
@@ -111,7 +115,7 @@ beforeEach(() => {
 
 test("a folder's menu is Warp's, in its order", () => {
   state.platform = "macos";
-  expect(menuWords({ dir: true, local: true })).toEqual(["New file", "cd to directory", "Open in new tab", "Reveal in Finder", "Rename", "Delete", "Attach as context", "Copy path", "Copy relative path"]);
+  expect(menuWords({ dir: true, local: true })).toEqual(["New file", "New folder", "cd to directory", "Open in new tab", "Reveal in Finder", "Rename", "Delete", "Attach as context", "Copy path", "Copy relative path"]);
 });
 
 test("a file opens in a pane or a tab and has no New file or cd", () => {
@@ -194,6 +198,101 @@ test("a name that's taken stays open and says so, and overwrites nothing", async
   state.input.fire("change", cx);
   expect(words(tree())).not.toContain("That name is already taken");
 });
+
+test.each([["", "new folder/child"], ["src", "new folder/child"], ["", "new folder\\child"], ["src", "new folder\\child"]])("New folder creates and shows nested directories under %j using %j", async (folder, name) => {
+  const { f, cx, tree } = await panel();
+  f.target = { path: folder, dir: true, context: f.context, at: 0 };
+  await f.command("new_folder", cx);
+  await cx.settled();
+  expect(byId(tree(), "files-edit")).toBeDefined();
+  state.input.text = name;
+  state.input.fire("submit", cx);
+  await cx.settled();
+  expect(statSync(join(scratch, folder, "new folder/child")).isDirectory()).toBe(true);
+  expect(byId(tree(), "files-edit")).toBeUndefined();
+  expect(words(tree()).join(" ")).toContain("child");
+});
+
+test("New folder refuses existing files and directories without changing them", async () => {
+  const { f, cx, tree } = await panel();
+  f.target = { path: "", dir: true, context: f.context, at: 0 };
+  for (const name of ["note.md", "src"]) {
+    await f.command("new_folder", cx);
+    expect(byId(tree(), "files-edit")).toBeDefined();
+    state.input.text = name;
+    state.input.fire("submit", cx);
+    await cx.settled();
+    expect(words(tree())).toContain("That name is already taken");
+  }
+  expect(readFileSync(join(scratch, "note.md"), "utf8")).toBe("n");
+  expect(readFileSync(join(scratch, "src/one.txt"), "utf8")).toBe("1");
+});
+
+test("New folder rejects traversal and Escape cancels creation", async () => {
+  const { f, cx, tree } = await panel();
+  f.target = { path: "", dir: true, context: f.context, at: 0 };
+  await f.command("new_folder", cx);
+  expect(byId(tree(), "files-edit")).toBeDefined();
+  state.input.text = "../outside";
+  state.input.fire("submit", cx);
+  expect(words(tree())).toContain("That isn't a usable name");
+  state.input.text = "cancelled";
+  byId(tree(), "files-edit")!.calls.find(([k]) => k === "on_key_down")![1][0]({ key: "escape" }, cx);
+  await cx.settled();
+  expect(existsSync(join(scratch, "cancelled"))).toBe(false);
+  expect(byId(tree(), "files-edit")).toBeUndefined();
+});
+
+test("New folder uses the space's machine", async () => {
+  state.on = "vps";
+  const { f, cx, tree } = await panel();
+  f.target = { path: "", dir: true, context: f.context, at: 0 };
+  await f.command("new_folder", cx);
+  expect(byId(tree(), "files-edit")).toBeDefined();
+  state.remote = [];
+  state.input.text = "remote-folder";
+  state.input.fire("submit", cx);
+  await cx.settled();
+  expect(statSync(join(scratch, "remote-folder")).isDirectory()).toBe(true);
+  expect(state.remote.some((args: string[]) => args.at(-1) === `${scratch}/remote-folder`)).toBe(true);
+});
+
+test("New file preserves literal backslashes on a POSIX machine", async () => {
+  state.on = "vps";
+  const { f, cx } = await panel();
+  f.target = { path: "", dir: true, context: f.context, at: 0 };
+  await f.command("new", cx);
+  state.remote = [];
+  state.input.text = "literal\\name.txt";
+  state.input.fire("submit", cx);
+  await cx.settled();
+  expect(state.remote.some((args: string[]) => args.at(-1) === `${scratch}/literal\\name.txt`)).toBe(true);
+  // NTFS cannot hold a literal backslash; Unix hosts can verify the file too.
+  if (process.platform !== "win32") expect(statSync(join(scratch, "literal\\name.txt")).isFile()).toBe(true);
+});
+
+test.skipIf(process.platform !== "win32")("native Windows folder creation handles quoted names and refuses collisions", async () => {
+  state.platform = "windows";
+  state.nativeWindows = true;
+  const name = "it's (draft) [v1] \u2019 notes\\child";
+  const { f, cx, tree } = await panel();
+  f.target = { path: "", dir: true, context: f.context, at: 0 };
+  await f.command("new_folder", cx);
+  expect(byId(tree(), "files-edit")).toBeDefined();
+  state.input.text = name;
+  state.input.fire("submit", cx);
+  await cx.settled();
+  expect(statSync(join(scratch, name)).isDirectory()).toBe(true);
+  expect(words(tree()).join(" ")).toContain("child");
+  for (const taken of [name, "note.md"]) {
+    await f.command("new_folder", cx);
+    state.input.text = taken;
+    state.input.fire("submit", cx);
+    await cx.settled();
+    expect(words(tree())).toContain("That name is already taken");
+  }
+  expect(readFileSync(join(scratch, "note.md"), "utf8")).toBe("n");
+}, 20000);
 
 test("Rename picks the name without its extension, and Esc leaves the file alone", async () => {
   const { f, cx, tree } = await panel();

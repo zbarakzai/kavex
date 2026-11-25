@@ -295,7 +295,9 @@ The Files and Changes trees show full-color Symbols icons for file names, extens
 names, with generic icons for unknown entries. Files supports Windows folder paths with spaces,
 parentheses and apostrophes. Right-click a file,
 a folder or the empty space under them (the `file-menu` mod, whose rows run `files.<id>`): New
-file (typed in the tree; `a/b.txt` makes the folder too), cd to directory (into the focused
+file or New folder (typed in the tree; `a/b.txt` creates a file and its parent folders, `a/b`
+with New folder creates directories). New folder (`files.new_folder`) opens the new directory
+in the tree; existing names are refused. Both work on the space's machine. Also: cd to directory (into the focused
 terminal, a shell only, clearing what's half typed), Open in new tab (a folder: a terminal there; a
 file, like Open in new pane: `tab.new {mod: "files", props: {file, on}}`, the read-only preview),
 Reveal (this machine only), Rename, Delete (always asks; moves to the Trash or Recycle Bin here and
