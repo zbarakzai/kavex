@@ -150,6 +150,7 @@ jobs:
           ~/.bun/bin/bun test scripts/reader.test.ts
           ~/.bun/bin/bun test scripts/start.test.ts
           ~/.bun/bin/bun test scripts/sessions.test.ts
+          ~/.bun/bin/bun test scripts/antigravity.test.ts
           ~/.bun/bin/bun test scripts/terminal-notes.test.ts
           ~/.bun/bin/bun test scripts/usage.test.ts
           ~/.bun/bin/bun test scripts/usage-provider-cli.test.ts scripts/usage-provider-network.test.ts scripts/usage-provider-plans.test.ts
@@ -157,6 +158,9 @@ jobs:
       - name: Test the native system monitor
         if: ${{ !cancelled() && steps.tests.outcome != 'skipped' && runner.os != 'Windows' }}
         run: ~/.bun/bin/bun test scripts/system-monitor.test.ts
+      - name: Test the Antigravity title bridge
+        if: ${{ !cancelled() && steps.tests.outcome != 'skipped' && runner.os != 'Windows' }}
+        run: ~/.bun/bin/bun test scripts/antigravity-bridge.test.ts
       - name: Test the Windows usage probes and system monitor
         if: ${{ !cancelled() && steps.tests.outcome != 'skipped' && runner.os == 'Windows' }}
         shell: pwsh
@@ -169,6 +173,10 @@ jobs:
           & "$env:RUNNER_TEMP\bun-windows-x64\bun.exe" test scripts/usage-provider-cli.test.ts
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & "$env:RUNNER_TEMP\bun-windows-x64\bun.exe" test scripts/usage-provider-owner.test.ts
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & "$env:RUNNER_TEMP\bun-windows-x64\bun.exe" test scripts/antigravity.test.ts
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & "$env:RUNNER_TEMP\bun-windows-x64\bun.exe" test scripts/antigravity-bridge.test.ts
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & "$env:RUNNER_TEMP\bun-windows-x64\bun.exe" test scripts/system-monitor.test.ts
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

@@ -2,15 +2,13 @@
 // its helpers' files, `filter`, `facts` and `add` read their lines, and `numbers` says what they add
 // up to. Its `context` needs `total` asked of the agent when it has `asks`, a model. Optional:
 // `reports`, `waiting` and `patience` for an agent that labels its own terminal, `setup` and
-// `install` for one with files of its own, `keepsOpen` for one whose writes no watcher reports.
+// `install(files, machine)` for one with files of its own (true once done, or what its row should
+// say when it can't be), `keepsOpen` for unwatched writes, or `snapshot` when `locate` returns
+// `{ id, result }` directly instead of a session file.
 
 import { agents, hc, machines, setShared, shared, terminals, watchFolder } from "herdr";
-import { claude } from "./claude.js";
-import { codex } from "./codex.js";
+import { AGENTS } from "./adapters.js";
 import { BLOCK, NO_FILE, due, machineOn } from "./machine.js";
-import { pi } from "./pi.js";
-
-const AGENTS = { claude, codex, pi };
 
 const LABEL = "kavex.session";
 const TOTAL = "kavex.total";
@@ -47,6 +45,8 @@ export class Sessions {
     this.folders = new Set();
     this.asked = new Map();
     this.tried = new Map();
+    // Why setup couldn't finish, by agent on a machine, as the row's waiting result.
+    this.problems = new Map();
     this.reading = new Map();
     this.last = new Map();
     this.machines = new Map();
@@ -101,9 +101,14 @@ export class Sessions {
       const listed = here.filter((t) => this.follows(t, all));
       for (const a of this.live.keys()) if (machineOf(a) === on && !listed.some((t) => t.address === a)) this.live.delete(a);
       if (!this.only) await this.tidy(here);
-      pass.machine = listed.length ? await this.machine(on).catch(() => null) : null;
-      for (const term of pass.machine ? listed : []) {
-        if (!this.only) this.setUp(pass.machine, term.program.key, AGENTS[term.program.key], cx);
+      const needsMachine = listed.some((term) => {
+        const agent = AGENTS[term.program.key];
+        return !agent.snapshot || (!this.only && agent.setup !== undefined && shared(SETUP)?.[onMachine(on, term.program.key)] !== agent.setup);
+      });
+      pass.machine = needsMachine ? await this.machine(on).catch(() => null) : null;
+      for (const term of listed) {
+        if (!pass.machine && !AGENTS[term.program.key].snapshot) continue;
+        if (!this.only && pass.machine) this.setUp(pass.machine, term.program.key, AGENTS[term.program.key], cx);
         if (this.current(pass) && !(on && offline(on))) await this.follow(term, pass, cx);
       }
       if (!this.current(pass)) return;
@@ -141,8 +146,10 @@ export class Sessions {
     const name = onMachine(machine.on, key);
     if (agent.setup === undefined || shared(SETUP)?.[name] === agent.setup || !due(this.tried, name, RETRY)) return;
     cx.spawn(async () => {
-      const done = await agent.install(machine.files).catch(() => false);
-      if (done) setShared(SETUP, { ...shared(SETUP), [name]: agent.setup });
+      const done = await agent.install(machine.files, machine).catch(() => false);
+      if (typeof done !== "string") this.problems.delete(name);
+      else if (this.problems.get(name)?.say !== done) this.problems.set(name, { ...agent.waiting, say: done });
+      if (done === true) setShared(SETUP, { ...shared(SETUP), [name]: agent.setup });
     });
   }
 
@@ -154,6 +161,13 @@ export class Sessions {
     try {
       const found = await agent.locate({ term, label: term.labels?.[LABEL], total: term.labels?.[TOTAL], machine: pass.machine });
       if (!this.current(pass)) return;
+      // A title callback can report numbers directly, with no conversation file to read.
+      if (agent.snapshot) {
+        if (!found) return this.unreported(term, agent, cx);
+        this.live.set(term.address, found);
+        if (JSON.stringify(session?.result) !== JSON.stringify(found.result)) cx.notify();
+        return;
+      }
       if (found && found.id !== session?.id) {
         session = { ...found, facts: agent.facts(), files: new Map(), torn: new Set(), changes: 1, done: 0 };
         this.live.set(term.address, session);
@@ -181,7 +195,8 @@ export class Sessions {
     const had = this.live.get(term.address);
     const since = had?.since ?? Date.now();
     const late = had?.late || WORKED.includes(term.status) || Date.now() - since >= agent.patience;
-    const result = late ? agent.waiting : EMPTY;
+    const problem = this.problems.get(onMachine(machineOf(term.address), term.program.key));
+    const result = late ? (problem ?? agent.waiting) : EMPTY;
     this.live.set(term.address, { since, late, result });
     if (had?.result !== result) cx.notify();
   }

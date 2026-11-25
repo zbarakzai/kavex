@@ -87,7 +87,11 @@ Kavex sends no telemetry, and no feedback unless you send it.
 
 Usage shows subscription limits from supported agents in the workspace footer. It uses agent commands and provider usage services. Credential-backed checks use the account access you grant in **Usage → Manage Accounts**, on the machine that holds the login. **Settings → Look → Usage limits** turns it off. [What Usage reads and sends](docs/security.md#usage-limits)
 
-Session context and API cost come from the files agents already write on their own machine, and nothing is sent anywhere. To tell agents apart, Kavex adds a small hook to Codex, which you approve in `/hooks`, and a small extension to Pi.
+Session context and API cost come from agents' own files or Antigravity's live state, on their own
+machine. To tell agents apart, Kavex adds a small hook to Codex, which you approve in `/hooks`, a
+small extension to Pi, and a title bridge to Antigravity CLI (`agy`). The Antigravity bridge needs
+Node.js 18+ or Bun, preserves custom title output, and uses the CLI's reported context and API cost.
+The numbers stay on your own machines. [Session data and setup](docs/security.md#session-context-and-api-cost)
 
 Mods are trusted code, not sandboxed extensions. Read [security and privacy](docs/security.md) before installing someone else's mod.
 

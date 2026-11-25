@@ -122,6 +122,12 @@ Use the back button to return to the list. **History** groups saved readings by
 date. **Accounts** shows provider status and access controls. Use **More actions**
 for Add machine and Customize.
 
+Claude Code, Codex, Pi and Antigravity CLI (`agy`) can show session context and API cost in the
+Agents list. Click an agent's logo for its numbers. Antigravity's title bridge needs Node.js 18+ or
+Bun on that machine; when setup can't finish, its dropdown says why. Enable titles with `/title on` and restart
+agy after Kavex sets it up. Its current-token and cached-token figures stay unknown when the CLI
+does not document them. The installed guide describes the files and settings the bridge writes.
+
 The coffee button next to **Usage** opens **Keep computer awake**. **On** holds the
 computer awake whenever Kavex runs, **Agent** does so while a local agent is
 working, and **Off** returns to normal sleep. Kavex remembers the choice and

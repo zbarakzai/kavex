@@ -1,7 +1,9 @@
 import { test, expect, mock, beforeEach, afterAll, setSystemTime, spyOn } from "bun:test";
-import { appendFileSync, chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { appendFileSync, chmodSync, copyFileSync, existsSync, linkSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
+import { pathToFileURL } from "node:url";
 
 // The real agents mod with recording fakes of the app. Session files are real files in a
 // scratch home and `sh` really runs on them: what a machine gives the mod, and what a person sees.
@@ -2497,6 +2499,31 @@ test("a Pi that still reports nothing once it has started shows a dash, and its 
   expect(words((await dropdown()).draw())).toEqual([RELOAD_MESSAGE]);
 });
 
+const ANTIGRAVITY = { key: "antigravity", name: "Antigravity", icon: "icons/antigravity.svg", tint: false, tile: null, color: null, agent: true, shell: false };
+
+test("an Antigravity whose setup can't finish says why, in its dropdown as well", async () => {
+  const settings = join(home, ".gemini", "antigravity-cli", "settings.json");
+  mkdirSync(dirname(settings), { recursive: true });
+  writeFileSync(settings, "{broken");
+  try {
+    const term = running("t1", 401, ANTIGRAVITY, { status: "working" });
+    state.terminals = [term];
+    state.agents = [listed(term)];
+    const { draw } = await open();
+    await ticks();
+    await settle();
+    await ticks();
+    expect(shows(draw, "t1")).toContain("–");
+    clicks(byId(draw(), "logo-t1")!);
+    const { draw: opened } = await dropdown();
+    await ticks();
+    expect(words(opened())).toEqual([expect.stringContaining("can't read agy's")]);
+    expect(readFileSync(settings, "utf8")).toBe("{broken");
+  } finally {
+    rmSync(join(home, ".gemini"), { recursive: true, force: true });
+  }
+});
+
 test("a Pi that has worked and reported nothing shows a dash at once", async () => {
   const { draw } = await quietPi();
   state.terminals = [aPi("t1", { status: "working" })];
@@ -2545,7 +2572,40 @@ test("the extension goes in when Kavex first sees Pi, and other extensions and P
   expect(existsSync(extensionPath())).toBe(true);
   expect(readFileSync(other, "utf8")).toBe("export default function () {}\n");
   expect(readFileSync(settings, "utf8")).toBe('{"extensions":["-made-up"]}\n');
-  expect(state.shared["agents.setup"]).toEqual({ pi: 1 });
+  expect(state.shared["agents.setup"]).toEqual({ pi: 2 });
+});
+
+// Nothing is replaced: the extension looks for hc for real, with PATH, the app folder and home empty,
+// from a project that holds a program named hc. Windows looks in the current folder first unless
+// NoDefaultCurrentDirectoryInExePath is set, which a person's terminal usually doesn't.
+test.skipIf(process.platform !== "win32" || !Bun.which("node"))("Pi's extension never runs a program named hc from the project folder", async () => {
+  const { pi } = await import("../defaults/mods/agents/pi.js");
+  const at = mkdtempSync(join(tmpdir(), "kavex-pi-hc-"));
+  try {
+    await pi.install({ home: at, keep: async (path: string, text: string) => { mkdirSync(dirname(path), { recursive: true }); writeFileSync(path, text); } });
+    const extension = join(at, ".pi", "agent", "extensions", "kavex-session.ts");
+    const project = join(at, "project");
+    mkdirSync(project);
+    const node = realpathSync(Bun.which("node")!);
+    try { linkSync(node, join(project, "hc.exe")); } catch { copyFileSync(node, join(project, "hc.exe")); }
+    const ran = join(at, "planted hc ran");
+    writeFileSync(join(project, "label"), `require("node:fs").writeFileSync(${JSON.stringify(ran)}, "")`);
+    const runner = join(at, "run.mjs");
+    writeFileSync(runner, `const { default: register } = await import(${JSON.stringify(pathToFileURL(extension).href)});
+const on = {};
+register({ on: (name, run) => { on[name] = run; } });
+on.session_start({}, { mode: "tui", sessionManager: { getSessionFile: () => "C:/s.jsonl" }, getContextUsage: () => ({ contextWindow: 1 }) });`);
+    const empty = join(at, "empty");
+    mkdirSync(empty);
+    const env: NodeJS.ProcessEnv = { ...process.env, HOME: at, USERPROFILE: at, LOCALAPPDATA: at, HC_TERMINAL_ID: "t1" };
+    for (const key of Object.keys(env)) if (["PATH", "NODEFAULTCURRENTDIRECTORYINEXEPATH"].includes(key.toUpperCase())) delete env[key];
+    env.PATH = empty;
+    const reply = spawnSync(node, [runner], { cwd: project, env, encoding: "utf8", windowsHide: true });
+    expect(reply.status).toBe(0);
+    expect(existsSync(ran)).toBe(false);
+  } finally {
+    rmSync(at, { recursive: true, force: true });
+  }
 });
 
 test("with no Pi in sight no extension goes in", async () => {
@@ -2562,7 +2622,7 @@ test("a second run changes nothing", async () => {
   await seesPi();
   expect(state.written).toEqual([]);
   expect(readFileSync(extensionPath(), "utf8")).toBe(text);
-  expect(state.shared["agents.setup"]).toEqual({ pi: 1 });
+  expect(state.shared["agents.setup"]).toEqual({ pi: 2 });
 });
 
 test("once set up, nothing is even read again, so an extension the person removed stays removed", async () => {
@@ -2596,7 +2656,7 @@ test("a write that fails isn't taken for done, and the row is still drawn", asyn
 test("Pi and Codex are set up each on their own", async () => {
   await seesCodex();
   await seesPi();
-  expect(state.shared["agents.setup"]).toEqual({ codex: 1, pi: 1 });
+  expect(state.shared["agents.setup"]).toEqual({ codex: 1, pi: 2 });
 });
 
 // The extension itself, as Pi loads it, in a process of its own. `pi` and `ctx` are stand-ins made
@@ -3258,7 +3318,7 @@ test("Pi's extension goes in on the agent's machine, folders and all", async () 
   await ticks();
   await settle();
   expect(readFileSync(join(at, ".pi", "agent", "extensions", "kavex-session.ts"), "utf8")).toContain("HC_TERMINAL_ID");
-  expect(state.shared["agents.setup"]).toEqual({ "vps/pi": 1 });
+  expect(state.shared["agents.setup"]).toEqual({ "vps/pi": 2 });
   expect(existsSync(extensionPath())).toBe(false);
 });
 

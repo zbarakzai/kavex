@@ -253,6 +253,17 @@ fn describe_with_values(
     setup: Option<&str>,
 ) -> anyhow::Result<String> {
     let calls = Rc::new(RefCell::new(Calls::default()));
+    describe_with_calls(cx, staged, entry, values, setup, calls)
+}
+
+fn describe_with_calls(
+    cx: &mut TestAppContext,
+    staged: &Staged,
+    entry: &str,
+    values: BTreeMap<String, Value>,
+    setup: Option<&str>,
+    calls: Rc<RefCell<Calls>>,
+) -> anyhow::Result<String> {
     static NEXT_STORE: AtomicU64 = AtomicU64::new(0);
     let policy = Policy::new()
         .with_storage_path(staged.0.join(format!("store-{}.json", NEXT_STORE.fetch_add(1, Ordering::Relaxed))))
@@ -296,6 +307,45 @@ fn shipped_initial_descriptions(cx: &mut TestAppContext) {
         entries.len(),
         start.elapsed()
     );
+}
+
+#[gpui::test]
+fn antigravity_bridge_serializes_under_the_mod_runtime(cx: &mut TestAppContext) {
+    cx.update(gpui_shell::init);
+    let staged = Staged::new();
+    let probe = staged.0.join("mods/agents");
+    std::fs::write(probe.join("main.js"), r#"
+import { View, div } from "gpui-kit";
+import { setShared } from "herdr";
+import { BRIDGE } from "./antigravity-bridge.js";
+setShared("bridge.source", BRIDGE);
+export default class Probe extends View { render() { return div().child("Captured bridge"); } }
+"#).unwrap();
+    let calls = Rc::new(RefCell::new(Calls::default()));
+    describe_with_calls(cx, &staged, "mods/agents", fixture(false, props(), updates("current", "current")), None, calls.clone()).unwrap();
+    let source = calls.borrow().shared["bridge.source"].as_str().unwrap().to_owned();
+    // Load the exact generated artifact as an ordinary module: production forbids eval/Function.
+    // Only Node's I/O boundary is doubled here; Bun/Node process tests exercise the real I/O.
+    let prefix = r#"
+import { View, div } from "gpui-kit";
+import { setShared } from "herdr";
+const payload = {product:"antigravity",conversation_id:"11111111-2222-4333-8444-555555555555",context_window:{used_percentage:12.5},cost:{total_usd:0}};
+const process = {env:{HC_TERMINAL_ID:"t1"},platform:"linux",stdout:{write(){}},exit(){throw new Error("Unexpected exit");}};
+const __dirname = "/fixture";
+const require = (name) => {
+  if (name === "node:fs") return {readFileSync:(file) => file === 0 ? JSON.stringify(payload) : "null"};
+  if (name === "node:path") return {join:(...parts) => parts.join("/")};
+  if (name === "node:os") return {homedir:() => "/fixture"};
+  if (name === "node:child_process") return {spawnSync:(_program,args) => {setShared("bridge.label",args[2]); return {status:0};}};
+  throw new Error("Unexpected module");
+};
+"#;
+    std::fs::write(probe.join("main.js"), format!("{prefix}\n{source}\nexport default class Probe extends View {{ render() {{ return div().child('Reported bridge'); }} }}")).unwrap();
+    describe_with_calls(cx, &staged, "mods/agents", fixture(false, props(), updates("current", "current")), None, calls.clone()).unwrap();
+    let report = calls.borrow().shared["bridge.label"].as_str().unwrap().to_owned();
+    let report: Value = serde_json::from_str(report.strip_prefix("kavex.session=antigravity:").unwrap()).unwrap();
+    assert_eq!(report["percent"], json!(12.5));
+    assert_eq!(report["cost"], json!(0));
 }
 
 #[gpui::test]

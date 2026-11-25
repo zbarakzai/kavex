@@ -1,7 +1,5 @@
-import { claude } from "./claude.js";
-import { codex } from "./codex.js";
+import { AGENTS } from "./adapters.js";
 import { machineOn } from "./machine.js";
-import { pi } from "./pi.js";
 import { focused, terminals } from "herdr";
 
 export function noteSource(p = {}) {
@@ -39,11 +37,11 @@ export async function noteScope(term) {
   const [machine] = origin(term);
   const agent = term.program?.key;
   const label = term.labels?.["kavex.session"];
+  const adapter = AGENTS[agent];
   let session;
   try {
-    if (agent === "claude") session = (await claude.locate({ term, machine: await machineOn(machine) }))?.id;
-    if (agent === "codex") session = codex.locate({ label })?.id;
-    if (agent === "pi") session = pi.locate({ label })?.id;
+    // One that labels its terminal is found from the label alone; the rest are looked up on their machine.
+    if (adapter) session = (await adapter.locate({ term, label, machine: adapter.reports ? null : await machineOn(machine) }))?.id;
   } catch {
     // A missing record or a lost connection still lets the user save the quote for this terminal.
   }

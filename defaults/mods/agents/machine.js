@@ -10,6 +10,30 @@ export const NO_FILE = 3;
 // `usual_dirs` in core_bin.rs, which has to stay in step.
 export const HC_PLACES = ["~/.local/bin/hc", "/opt/homebrew/bin/hc", "/usr/local/bin/hc", "~/.local/share/mise/shims/hc", "~/.nix-profile/bin/hc", "/run/current-system/sw/bin/hc", "~/.cargo/bin/hc"];
 
+// Every name a script Kavex writes onto a machine tries for `hc`, in order. Self-contained: those
+// scripts embed its source. Windows gets only places in its own home: a Unix path there would
+// mean the current drive's root, where anyone may make that folder.
+export function hcPrograms(places, windows, home, local) {
+  if (!windows) return ["hc", ...places.map((path) => (path.startsWith("~/") ? `${home}/${path.slice(2)}` : path))];
+  const mine = places.filter((path) => path.startsWith("~/")).map((path) => `${home}/${path.slice(2)}.exe`);
+  return ["hc", `${local || home}/Programs/herdr-core/hc.exe`, ...mine];
+}
+
+export const quoted = (path) => `'${path.replace(/'/g, `'\\''`)}'`;
+
+export const isObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
+
+// A person's JSON settings file as an object to change, or null when it isn't one: Kavex leaves
+// a file it can't understand alone. No file is an empty one.
+export function settingsIn(text) {
+  try {
+    const settings = text?.trim() ? JSON.parse(text) : {};
+    return isObject(settings) ? settings : null;
+  } catch {
+    return null;
+  }
+}
+
 export function due(times, key, every) {
   if (Date.now() - (times.get(key) ?? -every) < every) return false;
   times.set(key, Date.now());
@@ -236,11 +260,11 @@ export async function machineOn(on) {
     if (!seen) throw new Error("No window yet.");
     const read = (path) => readTextFile(path);
     const kind = seen.platform === "windows" ? windows(null) : unix(null);
-    return { ...kind, configs: configsOn(kind, home()), on, window: WINDOW_HERE, home: home(), read, files: setupFiles(home(), read, writeTextFile) };
+    return { ...kind, configs: configsOn(kind, home()), on, windows: seen.platform === "windows", window: WINDOW_HERE, home: home(), read, files: setupFiles(home(), read, writeTextFile) };
   }
   const { windows: isWindows, home: there } = await homeAway(on);
   if (!there) throw new Error("No home there.");
   const kind = isWindows ? windows(on) : unix(on);
   const read = readToChange(on, kind.absent);
-  return { ...kind, configs: configsOn(kind, there), on, window: WINDOW_ADDED, home: there, read: (path) => readTextFile(path, { on }), files: setupFiles(there, read, writeOn(on, read)) };
+  return { ...kind, configs: configsOn(kind, there), on, windows: isWindows, window: WINDOW_ADDED, home: there, read: (path) => readTextFile(path, { on }), files: setupFiles(there, read, writeOn(on, read)) };
 }

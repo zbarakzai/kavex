@@ -81,11 +81,12 @@ export default class Agents extends View {
   }
 
   // Until its own first read, a dropdown shows what the row knew. A row can also know an agent
-  // has worked, which this copy can't: it started after that.
+  // has worked, or why its setup couldn't finish, which this copy can't: it started after that.
   drawDropdown(t) {
     const { session, first } = props();
     const shown = this.sessions.shown(session);
-    return dropdown(t, shown.state === "none" || (shown.state === "empty" && first.state === "waiting") ? first : shown);
+    const rowKnows = first.state === "waiting" && (shown.state === "empty" || shown.state === "waiting");
+    return dropdown(t, shown.state === "none" || rowKnows ? first : shown);
   }
 
   percent(t, k, address) {

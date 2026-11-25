@@ -214,7 +214,7 @@ on this screen in `shared("spaces.recent")`.
   peek at it. The same click on a Markdown file opens it in the Files panel; any other
   file or URL goes to the system (on Windows a program or script is shown in Explorer, not run). Bare addresses refer to the machine of the terminal showing them;
   use `machine/address` for another machine. Names and non-live addresses aren't links.
-- **Session context**: a Claude Code, Codex or Pi row in the agents list, and such a sub-agent's, on
+- **Session context**: a Claude Code, Codex, Pi or Antigravity row in the agents list, and such a sub-agent's, on
   any machine, shows how full its session's context is as a small percent between the name and the
   time, orange from 90%. Its tab in the right-hand Tabs panel shows the same, the fullest agent if the
   tab has several, read from `shared("agents.contexts")`, `{ address: percent or "–" }`, which the
@@ -225,12 +225,13 @@ on this screen in `shared("spaces.recent")`.
   - **States:** a new agent shows no percent and "No usage yet". `–` is an agent that hasn't reported
     its session, with what to do in its dropdown. A session that can't be read shows no percent and no
     error, and its logo acts like its row.
-  - **Numbers:** from each agent's own files on its machine, read through `sh` (PowerShell on Windows).
+  - **Numbers:** from each agent's own files on its machine, read through `sh` (PowerShell on Windows),
+    or from Antigravity's reported live state.
     Nothing leaves your own machines and no login is read. Helpers count in the cost and tokens, not
     in context. `/clear` starts over, `/compact` lowers context and keeps the cost, and resuming keeps both.
   - **API cost:** what the tokens would cost at API prices in US dollars, not what anyone paid, and
     the dropdown says so. Claude Code's and Codex's come from `mods/agents/prices.js`, never fetched, so
-    a new model waits for a release; Pi stores its own. A model with no exact price, a helper Kavex can't
+    a new model waits for a release; Pi and Antigravity supply their own. A model with no exact price, a helper Kavex can't
     count, or a usage line it can't read shows "no price", and the token counts stay. It counts tokens
     only, and can read a little under Claude's own `/cost`.
   - **Claude Code's config folders:** an agent's session is looked for in every `~/.claude*` folder with
@@ -253,6 +254,24 @@ on this screen in `shared("spaces.recent")`.
     terminal `kavex.session=<session file>` and `kavex.total=<the model's context total>`, removed once
     it's back at its shell. After compacting the row shows nothing and the dropdown `?`, until Pi's next answer.
     `--no-session` and `PI_CODING_AGENT_DIR` leave it at `–`.
+  - **Antigravity CLI (`agy`):** Kavex installs a title bridge when Node.js 18+ or Bun is available on
+    that machine. It wraps `title.command` in `~/.gemini/antigravity-cli/settings.json`, keeps the
+    existing title in `~/.kavex/antigravity/title-original.json` and its command, ready for the shell,
+    in `title-original.txt`, and leaves disabled or unreadable settings alone. agy runs the launcher
+    `title.sh` (`title.cmd` on Windows, which searches PATH without the implicit project directory). It
+    runs the bridge `title.cjs` with the runtime, or the existing command itself once the runtime is
+    gone, so its output stays. With no title command of its own, the title reads `agy`. It does not
+    replace the status line. Enable titles with `/title on` and restart agy. When setup can't finish,
+    the agent's dropdown says why; setup retries after ten minutes, or after restarting Kavex. Removing
+    the bridge after successful setup is respected until setup changes. Recent agy versions report
+    agent status themselves through OSC 7501.
+    The bridge labels its exact terminal `kavex.session=antigravity:<JSON>` with only the conversation
+    ID, model and reported numbers. These labels stay in the core until the terminal returns to its
+    shell. Before a conversation starts, a connected bridge reports "No usage yet". No conversation
+    file or login is read. Context uses agy's reported percentage; its maximum
+    is shown separately, since the current-token numerator is not documented. Input/output are agy's
+    session totals, cached tokens stay `?`, and absent cost reads "no price". API cost is agy's own
+    list-price estimate including helpers. Notes use the reported conversation ID, including on resume.
   - **Added machines:** all of this happens on that machine, under its home. The hook and the extension
     go in through `hc file write --on`, so its Codex is approved there; `<machine>/<model>` and
     `<machine>/codex` are the keys in `shared("agents.totals")` and `shared("agents.setup")`. Rows refresh

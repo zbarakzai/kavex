@@ -1,24 +1,20 @@
-import { HC_PLACES } from "./machine.js";
-
-const place = (path) => (path.startsWith("~/") ? `join(home, ${JSON.stringify(path.slice(2))})` : JSON.stringify(path));
+import { HC_PLACES, hcPrograms } from "./machine.js";
 
 // Pi started by a tool in this terminal (`pi -p`) isn't this terminal's agent, hence `ctx.mode`.
 const EXTENSION = `// Kavex's Pi extension: labels this terminal with its session file and its context's total, so Kavex
 // shows the right numbers. Kavex writes this file. It does nothing outside a Kavex terminal.
 import { execFile } from "node:child_process";
 import { homedir } from "node:os";
-import { join } from "node:path";
 
 const home = homedir();
-const places = [
-  "hc",
-  ${HC_PLACES.map(place).join(",\n  ")},
-  join(process.env.LOCALAPPDATA ?? home, "Programs/herdr-core/hc.exe"),
-];
+const hcPrograms = ${hcPrograms.toString()};
+const places = hcPrograms(${JSON.stringify(HC_PLACES)}, process.platform === "win32", home, process.env.LOCALAPPDATA);
 
+// From the home folder, not the project: Windows looks for a bare name in the current folder
+// before PATH, unless NoDefaultCurrentDirectoryInExePath is set.
 function label(args, tries = places) {
   if (!tries.length) return;
-  execFile(tries[0], args, { windowsHide: true }, (failed) => {
+  execFile(tries[0], args, { cwd: home, windowsHide: true }, (failed) => {
     if (failed?.code === "ENOENT") label(args, tries.slice(1));
   });
 }
@@ -59,7 +55,7 @@ function count(facts, usage) {
 
 export const pi = {
   // Goes up when what `install` puts on a machine changes.
-  setup: 1,
+  setup: 2,
 
   async install({ home, keep }) {
     await keep(`${home}/.pi/agent/extensions/kavex-session.ts`, EXTENSION);
