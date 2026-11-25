@@ -2,17 +2,13 @@
 // its helpers' files, `filter`, `facts` and `add` read their lines, and `numbers` says what they add
 // up to. Its `context` needs `total` asked of the agent when it has `asks`, a model. Optional:
 // `reports`, `waiting` and `patience` for an agent that labels its own terminal, `setup` and
-// `install(files, machine)` for one with files of its own, `keepsOpen` for unwatched writes,
-// or `snapshot` when `locate` returns `{ id, result }` directly instead of a session file.
+// `install(files, machine)` for one with files of its own (true once done, or what its row should
+// say when it can't be), `keepsOpen` for unwatched writes, or `snapshot` when `locate` returns
+// `{ id, result }` directly instead of a session file.
 
 import { agents, hc, machines, setShared, shared, terminals, watchFolder } from "herdr";
-import { antigravity } from "./antigravity.js";
-import { claude } from "./claude.js";
-import { codex } from "./codex.js";
+import { AGENTS } from "./adapters.js";
 import { BLOCK, NO_FILE, due, machineOn } from "./machine.js";
-import { pi } from "./pi.js";
-
-const AGENTS = { claude, codex, pi, antigravity };
 
 const LABEL = "kavex.session";
 const TOTAL = "kavex.total";
@@ -49,6 +45,8 @@ export class Sessions {
     this.folders = new Set();
     this.asked = new Map();
     this.tried = new Map();
+    // Why setup couldn't finish, by agent on a machine, as the row's waiting result.
+    this.problems = new Map();
     this.reading = new Map();
     this.last = new Map();
     this.machines = new Map();
@@ -149,7 +147,9 @@ export class Sessions {
     if (agent.setup === undefined || shared(SETUP)?.[name] === agent.setup || !due(this.tried, name, RETRY)) return;
     cx.spawn(async () => {
       const done = await agent.install(machine.files, machine).catch(() => false);
-      if (done) setShared(SETUP, { ...shared(SETUP), [name]: agent.setup });
+      if (typeof done !== "string") this.problems.delete(name);
+      else if (this.problems.get(name)?.say !== done) this.problems.set(name, { ...agent.waiting, say: done });
+      if (done === true) setShared(SETUP, { ...shared(SETUP), [name]: agent.setup });
     });
   }
 
@@ -195,7 +195,8 @@ export class Sessions {
     const had = this.live.get(term.address);
     const since = had?.since ?? Date.now();
     const late = had?.late || WORKED.includes(term.status) || Date.now() - since >= agent.patience;
-    const result = late ? agent.waiting : EMPTY;
+    const problem = this.problems.get(onMachine(machineOf(term.address), term.program.key));
+    const result = late ? (problem ?? agent.waiting) : EMPTY;
     this.live.set(term.address, { since, late, result });
     if (had?.result !== result) cx.notify();
   }

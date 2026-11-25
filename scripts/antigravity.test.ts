@@ -5,6 +5,7 @@ let saved: Record<string, any>;
 let tasks: Promise<unknown>[];
 let labels: string[][];
 let offline: boolean;
+let reading: ((path: string) => string | null) | null;
 mock.module("herdr", () => ({
   agents: () => terms,
   focused: () => null,
@@ -16,7 +17,10 @@ mock.module("herdr", () => ({
   setShared: (key: string, value: unknown) => { saved[key] = value; },
   hc: async (args: string[]) => { labels.push(args); },
   exec: async () => { throw new Error("A reported session needs no subprocess."); },
-  readTextFile: async () => { throw new Error("A reported session needs no file read."); },
+  readTextFile: async (path: string) => {
+    if (reading) return reading(path);
+    throw new Error("A reported session needs no file read.");
+  },
   writeTextFile: async () => { throw new Error("Already installed."); },
   watchFolder: async () => { throw new Error("No session files to watch."); },
 }));
@@ -64,10 +68,11 @@ const terminal = (address = "t1", label = report()) => ({
 
 beforeEach(() => {
   terms = [terminal()];
-  saved = { "agents.setup": { antigravity: 1 } };
+  saved = { "agents.setup": { antigravity: 2 } };
   tasks = [];
   labels = [];
   offline = false;
+  reading = null;
 });
 
 test("Antigravity shows its reported context and API cost without reading conversations", async () => {
@@ -84,7 +89,7 @@ test("Antigravity shows its reported context and API cost without reading conver
 });
 
 test("simultaneous Antigravity sessions keep their own figures, including on another machine", async () => {
-  saved["agents.setup"]["remote/antigravity"] = 1;
+  saved["agents.setup"]["remote/antigravity"] = 2;
   terms.push(terminal("t2", report({ terminal: "t2", percent: 70, cost: 2 })));
   terms.push(terminal("remote/t1", report({ percent: 3, cost: 0.01 })));
   const sessions = new Sessions();
@@ -177,4 +182,17 @@ test("a connected bridge with no conversation yet stays at No usage yet", async 
     await settle();
     expect(sessions.shown("t1")).toEqual({ state: "empty", say: "No usage yet" });
   } finally { clock.mockRestore(); }
+});
+
+test("a row whose setup couldn't finish says why", async () => {
+  saved = {};
+  reading = () => null;
+  terms = [{ address: "t1", state: "live", status: "working", program: { key: "antigravity" }, labels: {} }];
+  const sessions = new Sessions();
+  sessions.start(cx);
+  await settle();
+  sessions.tick(cx);
+  await settle();
+  expect(sessions.shown("t1")).toEqual({ state: "waiting", say: expect.stringContaining("Node.js 18+ or Bun") });
+  expect(saved["agents.setup"]).toBeUndefined();
 });

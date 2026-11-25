@@ -255,13 +255,16 @@ on this screen in `shared("spaces.recent")`.
     it's back at its shell. After compacting the row shows nothing and the dropdown `?`, until Pi's next answer.
     `--no-session` and `PI_CODING_AGENT_DIR` leave it at `–`.
   - **Antigravity CLI (`agy`):** Kavex installs a title bridge when Node.js 18+ or Bun is available on
-    that machine. It wraps `title.command` in `~/.gemini/antigravity-cli/settings.json`, preserves an
-    existing command and its output in `~/.kavex/antigravity/title-original.json`, and leaves disabled
-    or unreadable settings alone. The bridge is `~/.kavex/antigravity/title.cjs`, with a `title.cmd`
-    launcher on Windows that searches PATH without the implicit project directory. It does not replace
-    the status line. Enable titles with `/title on` and restart agy; setup failures retry after ten
-    minutes, or after restarting Kavex. Removing the bridge after successful setup is respected until
-    setup changes. Recent agy versions report agent status themselves through OSC 7501.
+    that machine. It wraps `title.command` in `~/.gemini/antigravity-cli/settings.json`, keeps the
+    existing title in `~/.kavex/antigravity/title-original.json` and its command, ready for the shell,
+    in `title-original.txt`, and leaves disabled or unreadable settings alone. agy runs the launcher
+    `title.sh` (`title.cmd` on Windows, which searches PATH without the implicit project directory). It
+    runs the bridge `title.cjs` with the runtime, or the existing command itself once the runtime is
+    gone, so its output stays. With no title command of its own, the title reads `agy`. It does not
+    replace the status line. Enable titles with `/title on` and restart agy. When setup can't finish,
+    the agent's dropdown says why; setup retries after ten minutes, or after restarting Kavex. Removing
+    the bridge after successful setup is respected until setup changes. Recent agy versions report
+    agent status themselves through OSC 7501.
     The bridge labels its exact terminal `kavex.session=antigravity:<JSON>` with only the conversation
     ID, model and reported numbers. These labels stay in the core until the terminal returns to its
     shell. Before a conversation starts, a connected bridge reports "No usage yet". No conversation

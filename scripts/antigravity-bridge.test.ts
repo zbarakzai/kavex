@@ -1,5 +1,5 @@
 import { afterEach, expect, mock, test } from "bun:test";
-import { chmodSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync, rmSync } from "node:fs";
+import { chmodSync, copyFileSync, linkSync, mkdtempSync, mkdirSync, readFileSync, realpathSync, symlinkSync, writeFileSync, existsSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -7,6 +7,7 @@ import { spawnSync } from "node:child_process";
 mock.module("herdr", () => ({ exec() {}, home() {}, readTextFile() {}, window() {}, writeTextFile() {} }));
 const { antigravity } = await import("../defaults/mods/agents/antigravity.js");
 const { liveReport } = await import("../defaults/mods/agents/antigravity-state.js");
+const { HC_PLACES, hcPrograms } = await import("../defaults/mods/agents/machine.js");
 const temporary: string[] = [];
 afterEach(() => { for (const path of temporary.splice(0)) rmSync(path, { recursive: true, force: true }); });
 
@@ -38,7 +39,7 @@ function installation(settings: string | null = null, runtime = true, executable
     if (before !== text) await write(file, text, before);
   } };
   const runs: string[] = [];
-  const machine = { on: null, run: async (program: string) => {
+  const machine = { on: null, windows: process.platform === "win32", run: async (program: string) => {
     runs.push(program);
     return runtime ? { code: 0, stdout: JSON.stringify(["24.0.0", executable]), stderr: "" } : { code: 127, stdout: "", stderr: "not found" };
   } };
@@ -62,18 +63,33 @@ test("installation preserves settings and the original title command without sta
   expect(JSON.parse(readFileSync(backup, "utf8"))).toEqual(original);
 });
 
-test("unreadable or disabled title settings are left untouched", async () => {
-  for (const text of ["{broken", "null", "[]", '{"title":false}', '{"title":{"enabled":false}}', '{"title":"custom"}', '{"title":{"type":"future"}}']) {
+test("unreadable or disabled title settings are left untouched, and the row says why", async () => {
+  const why: [string, RegExp][] = [
+    ["{broken", /can't read/], ["null", /can't read/], ["[]", /can't read/],
+    ['{"title":false}', /\/title on/], ['{"title":{"enabled":false}}', /\/title on/],
+    ['{"title":"custom"}', /isn't a command/], ['{"title":{"type":"future"}}', /isn't a command/], ['{"title":{"command":7}}', /isn't a command/],
+  ];
+  for (const [text, says] of why) {
     const fixture = installation(text);
-    expect(await antigravity.install?.(fixture.files, fixture.machine)).toBe(false);
+    expect(await antigravity.install?.(fixture.files, fixture.machine)).toMatch(says);
     expect(readFileSync(fixture.path, "utf8")).toBe(text);
     expect(fixture.writes).toEqual([]);
   }
 });
 
+test("a Windows home whose path cmd would expand is left alone and says so, while other systems set up", async () => {
+  const touched: string[] = [];
+  const files = (home: string) => ({ home, read: async () => null, write: async (file: string) => { touched.push(file); }, keep: async (file: string) => { touched.push(file); } });
+  const machine = (windows: boolean) => ({ windows, run: async () => ({ code: 0, stdout: JSON.stringify(["24.0.0", windows ? "C:\\node\\node.exe" : "/usr/bin/node"]), stderr: "" }) });
+  expect(await antigravity.install(files("C:/Users/100%!"), machine(true))).toMatch(/%, ! or "/);
+  expect(touched).toEqual([]);
+  expect(await antigravity.install(files("/home/100%!"), machine(false))).toBe(true);
+  expect(touched.length).toBeGreaterThan(0);
+});
+
 test("a machine without Node or Bun keeps its settings and gets no broken bridge", async () => {
   const fixture = installation('{"model":"personal"}', false);
-  expect(await antigravity.install?.(fixture.files, fixture.machine)).toBe(false);
+  expect(await antigravity.install?.(fixture.files, fixture.machine)).toMatch(/Node\.js 18\+ or Bun/);
   expect(fixture.runs).toContain(process.platform === "win32" ? "node.exe" : "node");
   expect(fixture.runs).toContain(process.platform === "win32" ? "bun.exe" : "bun");
   expect(fixture.writes).toEqual([]);
@@ -220,4 +236,80 @@ test.skipIf(process.platform !== "win32" || !Bun.which("node"))("an accepted Win
     : { code: 127, stdout: "", stderr: "" };
   expect(await antigravity.install(fixture.files, fixture.machine)).toBe(true);
   expect(callback(fixture, state(), "t1", true, fixture.home, bin).stdout.trim()).toBe("Shim runtime");
+});
+
+// A folder for PATH with no Node.js or Bun in it. agy runs its command through `sh`, so Unix keeps that.
+function withoutRuntime(fixture: ReturnType<typeof installation>) {
+  const bin = join(fixture.home, "bin without runtime");
+  mkdirSync(bin);
+  if (process.platform !== "win32") symlinkSync("/bin/sh", join(bin, "sh"));
+  return bin;
+}
+
+test("the person's title command still runs when Node.js and Bun have left PATH", async () => {
+  const fixture = installation('{"title":{"command":"echo One&echo Two"}}');
+  expect(await antigravity.install(fixture.files, fixture.machine)).toBe(true);
+  const words = callback(fixture, state(), "t1", true, fixture.home, withoutRuntime(fixture)).stdout.split(/\s+/).filter(Boolean).sort();
+  expect(words).toEqual(["One", "Two"]);
+});
+
+test("without a title command of its own, agy's title reads agy rather than nothing", async () => {
+  for (const settings of [null, '{"title":true}', '{"title":{"enabled":true}}']) {
+    const fixture = installation(settings);
+    expect(await antigravity.install(fixture.files, fixture.machine)).toBe(true);
+    expect(callback(fixture, state(), "t1").stdout.trim()).toBe("agy");
+    expect(callback(fixture, state(), "t1", true, fixture.home, withoutRuntime(fixture)).stdout.trim()).toBe("agy");
+  }
+});
+
+test("a title command that takes over three seconds still sets the title", async () => {
+  const fixture = installation();
+  const slow = join(fixture.home, "slow.cjs");
+  writeFileSync(slow, "setTimeout(() => process.stdout.write('Slow title'), 3300);");
+  const command = process.platform === "win32" ? `"${process.execPath}" "${slow}"` : `'${process.execPath}' '${slow}'`;
+  mkdirSync(dirname(fixture.path), { recursive: true });
+  writeFileSync(fixture.path, JSON.stringify({ title: { command } }));
+  expect(await antigravity.install(fixture.files, fixture.machine)).toBe(true);
+  expect(callback(fixture, state(), "t1").stdout).toBe("Slow title");
+}, 15000);
+
+// A folder as input can't be read: whatever stops the read, the person's title still runs. Only a
+// Unix shell can hand a program a folder as its input.
+test.skipIf(process.platform === "win32")("an unreadable input still runs the person's title command", async () => {
+  const fixture = installation('{"title":{"command":"echo Still titled"}}');
+  expect(await antigravity.install(fixture.files, fixture.machine)).toBe(true);
+  const script = fixture.home + "/.kavex/antigravity/title.cjs";
+  const reply = spawnSync("/bin/sh", ["-c", 'exec "$0" "$1" < "$2"', process.execPath, script, fixture.home], { env: { ...process.env, HC_TERMINAL_ID: "" }, encoding: "utf8" });
+  expect(reply.stdout.trim()).toBe("Still titled");
+});
+
+test("hc is looked for only in places that belong to that system", () => {
+  const windows = hcPrograms(HC_PLACES, true, "C:/Users/a", "C:/Users/a/AppData/Local");
+  expect(windows[0]).toBe("hc");
+  expect(windows).toContain("C:/Users/a/AppData/Local/Programs/herdr-core/hc.exe");
+  expect(windows).toContain("C:/Users/a/.cargo/bin/hc.exe");
+  expect(windows.filter((path: string) => path.startsWith("/"))).toEqual([]);
+  expect(hcPrograms(HC_PLACES, false, "/home/a", undefined)).toEqual(["hc", ...HC_PLACES.map((path: string) => path.replace(/^~/, "/home/a"))]);
+});
+
+// Nothing is replaced here: the bridge looks for hc for real, with PATH, the app folder and home
+// empty, from a project that holds a program named hc. Windows looks in the current folder first
+// unless NoDefaultCurrentDirectoryInExePath is set, which a person's terminal usually doesn't.
+test.skipIf(process.platform !== "win32" || !Bun.which("node"))("a program named hc in the project folder never runs", async () => {
+  const fixture = installation('{"title":{"command":"echo Title"}}');
+  expect(await antigravity.install(fixture.files, fixture.machine)).toBe(true);
+  const project = join(fixture.home, "project");
+  mkdirSync(project);
+  const node = realpathSync(Bun.which("node")!);
+  try { linkSync(node, join(project, "hc.exe")); } catch { copyFileSync(node, join(project, "hc.exe")); }
+  const ran = join(fixture.home, "planted hc ran");
+  writeFileSync(join(project, "label"), `require("node:fs").writeFileSync(${JSON.stringify(ran)}, "")`);
+  const empty = join(fixture.home, "empty");
+  mkdirSync(empty);
+  const env: NodeJS.ProcessEnv = { ...process.env, HOME: fixture.home, USERPROFILE: fixture.home, LOCALAPPDATA: fixture.home, HC_TERMINAL_ID: "t1" };
+  for (const key of Object.keys(env)) if (["PATH", "NODEFAULTCURRENTDIRECTORYINEXEPATH"].includes(key.toUpperCase())) delete env[key];
+  env.PATH = empty;
+  const reply = spawnSync(node, [fixture.home + "/.kavex/antigravity/title.cjs"], { cwd: project, env, input: JSON.stringify(state()), encoding: "utf8", windowsHide: true });
+  expect(reply.stdout.trim()).toBe("Title");
+  expect(existsSync(ran)).toBe(false);
 });

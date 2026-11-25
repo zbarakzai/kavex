@@ -1,4 +1,4 @@
-import { HC_PLACES } from "./machine.js";
+import { HC_PLACES, isObject, quoted, settingsIn } from "./machine.js";
 import { PRICES, priced } from "./prices.js";
 
 const SESSION_FILE = /^(.+[\\/]sessions)[\\/]\d{4}[\\/]\d{2}[\\/]\d{2}[\\/]rollout-[^\\/]*?([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\.jsonl$/;
@@ -61,8 +61,6 @@ try {
 exit 0
 `;
 
-const quoted = (path) => `'${path.replace(/'/g, `'\\''`)}'`;
-
 // Fixed for good: any change to it asks every person to approve it again. No matcher, so it runs
 // for every way a session starts, and `timeout` leaves room for a slow login shell.
 const hook = (home) => ({
@@ -72,18 +70,11 @@ const hook = (home) => ({
   timeout: 10,
 });
 
-const isObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
-
 // Codex keys each hook's approval on its position, so a new group goes last.
 function withHook(text, ours) {
-  let file;
-  try {
-    file = text?.trim() ? JSON.parse(text) : {};
-  } catch {
-    return null;
-  }
+  const file = settingsIn(text);
   const groups = file?.hooks?.SessionStart;
-  if (!isObject(file) || (file.hooks !== undefined && !isObject(file.hooks)) || (groups !== undefined && !Array.isArray(groups))) return null;
+  if (!file || (file.hooks !== undefined && !isObject(file.hooks)) || (groups !== undefined && !Array.isArray(groups))) return null;
   if (groups?.some((group) => group?.hooks?.some?.((one) => one?.command === ours.command))) return text;
   const hooks = { ...file.hooks, SessionStart: [...(groups ?? []), { hooks: [ours] }] };
   return `${JSON.stringify({ ...file, hooks }, null, 2)}\n`;

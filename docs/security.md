@@ -26,13 +26,16 @@ For [session context](#session-context-and-api-cost), Kavex also writes these ou
 - `~/.pi/agent/extensions/kavex-session.ts`: an extension of Kavex's own. Pi loads it with nothing to approve.
 - `~/.gemini/antigravity-cli/settings.json`: the title command is wrapped when Node.js 18+ or Bun is
   available. Existing title output is preserved; disabled or unreadable settings are left alone.
-- `~/.kavex/antigravity/title.cjs` and `title-original.json`: the Antigravity bridge and its saved
-  original title definition. The original command still receives the same CLI state input.
-- `~/.kavex/antigravity/title.cmd` on Windows: finds the selected runtime in PATH without searching
-  the project directory implicitly, and follows runtime upgrades.
+- `~/.kavex/antigravity/title.cjs`, `title-original.json` and `title-original.txt`: the Antigravity
+  bridge, its saved original title definition, and that title's command ready for the shell. The
+  original command still receives the same CLI state input.
+- `~/.kavex/antigravity/title.sh`, or `title.cmd` on Windows: the launcher agy runs. It finds the
+  selected runtime in PATH without searching the project directory, follows runtime upgrades, and
+  runs the original command itself if the runtime is gone.
 
 Session reporting does nothing outside a Kavex terminal; Antigravity still forwards an existing
-title command. These files stay behind if you remove Kavex or the app home.
+title command, or titles the terminal `agy` when there is none. These files stay behind if you
+remove Kavex or the app home.
 
 Spaces, tabs and splits are stored in each machine's core document, not in the app home.
 Terminals and their output belong to [herdr-core](https://github.com/herdrdev/herdr-core).
@@ -103,6 +106,10 @@ The `agents` mod shows how full each Claude Code, Codex, Pi and Antigravity sess
 - Antigravity runs its title bridge with Node.js or Bun. The bridge uses `hc label` to report that
   terminal's conversation ID, model, context percentage, token totals and API cost. An existing title
   command is forwarded through the platform shell. It contacts no core outside a Kavex terminal.
+- To set up Antigravity, Kavex runs `node -p` or `bun -p` to check the runtime's version and path
+  (on Windows through `cmd`, as `node.exe`, `node.cmd`, `node.bat`, then the same for Bun).
+- Pi's extension and the Antigravity bridge look for `hc` from outside the project (your home, and
+  the bridge's own folder): on Windows a bare name is otherwise looked for in the current folder first.
 
 Kavex never approves its Codex hook. Codex runs it only after you trust it in `/hooks`.
 

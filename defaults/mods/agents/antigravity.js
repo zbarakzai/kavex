@@ -1,51 +1,69 @@
 import { sessionReport } from "./antigravity-state.js";
-import { BRIDGE, windowsLauncher } from "./antigravity-bridge.js";
+import { BRIDGE } from "./antigravity-bridge.js";
+import { MARK, launchOn } from "./antigravity-launch.js";
+import { isObject, settingsIn } from "./machine.js";
 
-const object = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
-const quoted = (path) => `'${path.replace(/'/g, `'\\''`)}'`;
+// What a row says when setup couldn't finish on its machine, by cause. Setup tries again every
+// ten minutes, and after Kavex restarts.
+const WHY = {
+  unreadable: "Kavex can't read agy's ~/.gemini/antigravity-cli/settings.json, so it left it alone.",
+  off: "agy's titles are off. Turn them on with `/title on`; Kavex sets up within ten minutes, then restart agy.",
+  other: "agy's title setting isn't a command Kavex can wrap, so it left it alone.",
+  runtime: "Antigravity session reporting needs Node.js 18+ or Bun on this machine.",
+  path: "Kavex can't set up agy's title in a home folder whose path has %, ! or \".",
+  lost: "Kavex's saved copy of agy's title setting is gone, so it left agy's settings alone.",
+};
 
-async function runtimeOn(machine, windows) {
-  // Probe the exact Windows filename the launcher will search, including npm shims.
-  const programs = windows ? ["node.exe", "node.cmd", "node.bat", "bun.exe", "bun.cmd", "bun.bat"] : ["node", "bun"];
+// The first runtime that answers through the exact name the launcher will look for, at version 18
+// or later, from a real path.
+async function runtimeOn(machine, programs) {
   for (const program of programs) {
     try {
       const { code, stdout } = await machine.run(program, ["-p", "JSON.stringify([process.versions.node,process.execPath])"]);
       const [version, path] = JSON.parse(stdout);
-      if (code === 0 && Number(version.split(".")[0]) >= 18 && typeof path === "string" && /^(?:\/|[a-z]:[\\/]|\\\\)/i.test(path) && !/[\x00-\x1f]/.test(path)) return { program, path };
+      if (code === 0 && Number(version.split(".")[0]) >= 18 && typeof path === "string" && /^(?:\/|[a-z]:[\\/]|\\\\)/i.test(path) && !/[\x00-\x1f]/.test(path)) return program;
     } catch {}
   }
   return null;
 }
 
-export const antigravity = {
-  setup: 1,
+// A title Kavex can wrap: none, `true` (which agy reads as one without a command), or a command.
+const wrappable = (title) => title === undefined || title === true
+  || (isObject(title) && (title.type === undefined || title.type === "command") && (title.command === undefined || typeof title.command === "string"));
 
+export const antigravity = {
+  // Goes up when what `install` puts on a machine changes.
+  setup: 2,
+
+  // True once set up, or what the row says when it can't be.
   async install({ home, read, write, keep }, machine) {
     const path = `${home}/.gemini/antigravity-cli/settings.json`;
     const before = await read(path);
-    let settings;
-    try { settings = before?.trim() ? JSON.parse(before) : {}; } catch { return false; }
-    if (!object(settings)) return false;
-    const title = settings.title;
-    if (title === false || (title !== undefined && title !== true && !object(title))) return false;
-    if (title?.enabled === false || (title?.type !== undefined && title.type !== "command") || (title?.command !== undefined && typeof title.command !== "string")) return false;
-    const windows = /^(?:[a-z]:[\\/]|\\\\)/i.test(home);
-    const runtime = await runtimeOn(machine, windows);
-    if (!runtime) return false;
+    const settings = settingsIn(before);
+    if (!settings) return WHY.unreadable;
+    const { title } = settings;
+    if (title === false || title?.enabled === false) return WHY.off;
+    if (!wrappable(title)) return WHY.other;
+    const launch = launchOn(machine);
+    const runtime = await runtimeOn(machine, launch.programs);
+    if (!runtime) return WHY.runtime;
     const folder = `${home}/.kavex/antigravity`;
-    const script = `${folder}/title.cjs`;
-    // cmd expands these even inside quotes; leave unusual paths alone rather than run them.
-    if (windows && /[%!"\r\n]/.test(script)) return false;
-    const word = windows ? (path) => `"${path}"` : quoted;
-    const launcher = `${folder}/title.cmd`;
-    const command = `${windows ? word(launcher) : `${runtime.program} ${word(script)}`} --kavex-antigravity`;
-    const ours = typeof title?.command === "string" && title.command.endsWith(" --kavex-antigravity");
-    const original = `${folder}/title-original.json`;
-    if (ours && await read(original) === null) return false;
-    await keep(script, BRIDGE);
-    if (windows) await keep(launcher, windowsLauncher(runtime.program));
-    if (!ours) await keep(original, `${JSON.stringify(title ?? null, null, 2)}\n`);
-    const edited = { ...settings, title: { ...(object(title) ? title : {}), type: "command", command } };
+    if (launch.unsafe(folder)) return WHY.path;
+    // Set up before, the person's own title is the one saved then.
+    const backup = `${folder}/title-original.json`;
+    const ours = typeof title?.command === "string" && title.command.endsWith(` ${MARK}`);
+    let original = title;
+    if (ours) {
+      const saved = await read(backup);
+      if (saved === null) return WHY.lost;
+      try { original = JSON.parse(saved); } catch { return WHY.lost; }
+    }
+    const launcher = `${folder}/${launch.file}`;
+    await keep(`${folder}/title.cjs`, BRIDGE);
+    await keep(launcher, launch.launcher(runtime));
+    if (!ours) await keep(backup, `${JSON.stringify(title ?? null, null, 2)}\n`);
+    await keep(`${folder}/title-original.txt`, launch.original(typeof original?.command === "string" ? original.command : "", home));
+    const edited = { ...settings, title: { ...(isObject(title) ? title : {}), type: "command", command: launch.command(launcher) } };
     const text = `${JSON.stringify(edited, null, 2)}\n`;
     if (text !== before) await write(path, text, before);
     return true;
@@ -54,7 +72,7 @@ export const antigravity = {
   reports: true,
   snapshot: true,
   patience: 6000,
-  waiting: { state: "waiting", say: "Antigravity session reporting needs Node.js or Bun and Kavex's title bridge. Enable titles with `/title on`, then restart agy." },
+  waiting: { state: "waiting", say: "Antigravity session reporting needs Node.js 18+ or Bun and Kavex's title bridge. Enable titles with `/title on`, then restart agy." },
 
   locate({ label, term }) {
     if (!label?.startsWith("antigravity:") || label.length > 4096) return null;
